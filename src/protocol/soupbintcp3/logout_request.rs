@@ -1,35 +1,27 @@
 use std::fmt::{Debug, Display};
 
 use byteserde::prelude::*;
-use byteserde::utils::strings::ascii::{ConstCharAscii, StringAsciiFixed};
+use byteserde::utils::strings::ascii::ConstCharAscii;
 
-const LOGING_ACCEPTED_PACKET_LENGTH: u16 = 31;
+const LOGOUT_REQUEST_PACKET_LENGTH: u16 = 1;
 #[derive(ByteSerializeStack, ByteDeserialize, PartialEq, Debug)]
 #[byteserde(endian = "be")]
-pub struct LoginAccepted {
+pub struct LogoutRequest {
     packet_length: u16,
-    packet_type: ConstCharAscii<b'A'>,
-    session: StringAsciiFixed<10, b' ', true>,
-    sequence_number: StringAsciiFixed<20, b' ', true>,
+    packet_type: ConstCharAscii<b'O'>,
 }
-impl Default for LoginAccepted {
+impl Default for LogoutRequest {
     fn default() -> Self {
-        LoginAccepted {
-            packet_length: LOGING_ACCEPTED_PACKET_LENGTH,
+        LogoutRequest {
+            packet_length: LOGOUT_REQUEST_PACKET_LENGTH,
             packet_type: Default::default(),
-            session: b"session #1".into(),
-            sequence_number: 1_u64.into(),
         }
     }
 }
 
-impl Display for LoginAccepted {
+impl Display for LogoutRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Login Accepted, your session \"{}\", next sequence number \"{}\"",
-            self.session, self.sequence_number
-        )
+        write!(f, "Logout Request")
     }
 }
 
@@ -47,9 +39,9 @@ mod test {
         info!("msg_inp:? {:?}", msg_inp);
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
         info!("ser: {:#x}", ser);
-        assert_eq!(ser.len() - 2, LOGING_ACCEPTED_PACKET_LENGTH as usize);
+        assert_eq!(ser.len() - 2, LOGOUT_REQUEST_PACKET_LENGTH as usize);
 
-        let msg_out: LoginAccepted = from_serializer_stack(&ser).unwrap();
+        let msg_out: LogoutRequest = from_serializer_stack(&ser).unwrap();
         info!("msg_out:? {:?}", msg_out);
         assert_eq!(msg_out, msg_inp);
     }
