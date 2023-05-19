@@ -1,4 +1,4 @@
-pub mod protocol;
+pub mod model;
 
 #[cfg(test)]
 pub mod unittest;

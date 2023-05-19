@@ -1,27 +1,26 @@
 use std::fmt::Display;
+use byteserde_derive::{ByteSerializeStack, ByteDeserialize};
 
-use byteserde::{prelude::*, utils::strings::ascii::ConstCharAscii};
+use super::types::PacketTypeEndOfSession;
 
-const SERVER_HEARTBEAT_PACKET_LENGTH: u16 = 3;
-
+const END_OF_SESSION_PACKET_LENGTH: u16 = 1;
 #[derive(ByteSerializeStack, ByteDeserialize, PartialEq, Debug)]
 #[byteserde(endian = "be")]
-pub struct ServerHeartbeat {
-    packet_length: u16,
-    packet_type: ConstCharAscii<b'H'>,
+pub struct EndOfSession {
+    paccet_length: u16,
+    packet_type: PacketTypeEndOfSession,
 }
-
-impl Default for ServerHeartbeat {
+impl Default for EndOfSession {
     fn default() -> Self {
-        ServerHeartbeat {
-            packet_length: SERVER_HEARTBEAT_PACKET_LENGTH,
+        EndOfSession {
+            paccet_length: END_OF_SESSION_PACKET_LENGTH,
             packet_type: Default::default(),
         }
     }
 }
-impl Display for ServerHeartbeat {
+impl Display for EndOfSession {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Server Heartbeat")
+        write!(f, "End of Session")
     }
 }
 
@@ -29,19 +28,20 @@ impl Display for ServerHeartbeat {
 mod test {
     use super::*;
     use crate::unittest::setup;
+    use byteserde::prelude::*;
     use log::info;
 
     #[test]
-    fn test_server_heartbeat() {
+    fn test_end_of_session() {
         setup::log::configure();
 
-        let msg_inp = ServerHeartbeat::default();
+        let msg_inp = EndOfSession::default();
         info!("msg_inp: {}", msg_inp);
         info!("msg_inp:? {:?}", msg_inp);
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
         info!("ser: {:x}", ser);
 
-        let msg_out: ServerHeartbeat = from_serializer_stack(&ser).unwrap();
+        let msg_out: EndOfSession = from_serializer_stack(&ser).unwrap();
         info!("msg_out:? {:?}", msg_out);
         assert_eq!(msg_out, msg_inp);
     }

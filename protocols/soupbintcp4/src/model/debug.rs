@@ -1,16 +1,17 @@
+use byteserde_derive::{ByteDeserialize, ByteSerializeStack};
+use byteserde_types::prelude::*;
 use core;
 use std::fmt::Display;
 
-use byteserde::prelude::*;
-use byteserde::utils::strings::ascii::{ConstCharAscii, StringAscii};
+use super::types::PacketTypeDebug;
 
 #[derive(ByteSerializeStack, ByteDeserialize, PartialEq, core::fmt::Debug)]
 #[byteserde(endian = "be")]
 pub struct Debug {
-    #[byteserde(replace( (packet_type.len() + text.len()) as u16 ))]
+    #[byteserde(replace( packet_type.len() + text.len() ))]
     packet_length: u16,
-    packet_type: ConstCharAscii<b'+'>,
-    #[byteserde(length ( packet_length as usize - packet_type.len() ))]
+    packet_type: PacketTypeDebug,
+    #[byteserde(deplete ( packet_length as usize - packet_type.len() ))]
     text: StringAscii,
 }
 
@@ -42,6 +43,7 @@ impl Display for Debug {
 mod test {
     use super::*;
     use crate::unittest::setup;
+    use byteserde::prelude::*;
     use log::info;
 
     #[test]

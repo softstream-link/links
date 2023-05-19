@@ -1,14 +1,14 @@
+use byteserde_derive::{ByteDeserialize, ByteSerializeStack};
 use std::fmt::{Debug, Display};
 
-use byteserde::prelude::*;
-use byteserde::utils::strings::ascii::ConstCharAscii;
+use super::types::PacketTypeLogoutRequest;
 
 const LOGOUT_REQUEST_PACKET_LENGTH: u16 = 1;
 #[derive(ByteSerializeStack, ByteDeserialize, PartialEq, Debug)]
 #[byteserde(endian = "be")]
 pub struct LogoutRequest {
     packet_length: u16,
-    packet_type: ConstCharAscii<b'O'>,
+    packet_type: PacketTypeLogoutRequest,
 }
 impl Default for LogoutRequest {
     fn default() -> Self {
@@ -29,6 +29,7 @@ impl Display for LogoutRequest {
 mod test {
     use super::*;
     use crate::unittest::setup;
+    use byteserde::prelude::*;
     use log::info;
 
     #[test]

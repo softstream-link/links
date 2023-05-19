@@ -1,14 +1,17 @@
 use std::fmt::{Debug, Display};
 
-use byteserde::prelude::*;
-use byteserde::utils::strings::ascii::{CharAscii, ConstCharAscii};
+
+use byteserde_derive::{ByteSerializeStack, ByteDeserialize};
+use byteserde_types::prelude::*;
+
+use super::types::PacketTypeLoginRejected;
 
 const LOGIN_REJECTED_PACKET_LENGTH: u16 = 2;
 #[derive(ByteSerializeStack, ByteDeserialize, PartialEq, Debug)]
 #[byteserde(endian = "be")]
 pub struct LoginRejected {
     packet_length: u16,
-    packet_type: ConstCharAscii<b'J'>,
+    packet_type: PacketTypeLoginRejected,
     reject_reason_code: CharAscii,
 }
 impl LoginRejected {
@@ -45,12 +48,13 @@ impl Display for LoginRejected {
 mod test {
     use super::*;
     use crate::unittest::setup;
+    use byteserde::prelude::*;
     use log::info;
 
     #[test]
     fn test_login_rejected() {
         setup::log::configure();
-        
+
         let msg_inp = LoginRejected::new_not_authorized();
         info!("msg_inp: {}", msg_inp);
         info!("msg_inp:? {:?}", msg_inp);

@@ -1,37 +1,34 @@
 use std::fmt::{Debug, Display};
+use byteserde_derive::{ByteSerializeStack, ByteDeserialize};
 
-use byteserde::{
-    prelude::*,
-    utils::strings::ascii::{ConstCharAscii, StringAsciiFixed},
-};
+use super::types::{PacketTypeLoginRequest, UserName, Password, SessionId, SequenceNumber, TimeoutMs};
 
 const LOGIN_REQUEST_PACKET_LENGTH: u16 = 52;
-const S: u8 = b' ';
-const R: bool = true;
+
 #[derive(ByteSerializeStack, ByteDeserialize, PartialEq)]
 #[byteserde(endian = "be")]
 pub struct LoginRequest {
     packet_length: u16,
-    packet_type: ConstCharAscii<b'L'>,
-    username: StringAsciiFixed<6, S, R>,
-    password: StringAsciiFixed<10, S, R>,
-    requested_session: StringAsciiFixed<10, S, R>,
-    requested_sequence_number: StringAsciiFixed<20, S, R>,
-    heartbeat_timeout_ms: StringAsciiFixed<5, S, R>,
+    packet_type: PacketTypeLoginRequest,
+    usr: UserName,
+    pwd: Password,
+    requested_session: SessionId,
+    requested_sequence_number: SequenceNumber,
+    heartbeat_timeout_ms: TimeoutMs,
 }
 impl LoginRequest {
     fn new(
-        username: StringAsciiFixed<6, b' ', true>,
-        password: StringAsciiFixed<10, S, R>,
-        requested_session: StringAsciiFixed<10, S, R>,
-        requested_sequence_number: StringAsciiFixed<20, S, R>,
-        heartbeat_timeout_ms: StringAsciiFixed<5, S, R>,
+        username: UserName,
+        password: Password,
+        requested_session: SessionId,
+        requested_sequence_number: SequenceNumber,
+        heartbeat_timeout_ms: TimeoutMs,
     ) -> LoginRequest {
         LoginRequest {
             packet_length: LOGIN_REQUEST_PACKET_LENGTH,
             packet_type: Default::default(),
-            username,
-            password,
+            usr: username,
+            pwd: password,
             requested_session,
             requested_sequence_number,
             heartbeat_timeout_ms,
@@ -42,12 +39,12 @@ impl LoginRequest {
 // obfiscate password
 impl Debug for LoginRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let pass: StringAsciiFixed<5, S, R> = b"********".as_slice().into();
+        let pass: Password = b"********".as_slice().into();
         f.debug_struct("LoginRequest")
             .field("packet_length", &self.packet_length)
             .field("packet_type", &self.packet_type)
-            .field("username", &self.username)
-            .field("password", &pass)
+            .field("usr", &self.usr)
+            .field("pwd", &pass)
             .field("requested_session", &self.requested_session)
             .field("requested_sequence_number", &self.requested_sequence_number)
             .field("heartbeat_timeout_ms", &self.heartbeat_timeout_ms)
@@ -71,7 +68,7 @@ impl Display for LoginRequest {
         write!(
             f,
             "Login Request, as username \"{}\" requested for session \"{}\", sequence \"{}\", heartbeat timeout {}ms",
-            self.username,
+            self.usr,
             self.requested_session,
             self.requested_sequence_number,
             self.heartbeat_timeout_ms,
@@ -83,6 +80,7 @@ impl Display for LoginRequest {
 #[cfg(test)]
 mod test {
     use super::*;
+    use byteserde::prelude::*;
     use crate::unittest::setup;
     use log::info;
 

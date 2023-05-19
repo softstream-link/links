@@ -1,16 +1,16 @@
+use byteserde_derive::{ByteDeserialize, ByteSerializeStack};
 use std::fmt::{Debug, Display};
 
-use byteserde::prelude::*;
-use byteserde::utils::strings::ascii::{ConstCharAscii, StringAsciiFixed};
+use super::types::{PacketTypeLoginAccepted, SequenceNumber, SessionId};
 
 const LOGING_ACCEPTED_PACKET_LENGTH: u16 = 31;
 #[derive(ByteSerializeStack, ByteDeserialize, PartialEq, Debug)]
 #[byteserde(endian = "be")]
 pub struct LoginAccepted {
     packet_length: u16,
-    packet_type: ConstCharAscii<b'A'>,
-    session: StringAsciiFixed<10, b' ', true>,
-    sequence_number: StringAsciiFixed<20, b' ', true>,
+    packet_type: PacketTypeLoginAccepted,
+    session: SessionId,
+    sequence_number: SequenceNumber,
 }
 impl Default for LoginAccepted {
     fn default() -> Self {
@@ -37,6 +37,7 @@ impl Display for LoginAccepted {
 mod test {
     use super::*;
     use crate::unittest::setup;
+    use byteserde::prelude::*;
     use log::info;
 
     #[test]
