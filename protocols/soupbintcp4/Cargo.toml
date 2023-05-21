@@ -1,5 +1,5 @@
 [package]
-name = "links"
+name = "soupbintcp4"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,6 +9,7 @@ edition = "2021"
 byteserde = "*" # { path = "../../github-softstream.link/byteserde/" }
 byteserde_derive = "*" #{ path = "../../github-softstream.link/byteserde/byteserde_derive" }
 byteserde_types = "*"
+
 
 [dev-dependencies]
 env_logger = "0.10"

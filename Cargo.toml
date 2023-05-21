@@ -1,4 +1,5 @@
 [workspace]
 members = [
-    "protocols/soupbintcp4"
+    "protocols/soupbintcp4",
+    "protocols/ouch5",
 ]

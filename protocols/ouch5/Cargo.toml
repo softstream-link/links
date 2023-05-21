@@ -1,0 +1,16 @@
+[package]
+name = "ouch5"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# byteserde = "*" # { path = "../../github-softstream.link/byteserde/" }
+# byteserde_derive = "*" #{ path = "../../github-softstream.link/byteserde/byteserde_derive" }
+# byteserde_types = "*" # { path = "../../../byteserde/byteserde_types" }
+byteserde = { path = "./../../../byteserde/byteserde" }
+byteserde_derive = {path = "./../../../byteserde/byteserde_derive" }
+byteserde_types = {path = "./../../../byteserde/byteserde_types" }
+
+[dev-dependencies]
+env_logger = "0.10"
+log = "0.4"
