@@ -10,7 +10,7 @@ pub use time_in_force::{TimeInForce, TimeInForceEnum};
 
 use byteserde_derive::{ByteDeserialize, ByteEnumFromBinder, ByteSerializeStack};
 use byteserde_types::{prelude::*, };
-use byteserde_types::{char_ascii, string_ascii_fixed, u32_tuple, u64_tuple};
+use byteserde_types::{char_ascii, string_ascii_fixed, u32_tuple, u64_tuple, numeric_tuple};
 
 // const char ascii
 pub type PacketTypeEnterOrder = ConstCharAscii<b'O'>;
