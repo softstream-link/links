@@ -1,6 +1,6 @@
-use crate::model::types::*;
+use crate::model::{types::*, appendages::OptionalAppendage};
 use byteserde_derive::{ByteDeserialize, ByteSerializeStack};
-// use byteserde_types::prelude::*;
+use byteserde::prelude::*;
 
 
 
@@ -20,18 +20,26 @@ struct EnterOrder {
     int_mkt_sweep_eligibility: IntMktSweepEligibility,
     cross_type: CrossType,
     clt_order_id: CltOrderId,
+    #[byteserde(replace( appendages.byte_len() ))]
+    appendage_length: u16,
+    #[byteserde(deplete( appendage_length ))]
+    appendages: OptionalAppendage,
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{unittest::setup, model::types::TimeInForceEnum};
-    use byteserde::prelude::*;
+    use crate::{unittest::setup, model::{types::TimeInForceEnum, appendages::{TagValueElement, CustomerType, CustomerTypeEnum}}};
+
     use log::info;
 
     #[test]
     fn test_enter_order() {
         setup::log::configure();
+        let appendages = OptionalAppendage{
+            customer_type: Some(TagValueElement::<CustomerType>::new(CustomerTypeEnum::Retail.into())),
+            ..Default::default()
+        };
         let msg_inp = EnterOrder {
             packet_type: PacketTypeEnterOrder::default(),
             user_ref_number: Default::default(),
@@ -45,8 +53,11 @@ mod test {
             int_mkt_sweep_eligibility: IntMktSweepEligibilityEnum::Eligible.into(),
             cross_type: CrossTypeEnum::ContinuousMarket.into(),
             clt_order_id: b"1A".as_slice().into(),
-            // appendage_size: Default::default(),
+            appendage_length: appendages.byte_len() as u16, 
+            appendages,
         };
+
+
 
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
         info!("ser: {:#x}", ser);

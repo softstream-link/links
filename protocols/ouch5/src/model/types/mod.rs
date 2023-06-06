@@ -10,7 +10,7 @@ pub use time_in_force::{TimeInForce, TimeInForceEnum};
 
 use byteserde_derive::{ByteDeserialize, ByteEnumFromBinder, ByteSerializeStack};
 use byteserde_types::{prelude::*, };
-use byteserde_types::{char_ascii, string_ascii_fixed, u32_tuple, u64_tuple, numeric_tuple};
+use byteserde_types::{char_ascii, string_ascii_fixed, u32_tuple, u64_tuple};
 
 // const char ascii
 pub type PacketTypeEnterOrder = ConstCharAscii<b'O'>;
@@ -29,8 +29,7 @@ pub mod side {
     char_ascii!(Side, ByteSerializeStack, ByteDeserialize, PartialEq);
     /// Helper for converting to and from [Side]
     #[derive(ByteEnumFromBinder)]
-    #[byteserde(bind(Side))]
-    #[byteserde(from(SideEnum))]
+    #[byteserde(bind(Side), from(SideEnum))]
     pub enum SideEnum {
         #[byteserde(replace(Side(b'B')))]
         Buy,
@@ -48,8 +47,7 @@ pub mod time_in_force {
 
     /// Helper used for converting to and from [TimeInForce]
     #[derive(ByteEnumFromBinder)]
-    #[byteserde(bind(TimeInForce))]
-    #[byteserde(from(TimeInForceEnum))]
+    #[byteserde(bind(TimeInForce), from(TimeInForceEnum))]
     pub enum TimeInForceEnum {
         #[byteserde(replace(TimeInForce(b'0')))]
         MarketHours,
@@ -69,8 +67,7 @@ pub mod display {
 
     /// Helper used for converting to and from [Display]
     #[derive(ByteEnumFromBinder)]
-    #[byteserde(bind(Display))]
-    #[byteserde(from(DisplayEnum))]
+    #[byteserde(bind(Display), from(DisplayEnum))]
     pub enum DisplayEnum {
         #[byteserde(replace(Display(b'Y')))]
         Visible,
