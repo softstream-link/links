@@ -7,13 +7,13 @@ const END_OF_SESSION_PACKET_LENGTH: u16 = 1;
 #[derive(ByteSerializeStack, ByteDeserialize, PartialEq, Debug)]
 #[byteserde(endian = "be")]
 pub struct EndOfSession {
-    paccet_length: u16,
+    packet_length: u16,
     packet_type: PacketTypeEndOfSession,
 }
 impl Default for EndOfSession {
     fn default() -> Self {
         EndOfSession {
-            paccet_length: END_OF_SESSION_PACKET_LENGTH,
+            packet_length: END_OF_SESSION_PACKET_LENGTH,
             packet_type: Default::default(),
         }
     }

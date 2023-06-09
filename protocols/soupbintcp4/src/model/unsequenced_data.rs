@@ -1,9 +1,11 @@
 use byteserde_derive::{ByteDeserialize, ByteSerializeStack};
+use byteserde::prelude::*;
 use std::fmt::Display;
 
 use super::types::PacketTypeUnsequenceData;
 
 #[derive(ByteSerializeStack, ByteDeserialize, PartialEq, Debug)]
+#[byteserde(endian = "be")]
 pub struct UnsequencedDataHeader {
     packet_length: u16,
     packet_type: PacketTypeUnsequenceData,
@@ -12,6 +14,7 @@ pub struct UnsequencedDataHeader {
 #[derive(ByteSerializeStack, ByteDeserialize, PartialEq, Debug)]
 pub struct UnsequencedData {
     header: UnsequencedDataHeader,
+    #[byteserde(deplete ( header.packet_length as usize - 1 ))]
     body: Vec<u8>,
 }
 
@@ -19,7 +22,7 @@ impl UnsequencedData {
     pub fn new(body: &[u8]) -> Self {
         UnsequencedData {
             header: UnsequencedDataHeader {
-                packet_length: (body.len() + PacketTypeUnsequenceData::size()) as u16,
+                packet_length: (body.len() + PacketTypeUnsequenceData::byte_size()) as u16,
                 packet_type: PacketTypeUnsequenceData::default(),
             },
             body: body.into(),
@@ -37,7 +40,6 @@ impl Display for UnsequencedData {
 mod test {
     use super::*;
     use crate::unittest::setup;
-    use byteserde::prelude::*;
     use log::info;
 
     #[test]
@@ -49,7 +51,7 @@ mod test {
         info!("msg_inp:? {:?}", msg_inp);
         assert_eq!(
             msg_inp.header.packet_length as usize,
-            msg_inp.body.len() + msg_inp.header.packet_type.len() as usize
+            msg_inp.body.len() + msg_inp.header.packet_type.byte_len() as usize
         );
 
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();

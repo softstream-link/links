@@ -1,7 +1,7 @@
 use byteserde_derive::{ByteDeserialize, ByteSerializeStack};
 use std::fmt::Display;
 
-use super::types::PacketTypeServerHeartbeat;
+use super::types::PacketTypeSvcHrtBeat;
 
 const SERVER_HEARTBEAT_PACKET_LENGTH: u16 = 3;
 
@@ -9,7 +9,7 @@ const SERVER_HEARTBEAT_PACKET_LENGTH: u16 = 3;
 #[byteserde(endian = "be")]
 pub struct ServerHeartbeat {
     packet_length: u16,
-    packet_type: PacketTypeServerHeartbeat,
+    packet_type: PacketTypeSvcHrtBeat,
 }
 
 impl Default for ServerHeartbeat {

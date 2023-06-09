@@ -1,3 +1,4 @@
+use byteserde::prelude::*;
 use byteserde_derive::{ByteDeserialize, ByteSerializeStack};
 use std::fmt::Display;
 
@@ -10,6 +11,7 @@ pub struct SequencedDataHeader {
 }
 
 #[derive(ByteSerializeStack, ByteDeserialize, PartialEq, Debug)]
+#[byteserde(endian = "be")]
 pub struct SequencedData {
     header: SequencedDataHeader,
     body: Vec<u8>,
@@ -19,7 +21,7 @@ impl SequencedData {
     pub fn new(body: &[u8]) -> Self {
         SequencedData {
             header: SequencedDataHeader {
-                packet_length: (body.len() + PacketTypeSequenceData::size()) as u16,
+                packet_length: (body.len() + PacketTypeSequenceData::byte_size()) as u16,
                 packet_type: PacketTypeSequenceData::default(),
             },
             body: body.into(),
@@ -37,7 +39,6 @@ impl Display for SequencedData {
 mod test {
     use super::*;
     use crate::unittest::setup;
-    use byteserde::prelude::*;
     use log::info;
 
     #[test]
@@ -49,7 +50,7 @@ mod test {
         info!("msg_inp:? {:?}", msg_inp);
         assert_eq!(
             msg_inp.header.packet_length as usize,
-            msg_inp.body.len() + msg_inp.header.packet_type.len() as usize
+            msg_inp.body.len() + msg_inp.header.packet_type.byte_len() as usize
         );
 
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();

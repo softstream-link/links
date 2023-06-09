@@ -3,3 +3,8 @@ members = [
     "protocols/soupbintcp4",
     "protocols/ouch5",
 ]
+
+[workspace.dependencies]
+byteserde = { path = "./../byteserde/byteserde" }
+byteserde_derive = {path = "./../byteserde/byteserde_derive" }
+byteserde_types = {path = "./../byteserde/byteserde_types" }

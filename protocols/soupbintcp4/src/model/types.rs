@@ -1,25 +1,42 @@
-use byteserde_types::prelude::*;
+pub use field_types::*;
+pub use packet_types::*;
 
-pub type PacketTypeClientHeartbeat = ConstCharAscii<b'R'>;
-pub type PacketTypeServerHeartbeat = ConstCharAscii<b'H'>;
-pub type PacketTypeDebug = ConstCharAscii<b'+'>;
-pub type PacketTypeEndOfSession = ConstCharAscii<b'Z'>;
+use byteserde::prelude::*;
+use byteserde_derive::{
+    ByteDeserialize, ByteSerializeStack, ByteSerializedLenOf,
+    ByteSerializedSizeOf,
+};
 
-pub type PacketTypeLoginAccepted = ConstCharAscii<b'A'>;
-pub type PacketTypeLoginRejected = ConstCharAscii<b'J'>;
-pub type PacketTypeLoginRequest = ConstCharAscii<b'L'>;
-pub type PacketTypeLogoutRequest = ConstCharAscii<b'O'>;
+#[rustfmt::skip]
+pub mod packet_types{
+    use super::*;
+    use byteserde_types::const_char_ascii;
+    const_char_ascii!(PacketTypeCltHrtBeat, b'R', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    const_char_ascii!(PacketTypeSvcHrtBeat, b'H', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    const_char_ascii!(PacketTypeDebug, b'+', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    const_char_ascii!(PacketTypeEndOfSession, b'Z', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    const_char_ascii!(PacketTypeLoginAccepted, b'A', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    const_char_ascii!(PacketTypeLoginRejected, b'J', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    const_char_ascii!(PacketTypeLoginRequest, b'L', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    const_char_ascii!(PacketTypeLogoutRequest, b'O', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    const_char_ascii!(PacketTypeUnsequenceData, b'U', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    const_char_ascii!(PacketTypeSequenceData, b'S', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+}
 
-pub type PacketTypeUnsequenceData = ConstCharAscii<b'U'>;
-pub type PacketTypeSequenceData = ConstCharAscii<b'S'>;
+#[rustfmt::skip]
+pub mod field_types{
+    use super::*;
+    use byteserde_types::string_ascii_fixed;
 
-const S: u8 = b' ';
-const R: bool = true;
+    string_ascii_fixed!(SessionId, 10, b' ', true, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    
+    string_ascii_fixed!(SequenceNumber, 20, b' ', true, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    impl From<u64> for SequenceNumber{ fn from(v: u64) -> Self { v.to_string().as_bytes().into()} }
 
-pub type SessionId = StringAsciiFixed<10, S, R>;
-pub type SequenceNumber = StringAsciiFixed<20, S, R>;
-pub type TimeoutMs = StringAsciiFixed<5, S, R>;
+    string_ascii_fixed!(TimeoutMs, 5, b' ', true, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    impl From<u16> for TimeoutMs{ fn from(v: u16) -> Self { v.to_string().as_bytes().into() } }
+    
+    string_ascii_fixed!(UserName, 6, b' ', true, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    string_ascii_fixed!(Password, 10, b' ', true, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
 
-
-pub type UserName = StringAsciiFixed<6, S, R>;
-pub type Password = StringAsciiFixed<10, S, R>;
+}

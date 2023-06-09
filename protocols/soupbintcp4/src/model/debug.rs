@@ -1,5 +1,6 @@
 use byteserde_derive::{ByteDeserialize, ByteSerializeStack};
 use byteserde_types::prelude::*;
+use byteserde::prelude::*;
 use core;
 use std::fmt::Display;
 
@@ -8,28 +9,29 @@ use super::types::PacketTypeDebug;
 #[derive(ByteSerializeStack, ByteDeserialize, PartialEq, core::fmt::Debug)]
 #[byteserde(endian = "be")]
 pub struct Debug {
-    #[byteserde(replace( packet_type.len() + text.len() ))]
+    #[byteserde(replace( packet_type.byte_len() + text.byte_len() ))]
     packet_length: u16,
     packet_type: PacketTypeDebug,
-    #[byteserde(deplete ( packet_length as usize - packet_type.len() ))]
+    #[byteserde(deplete ( packet_length as usize - packet_type.byte_len() ))]
     text: StringAscii,
 }
 
 impl Debug {
-    pub fn new(msg: &[u8]) -> Self {
+    pub fn new(text: &[u8]) -> Self {
         Debug {
-            packet_length: Default::default(),
-            packet_type: Default::default(),
-            text: msg.into(),
+            packet_length: (text.len() + PacketTypeDebug::byte_size()) as u16,
+            text: text.into(),
+            ..Default::default()
         }
     }
 }
 impl Default for Debug {
     fn default() -> Self {
+        let text = b"This is a default debug message text";
         Debug {
-            packet_length: 0,
+            packet_length: (text.len() + PacketTypeDebug::byte_size()) as u16,
+            text: text.into(),
             packet_type: Default::default(),
-            text: b"This is a default debug message text".into(),
         }
     }
 }
@@ -43,7 +45,6 @@ impl Display for Debug {
 mod test {
     use super::*;
     use crate::unittest::setup;
-    use byteserde::prelude::*;
     use log::info;
 
     #[test]

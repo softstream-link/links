@@ -7,9 +7,9 @@ edition = "2021"
 # byteserde = "*" # { path = "../../github-softstream.link/byteserde/" }
 # byteserde_derive = "*" #{ path = "../../github-softstream.link/byteserde/byteserde_derive" }
 # byteserde_types = "*" # { path = "../../../byteserde/byteserde_types" }
-byteserde = { path = "./../../../byteserde/byteserde" }
-byteserde_derive = {path = "./../../../byteserde/byteserde_derive" }
-byteserde_types = {path = "./../../../byteserde/byteserde_types" }
+byteserde = { workspace = true}
+byteserde_derive = { workspace = true}
+byteserde_types = { workspace = true}
 
 [dev-dependencies]
 env_logger = "0.10"
