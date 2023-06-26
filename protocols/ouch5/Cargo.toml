@@ -7,9 +7,12 @@ edition = "2021"
 # byteserde = "*" # { path = "../../github-softstream.link/byteserde/" }
 # byteserde_derive = "*" #{ path = "../../github-softstream.link/byteserde/byteserde_derive" }
 # byteserde_types = "*" # { path = "../../../byteserde/byteserde_types" }
-byteserde = { workspace = true}
-byteserde_derive = { workspace = true}
-byteserde_types = { workspace = true}
+byteserde = { workspace = true }
+byteserde_derive = { workspace = true }
+byteserde_types = { workspace = true }
+bytes = { workspace = true }
+soupbintcp4 = { path = "../soupbintcp4" }
+framing = { path = "../framing" }
 
 [dev-dependencies]
 env_logger = "0.10"

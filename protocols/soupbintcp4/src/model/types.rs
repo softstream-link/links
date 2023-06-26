@@ -11,8 +11,8 @@ use byteserde_derive::{
 pub mod packet_types{
     use super::*;
     use byteserde_types::const_char_ascii;
-    const_char_ascii!(PacketTypeCltHrtBeat, b'R', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
-    const_char_ascii!(PacketTypeSvcHrtBeat, b'H', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    const_char_ascii!(PacketTypeClientHeartbeat, b'R', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    const_char_ascii!(PacketTypeServerHeartbeat, b'H', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
     const_char_ascii!(PacketTypeDebug, b'+', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
     const_char_ascii!(PacketTypeEndOfSession, b'Z', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
     const_char_ascii!(PacketTypeLoginAccepted, b'A', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);

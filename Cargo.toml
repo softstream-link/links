@@ -1,10 +1,13 @@
 [workspace]
 members = [
+    "protocols/framing",
     "protocols/soupbintcp4",
     "protocols/ouch5",
+    "network",
 ]
 
 [workspace.dependencies]
 byteserde = { path = "./../byteserde/byteserde" }
 byteserde_derive = {path = "./../byteserde/byteserde_derive" }
 byteserde_types = {path = "./../byteserde/byteserde_types" }
+bytes = "1.4"

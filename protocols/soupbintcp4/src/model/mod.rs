@@ -9,3 +9,4 @@ pub mod end_of_session;
 pub mod login_request;
 pub mod clt_heartbeat;
 pub mod logout_request;
+pub mod soup_bin;
