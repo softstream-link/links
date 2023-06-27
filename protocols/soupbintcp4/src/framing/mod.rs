@@ -61,15 +61,16 @@ mod test {
         const CAP: usize = 1024;
         let mut ser = ByteSerializerStack::<CAP>::default();
         let msg_inp = vec![
-            SoupBin::CltHeartBeat(CltHeartbeat::default()),
-            SoupBin::SvcHeartbeat(SvcHeartbeat::default()),
-            SoupBin::Debug(Debug::default()),
-            SoupBin::LoginRequest(LoginRequest::default()),
-            SoupBin::LoginAccepted(LoginAccepted::default()),
-            SoupBin::LoginRejected(LoginRejected::not_authorized()),
-            SoupBin::LogoutRequest(LogoutRequest::default()),
-            SoupBin::SequencedData(SequencedData::default()),
-            SoupBin::UnsequencedData(UnsequencedData::default()),
+            SoupBin::CltHBeat(CltHeartbeat::default()),
+            SoupBin::SvcHBeat(SvcHeartbeat::default()),
+            SoupBin::Dbg(Debug::default()),
+            SoupBin::End(EndOfSession::default()),
+            SoupBin::LoginReq(LoginRequest::default()),
+            SoupBin::LoginAcc(LoginAccepted::default()),
+            SoupBin::LoginRej(LoginRejected::not_authorized()),
+            SoupBin::LogoutReq(LogoutRequest::default()),
+            SoupBin::SData(SequencedData::default()),
+            SoupBin::UData(UnsequencedData::default()),
         ];
         for m in msg_inp.iter() {
             let _ = ser.serialize(m).unwrap();
