@@ -3,7 +3,7 @@ use std::fmt::Display;
 
 use super::types::PacketTypeServerHeartbeat;
 
-const SERVER_HEARTBEAT_PACKET_LENGTH: u16 = 3;
+const SERVER_HEARTBEAT_PACKET_LENGTH: u16 = 1;
 
 #[derive(ByteSerializeStack, ByteDeserialize, PartialEq, Debug)]
 #[byteserde(endian = "be")]

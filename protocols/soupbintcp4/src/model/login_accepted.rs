@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 
 use super::types::{PacketTypeLoginAccepted, SequenceNumber, SessionId};
 
-const LOGING_ACCEPTED_PACKET_LENGTH: u16 = 31;
+const LOGING_ACCEPTED_PACKET_LENGTH: u16 = 31; // packet_type/1 + session/10 + sequence_number/20
 #[derive(ByteSerializeStack, ByteDeserialize, PartialEq, Debug)]
 #[byteserde(endian = "be")]
 pub struct LoginAccepted {

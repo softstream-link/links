@@ -36,6 +36,12 @@ impl Display for UnsequencedData {
     }
 }
 
+impl Default for UnsequencedData{
+    fn default() -> Self {
+        UnsequencedData::new(b"test UnsequencedData body")
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

@@ -15,14 +15,14 @@ pub struct LoginRejected {
     reject_reason_code: CharAscii,
 }
 impl LoginRejected {
-    pub fn new_not_authorized() -> Self {
+    pub fn not_authorized() -> Self {
         LoginRejected {
             packet_length: LOGIN_REJECTED_PACKET_LENGTH,
             packet_type: Default::default(),
             reject_reason_code: CharAscii::new(b'A'),
         }
     }
-    pub fn new_session_not_available() -> Self {
+    pub fn session_not_available() -> Self {
         LoginRejected {
             packet_length: LOGIN_REJECTED_PACKET_LENGTH,
             packet_type: Default::default(),
@@ -55,14 +55,14 @@ mod test {
     fn test_login_rejected() {
         setup::log::configure();
 
-        let msg_inp = LoginRejected::new_not_authorized();
+        let msg_inp = LoginRejected::not_authorized();
         info!("msg_inp: {}", msg_inp);
         info!("msg_inp:? {:?}", msg_inp);
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
         info!("ser: {:x}", ser);
         assert_eq!(ser.len() - 2, LOGIN_REJECTED_PACKET_LENGTH as usize);
 
-        let msg_inp = LoginRejected::new_session_not_available();
+        let msg_inp = LoginRejected::session_not_available();
         info!("msg_inp: {}", msg_inp);
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
         info!("ser: {:x}", ser);

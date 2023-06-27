@@ -16,6 +16,7 @@ pub struct SequencedDataHeader {
 #[byteserde(endian = "be")]
 pub struct SequencedData {
     header: SequencedDataHeader,
+    #[byteserde(deplete ( header.packet_length as usize - 1 ))]
     body: Vec<u8>,
 }
 
@@ -34,6 +35,12 @@ impl SequencedData {
 impl Display for SequencedData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Sequenced Data 0x{:02x?}", self.body)
+    }
+}
+
+impl Default for SequencedData{
+    fn default() -> Self {
+        SequencedData::new(b"test SequencedData body")
     }
 }
 

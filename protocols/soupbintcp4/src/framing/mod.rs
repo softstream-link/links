@@ -56,43 +56,20 @@ mod test {
     use crate::{model::soup_bin::SoupBin, unittest::setup};
 
     #[test]
-    fn test_soupbin_frame_handler() {
-        setup::log::configure();
-        let mut ser = ByteSerializerStack::<{ 13 * 11 }>::default();
-        let msg_inp = SequencedData::new(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-        for _ in 0..10 {
-            let _ = msg_inp.byte_serialize_stack(&mut ser).unwrap();
-        }
-
-        println!("ser: {:#x}", ser);
-        let mut buf = BytesMut::with_capacity(1024);
-
-        buf.put_slice(ser.as_slice());
-
-        // let mut buf = Bytes::from(bytes);
-        loop {
-            let frame = SoupBinTcp4FrameHandler::get_frame(&mut buf);
-            match frame {
-                Some(frame) => {
-                    println!("frame: {:?}", frame);
-                    let des = &mut ByteDeserializer::new(frame.chunk());
-                    let x = SequencedData::byte_deserialize(des);
-                    println!("{:?}", x);
-                }
-                None => break,
-            }
-        }
-        println!("buf: {:?}", buf);
-    }
-
-    #[test]
     fn test_soup_bin_admin() {
         setup::log::configure();
         const CAP: usize = 1024;
         let mut ser = ByteSerializerStack::<CAP>::default();
         let msg_inp = vec![
+            SoupBin::CltHeartBeat(CltHeartbeat::default()),
+            SoupBin::SvcHeartbeat(SvcHeartbeat::default()),
+            SoupBin::Debug(Debug::default()),
             SoupBin::LoginRequest(LoginRequest::default()),
             SoupBin::LoginAccepted(LoginAccepted::default()),
+            SoupBin::LoginRejected(LoginRejected::not_authorized()),
+            SoupBin::LogoutRequest(LogoutRequest::default()),
+            SoupBin::SequencedData(SequencedData::default()),
+            SoupBin::UnsequencedData(UnsequencedData::default()),
         ];
         for m in msg_inp.iter() {
             let _ = ser.serialize(m).unwrap();
@@ -100,17 +77,19 @@ mod test {
         let mut bytes = BytesMut::with_capacity(CAP);
         bytes.put_slice(ser.as_slice());
         info!("ser: {:#x}", ser);
-        info!("bytes: {:?}", bytes);
+        let mut msg_out: Vec<SoupBin> = vec![];
         loop {
             let frame = SoupBinTcp4FrameHandler::get_frame(&mut bytes);
             match frame {
                 Some(frame) => {
                     let des = &mut ByteDeserializer::new(frame.chunk());
                     let msg = SoupBin::byte_deserialize(des).unwrap();
-                    info!("msg: {:?}", msg);
+                    info!("{:?}", msg);
+                    msg_out.push(msg);
                 }
                 None => break,
             }
         }
+        assert_eq!(msg_inp, msg_out);
     }
 }
