@@ -1,10 +1,10 @@
 use std::fmt::Display;
-use byteserde_derive::{ByteSerializeStack, ByteDeserialize};
+use byteserde_derive::{ByteSerializeStack, ByteDeserializeSlice};
 
 use super::types::PacketTypeEndOfSession;
 
 const END_OF_SESSION_PACKET_LENGTH: u16 = 1;
-#[derive(ByteSerializeStack, ByteDeserialize, PartialEq, Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq, Debug)]
 #[byteserde(endian = "be")]
 pub struct EndOfSession {
     packet_length: u16,

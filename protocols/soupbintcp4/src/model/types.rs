@@ -3,7 +3,7 @@ pub use packet_types::*;
 
 use byteserde::prelude::*;
 use byteserde_derive::{
-    ByteDeserialize, ByteSerializeStack, ByteSerializedLenOf,
+    ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf,
     ByteSerializedSizeOf,
 };
 
@@ -28,15 +28,15 @@ pub mod field_types{
     use super::*;
     use byteserde_types::string_ascii_fixed;
 
-    string_ascii_fixed!(SessionId, 10, b' ', true, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    string_ascii_fixed!(SessionId, 10, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
     
-    string_ascii_fixed!(SequenceNumber, 20, b' ', true, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    string_ascii_fixed!(SequenceNumber, 20, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
     impl From<u64> for SequenceNumber{ fn from(v: u64) -> Self { v.to_string().as_bytes().into()} }
 
-    string_ascii_fixed!(TimeoutMs, 5, b' ', true, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    string_ascii_fixed!(TimeoutMs, 5, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
     impl From<u16> for TimeoutMs{ fn from(v: u16) -> Self { v.to_string().as_bytes().into() } }
     
-    string_ascii_fixed!(UserName, 6, b' ', true, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
-    string_ascii_fixed!(Password, 10, b' ', true, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    string_ascii_fixed!(UserName, 6, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    string_ascii_fixed!(Password, 10, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
 
 }

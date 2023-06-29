@@ -1,12 +1,12 @@
 use std::fmt::{Debug, Display};
-use byteserde_derive::{ByteSerializeStack, ByteDeserialize};
+use byteserde_derive::{ByteSerializeStack, ByteDeserializeSlice};
 
 use super::types::{PacketTypeLoginRequest, UserName, Password, SessionId, SequenceNumber, TimeoutMs};
 
 // packet_type/1 + usr/6 + pwd/10 + requested_session/10 + requested_sequence_number/20 + heartbeat_timeout_ms/5
 const LOGIN_REQUEST_PACKET_LENGTH: u16 = 52; 
 
-#[derive(ByteSerializeStack, ByteDeserialize, PartialEq)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq)]
 #[byteserde(endian = "be")]
 pub struct LoginRequest {
     packet_length: u16,

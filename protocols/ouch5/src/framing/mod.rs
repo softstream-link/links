@@ -1,45 +1,11 @@
 use bytes::{Buf, Bytes, BytesMut};
 use framing::FrameHandler;
+use soupbintcp4::prelude::SoupBinTcp4FrameHandler;
 struct Ouch5FrameHandler;
 
 impl FrameHandler for Ouch5FrameHandler {
-    fn get_frame(bytes: &mut BytesMut) -> Option<BytesMut> {
-        // ensures there is at least 2 bytes to represet packet_length
-        if bytes.len() < 2 {
-            return None;
-        }
-
-        // access packet length with out advancing the cursor, below is a take of the bytes::Buf::get_u16() method
-        let packet_length = {
-            const SIZE: usize = std::mem::size_of::<u16>();
-            // try to convert directly from the bytes
-            // this Option<ret> trick is to avoid keeping a borrow on self
-            // when advance() is called (mut borrow) and to call bytes() only once
-            let ret = bytes
-                .chunk()
-                .get(..SIZE)
-                .map(|src| unsafe { u16::from_be_bytes(*(src as *const _ as *const [_; SIZE])) });
-
-            if let Some(ret) = ret {
-                ret
-            } else {
-                // if not we copy the bytes in a temp buffer then convert
-                let mut buf = [0_u8; SIZE];
-                let packet_length = &bytes[..SIZE];
-                buf[0] = packet_length[0];
-                buf[1] = packet_length[1];
-                u16::from_be_bytes(buf)
-            }
-        };
-
-        // ensure that there is a full frame available in the buffer
-        let frame_length = (packet_length + 2) as usize;
-        if bytes.len() < frame_length {
-            return None;
-        } else {
-            let frame = bytes.split_to(frame_length);
-            return Some(frame);
-        }
+    fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
+        SoupBinTcp4FrameHandler::get_frame(bytes)
     }
 }
 
@@ -69,7 +35,7 @@ mod test {
         let mut buf = BytesMut::with_capacity(1024);
         
         buf.put_slice(ser.as_slice());
-        let x = buf.freeze();
+        // let x = buf.freeze();
         
         // let mut buf = Bytes::from(bytes);
         loop {

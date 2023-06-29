@@ -1,13 +1,13 @@
 use std::fmt::{Debug, Display};
 
 
-use byteserde_derive::{ByteSerializeStack, ByteDeserialize};
+use byteserde_derive::{ByteSerializeStack, ByteDeserializeSlice};
 use byteserde_types::prelude::*;
 
 use super::types::PacketTypeLoginRejected;
 
 const LOGIN_REJECTED_PACKET_LENGTH: u16 = 2;
-#[derive(ByteSerializeStack, ByteDeserialize, PartialEq, Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq, Debug)]
 #[byteserde(endian = "be")]
 pub struct LoginRejected {
     packet_length: u16,

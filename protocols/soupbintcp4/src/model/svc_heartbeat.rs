@@ -1,11 +1,11 @@
-use byteserde_derive::{ByteDeserialize, ByteSerializeStack};
+use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack};
 use std::fmt::Display;
 
 use super::types::PacketTypeSvcHeartbeat;
 
 const SERVER_HEARTBEAT_PACKET_LENGTH: u16 = 1;
 
-#[derive(ByteSerializeStack, ByteDeserialize, PartialEq, Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq, Debug)]
 #[byteserde(endian = "be")]
 pub struct SvcHeartbeat {
     packet_length: u16,

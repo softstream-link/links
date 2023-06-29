@@ -1,4 +1,4 @@
-use byteserde_derive::{ByteDeserialize, ByteSerializeStack};
+use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack};
 use byteserde_types::prelude::*;
 use byteserde::prelude::*;
 use core;
@@ -6,7 +6,7 @@ use std::fmt::Display;
 
 use super::types::PacketTypeDebug;
 
-#[derive(ByteSerializeStack, ByteDeserialize, PartialEq, core::fmt::Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq, core::fmt::Debug)]
 #[byteserde(endian = "be")]
 pub struct Debug {
     #[byteserde(replace( packet_type.byte_len() + text.byte_len() ))]

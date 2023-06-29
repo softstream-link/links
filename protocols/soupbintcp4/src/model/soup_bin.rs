@@ -1,9 +1,9 @@
 use byteserde::prelude::*;
-use byteserde_derive::{ByteSerializeStack, ByteDeserialize};
+use byteserde_derive::{ByteSerializeStack, ByteDeserializeSlice};
 
 use crate::prelude::*;
 
-#[derive(ByteSerializeStack, ByteDeserialize, Debug, PartialEq)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, Debug, PartialEq)]
 #[byteserde(peek(2, 1))]
 pub enum SoupBin {
     #[byteserde(eq(PacketTypeCltHeartbeat::as_slice()))]
@@ -28,7 +28,7 @@ pub enum SoupBin {
     UData(UnsequencedData),
 }
 
-// impl ByteDeserialize<SoupBin> for SoupBin {
+// impl ByteDeserializeSlice<SoupBin> for SoupBin {
 //     fn byte_deserialize(des: &mut ByteDeserializer) -> byteserde::prelude::Result<SoupBin> {
 //         let peek = |start, len| -> Result<&[u8]> {
 //             let p = des.peek_bytes_slice(len + start)?;

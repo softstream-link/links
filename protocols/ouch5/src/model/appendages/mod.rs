@@ -1,6 +1,6 @@
 use byteserde::prelude::*;
 use byteserde_derive::{
-    ByteDeserialize, ByteEnumFromBinder, ByteSerializeStack, ByteSerializedLenOf,
+    ByteDeserializeSlice, ByteEnumFromBinder, ByteSerializeStack, ByteSerializedLenOf,
     ByteSerializedSizeOf,
 };
 use byteserde_types::{char_ascii, i32_tuple, string_ascii_fixed, u16_tuple, u32_tuple, u64_tuple};
@@ -52,22 +52,22 @@ mod optional_value{
     use super::*;
     pub mod secondary_ord_ref_num{
         use super::*;
-        u64_tuple!(SecondaryOrdRefNum, "be", ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
+        u64_tuple!(SecondaryOrdRefNum, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
         option_tag!(SecondaryOrdRefNum, 1);
     }
     pub mod firm {
         use super::*;
-        string_ascii_fixed!(Firm, 4, b' ', true, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+        string_ascii_fixed!(Firm, 4, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
         option_tag!(Firm, 2);
     }
     pub mod min_qty {
         use super::*;
-        u32_tuple!(MinQty, "be", ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
+        u32_tuple!(MinQty, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
         option_tag!(MinQty, 3);
     }
     pub mod customer_type{
         use super::*;
-        char_ascii!(CustomerType, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+        char_ascii!(CustomerType, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
         option_tag!(CustomerType, 4);
 
         #[derive(ByteEnumFromBinder)]
@@ -81,12 +81,12 @@ mod optional_value{
     }
     pub mod max_floor{
         use super::*;
-        u32_tuple!(MaxFloor, "be", ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
+        u32_tuple!(MaxFloor, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
         option_tag!(MaxFloor, 5);
     }
     pub mod price_type{
         use super::*;
-        char_ascii!(PriceType, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+        char_ascii!(PriceType, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
         option_tag!(PriceType, 6);
         #[derive(ByteEnumFromBinder)]
         #[byteserde(bind(PriceType), from(PriceType), from(PriceTypeEnum))]
@@ -105,17 +105,17 @@ mod optional_value{
     }
     pub mod peg_offset{
         use super::*;
-        i32_tuple!(PegOffset, "be", ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
+        i32_tuple!(PegOffset, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
         option_tag!(PegOffset, 7);
     } 
     pub mod discretion_price{
         use super::*;
-        u64_tuple!(DiscretionPrice, "be", ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
+        u64_tuple!(DiscretionPrice, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
         option_tag!(DiscretionPrice, 9);
     }
     pub mod discretion_price_type{
         use super::*;
-        char_ascii!(DiscretionPriceType, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+        char_ascii!(DiscretionPriceType, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
         option_tag!(DiscretionPriceType, 10);
         
         #[derive(ByteEnumFromBinder)]
@@ -133,12 +133,12 @@ mod optional_value{
     }
     pub mod discretion_peg_offset{
         use super::*;
-        i32_tuple!(DiscretionPegOffset, "be", ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
+        i32_tuple!(DiscretionPegOffset, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
         option_tag!(DiscretionPegOffset, 11);
     }
     pub mod post_only{
         use super::*;
-        char_ascii!(PostOnly, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+        char_ascii!(PostOnly, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
         option_tag!(PostOnly, 12);
 
         #[derive(ByteEnumFromBinder)]
@@ -152,22 +152,22 @@ mod optional_value{
     }
     pub mod random_reserves{
         use super::*;
-        u32_tuple!(RandomReserves, "be", ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
+        u32_tuple!(RandomReserves, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
         option_tag!(RandomReserves, 13);
     }
     pub mod route{
         use super::*;
-        string_ascii_fixed!(Route, 4, b' ', true, ByteSerializeStack, ByteDeserialize, ByteSerializedLenOf, PartialEq, Clone);
+        string_ascii_fixed!(Route, 4, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone);
         option_tag!(Route, 14);
     }
     pub mod expire_time{
         use super::*;
-        u32_tuple!(ExpireTime, "be", ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
+        u32_tuple!(ExpireTime, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
         option_tag!(ExpireTime, 15);
     }
     pub mod trade_now{
         use super::*;
-        char_ascii!(TradeNow, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+        char_ascii!(TradeNow, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
         option_tag!(TradeNow, 16);
 
         #[derive(ByteEnumFromBinder)]
@@ -181,7 +181,7 @@ mod optional_value{
     }
     pub mod handle_inst{
         use super::*;
-        char_ascii!(HandleInst, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+        char_ascii!(HandleInst, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
         option_tag!(HandleInst, 17);
 
         #[derive(ByteEnumFromBinder)]
@@ -205,7 +205,7 @@ mod optional_value{
     }
     pub mod bbo_weight_indicator{
         use super::*;
-        char_ascii!(BBOWeightIndicator, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+        char_ascii!(BBOWeightIndicator, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
         option_tag!(BBOWeightIndicator, 18);
 
         #[derive(ByteEnumFromBinder)]
@@ -229,22 +229,22 @@ mod optional_value{
     }
     pub mod display_qty{
         use super::*;
-        u32_tuple!(DisplayQty, "be", ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
+        u32_tuple!(DisplayQty, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
         option_tag!(DisplayQty, 22);
     }
     pub mod display_price{
         use super::*;
-        u64_tuple!(DisplayPrice, "be", ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
+        u64_tuple!(DisplayPrice, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
         option_tag!(DisplayPrice, 23);
     }
     pub mod group_id{
         use super::*;
-        u16_tuple!(GroupId, "be", ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
+        u16_tuple!(GroupId, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
         option_tag!(GroupId, 24);
     }
     pub mod shares_located{
         use super::*;
-        char_ascii!(SharesLocated, ByteSerializeStack, ByteDeserialize, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+        char_ascii!(SharesLocated, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
         option_tag!(SharesLocated, 25);
 
         #[derive(ByteEnumFromBinder)]
@@ -258,10 +258,10 @@ mod optional_value{
     }
 }
 
-#[derive(ByteSerializeStack, ByteDeserialize, PartialEq, ByteSerializedLenOf, Debug, Clone)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq, ByteSerializedLenOf, Debug, Clone)]
 pub struct TagValueElement<T>
 where
-    T: ByteSerializeStack + ByteDeserialize<T> + ByteSerializedLenOf,
+    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf,
 {
     length: u8,
     option_tag: u8,
@@ -269,7 +269,7 @@ where
 }
 impl<T> TagValueElement<T>
 where
-    T: ByteSerializeStack + ByteDeserialize<T> + OptionTag + ByteSerializedLenOf,
+    T: ByteSerializeStack + ByteDeserializeSlice<T> + OptionTag + ByteSerializedLenOf,
 {
     pub fn new(option_value: T) -> Self {
         TagValueElement {
@@ -281,8 +281,8 @@ where
     }
 }
 
-#[derive(ByteSerializeStack, ByteDeserialize, ByteSerializedLenOf, PartialEq, Debug)]
-#[byteserde(peek(1, 1))] // peek(start, len) -> peek one byte after keeping one
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug)]
+#[byteserde(peek(1, 1))] // peek(start, len) -> peek one byte after skiping one
 pub struct OptionalAppendage {
     #[byteserde(eq(SecondaryOrdRefNum::tag_as_slice()))]
     pub secondary_ord_ref_num: Option<TagValueElement<SecondaryOrdRefNum>>,
@@ -291,7 +291,7 @@ pub struct OptionalAppendage {
     pub firm: Option<TagValueElement<Firm>>,
 
     #[byteserde(eq(MinQty::tag_as_slice()))]
-    pub min_quantity: Option<TagValueElement<MinQty>>,
+    pub min_qty: Option<TagValueElement<MinQty>>,
 
     #[byteserde(eq(CustomerType::tag_as_slice()))]
     pub customer_type: Option<TagValueElement<CustomerType>>,
@@ -352,7 +352,7 @@ impl Default for OptionalAppendage {
         OptionalAppendage {
             secondary_ord_ref_num: None,
             firm: None,
-            min_quantity: None,
+            min_qty: None,
             customer_type: None,
             max_floor: None,
             price_type: None,
@@ -390,7 +390,7 @@ fn tag_value_elements() {
     let inp_appendage = OptionalAppendage {
         secondary_ord_ref_num: Some(msg_sec_ord_ref.clone()),
         firm: Some(msg_firm.clone()),
-        min_quantity: Some(msg_min_qty.clone()),
+        min_qty: Some(msg_min_qty.clone()),
         ..Default::default()
     };
 
@@ -398,7 +398,7 @@ fn tag_value_elements() {
     ser.serialize(&inp_appendage).unwrap();
     info!("ser: {:#x}", ser);
 
-    let mut des = ByteDeserializer::new(ser.as_slice());
+    let mut des = ByteDeserializerSlice::new(ser.as_slice());
     let out_appendage = OptionalAppendage::byte_deserialize(&mut des).unwrap();
     info!("inp_appendage: {:?}", inp_appendage);
     info!("out_appendage: {:?}", out_appendage);

@@ -4,18 +4,15 @@ use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack};
 
 #[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq, Debug)]
 #[byteserde(endian = "be")]
-pub struct EnterOrder {
-    packet_type: PacketTypeEnterOrder,
+pub struct ReplaceOrder {
+    packet_type: PacketTypeReplaceOrder,
+    orig_user_ref_number: OriginalUserRefNumber,
     user_ref_number: UserRefNumber,
-    side: Side,
     quantity: Quantity,
-    symbol: Symbol,
     price: Price,
     time_in_force: TimeInForce,
     display: Display,
-    capacity: Capacity,
     int_mkt_sweep_eligibility: IntMktSweepEligibility,
-    cross_type: CrossType,
     clt_order_id: CltOrderId,
     #[byteserde(replace( appendages.byte_len() ))]
     appendage_length: u16,
@@ -23,33 +20,27 @@ pub struct EnterOrder {
     appendages: OptionalAppendage,
 }
 
-impl Default for EnterOrder {
+impl Default for ReplaceOrder {
     fn default() -> Self {
         let appendages = OptionalAppendage {
-            customer_type: Some(TagValueElement::<CustomerType>::new(
-                CustomerTypeEnum::Retail.into(),
-            )),
+            min_qty: Some(TagValueElement::<MinQty>::new(100.into())),
             ..Default::default()
         };
         Self {
-            packet_type: PacketTypeEnterOrder::default(),
+            packet_type: PacketTypeReplaceOrder::default(),
+            orig_user_ref_number: 2.into(),
             user_ref_number: 1.into(),
-            side: SideEnum::Buy.into(),
             quantity: 100.into(),
-            symbol: b"DUMMY".as_slice().into(),
-            price: 1.1234_f64.into(),
+            price: 100.1234_f64.into(),
             time_in_force: TimeInForceEnum::MarketHours.into(),
             display: DisplayEnum::Visible.into(),
-            capacity: CapacityEnum::Agency.into(),
             int_mkt_sweep_eligibility: IntMktSweepEligibilityEnum::Eligible.into(),
-            cross_type: CrossTypeEnum::ContinuousMarket.into(),
             clt_order_id: b"DUMMY_CLT_ORDER_#1".as_slice().into(),
             appendage_length: appendages.byte_len() as u16,
-            appendages: appendages,
+            appendages,
         }
     }
 }
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -58,14 +49,14 @@ mod test {
     use log::info;
 
     #[test]
-    fn test_enter_order() {
+    fn test_replace_order() {
         setup::log::configure();
-        let msg_inp = EnterOrder::default();
+        let msg_inp = ReplaceOrder::default();
 
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
         info!("ser: {:#x}", ser);
 
-        let msg_out: EnterOrder = from_serializer_stack(&ser).unwrap();
+        let msg_out: ReplaceOrder = from_serializer_stack(&ser).unwrap();
 
         info!("msg_inp: {:?}", msg_inp);
         info!("msg_out: {:?}", msg_out);

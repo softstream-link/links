@@ -83,7 +83,7 @@ mod test {
             let frame = SoupBinTcp4FrameHandler::get_frame(&mut bytes);
             match frame {
                 Some(frame) => {
-                    let des = &mut ByteDeserializer::new(frame.chunk());
+                    let des = &mut ByteDeserializerSlice::new(frame.chunk());
                     let msg = SoupBin::byte_deserialize(des).unwrap();
                     info!("{:?}", msg);
                     msg_out.push(msg);
@@ -92,5 +92,33 @@ mod test {
             }
         }
         assert_eq!(msg_inp, msg_out);
+    }
+
+    #[test]
+    fn test_bytes(){
+        setup::log::configure();
+        // let mut but = BytesMut::from(&"1234567890"[..]);
+        let mut bytes = Bytes::from(&"1234567890"[..]);
+        // let mut bytes = but.freeze();
+        info!("len: {}, bytes: {:?}", bytes.len(), bytes);
+        
+        let x = bytes.chunk(); // DOES NOT consume
+        info!("x: {:?}, len: {}, bytes: {:?}", x, bytes.len(), bytes);
+        
+        let x = bytes.get_u8(); // CONSUMES
+        info!("x: {:?}, len: {}, bytes: {:?}", x, bytes.len(), bytes);
+
+        // let x =
+        
+        let x = bytes.advance(2); // CONSUMES
+        info!("x: {:?}, len: {}, bytes: {:?}", x, bytes.len(), bytes);
+
+        let x = &bytes[..]; // DOES NOT consume but PANICK
+        info!("x: {:?}, len: {}, bytes: {:?}", x, bytes.len(), bytes);
+
+        let x = bytes.get(..2); // DOES NOT consume but GIves option
+        info!("x: {:?}, len: {}, bytes: {:?}", x, bytes.len(), bytes);
+
+        
     }
 }
