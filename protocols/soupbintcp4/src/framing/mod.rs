@@ -53,7 +53,7 @@ mod test {
     use byteserde::prelude::*;
     use log::info;
 
-    use crate::{model::{soup_bin::SoupBin, sample_payload::SamplePayload}, unittest::setup, prelude::*};
+    use crate::{model::{soup_bin::SoupBin, sample_payload::SamplePayload, unsequenced_data::UnsequencedData}, unittest::setup, prelude::*};
 
     #[test]
     fn test_soup_bin_admin() {
@@ -70,7 +70,7 @@ mod test {
             SoupBin::LoginRej(LoginRejected::not_authorized()),
             SoupBin::LogoutReq(LogoutRequest::default()),
             SoupBin::SData(SequencedData::<SamplePayload>::default()),
-            SoupBin::UData(UnsequencedDataVec::default()),
+            SoupBin::UData(UnsequencedData::<SamplePayload>::default()),
         ];
         for m in msg_inp.iter() {
             let _ = ser.serialize(m).unwrap();

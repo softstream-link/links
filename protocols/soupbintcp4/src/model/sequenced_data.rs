@@ -114,15 +114,14 @@ mod test {
     #[test]
     fn test_sequenced_data() {
         setup::log::configure();
-        let payload = SamplePayload::default();
-        let expected_byte_len = SEQUENCED_DATA_HEADER_BYTE_LEN + payload.byte_len();
-        let msg_inp = SequencedData::new(payload);
+        let expected_len = SEQUENCED_DATA_HEADER_BYTE_LEN + SamplePayload::default().byte_len();
+        let msg_inp = SequencedData::default();
         info!("msg_inp:? {:?}", msg_inp);
 
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
         info!("ser: {:#x}", ser);
-        assert_eq!(expected_byte_len, ser.len());
-        assert_eq!(expected_byte_len, msg_inp.byte_len());
+        assert_eq!(expected_len, ser.len());
+        assert_eq!(expected_len, msg_inp.byte_len());
 
         let msg_out: SequencedData<SamplePayload> = from_slice(ser.as_slice()).unwrap();
         info!("msg_out:? {:?}", msg_out);
