@@ -4,9 +4,10 @@ use byteserde_derive::{
     ByteSerializedSizeOf,
 };
 use byteserde_types::{char_ascii, i32_tuple, string_ascii_fixed, u16_tuple, u32_tuple, u64_tuple};
+use std::fmt;
 
 #[rustfmt::skip]
-pub use optional_value::{
+pub use optional_values::{
     secondary_ord_ref_num::*,
     firm::*,
     min_qty::*,
@@ -48,7 +49,7 @@ macro_rules! option_tag {
 }
 
 #[rustfmt::skip]
-mod optional_value{
+mod optional_values{
     use super::*;
     pub mod secondary_ord_ref_num{
         use super::*;
@@ -261,15 +262,17 @@ mod optional_value{
 #[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq, ByteSerializedLenOf, Debug, Clone)]
 pub struct TagValueElement<T>
 where
-    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf,
+    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + Clone + fmt::Debug,
 {
     length: u8,
     option_tag: u8,
     option_value: T,
 }
+
+#[rustfmt::skip]
 impl<T> TagValueElement<T>
 where
-    T: ByteSerializeStack + ByteDeserializeSlice<T> + OptionTag + ByteSerializedLenOf,
+    T: ByteSerializeStack + ByteDeserializeSlice<T> + OptionTag + ByteSerializedLenOf + Clone + fmt::Debug,
 {
     pub fn new(option_value: T) -> Self {
         TagValueElement {
@@ -281,7 +284,8 @@ where
     }
 }
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug)]
+#[rustfmt::skip]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(peek(1, 1))] // peek(start, len) -> peek one byte after skiping one
 pub struct OptionalAppendage {
     #[byteserde(eq(SecondaryOrdRefNum::tag_as_slice()))]
@@ -347,6 +351,7 @@ pub struct OptionalAppendage {
     #[byteserde(eq(SharesLocated::tag_as_slice()))]
     pub shares_located: Option<TagValueElement<SharesLocated>>,
 }
+
 impl Default for OptionalAppendage {
     fn default() -> Self {
         OptionalAppendage {
@@ -393,6 +398,7 @@ fn tag_value_elements() {
         min_qty: Some(msg_min_qty.clone()),
         ..Default::default()
     };
+    let _ = inp_appendage.clone(); // to ensure clone is propagated to all members
 
     let mut ser = ByteSerializerStack::<128>::default();
     ser.serialize(&inp_appendage).unwrap();

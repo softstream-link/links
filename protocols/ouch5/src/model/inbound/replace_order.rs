@@ -3,7 +3,7 @@ use byteserde::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 
 #[rustfmt::skip]
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(endian = "be")]
 pub struct ReplaceOrder {
     packet_type: PacketTypeReplaceOrder,
@@ -50,7 +50,7 @@ mod test {
     use log::info;
 
     #[test]
-    fn test_replace_order() {
+    fn test_msg() {
         setup::log::configure();
         let msg_inp = ReplaceOrder::default();
 

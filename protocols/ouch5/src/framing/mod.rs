@@ -5,26 +5,26 @@ mod test {
     use log::info;
     use soupbintcp4::prelude::*;
 
-    use crate::{
-        model::ouch5::Ouch5,
-        prelude::{EnterOrder, ReplaceOrder},
-        unittest::setup,
-    };
+    use crate::{prelude::*, unittest::setup};
     use framing::FrameHandler;
 
     #[test]
     fn test_ouch5_frame_handler() {
         setup::log::configure();
         let mut ser = ByteSerializerStack::<1024>::default();
-        let msg_inp = vec![
+        let msg_inp: Vec<SoupBin<Ouch5>> = vec![
             SoupBin::CltHBeat(CltHeartbeat::default()),
-            // SequencedData::new(Ouch5::EntOrd(EnterOrder::default())),
-            // Ouch5::RepOrd(ReplaceOrder::default()),
+            SoupBin::SvcHBeat(SvcHeartbeat::default()),
+            SoupBin::SData(SequencedData::new(Ouch5::EntOrd(EnterOrder::default()))),
+            SoupBin::SData(SequencedData::new(Ouch5::RepOrd(ReplaceOrder::default()))),
+            SoupBin::SData(SequencedData::new(Ouch5::CanOrd(CancelOrder::default()))),
+            SoupBin::SData(SequencedData::new(Ouch5::ModOrd(ModifyOrder::default()))),
+            SoupBin::SData(SequencedData::new(Ouch5::AccQryReq(AccountQueryRequest::default()))),
         ];
 
-        for msg in msg_inp {
+        for msg in msg_inp.iter() {
             info!("msg_inp: {:?}", msg);
-            let _ = ser.serialize(&SequencedData::new(msg));
+            let _ = ser.serialize(msg);
         }
 
         println!("ser: {:#x}", ser);

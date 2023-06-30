@@ -47,8 +47,7 @@ mod test {
     #[test]
     fn test_soup_bin() {
         setup::log::configure();
-        const CAP: usize = 1024;
-        let mut ser = ByteSerializerStack::<CAP>::default();
+        let mut ser = ByteSerializerStack::<1024>::default();
         let msg_inp = vec![
             SoupBin::CltHBeat(CltHeartbeat::default()),
             SoupBin::SvcHBeat(SvcHeartbeat::default()),

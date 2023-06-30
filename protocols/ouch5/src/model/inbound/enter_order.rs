@@ -1,9 +1,9 @@
-use crate::model::types::*;
+use crate::prelude::*;
 use byteserde::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 
 #[rustfmt::skip]
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(endian = "be")]
 pub struct EnterOrder {
     packet_type: PacketTypeEnterOrder,
@@ -35,7 +35,7 @@ impl Default for EnterOrder {
         Self {
             packet_type: PacketTypeEnterOrder::default(),
             user_ref_number: 1.into(),
-            side: SideEnum::Buy.into(),
+            side: Side::buy(),
             quantity: 100.into(),
             symbol: b"DUMMY".as_slice().into(),
             price: 1.1234_f64.into(),
@@ -59,7 +59,7 @@ mod test {
     use log::info;
 
     #[test]
-    fn test_enter_order() {
+    fn test_msg() {
         setup::log::configure();
         let msg_inp = EnterOrder::default();
 
