@@ -19,7 +19,7 @@ impl FrameHandler for SoupBinTcp4FrameHandler {
             // this Option<ret> trick is to avoid keeping a borrow on self
             // when advance() is called (mut borrow) and to call bytes() only once
             let ret = bytes
-                .chunk()
+                // .chunk()
                 .get(..SIZE)
                 .map(|src| unsafe { u16::from_be_bytes(*(src as *const _ as *const [_; SIZE])) });
 
@@ -53,7 +53,13 @@ mod test {
     use byteserde::prelude::*;
     use log::info;
 
-    use crate::{model::{soup_bin::SoupBin, sample_payload::SamplePayload, unsequenced_data::UnsequencedData}, unittest::setup, prelude::*};
+    use crate::{
+        model::{
+            sample_payload::SamplePayload, soup_bin::SoupBin, unsequenced_data::UnsequencedData,
+        },
+        prelude::*,
+        unittest::setup,
+    };
 
     #[test]
     fn test_soup_bin_admin() {
@@ -72,51 +78,28 @@ mod test {
             SoupBin::SData(SequencedData::<SamplePayload>::default()),
             SoupBin::UData(UnsequencedData::<SamplePayload>::default()),
         ];
-        for m in msg_inp.iter() {
-            let _ = ser.serialize(m).unwrap();
+        for msg in msg_inp.iter() {
+            info!("msg_inp {:?}", msg);
+            let _ = ser.serialize(msg).unwrap();
         }
+        info!("ser: {:#x}", ser);
+
         let mut bytes = BytesMut::with_capacity(CAP);
         bytes.put_slice(ser.as_slice());
-        info!("ser: {:#x}", ser);
+
         let mut msg_out: Vec<SoupBin<SamplePayload>> = vec![];
         loop {
             let frame = SoupBinTcp4FrameHandler::get_frame(&mut bytes);
             match frame {
                 Some(frame) => {
-                    let des = &mut ByteDeserializerSlice::new(frame.chunk());
+                    let des = &mut ByteDeserializerSlice::new(&frame[..]);
                     let msg = SoupBin::byte_deserialize(des).unwrap();
-                    info!("{:?}", msg);
+                    info!("msg_out {:?}", msg);
                     msg_out.push(msg);
                 }
                 None => break,
             }
         }
         assert_eq!(msg_inp, msg_out);
-    }
-
-    #[test]
-    fn test_bytes() {
-        setup::log::configure();
-        // let mut but = BytesMut::from(&"1234567890"[..]);
-        let mut bytes = Bytes::from(&"1234567890"[..]);
-        // let mut bytes = but.freeze();
-        info!("len: {}, bytes: {:?}", bytes.len(), bytes);
-
-        let x = bytes.chunk(); // DOES NOT consume
-        info!("x: {:?}, len: {}, bytes: {:?}", x, bytes.len(), bytes);
-
-        let x = bytes.get_u8(); // CONSUMES
-        info!("x: {:?}, len: {}, bytes: {:?}", x, bytes.len(), bytes);
-
-        // let x =
-
-        let x = bytes.advance(2); // CONSUMES
-        info!("x: {:?}, len: {}, bytes: {:?}", x, bytes.len(), bytes);
-
-        let x = &bytes[..]; // DOES NOT consume but PANICK
-        info!("x: {:?}, len: {}, bytes: {:?}", x, bytes.len(), bytes);
-
-        let x = bytes.get(..2); // DOES NOT consume but GIves option
-        info!("x: {:?}, len: {}, bytes: {:?}", x, bytes.len(), bytes);
     }
 }
