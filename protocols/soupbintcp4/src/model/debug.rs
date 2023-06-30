@@ -1,12 +1,14 @@
-use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack};
-use byteserde_types::prelude::*;
 use byteserde::prelude::*;
+use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
+use byteserde_types::prelude::*;
 use core;
 use std::fmt::Display;
 
 use super::types::PacketTypeDebug;
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq, core::fmt::Debug)]
+#[derive(
+    ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, core::fmt::Debug,
+)]
 #[byteserde(endian = "be")]
 pub struct Debug {
     #[byteserde(replace( packet_type.byte_len() + text.byte_len() ))]
@@ -51,21 +53,23 @@ mod test {
     fn test_debug() {
         setup::log::configure();
 
-        let expected_len: u16 = 37;
-
         let msg_inp = Debug::default();
+        let expected_packet_len: u16 = (msg_inp.text.len() + msg_inp.packet_type.byte_len()) as u16;
+        let expected_byte_len: usize = expected_packet_len as usize + 2;
+
         info!("msg_inp: {}", msg_inp);
         info!("msg_inp:? {:?}", msg_inp);
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
-        info!("ser: {:#x}", ser);
-        assert_eq!(ser.len() - 2, expected_len as usize);
+        info!("ser: {:x}", ser);
+        assert_eq!(expected_byte_len, ser.len());
+        assert_eq!(expected_byte_len, msg_inp.byte_len());
 
         let msg_out: Debug = from_serializer_stack(&ser).unwrap();
         info!("msg_out:? {:?}", msg_out);
         assert_eq!(
             msg_out,
             Debug {
-                packet_length: expected_len,
+                packet_length: expected_packet_len,
                 ..msg_inp
             }
         );

@@ -1,28 +1,74 @@
-use bytes::Bytes;
+// use bytes::Bytes;
 use byteserde::prelude::*;
-use byteserde_derive::{ByteDeserializeBytes, ByteDeserializeSlice, ByteSerializeStack};
-use std::fmt::Display;
+use byteserde_derive::{
+    ByteDeserializeBytes, ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf,
+};
+use std::fmt::{Debug, Display};
 
-use super::types::PacketTypeSequenceData;
+use super::{sample_payload::SamplePayload, types::PacketTypeSequenceData};
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteDeserializeBytes, PartialEq, Debug)]
+pub const SEQUENCED_DATA_HEADER_BYTE_LEN: usize = 3;
+
+#[derive(
+    ByteSerializeStack,
+    ByteDeserializeSlice,
+    ByteDeserializeBytes,
+    ByteSerializedLenOf,
+    PartialEq,
+    Debug,
+)]
 #[byteserde(endian = "be")]
 pub struct SequencedDataHeader {
-    packet_length: u16,
-    packet_type: PacketTypeSequenceData,
+    pub packet_length: u16,
+    pub packet_type: PacketTypeSequenceData,
+}
+
+impl SequencedDataHeader {
+    pub fn new(packet_length: u16) -> Self {
+        SequencedDataHeader {
+            packet_length,
+            packet_type: PacketTypeSequenceData::default(),
+        }
+    }
+}
+
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug)]
+#[byteserde(endian = "be")]
+pub struct SequencedData<T>
+where
+    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq,
+{
+    header: SequencedDataHeader,
+    #[byteserde(deplete ( header.packet_length as usize - 1 ))]
+    body: T,
+}
+impl<T> SequencedData<T>
+where
+    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Debug,
+{
+    pub fn new(body: T) -> SequencedData<T> {
+        let header = SequencedDataHeader::new((body.byte_len() + 1) as u16);
+        SequencedData { header, body }
+    }
+}
+
+impl Default for SequencedData<SamplePayload> {
+    fn default() -> Self {
+        SequencedData::new(SamplePayload::default())
+    }
 }
 
 #[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq, Debug)]
 #[byteserde(endian = "be")]
-pub struct SequencedData {
+pub struct SequencedDataVec {
     header: SequencedDataHeader,
     #[byteserde(deplete ( header.packet_length as usize - 1 ))]
     body: Vec<u8>,
 }
 
-impl SequencedData {
+impl SequencedDataVec {
     pub fn new(body: &[u8]) -> Self {
-        SequencedData {
+        SequencedDataVec {
             header: SequencedDataHeader {
                 packet_length: (body.len() + PacketTypeSequenceData::byte_size()) as u16,
                 packet_type: PacketTypeSequenceData::default(),
@@ -32,58 +78,53 @@ impl SequencedData {
     }
 }
 
-impl Display for SequencedData {
+impl Display for SequencedDataVec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Sequenced Data 0x{:02x?}", self.body)
     }
 }
 
-impl Default for SequencedData {
+impl Default for SequencedDataVec {
     fn default() -> Self {
-        SequencedData::new(b"test SequencedData body")
-    }
-}
-
-#[derive(ByteSerializeStack, ByteDeserializeBytes, PartialEq, Debug)]
-pub struct SequencedData1 {
-    header: SequencedDataHeader,
-    body: Bytes,
-}
-impl SequencedData1 {
-    pub fn new(body: Bytes) -> Self {
-        SequencedData1 {
-            header: SequencedDataHeader {
-                packet_length: (body.len() + PacketTypeSequenceData::byte_size()) as u16,
-                packet_type: PacketTypeSequenceData::default(),
-            },
-            body,
-        }
+        SequencedDataVec::new(b"test SequencedData body")
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::unittest::setup;
-    use byteserde::des_bytes::from_bytes;
+    use crate::{model::sample_payload::SamplePayload, unittest::setup};
     use log::info;
 
     #[test]
-    fn test_sequenced_data_bytes() {
+    fn test_sequenced_data_header() {
         setup::log::configure();
-
-        let msg_inp = SequencedData1::new([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].to_vec().into());
-        // info!("msg_inp: {}", msg_inp);
+        let msg_inp = SequencedDataHeader::new(10);
         info!("msg_inp:? {:?}", msg_inp);
-        assert_eq!(
-            msg_inp.header.packet_length as usize,
-            msg_inp.body.len() + msg_inp.header.packet_type.byte_len() as usize
-        );
 
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
-        info!("ser: {:x}", ser);
+        info!("ser: {:#x}", ser);
+        assert_eq!(SEQUENCED_DATA_HEADER_BYTE_LEN, ser.len());
+        assert_eq!(SEQUENCED_DATA_HEADER_BYTE_LEN, msg_inp.byte_len());
 
-        let msg_out: SequencedData1 = from_bytes(ser.as_slice().to_vec().into()).unwrap();
+        let msg_out: SequencedDataHeader = from_slice(ser.as_slice()).unwrap();
+        info!("msg_out:? {:?}", msg_out);
+        assert_eq!(msg_out, msg_inp);
+    }
+    #[test]
+    fn test_sequenced_data() {
+        setup::log::configure();
+        let payload = SamplePayload::default();
+        let expected_byte_len = SEQUENCED_DATA_HEADER_BYTE_LEN + payload.byte_len();
+        let msg_inp = SequencedData::new(payload);
+        info!("msg_inp:? {:?}", msg_inp);
+
+        let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
+        info!("ser: {:#x}", ser);
+        assert_eq!(expected_byte_len, ser.len());
+        assert_eq!(expected_byte_len, msg_inp.byte_len());
+
+        let msg_out: SequencedData<SamplePayload> = from_slice(ser.as_slice()).unwrap();
         info!("msg_out:? {:?}", msg_out);
         assert_eq!(msg_out, msg_inp);
     }
@@ -92,7 +133,7 @@ mod test {
     fn test_sequenced_data_vec() {
         setup::log::configure();
 
-        let msg_inp = SequencedData::new(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        let msg_inp = SequencedDataVec::new(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         info!("msg_inp: {}", msg_inp);
         info!("msg_inp:? {:?}", msg_inp);
         assert_eq!(
@@ -103,16 +144,8 @@ mod test {
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
         info!("ser: {:x}", ser);
 
-        let msg_out: SequencedData = from_serializer_stack(&ser).unwrap();
+        let msg_out: SequencedDataVec = from_serializer_stack(&ser).unwrap();
         info!("msg_out:? {:?}", msg_out);
         assert_eq!(msg_out, msg_inp);
-    }
-
-    #[test]
-    fn test_panic() {
-        setup::log::configure();
-        let bytes = Bytes::from_static(b"1234");
-        let slice = &b"1234"[..];
-        let x = &slice[4..6];
     }
 }

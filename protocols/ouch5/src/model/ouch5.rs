@@ -1,9 +1,9 @@
 use byteserde::prelude::*;
-use byteserde_derive::{ByteSerializeStack, ByteDeserializeSlice};
+use byteserde_derive::{ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf};
 
 use crate::prelude::*;
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, Debug, PartialEq)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, Debug, PartialEq)]
 #[byteserde(peek(0, 1))]
 pub enum Ouch5 {
     #[byteserde(eq(PacketTypeEnterOrder::as_slice()))]

@@ -1,11 +1,12 @@
-use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack};
+use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 use std::fmt::Display;
 
 use super::types::PacketTypeSvcHeartbeat;
 
-const SERVER_HEARTBEAT_PACKET_LENGTH: u16 = 1;
+pub const SERVER_HEARTBEAT_PACKET_LENGTH: u16 = 1;
+pub const SERVER_HEARTBEAT_BYTE_LEN: usize = SERVER_HEARTBEAT_PACKET_LENGTH as usize + 2;
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq, Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug)]
 #[byteserde(endian = "be")]
 pub struct SvcHeartbeat {
     packet_length: u16,
@@ -42,6 +43,8 @@ mod test {
         info!("msg_inp:? {:?}", msg_inp);
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
         info!("ser: {:x}", ser);
+        assert_eq!(SERVER_HEARTBEAT_BYTE_LEN, ser.len());
+        assert_eq!(SERVER_HEARTBEAT_BYTE_LEN, msg_inp.byte_len());
 
         let msg_out: SvcHeartbeat = from_serializer_stack(&ser).unwrap();
         info!("msg_out:? {:?}", msg_out);

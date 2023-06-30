@@ -10,3 +10,4 @@ pub mod login_request;
 pub mod clt_heartbeat;
 pub mod logout_request;
 pub mod soup_bin;
+pub mod sample_payload;

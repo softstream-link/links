@@ -1,12 +1,13 @@
 use std::fmt::{Debug, Display};
-use byteserde_derive::{ByteSerializeStack, ByteDeserializeSlice};
+use byteserde_derive::{ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf};
 
 use super::types::{PacketTypeLoginRequest, UserName, Password, SessionId, SequenceNumber, TimeoutMs};
 
 // packet_type/1 + usr/6 + pwd/10 + requested_session/10 + requested_sequence_number/20 + heartbeat_timeout_ms/5
-const LOGIN_REQUEST_PACKET_LENGTH: u16 = 52; 
+pub const LOGIN_REQUEST_PACKET_LENGTH: u16 = 52; 
+pub const LOGIN_REQUEST_BYTE_LEN: usize = LOGIN_REQUEST_PACKET_LENGTH as usize + 2;
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf,PartialEq)]
 #[byteserde(endian = "be")]
 pub struct LoginRequest {
     packet_length: u16,
@@ -104,7 +105,8 @@ b"session #1".into(),
 
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
         info!("ser: {:#x}", ser);
-        assert_eq!(ser.len() - 2, LOGIN_REQUEST_PACKET_LENGTH as usize);
+        assert_eq!(LOGIN_REQUEST_BYTE_LEN, ser.len());
+        assert_eq!(LOGIN_REQUEST_BYTE_LEN, msg_inp.byte_len());
 
         let msg_out: LoginRequest = from_serializer_stack(&ser).unwrap();
         info!("msg_out:? {:?}", msg_out);

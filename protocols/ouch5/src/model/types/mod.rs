@@ -1,4 +1,3 @@
-
 pub use capacity::{Capacity, CapacityEnum};
 pub use cross_type::{CrossType, CrossTypeEnum};
 pub use display::{Display, DisplayEnum};
@@ -7,12 +6,16 @@ pub use price::Price;
 pub use side::{Side, SideEnum};
 pub use time_in_force::{TimeInForce, TimeInForceEnum};
 
-pub use string_ascii_fixed::*;
-pub use packet_types::*;
 pub use super::appendages::*;
+pub use numerics::*;
+pub use packet_types::*;
+pub use string_ascii_fixed::*;
 
-use byteserde_derive::{ByteDeserializeSlice, ByteEnumFromBinder, ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf};
 use byteserde::prelude::*;
+use byteserde_derive::{
+    ByteDeserializeSlice, ByteEnumFromBinder, ByteSerializeStack, ByteSerializedLenOf,
+    ByteSerializedSizeOf,
+};
 use byteserde_types::{char_ascii, string_ascii_fixed, u32_tuple, u64_tuple};
 
 // const char ascii
@@ -35,14 +38,14 @@ pub mod packet_types{
 #[rustfmt::skip]
 pub mod string_ascii_fixed{
     use super::*;
-    string_ascii_fixed!(Symbol, 9, b' ', true, ByteSerializeStack, ByteDeserializeSlice, PartialEq);
-    string_ascii_fixed!(CltOrderId, 14, b' ', true, ByteSerializeStack, ByteDeserializeSlice, PartialEq);
+    string_ascii_fixed!(Symbol, 9, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
+    string_ascii_fixed!(CltOrderId, 14, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
 }
 
-// enums
+#[rustfmt::skip]
 pub mod side {
     use super::*;
-    char_ascii!(Side, ByteSerializeStack, ByteDeserializeSlice, PartialEq, Clone);
+    char_ascii!(Side, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
     /// Helper for converting to and from [Side]
     pub enum SideEnum {
         Buy,
@@ -75,9 +78,10 @@ pub mod side {
     }
 
 }
+#[rustfmt::skip]
 pub mod time_in_force {
     use super::*;
-    char_ascii!(TimeInForce, ByteSerializeStack, ByteDeserializeSlice, PartialEq);
+    char_ascii!(TimeInForce, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
 
     /// Helper used for converting to and from [TimeInForce]
     #[derive(ByteEnumFromBinder)]
@@ -95,9 +99,10 @@ pub mod time_in_force {
         AfterHours,
     }
 }
+#[rustfmt::skip]
 pub mod display {
     use super::*;
-    char_ascii!(Display, ByteSerializeStack, ByteDeserializeSlice, PartialEq);
+    char_ascii!(Display, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
 
     /// Helper used for converting to and from [Display]
     #[derive(ByteEnumFromBinder)]
@@ -111,9 +116,10 @@ pub mod display {
         Atttributable,
     }
 }
+#[rustfmt::skip]
 pub mod capacity {
     use super::*;
-    char_ascii!(Capacity, ByteSerializeStack, ByteDeserializeSlice, PartialEq);
+    char_ascii!(Capacity, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
 
     /// Helper used for converting to and from [Capacity]
     #[derive(ByteEnumFromBinder)]
@@ -131,14 +137,10 @@ pub mod capacity {
         Other,
     }
 }
+#[rustfmt::skip]
 pub mod int_mkt_sweep_eligibility {
     use super::*;
-    char_ascii!(
-        IntMktSweepEligibility,
-        ByteSerializeStack,
-        ByteDeserializeSlice,
-        PartialEq
-    );
+    char_ascii!(IntMktSweepEligibility, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf,PartialEq);
 
     /// Helper used for converting to and from [IntMktSweepEligibility]
     #[derive(ByteEnumFromBinder)]
@@ -152,9 +154,10 @@ pub mod int_mkt_sweep_eligibility {
         NotEligible,
     }
 }
+#[rustfmt::skip]
 pub mod cross_type {
     use super::*;
-    char_ascii!(CrossType, ByteSerializeStack, ByteDeserializeSlice, PartialEq);
+    char_ascii!(CrossType, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq);
 
     #[derive(ByteEnumFromBinder)]
     #[byteserde(bind(CrossType))]
@@ -181,17 +184,21 @@ pub mod cross_type {
 }
 
 // numerics
-u32_tuple!(UserRefNumber, "be", ByteSerializeStack, ByteDeserializeSlice, PartialEq, Debug, Default);
-u32_tuple!(OriginalUserRefNumber, "be", ByteSerializeStack, ByteDeserializeSlice, PartialEq, Debug, Default);
-u32_tuple!(Quantity, "be", ByteSerializeStack, ByteDeserializeSlice, PartialEq, Debug, Default);
+#[rustfmt::skip]
+pub mod numerics{
+    use super::*;
+    u32_tuple!(UserRefNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Default);
+    u32_tuple!(OriginalUserRefNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Default);
+    u32_tuple!(Quantity, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Default);
+}
 
 pub mod price {
-    use super::*; 
-    u64_tuple!(Price, "be", ByteSerializeStack, ByteDeserializeSlice, PartialEq, Debug, Default);
+    use super::*;
+    #[rustfmt::skip]
+    u64_tuple!(Price, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Default);
     impl From<f64> for Price {
         fn from(f: f64) -> Self {
             Price((f * 10000.0) as u64)
         }
     }
 }
-

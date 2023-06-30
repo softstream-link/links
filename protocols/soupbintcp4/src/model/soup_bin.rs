@@ -3,9 +3,11 @@ use byteserde_derive::{ByteSerializeStack, ByteDeserializeSlice};
 
 use crate::prelude::*;
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, Debug, PartialEq)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice,  Debug, PartialEq)]
+// #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, Debug, PartialEq)]
 #[byteserde(peek(2, 1))]
-pub enum SoupBin {
+pub enum SoupBin<T> 
+where T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq{
     #[byteserde(eq(PacketTypeCltHeartbeat::as_slice()))]
     CltHBeat(CltHeartbeat),
     #[byteserde(eq(PacketTypeSvcHeartbeat::as_slice()))]
@@ -23,9 +25,9 @@ pub enum SoupBin {
     #[byteserde(eq(PacketTypeLogoutRequest::as_slice()))]
     LogoutReq(LogoutRequest),
     #[byteserde(eq(PacketTypeSequenceData::as_slice()))]
-    SData(SequencedData),
+    SData(SequencedData::<T>),
     #[byteserde(eq(PacketTypeUnsequenceData::as_slice()))]
-    UData(UnsequencedData),
+    UData(UnsequencedDataVec),
 }
 
 // impl ByteDeserializeSlice<SoupBin> for SoupBin {

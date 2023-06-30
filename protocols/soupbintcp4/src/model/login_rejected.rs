@@ -1,13 +1,14 @@
 use std::fmt::{Debug, Display};
 
 
-use byteserde_derive::{ByteSerializeStack, ByteDeserializeSlice};
+use byteserde_derive::{ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf};
 use byteserde_types::prelude::*;
 
 use super::types::PacketTypeLoginRejected;
 
-const LOGIN_REJECTED_PACKET_LENGTH: u16 = 2;
-#[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq, Debug)]
+pub const LOGIN_REJECTED_PACKET_LENGTH: u16 = 2;
+pub const LOGIN_REJECTED_BYTE_LEN: usize = LOGIN_REJECTED_PACKET_LENGTH as usize + 2;
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug)]
 #[byteserde(endian = "be")]
 pub struct LoginRejected {
     packet_length: u16,
@@ -60,7 +61,8 @@ mod test {
         info!("msg_inp:? {:?}", msg_inp);
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
         info!("ser: {:x}", ser);
-        assert_eq!(ser.len() - 2, LOGIN_REJECTED_PACKET_LENGTH as usize);
+        assert_eq!(LOGIN_REJECTED_BYTE_LEN, ser.len());
+        assert_eq!(LOGIN_REJECTED_BYTE_LEN, msg_inp.byte_len());
 
         let msg_inp = LoginRejected::session_not_available();
         info!("msg_inp: {}", msg_inp);

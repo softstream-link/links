@@ -1,8 +1,8 @@
-use crate::prelude::*;
 use bytes::{Buf, Bytes, BytesMut};
 use framing::prelude::*;
 
 // use crate::model::clt_heartbeat::ClientHeartbeat;
+// pub struct SoupBinTcp4FrameHandler;
 pub struct SoupBinTcp4FrameHandler;
 
 impl FrameHandler for SoupBinTcp4FrameHandler {
@@ -53,7 +53,7 @@ mod test {
     use byteserde::prelude::*;
     use log::info;
 
-    use crate::{model::soup_bin::SoupBin, unittest::setup};
+    use crate::{model::{soup_bin::SoupBin, sample_payload::SamplePayload}, unittest::setup, prelude::*};
 
     #[test]
     fn test_soup_bin_admin() {
@@ -69,8 +69,8 @@ mod test {
             SoupBin::LoginAcc(LoginAccepted::default()),
             SoupBin::LoginRej(LoginRejected::not_authorized()),
             SoupBin::LogoutReq(LogoutRequest::default()),
-            SoupBin::SData(SequencedData::default()),
-            SoupBin::UData(UnsequencedData::default()),
+            SoupBin::SData(SequencedData::<SamplePayload>::default()),
+            SoupBin::UData(UnsequencedDataVec::default()),
         ];
         for m in msg_inp.iter() {
             let _ = ser.serialize(m).unwrap();
@@ -78,7 +78,7 @@ mod test {
         let mut bytes = BytesMut::with_capacity(CAP);
         bytes.put_slice(ser.as_slice());
         info!("ser: {:#x}", ser);
-        let mut msg_out: Vec<SoupBin> = vec![];
+        let mut msg_out: Vec<SoupBin<SamplePayload>> = vec![];
         loop {
             let frame = SoupBinTcp4FrameHandler::get_frame(&mut bytes);
             match frame {
@@ -95,21 +95,21 @@ mod test {
     }
 
     #[test]
-    fn test_bytes(){
+    fn test_bytes() {
         setup::log::configure();
         // let mut but = BytesMut::from(&"1234567890"[..]);
         let mut bytes = Bytes::from(&"1234567890"[..]);
         // let mut bytes = but.freeze();
         info!("len: {}, bytes: {:?}", bytes.len(), bytes);
-        
+
         let x = bytes.chunk(); // DOES NOT consume
         info!("x: {:?}, len: {}, bytes: {:?}", x, bytes.len(), bytes);
-        
+
         let x = bytes.get_u8(); // CONSUMES
         info!("x: {:?}, len: {}, bytes: {:?}", x, bytes.len(), bytes);
 
         // let x =
-        
+
         let x = bytes.advance(2); // CONSUMES
         info!("x: {:?}, len: {}, bytes: {:?}", x, bytes.len(), bytes);
 
@@ -118,7 +118,5 @@ mod test {
 
         let x = bytes.get(..2); // DOES NOT consume but GIves option
         info!("x: {:?}, len: {}, bytes: {:?}", x, bytes.len(), bytes);
-
-        
     }
 }

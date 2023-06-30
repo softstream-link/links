@@ -1,8 +1,9 @@
 use crate::model::types::*;
 use byteserde::prelude::*;
-use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack};
+use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq, Debug)]
+#[rustfmt::skip]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug)]
 #[byteserde(endian = "be")]
 pub struct ReplaceOrder {
     packet_type: PacketTypeReplaceOrder,
