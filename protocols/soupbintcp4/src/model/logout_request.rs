@@ -6,7 +6,7 @@ use super::types::PacketTypeLogoutRequest;
 pub const LOGOUT_REQUEST_PACKET_LENGTH: u16 = 1;
 pub const LOGOUT_REQUEST_BYTE_LEN: usize = LOGOUT_REQUEST_PACKET_LENGTH as usize + 2;
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(endian = "be")]
 pub struct LogoutRequest {
     packet_length: u16,

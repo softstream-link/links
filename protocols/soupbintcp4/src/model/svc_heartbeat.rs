@@ -6,7 +6,8 @@ use super::types::PacketTypeSvcHeartbeat;
 pub const SERVER_HEARTBEAT_PACKET_LENGTH: u16 = 1;
 pub const SERVER_HEARTBEAT_BYTE_LEN: usize = SERVER_HEARTBEAT_PACKET_LENGTH as usize + 2;
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug)]
+#[rustfmt::skip]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(endian = "be")]
 pub struct SvcHeartbeat {
     packet_length: u16,

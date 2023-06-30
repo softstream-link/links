@@ -1,14 +1,14 @@
 use byteserde::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
-use std::fmt::Debug;
-use std::fmt::Display;
+use std::fmt;
 
 use super::sample_payload::SamplePayload;
 use super::types::PacketTypeUnsequenceData;
 
 pub const UNSEQUENCED_DATA_BYTE_LEN: usize = 3;
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug)]
+#[rustfmt::skip]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug)]
 #[byteserde(endian = "be")]
 pub struct UnsequencedDataHeader {
     packet_length: u16,
@@ -23,19 +23,20 @@ impl UnsequencedDataHeader {
     }
 }
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug)]
+#[rustfmt::skip]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 pub struct UnsequencedData<T>
 where
-    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Debug,
+    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug,
 {
     header: UnsequencedDataHeader,
     #[byteserde(deplete ( header.packet_length as usize - 1 ))]
     body: T,
 }
-
+#[rustfmt::skip]
 impl<T> UnsequencedData<T>
 where
-    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Debug,
+    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug,
 {
     pub fn new(body: T) -> UnsequencedData<T> {
         let header = UnsequencedDataHeader::new((body.byte_len() + 1) as u16);
@@ -46,37 +47,6 @@ where
 impl Default for UnsequencedData<SamplePayload> {
     fn default() -> Self {
         UnsequencedData::new(SamplePayload::default())
-    }
-}
-
-#[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq, Debug)] // TODO ByteSerializedLenOf fails on this struct why?
-pub struct UnsequencedDataVec {
-    header: UnsequencedDataHeader,
-    #[byteserde(deplete ( header.packet_length as usize - 1 ))]
-    body: Vec<u8>,
-}
-
-impl UnsequencedDataVec {
-    pub fn new(body: &[u8]) -> Self {
-        UnsequencedDataVec {
-            header: UnsequencedDataHeader {
-                packet_length: (body.len() + PacketTypeUnsequenceData::byte_size()) as u16,
-                packet_type: PacketTypeUnsequenceData::default(),
-            },
-            body: body.into(),
-        }
-    }
-}
-
-impl Display for UnsequencedDataVec {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Unsequenced Data 0x{:02x?}", self.body)
-    }
-}
-
-impl Default for UnsequencedDataVec {
-    fn default() -> Self {
-        UnsequencedDataVec::new(b"test UnsequencedData body")
     }
 }
 
@@ -116,26 +86,6 @@ mod test {
         assert_eq!(expected_len, msg_inp.byte_len());
 
         let msg_out: UnsequencedData<SamplePayload> = from_slice(ser.as_slice()).unwrap();
-        info!("msg_out:? {:?}", msg_out);
-        assert_eq!(msg_out, msg_inp);
-    }
-
-    #[test]
-    fn test_unsequenced_data_vec() {
-        setup::log::configure();
-
-        let msg_inp = UnsequencedDataVec::new(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-        info!("msg_inp: {}", msg_inp);
-        info!("msg_inp:? {:?}", msg_inp);
-        assert_eq!(
-            msg_inp.header.packet_length as usize,
-            msg_inp.body.len() + msg_inp.header.packet_type.byte_len() as usize
-        );
-
-        let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
-        info!("ser: {:x}", ser);
-
-        let msg_out: UnsequencedDataVec = from_serializer_stack(&ser).unwrap();
         info!("msg_out:? {:?}", msg_out);
         assert_eq!(msg_out, msg_inp);
     }

@@ -1,14 +1,11 @@
 use byteserde::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 use byteserde_types::prelude::*;
-use core;
-use std::fmt::Display;
+use std::fmt;
 
 use super::types::PacketTypeDebug;
 
-#[derive(
-    ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, core::fmt::Debug,
-)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug)]
 #[byteserde(endian = "be")]
 pub struct Debug {
     #[byteserde(replace( packet_type.byte_len() + text.byte_len() ))]
@@ -37,7 +34,7 @@ impl Default for Debug {
         }
     }
 }
-impl Display for Debug {
+impl fmt::Display for Debug {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.text)
     }

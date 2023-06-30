@@ -6,11 +6,12 @@ use std::fmt;
 
 use super::unsequenced_data::UnsequencedData;
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, fmt::Debug, PartialEq)]
+#[rustfmt::skip]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug)]
 #[byteserde(peek(2, 1))]
 pub enum SoupBin<T>
 where
-    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + fmt::Debug,
+    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug,
 {
     #[byteserde(eq(PacketTypeCltHeartbeat::as_slice()))]
     CltHBeat(CltHeartbeat),

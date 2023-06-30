@@ -10,10 +10,9 @@ pub use crate::model::logout_request::LogoutRequest;
 
 
 pub use crate::model::sequenced_data::SequencedData;
-pub use crate::model::sequenced_data::SequencedDataVec;
 pub use crate::model::sequenced_data::SequencedDataHeader;
 
-pub use crate::model::unsequenced_data::UnsequencedDataVec;
+pub use crate::model::unsequenced_data::UnsequencedData;
 pub use crate::model::unsequenced_data::UnsequencedDataHeader;
 
 pub use crate::model::soup_bin::SoupBin;

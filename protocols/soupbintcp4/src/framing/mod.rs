@@ -1,4 +1,4 @@
-use bytes::{Buf, Bytes, BytesMut};
+use bytes::{Bytes, BytesMut};
 use framing::prelude::*;
 
 // use crate::model::clt_heartbeat::ClientHeartbeat;

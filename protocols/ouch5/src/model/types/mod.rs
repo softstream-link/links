@@ -193,12 +193,20 @@ pub mod numerics{
 }
 
 pub mod price {
+    use std::fmt::Debug;
+
     use super::*;
     #[rustfmt::skip]
-    u64_tuple!(Price, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Default);
+    u64_tuple!(Price, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Default);
+    pub const PRICE_SCALE: f64 = 10000.0;
     impl From<f64> for Price {
         fn from(f: f64) -> Self {
-            Price((f * 10000.0) as u64)
+            Price((f * PRICE_SCALE) as u64)
+        }
+    }
+    impl Debug for Price {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_tuple("Price").field(&(self.0 as f64 / PRICE_SCALE)).finish()
         }
     }
 }

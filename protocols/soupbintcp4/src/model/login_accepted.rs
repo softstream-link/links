@@ -5,7 +5,7 @@ use super::types::{PacketTypeLoginAccepted, SequenceNumber, SessionId};
 
 pub const LOGING_ACCEPTED_PACKET_LENGTH: u16 = 31; // packet_type/1 + session/10 + sequence_number/20
 pub const LOGING_ACCEPTED_BYTE_LEN: usize = LOGING_ACCEPTED_PACKET_LENGTH as usize + 2;
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(endian = "be")]
 pub struct LoginAccepted {
     packet_length: u16,

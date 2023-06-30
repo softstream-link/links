@@ -6,7 +6,7 @@ use super::types::PacketTypeCltHeartbeat;
 pub const CLIENT_HEARTBEAT_PACKET_LENGTH: u16 = 1;
 pub const CLIENT_HEARTBEAT_BYTE_LEN: usize = CLIENT_HEARTBEAT_PACKET_LENGTH as usize + 2;
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Debug, Clone)]
 #[byteserde(endian = "be")]
 pub struct CltHeartbeat {
     packet_length: u16,
