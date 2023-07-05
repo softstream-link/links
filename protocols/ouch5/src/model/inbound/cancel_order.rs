@@ -1,5 +1,4 @@
-use crate::model::types::*;
-use byteserde::prelude::*;
+use crate::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 
 #[rustfmt::skip]
@@ -10,27 +9,41 @@ pub struct CancelOrder {
     user_ref_number: UserRefNumber,
     quantity: Quantity,
 }
-
-impl Default for CancelOrder {
-    fn default() -> Self {
+pub trait CancelableOrder {
+    fn user_ref_number(&self) -> UserRefNumber;
+    fn quantity(&self) -> Quantity;
+}
+impl<T: CancelableOrder> From<&T> for CancelOrder {
+    fn from(ord: &T) -> Self {
         Self {
             packet_type: PacketTypeCancelOrder::default(),
-            user_ref_number: 1.into(),
-            quantity: 100.into(),
+            user_ref_number: ord.user_ref_number().clone(),
+            quantity: ord.quantity().clone(),
         }
     }
 }
+impl CancelOrder {
+    pub fn new(user_ref_number: UserRefNumber, quantity: Quantity) -> Self {
+        Self {
+            packet_type: PacketTypeCancelOrder::default(),
+            user_ref_number: user_ref_number,
+            quantity: quantity,
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::unittest::setup;
-
     use log::info;
+    use byteserde::prelude::*;
 
     #[test]
     fn test_msg() {
         setup::log::configure();
-        let msg_inp = CancelOrder::default();
+        
+        let msg_inp = CancelOrder::from(&EnterOrder::default());
 
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
         info!("ser: {:#x}", ser);

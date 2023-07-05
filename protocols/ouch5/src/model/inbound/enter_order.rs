@@ -7,23 +7,30 @@ use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedL
 #[byteserde(endian = "be")]
 pub struct EnterOrder {
     packet_type: PacketTypeEnterOrder,
-    user_ref_number: UserRefNumber,
-    side: Side,
-    quantity: Quantity,
-    symbol: Symbol,
-    price: Price,
-    time_in_force: TimeInForce,
-    display: Display,
-    capacity: Capacity,
-    int_mkt_sweep_eligibility: IntMktSweepEligibility,
-    cross_type: CrossType,
-    clt_order_id: CltOrderId,
+    pub user_ref_number: UserRefNumber,
+    pub side: Side,
+    pub quantity: Quantity,
+    pub symbol: Symbol,
+    pub price: Price,
+    pub time_in_force: TimeInForce,
+    pub display: Display,
+    pub capacity: Capacity,
+    pub int_mkt_sweep_eligibility: IntMktSweepEligibility,
+    pub cross_type: CrossType,
+    pub clt_order_id: CltOrderId,
     #[byteserde(replace( appendages.byte_len() ))]
-    appendage_length: u16,
+    pub appendage_length: u16,
     #[byteserde(deplete(appendage_length))]
-    appendages: OptionalAppendage,
+    pub appendages: OptionalAppendage,
 }
-
+impl CancelableOrder for EnterOrder {
+    fn user_ref_number(&self) -> UserRefNumber {
+        self.user_ref_number.clone()
+    }
+    fn quantity(&self) -> Quantity {
+        self.quantity.clone()
+    }
+}
 impl Default for EnterOrder {
     fn default() -> Self {
         let appendages = OptionalAppendage {
@@ -34,17 +41,17 @@ impl Default for EnterOrder {
         };
         Self {
             packet_type: PacketTypeEnterOrder::default(),
-            user_ref_number: 1.into(),
+            user_ref_number: UserRefNumberIterator::default().next().unwrap(),
             side: Side::buy(),
-            quantity: 100.into(),
-            symbol: b"DUMMY".as_slice().into(),
-            price: 1.1234_f64.into(),
-            time_in_force: TimeInForceEnum::MarketHours.into(),
-            display: DisplayEnum::Visible.into(),
-            capacity: CapacityEnum::Agency.into(),
-            int_mkt_sweep_eligibility: IntMktSweepEligibilityEnum::Eligible.into(),
-            cross_type: CrossTypeEnum::ContinuousMarket.into(),
-            clt_order_id: b"DUMMY_CLT_ORDER_#1".as_slice().into(),
+            quantity: Quantity::from(100),
+            symbol: Symbol::from(b"DUMMY".as_slice()),
+            price: Price::from(1.2345),
+            time_in_force: TimeInForce::market_hours(),
+            display: Display::visible(),
+            capacity: Capacity::agency(),
+            int_mkt_sweep_eligibility: IntMktSweepEligibility::eligible(),
+            cross_type: CrossType::continuous_market(),
+            clt_order_id: CltOrderIdIterator::default().next().unwrap(),
             appendage_length: appendages.byte_len() as u16,
             appendages: appendages,
         }

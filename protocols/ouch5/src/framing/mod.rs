@@ -12,14 +12,14 @@ mod test {
     fn test_ouch5_frame_handler() {
         setup::log::configure();
         let mut ser = ByteSerializerStack::<1024>::default();
-        let msg_inp: Vec<SoupBin<Ouch5>> = vec![
+        let msg_inp: Vec<SoupBin<Ouch5Inb>> = vec![
             SoupBin::CltHBeat(CltHeartbeat::default()),
             SoupBin::SvcHBeat(SvcHeartbeat::default()),
-            SoupBin::SData(SequencedData::new(Ouch5::EntOrd(EnterOrder::default()))),
-            SoupBin::SData(SequencedData::new(Ouch5::RepOrd(ReplaceOrder::default()))),
-            SoupBin::SData(SequencedData::new(Ouch5::CanOrd(CancelOrder::default()))),
-            SoupBin::SData(SequencedData::new(Ouch5::ModOrd(ModifyOrder::default()))),
-            SoupBin::SData(SequencedData::new(Ouch5::AccQryReq(AccountQueryRequest::default()))),
+            SoupBin::SData(SequencedData::new(Ouch5Inb::EntOrd(EnterOrder::default()))),
+            SoupBin::SData(SequencedData::new(Ouch5Inb::RepOrd(ReplaceOrder::from(&EnterOrder::default())))),
+            SoupBin::SData(SequencedData::new(Ouch5Inb::CanOrd(CancelOrder::from(&EnterOrder::default())))),
+            SoupBin::SData(SequencedData::new(Ouch5Inb::ModOrd(ModifyOrder::default()))),
+            SoupBin::SData(SequencedData::new(Ouch5Inb::AccQryReq(AccountQueryRequest::default()))),
         ];
 
         for msg in msg_inp.iter() {
@@ -36,7 +36,7 @@ mod test {
         while let Some(frame) = SoupBinTcp4FrameHandler::get_frame(&mut buf) {
             info!("frame:\n{}", to_hex_pretty(&frame[..]));
             let des = &mut ByteDeserializerSlice::new(&frame[..]);
-            let msg: SoupBin<Ouch5> = des.deserialize().unwrap();
+            let msg: SoupBin<Ouch5Inb> = des.deserialize().unwrap();
             info!("msg_out: {:?}", msg);
             msg_out.push(msg);
         }

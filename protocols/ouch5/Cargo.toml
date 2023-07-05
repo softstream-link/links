@@ -13,6 +13,7 @@ byteserde_types = { workspace = true }
 bytes = { workspace = true }
 soupbintcp4 = { path = "../soupbintcp4" }
 framing = { path = "../framing" }
+chrono = { workspace = true }
 
 [dev-dependencies]
 env_logger = "0.10"
