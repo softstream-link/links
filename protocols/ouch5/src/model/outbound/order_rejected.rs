@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use byteserde::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 
 #[rustfmt::skip]
@@ -38,7 +37,7 @@ where
 mod test {
     use super::*;
     use crate::unittest::setup;
-
+    use byteserde::prelude::*;
     use log::info;
 
     #[test]

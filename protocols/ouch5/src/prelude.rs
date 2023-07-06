@@ -13,5 +13,9 @@ pub use crate::model::outbound::order_aiq_canceled::OrderAiqCanceled;
 pub use crate::model::outbound::order_executed::OrderExecuted;
 pub use crate::model::outbound::broken_trade::BrokenTrade;
 pub use crate::model::outbound::order_rejected::OrderRejected;
+pub use crate::model::outbound::cancel_pending::CancelPending;
+pub use crate::model::outbound::cancel_reject::CancelReject;
+pub use crate::model::outbound::priorty_update::PriorityUpdate;
+pub use crate::model::outbound::order_modified::OrderModified;
 
 pub use crate::model::ouch5::Ouch5Inb;

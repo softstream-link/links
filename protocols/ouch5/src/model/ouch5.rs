@@ -41,6 +41,14 @@ pub enum Ouch5Oub {
     BrknTrd(BrokenTrade),
     #[byteserde(eq(PacketTypeOrderRejected::as_slice()))]
     OrdRjctd(OrderRejected),
+    #[byteserde(eq(PacketTypeCancelPending::as_slice()))]
+    CanPend(CancelPending),
+    #[byteserde(eq(PacketTypeCancelReject::as_slice()))]
+    CanRej(CancelReject),
+    #[byteserde(eq(PacketTypePriorityUpdate::as_slice()))]
+    PrioUpdt(PriorityUpdate),
+    #[byteserde(eq(PacketTypeOrderModified::as_slice()))]
+    OrdMod(OrderModified),
 }
 
 #[cfg(test)]
@@ -65,8 +73,12 @@ mod test {
         let ord_executed = OrderExecuted::from(&enter_ord);
         let brkn_trade = BrokenTrade::from(&enter_ord);
         let ord_rejected = OrderRejected::from((&enter_ord, RejectReason::halted()));
+        let can_pending = CancelPending::from(&enter_ord);
+        let can_reject = CancelReject::from(&enter_ord);
+        let prio_update = PriorityUpdate::from((&enter_ord, OrderReferenceNumber::default()));
+        let ord_modified = OrderModified::from((&enter_ord, Side::buy()));
 
-        let msg_inp_inb = vec![
+        let msg_inp_inb: Vec<Ouch5Inb> = vec![
             Ouch5Inb::EntOrd(enter_ord),
             Ouch5Inb::RepOrd(replace_ord),
             Ouch5Inb::CanOrd(cancel_ord),
@@ -84,6 +96,10 @@ mod test {
             Ouch5Oub::OrdExecd(ord_executed),
             Ouch5Oub::BrknTrd(brkn_trade),
             Ouch5Oub::OrdRjctd(ord_rejected),
+            Ouch5Oub::CanPend(can_pending),
+            Ouch5Oub::CanRej(can_reject),
+            Ouch5Oub::PrioUpdt(prio_update),
+            Ouch5Oub::OrdMod(ord_modified),
         ];
         let _ = msg_inp_inb.clone(); // to ensure clone is propagated to all Ouch5 variants
         let _ = msg_inp_oub.clone(); // to ensure clone is propagated to all Ouch5 variants

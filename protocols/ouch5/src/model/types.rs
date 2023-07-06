@@ -51,6 +51,10 @@ pub mod packet_types{
     const_char_ascii!(PacketTypeOrderExecuted, b'E', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     const_char_ascii!(PacketTypeBrokenTrade, b'B', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     const_char_ascii!(PacketTypeOrderRejected, b'J', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeCancelPending, b'P', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeCancelReject, b'I', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypePriorityUpdate, b'T', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeOrderModified, b'M', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
 
 }
 // fixed ascii strings
