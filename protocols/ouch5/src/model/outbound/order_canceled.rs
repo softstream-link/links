@@ -9,7 +9,7 @@ pub struct OrderCanceled {
     
     timestamp: Timestamp, // Venue assigned
     
-    orig_user_ref_number: OriginalUserRefNumber,
+    orig_user_ref_number: UserRefNumber,
     user_ref_number: UserRefNumber,
     quantity: Quantity,
     reason: CancelReason,
@@ -20,7 +20,7 @@ impl From<(&EnterOrder, &CancelOrder)> for OrderCanceled {
         Self {
             packet_type: PacketTypeOrderCanceled::default(),
             timestamp: Timestamp::default(),
-            orig_user_ref_number: OriginalUserRefNumber::from(&enter_order.user_ref_number),
+            orig_user_ref_number: enter_order.user_ref_number,
             user_ref_number: cancel_order.user_ref_number,
             quantity: cancel_order.quantity,
             reason: CancelReason::user_requested(),

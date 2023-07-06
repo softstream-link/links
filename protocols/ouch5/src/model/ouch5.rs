@@ -49,6 +49,10 @@ pub enum Ouch5Oub {
     PrioUpdt(PriorityUpdate),
     #[byteserde(eq(PacketTypeOrderModified::as_slice()))]
     OrdMod(OrderModified),
+    #[byteserde(eq(PacketTypeOrderRestated::as_slice()))]
+    OrdRstd(OrderRestated),
+    #[byteserde(eq(PacketTypeAccountQueryResponse::as_slice()))]
+    AccQryRes(AccountQueryResponse),
 }
 
 #[cfg(test)]
@@ -77,6 +81,7 @@ mod test {
         let can_reject = CancelReject::from(&enter_ord);
         let prio_update = PriorityUpdate::from((&enter_ord, OrderReferenceNumber::default()));
         let ord_modified = OrderModified::from((&enter_ord, Side::buy()));
+        let ord_rstd = OrderRestated::from((&enter_ord, RestatedReason::refresh_of_display()));
 
         let msg_inp_inb: Vec<Ouch5Inb> = vec![
             Ouch5Inb::EntOrd(enter_ord),
@@ -100,6 +105,8 @@ mod test {
             Ouch5Oub::CanRej(can_reject),
             Ouch5Oub::PrioUpdt(prio_update),
             Ouch5Oub::OrdMod(ord_modified),
+            Ouch5Oub::OrdRstd(ord_rstd),
+            Ouch5Oub::AccQryRes(AccountQueryResponse::default()),
         ];
         let _ = msg_inp_inb.clone(); // to ensure clone is propagated to all Ouch5 variants
         let _ = msg_inp_oub.clone(); // to ensure clone is propagated to all Ouch5 variants

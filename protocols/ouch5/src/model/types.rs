@@ -13,6 +13,7 @@ pub use liquidity_flag::LiquidityFlag;
 pub use match_number::MatchNumber;
 pub use order_reference_number::OrderReferenceNumber;
 pub use order_reject_reason::RejectReason;
+pub use order_restated_reason::RestatedReason;
 pub use order_state::OrderState;
 pub use packet_types::*;
 pub use price::Price;
@@ -55,6 +56,8 @@ pub mod packet_types{
     const_char_ascii!(PacketTypeCancelReject, b'I', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     const_char_ascii!(PacketTypePriorityUpdate, b'T', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     const_char_ascii!(PacketTypeOrderModified, b'M', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeOrderRestated, b'R', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeAccountQueryResponse, b'Q', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
 
 }
 // fixed ascii strings
@@ -247,13 +250,6 @@ pub mod user_ref {
     #[rustfmt::skip]
     u32_tuple!(UserRefNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy, Debug, Default);
 
-    #[rustfmt::skip]
-    u32_tuple!(OriginalUserRefNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy , Debug, Default);
-    impl From<&UserRefNumber> for OriginalUserRefNumber {
-        fn from(user_ref: &UserRefNumber) -> Self {
-            OriginalUserRefNumber(user_ref.0.clone())
-        }
-    }
     pub struct UserRefNumberIterator {
         last: u32,
     }
@@ -611,5 +607,20 @@ pub mod order_reject_reason {
         pub fn risk_symbol_message_rate_restriction() -> Self { RejectReason(0x28) }
         pub fn risk_port_message_rate_restriction() -> Self { RejectReason(0x29) }
         pub fn risk_duplicate_message_rate_restriction() -> Self { RejectReason(0x2A) }
+    }
+}
+
+pub mod order_restated_reason {
+    use super::*;
+
+    #[rustfmt::skip]
+    char_ascii!(RestatedReason, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy, Default);
+
+    #[rustfmt::skip]
+    impl RestatedReason{
+        pub fn refresh_of_display() -> Self { RestatedReason(b'R') }
+        pub fn update_of_displayed_price() -> Self { RestatedReason(b'P') }
+        pub fn is_refresh_of_display(reason: &RestatedReason) -> bool { Self::refresh_of_display() == *reason }
+        pub fn is_update_of_displayed_price(reason: &RestatedReason) -> bool { Self::update_of_displayed_price() == *reason }        
     }
 }

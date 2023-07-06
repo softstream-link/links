@@ -10,7 +10,7 @@ pub struct OrderReplaced {
     
     timestamp: Timestamp, // Venue assigned
     
-    orig_user_ref_number: OriginalUserRefNumber,
+    orig_user_ref_number: UserRefNumber,
     user_ref_number: UserRefNumber,
     side: Side, // from original order chain
     quantity: Quantity,

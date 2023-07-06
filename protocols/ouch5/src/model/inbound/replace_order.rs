@@ -7,7 +7,7 @@ use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedL
 #[byteserde(endian = "be")]
 pub struct ReplaceOrder {
     packet_type: PacketTypeReplaceOrder,
-    pub orig_user_ref_number: OriginalUserRefNumber,
+    pub orig_user_ref_number: UserRefNumber,
     pub user_ref_number: UserRefNumber,
     pub quantity: Quantity,
     pub price: Price,
@@ -35,7 +35,7 @@ impl From<&EnterOrder> for ReplaceOrder {
     fn from(enter_order: &EnterOrder) -> Self {
         Self {
             packet_type: PacketTypeReplaceOrder::default(),
-            orig_user_ref_number: OriginalUserRefNumber::from(enter_order.user_ref_number.value()),
+            orig_user_ref_number: enter_order.user_ref_number,
             user_ref_number: UserRefNumber::default(), // default place holder, has to be replaced
             quantity: enter_order.quantity,
             price: enter_order.price,
