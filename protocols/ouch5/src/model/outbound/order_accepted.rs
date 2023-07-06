@@ -40,25 +40,25 @@ impl From<&EnterOrder> for OrderAccepted {
 
             timestamp: Timestamp::default(), // Venue assigned
 
-            user_ref_number: enter_order.user_ref_number.clone(),
-            side: enter_order.side.clone(),
-            quantity: enter_order.quantity.clone(),
-            symbol: enter_order.symbol.clone(),
-            price: enter_order.price.clone(),
-            time_in_force: enter_order.time_in_force.clone(),
-            display: enter_order.display.clone(),
+            user_ref_number: enter_order.user_ref_number,
+            side: enter_order.side,
+            quantity: enter_order.quantity,
+            symbol: enter_order.symbol,
+            price: enter_order.price,
+            time_in_force: enter_order.time_in_force,
+            display: enter_order.display,
 
             order_reference_number: OrderReferenceNumber::default(), // Venue assigned
 
-            capacity: enter_order.capacity.clone(),
-            int_mkt_sweep_eligibility: enter_order.int_mkt_sweep_eligibility.clone(),
-            cross_type: enter_order.cross_type.clone(),
+            capacity: enter_order.capacity,
+            int_mkt_sweep_eligibility: enter_order.int_mkt_sweep_eligibility,
+            cross_type: enter_order.cross_type,
 
             order_state: OrderState::live(), // Venue assigned
 
-            clt_order_id: enter_order.clt_order_id.clone(),
+            clt_order_id: enter_order.clt_order_id,
             appendage_length: enter_order.appendages.byte_len() as u16,
-            appendages: enter_order.appendages.clone(),
+            appendages: enter_order.appendages,
         }
     }
 }

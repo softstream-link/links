@@ -21,8 +21,8 @@ impl From<(&EnterOrder, &CancelOrder)> for OrderCanceled {
             packet_type: PacketTypeOrderCanceled::default(),
             timestamp: Timestamp::default(),
             orig_user_ref_number: OriginalUserRefNumber::from(&enter_order.user_ref_number),
-            user_ref_number: cancel_order.user_ref_number.clone(),
-            quantity: cancel_order.quantity.clone(),
+            user_ref_number: cancel_order.user_ref_number,
+            quantity: cancel_order.quantity,
             reason: CancelReason::user_requested(),
         }
     }

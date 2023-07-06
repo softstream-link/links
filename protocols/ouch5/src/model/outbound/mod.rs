@@ -4,3 +4,5 @@ pub mod order_replaced;
 pub mod order_canceled;
 pub mod order_aiq_canceled;
 pub mod order_executed;
+pub mod broken_trade;
+pub mod order_rejected;

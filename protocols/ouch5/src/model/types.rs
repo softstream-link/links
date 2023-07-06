@@ -1,5 +1,6 @@
 pub use super::appendages::*;
 pub use aiq_strategy::AiqStrategy;
+pub use broken_trade_reason::BrokenTradeReason;
 pub use cancel_reason::CancelReason;
 pub use cancel_reason_aiq::CancelReasonAiq;
 pub use capacity::Capacity;
@@ -11,6 +12,7 @@ pub use int_mkt_sweep_eligibility::IntMktSweepEligibility;
 pub use liquidity_flag::LiquidityFlag;
 pub use match_number::MatchNumber;
 pub use order_reference_number::OrderReferenceNumber;
+pub use order_reject_reason::RejectReason;
 pub use order_state::OrderState;
 pub use packet_types::*;
 pub use price::Price;
@@ -25,39 +27,43 @@ use byteserde::prelude::*;
 use byteserde_derive::{
     ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf, ByteSerializedSizeOf,
 };
-use byteserde_types::{char_ascii, const_char_ascii, string_ascii_fixed, u32_tuple, u64_tuple};
+use byteserde_types::{
+    char_ascii, const_char_ascii, string_ascii_fixed, u16_tuple, u32_tuple, u64_tuple,
+};
 
 // const char ascii
 #[rustfmt::skip]
 pub mod packet_types{
     use super::*;
     // inbound
-    const_char_ascii!(PacketTypeEnterOrder, b'O', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
-    const_char_ascii!(PacketTypeReplaceOrder, b'U', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
-    const_char_ascii!(PacketTypeCancelOrder, b'X', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
-    const_char_ascii!(PacketTypeModifyOrder, b'M', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
-    const_char_ascii!(PacketTypeAccountQueryRequest, b'Q', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    const_char_ascii!(PacketTypeEnterOrder, b'O', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeReplaceOrder, b'U', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeCancelOrder, b'X', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeModifyOrder, b'M', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeAccountQueryRequest, b'Q', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     
     // outbound
-    const_char_ascii!(PacketTypeSystemEvent, b'S', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
-    const_char_ascii!(PacketTypeOrderAccepted, b'A', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
-    const_char_ascii!(PacketTypeOrderReplaced, b'U', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
-    const_char_ascii!(PacketTypeOrderCanceled, b'C', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
-    const_char_ascii!(PacketTypeOrderAiqCanceled, b'D', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
-    const_char_ascii!(PacketTypeOrderExecuted, b'E', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    const_char_ascii!(PacketTypeSystemEvent, b'S', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeOrderAccepted, b'A', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeOrderReplaced, b'U', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeOrderCanceled, b'C', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeOrderAiqCanceled, b'D', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeOrderExecuted, b'E', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeBrokenTrade, b'B', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    const_char_ascii!(PacketTypeOrderRejected, b'J', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
 
 }
 // fixed ascii strings
 #[rustfmt::skip]
 pub mod string_ascii_fixed{
     use super::*;
-    string_ascii_fixed!(Symbol, 9, b' ', false, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    string_ascii_fixed!(Symbol, 9, b' ', false, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
 }
 
 pub mod clt_order_id {
     use super::*;
     #[rustfmt::skip]
-    string_ascii_fixed!(CltOrderId, 14, b' ', false, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    string_ascii_fixed!(CltOrderId, 14, b' ', false, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     impl Default for CltOrderId {
         fn default() -> Self {
             Self::new(b"REPLACE_ME____".clone())
@@ -111,7 +117,7 @@ pub mod clt_order_id {
 #[rustfmt::skip]
 pub mod side {
     use super::*;
-    char_ascii!(Side, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    char_ascii!(Side, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     impl Side{
         pub fn buy() -> Self { Side(b'B') }
         pub fn sell() -> Self { Side(b'S') }
@@ -126,7 +132,7 @@ pub mod side {
 #[rustfmt::skip]
 pub mod time_in_force {
     use super::*;
-    char_ascii!(TimeInForce, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    char_ascii!(TimeInForce, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     impl TimeInForce{
         pub fn market_hours() -> Self { TimeInForce(b'0') }
         pub fn immediate_or_cancel() -> Self { TimeInForce(b'3') }
@@ -143,7 +149,7 @@ pub mod time_in_force {
 #[rustfmt::skip]
 pub mod display {
     use super::*;
-    char_ascii!(Display, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    char_ascii!(Display, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     impl Display {
         pub fn visible() -> Self { Display(b'Y') }
         pub fn hidden() -> Self { Display(b'N') }
@@ -158,7 +164,7 @@ pub mod display {
 #[rustfmt::skip]
 pub mod capacity {
     use super::*;
-    char_ascii!(Capacity, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    char_ascii!(Capacity, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     impl Capacity{
         pub fn agency() -> Self { Capacity(b'A') }
         pub fn principal() -> Self { Capacity(b'P') }
@@ -173,7 +179,7 @@ pub mod capacity {
 #[rustfmt::skip]
 pub mod int_mkt_sweep_eligibility {
     use super::*;
-    char_ascii!(IntMktSweepEligibility, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    char_ascii!(IntMktSweepEligibility, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     impl IntMktSweepEligibility{
         pub fn eligible() -> Self { IntMktSweepEligibility(b'Y') }
         pub fn not_eligible() -> Self { IntMktSweepEligibility(b'N') }
@@ -184,7 +190,7 @@ pub mod int_mkt_sweep_eligibility {
 #[rustfmt::skip]
 pub mod cross_type {
     use super::*;
-    char_ascii!(CrossType, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    char_ascii!(CrossType, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     impl CrossType{
         pub fn continuous_market() -> Self { CrossType(b'N') }
         pub fn opening_cross() -> Self { CrossType(b'O') }
@@ -230,15 +236,15 @@ pub mod order_state {
 #[rustfmt::skip]
 pub mod qty{
     use super::*;
-    u32_tuple!(Quantity, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Debug, Default);
+    u32_tuple!(Quantity, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy, Debug, Default);
 }
 pub mod user_ref {
     use super::*;
     #[rustfmt::skip]
-    u32_tuple!(UserRefNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Debug, Default);
+    u32_tuple!(UserRefNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy, Debug, Default);
 
     #[rustfmt::skip]
-    u32_tuple!(OriginalUserRefNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Debug, Default);
+    u32_tuple!(OriginalUserRefNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy , Debug, Default);
     impl From<&UserRefNumber> for OriginalUserRefNumber {
         fn from(user_ref: &UserRefNumber) -> Self {
             OriginalUserRefNumber(user_ref.0.clone())
@@ -291,7 +297,7 @@ pub mod price {
 
     use super::*;
     #[rustfmt::skip]
-    u64_tuple!(Price, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Default);
+    u64_tuple!(Price, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Default, Copy);
     pub const PRICE_SCALE: f64 = 10000.0;
     impl From<f64> for Price {
         fn from(f: f64) -> Self {
@@ -313,7 +319,7 @@ pub mod timestamp {
     use super::*;
 
     #[rustfmt::skip]
-    u64_tuple!(Timestamp, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone);
+    u64_tuple!(Timestamp, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone, Copy);
     /// Converts into nanseconds from last midnight of a given [DateTime<Local>] and into a [Timestamp]
     impl From<DateTime<Local>> for Timestamp {
         fn from(dt: DateTime<Local>) -> Self {
@@ -373,7 +379,7 @@ pub mod timestamp {
 pub mod order_reference_number {
     use super::*;
     #[rustfmt::skip]
-    u64_tuple!(OrderReferenceNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Debug);
+    u64_tuple!(OrderReferenceNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy, Debug);
 
     impl Default for OrderReferenceNumber {
         fn default() -> Self {
@@ -425,7 +431,7 @@ pub mod cancel_reason {
     use super::*;
 
     #[rustfmt::skip]
-    char_ascii!(CancelReason, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    char_ascii!(CancelReason, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     #[rustfmt::skip]
     impl CancelReason {
         pub fn reg_restriction() -> Self{ CancelReason(b'D') }
@@ -463,14 +469,14 @@ pub mod cancel_reason_aiq {
     use super::*;
 
     #[rustfmt::skip]
-    const_char_ascii!(CancelReasonAiq, b'Q', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    const_char_ascii!(CancelReasonAiq, b'Q', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
 }
 
 pub mod liquidity_flag {
     use super::*;
 
     #[rustfmt::skip]
-    char_ascii!(LiquidityFlag, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    char_ascii!(LiquidityFlag, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     #[rustfmt::skip]
     impl LiquidityFlag {
         pub fn added() -> Self{ LiquidityFlag(b'A') }
@@ -504,7 +510,7 @@ pub mod aiq_strategy {
     use super::*;
 
     #[rustfmt::skip]
-    char_ascii!(AiqStrategy, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    char_ascii!(AiqStrategy, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     impl Default for AiqStrategy {
         fn default() -> Self {
             AiqStrategy(b'?') // spect does not list valid values
@@ -516,7 +522,7 @@ pub mod match_number {
     use super::*;
 
     #[rustfmt::skip]
-    u64_tuple!(MatchNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Debug, Default);
+    u64_tuple!(MatchNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy, Debug, Default);
     pub struct MatchNumberIterator {
         last: u64,
     }
@@ -531,5 +537,75 @@ pub mod match_number {
             self.last += 1;
             Some(MatchNumber::from(self.last))
         }
+    }
+}
+
+pub mod broken_trade_reason {
+    use super::*;
+
+    #[rustfmt::skip]
+    char_ascii!(BrokenTradeReason, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
+    #[rustfmt::skip]
+    impl BrokenTradeReason {
+        pub fn errorneous() -> Self{ BrokenTradeReason(b'E') }
+        pub fn consetnt() -> Self{ BrokenTradeReason(b'C') }
+        pub fn supervisory() -> Self{ BrokenTradeReason(b'S') }
+        pub fn external() -> Self{ BrokenTradeReason(b'X') }
+        pub fn is_erroneous(reason: &BrokenTradeReason) -> bool{ Self::errorneous() == *reason }
+        pub fn is_consent(reason: &BrokenTradeReason) -> bool{ Self::consetnt() == *reason }
+        pub fn is_supervisory(reason: &BrokenTradeReason) -> bool{ Self::supervisory() == *reason }
+        pub fn is_external(reason: &BrokenTradeReason) -> bool{ Self::external() == *reason }
+    }
+}
+
+pub mod order_reject_reason {
+    use super::*;
+
+    #[rustfmt::skip]
+    u16_tuple!(RejectReason, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy, Debug, Default);
+    #[rustfmt::skip]
+    impl RejectReason{
+        pub fn quote_unavailable() -> Self{ RejectReason(0x01) }
+        pub fn destination_closed() -> Self{ RejectReason(0x02) }
+        pub fn invalid_display() -> Self{ RejectReason(0x03) }
+        pub fn invalid_max_floor() -> Self{ RejectReason(0x04) }
+        pub fn invalid_peg_type() -> Self{ RejectReason(0x05) }
+        pub fn fat_finger() -> Self{ RejectReason(0x06) }
+        pub fn halted() -> Self { RejectReason(0x07) } 
+        pub fn iso_not_allowed() -> Self { RejectReason(0x08) } 
+        pub fn invalid_side() -> Self { RejectReason(0x09) } 
+        pub fn processing_error() -> Self { RejectReason(0x0A) } 
+        pub fn cancel_pending() -> Self { RejectReason(0x0B) } 
+        pub fn firm_not_authorized() -> Self { RejectReason(0x0C) } 
+        pub fn invalid_min_quantity() -> Self { RejectReason(0x0D) } 
+        pub fn no_closing_reference_price() -> Self { RejectReason(0x0E) } 
+        pub fn other() -> Self { RejectReason(0x0F) } 
+        pub fn cancel_not_allowed() -> Self { RejectReason(0x10) } 
+        pub fn pegging_not_allowed() -> Self { RejectReason(0x11) } 
+        pub fn crossed_market() -> Self { RejectReason(0x12) } 
+        pub fn invalid_quantity() -> Self { RejectReason(0x13) } 
+        pub fn invalid_cross_order() -> Self { RejectReason(0x14) } 
+        pub fn replace_not_allowed() -> Self { RejectReason(0x15) } 
+        pub fn routing_not_allowed() -> Self { RejectReason(0x16) } 
+        pub fn invalid_symbol() -> Self { RejectReason(0x17) } 
+        pub fn test() -> Self { RejectReason(0x18) } 
+        pub fn late_loc_too_aggressive() -> Self { RejectReason(0x19) } 
+        pub fn retail_not_allowed() -> Self { RejectReason(0x1A) } 
+        pub fn invalid_midpoint_post_only_price() -> Self { RejectReason(0x1B) } 
+        pub fn invalid_destination() -> Self { RejectReason(0x1C) } 
+        pub fn invalid_price() -> Self { RejectReason(0x1D) } 
+        pub fn shares_exceed_threshold() -> Self { RejectReason(0x1E) } 
+        pub fn exceeds_maximum_allowed_notional_valu() -> Self { RejectReason(0x1F) } 
+        pub fn risk_aggregate_exposure_exceeded() -> Self { RejectReason(0x20) } 
+        pub fn risk_market_impact() -> Self { RejectReason(0x21) } 
+        pub fn risk_restricted_stock() -> Self { RejectReason(0x22) } 
+        pub fn risk_short_sell_restricted() -> Self { RejectReason(0x23) }
+        pub fn risk_order_type_restricted() -> Self { RejectReason(0x24) }
+        pub fn risk_exceeds_adv_limit() -> Self { RejectReason(0x25) }
+        pub fn risk_fat_finger() -> Self { RejectReason(0x26) }
+        pub fn risk_locate_required() -> Self { RejectReason(0x27) }
+        pub fn risk_symbol_message_rate_restriction() -> Self { RejectReason(0x28) }
+        pub fn risk_port_message_rate_restriction() -> Self { RejectReason(0x29) }
+        pub fn risk_duplicate_message_rate_restriction() -> Self { RejectReason(0x2A) }
     }
 }

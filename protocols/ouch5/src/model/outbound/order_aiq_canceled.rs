@@ -27,7 +27,7 @@ where
         Self {
             packet_type: PacketTypeOrderAiqCanceled::default(),
             timestamp: Timestamp::default(),
-            user_ref_number: enter_order.user_ref_number().clone(),
+            user_ref_number: enter_order.user_ref_number(),
             decrement_shares: Quantity::default(),
             reason: CancelReasonAiq::default(),
             prevented_from_trading: Quantity::default(),

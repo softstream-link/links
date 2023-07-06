@@ -21,27 +21,30 @@ pub struct ReplaceOrder {
     pub appendages: OptionalAppendage,
 }
 impl CancelableOrder for ReplaceOrder {
-    fn user_ref_number(&self) -> &UserRefNumber {
-        &self.user_ref_number
+    fn user_ref_number(&self) -> UserRefNumber {
+        self.user_ref_number
     }
-    fn quantity(&self) -> &Quantity {
-        &self.quantity
+    fn quantity(&self) -> Quantity {
+        self.quantity
+    }
+    fn cl_ord_id(&self) -> CltOrderId {
+        self.clt_order_id
     }
 }
 impl From<&EnterOrder> for ReplaceOrder {
     fn from(enter_order: &EnterOrder) -> Self {
         Self {
             packet_type: PacketTypeReplaceOrder::default(),
-            orig_user_ref_number: OriginalUserRefNumber::from(enter_order.user_ref_number.value()) ,
+            orig_user_ref_number: OriginalUserRefNumber::from(enter_order.user_ref_number.value()),
             user_ref_number: UserRefNumber::default(), // default place holder, has to be replaced
-            quantity: enter_order.quantity.clone(),
-            price: enter_order.price.clone(),
-            time_in_force: enter_order.time_in_force.clone(),
-            display: enter_order.display.clone(),
-            int_mkt_sweep_eligibility: enter_order.int_mkt_sweep_eligibility.clone(),
+            quantity: enter_order.quantity,
+            price: enter_order.price,
+            time_in_force: enter_order.time_in_force,
+            display: enter_order.display,
+            int_mkt_sweep_eligibility: enter_order.int_mkt_sweep_eligibility,
             clt_order_id: CltOrderId::default(), // default place holder, has to be replaced
             appendage_length: enter_order.appendages.byte_len() as u16,
-            appendages: enter_order.appendages.clone(),
+            appendages: enter_order.appendages,
         }
     }
 }

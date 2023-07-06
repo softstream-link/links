@@ -43,22 +43,22 @@ impl From<(&EnterOrder, &ReplaceOrder)> for OrderReplaced {
             order_reference_number: OrderReferenceNumber::default(), // default placeholder must be replaced
             order_state: OrderState::live(),                         // Venue assigned
 
-            orig_user_ref_number: replace_order.orig_user_ref_number.clone(),
-            user_ref_number: enter_order.user_ref_number.clone(), // enter_order
-            side: enter_order.side.clone(),                       // enter_order
-            symbol: enter_order.symbol.clone(),                   // enter_order
-            capacity: enter_order.capacity.clone(),               // enter_order
-            cross_type: enter_order.cross_type.clone(),           // enter_order
+            orig_user_ref_number: replace_order.orig_user_ref_number,
+            user_ref_number: enter_order.user_ref_number, // enter_order
+            side: enter_order.side,                       // enter_order
+            symbol: enter_order.symbol,                   // enter_order
+            capacity: enter_order.capacity,               // enter_order
+            cross_type: enter_order.cross_type,           // enter_order
 
-            quantity: replace_order.quantity.clone(),
-            price: replace_order.price.clone(),
-            time_in_force: replace_order.time_in_force.clone(),
-            display: replace_order.display.clone(),
-            int_mkt_sweep_eligibility: replace_order.int_mkt_sweep_eligibility.clone(),
+            quantity: replace_order.quantity,
+            price: replace_order.price,
+            time_in_force: replace_order.time_in_force,
+            display: replace_order.display,
+            int_mkt_sweep_eligibility: replace_order.int_mkt_sweep_eligibility,
 
-            clt_order_id: replace_order.clt_order_id.clone(),
+            clt_order_id: replace_order.clt_order_id,
             appendage_length: replace_order.appendages.byte_len() as u16,
-            appendages: replace_order.appendages.clone(),
+            appendages: replace_order.appendages,
         }
     }
 }

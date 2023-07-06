@@ -34,9 +34,13 @@ pub enum Ouch5Oub {
     #[byteserde(eq(PacketTypeOrderCanceled::as_slice()))]
     OrdCancld(OrderCanceled),
     #[byteserde(eq(PacketTypeOrderAiqCanceled::as_slice()))]
-    OrdQiqCancld(OrderAiqCanceled),
+    OrdAiqCancld(OrderAiqCanceled),
     #[byteserde(eq(PacketTypeOrderExecuted::as_slice()))]
     OrdExecd(OrderExecuted),
+    #[byteserde(eq(PacketTypeBrokenTrade::as_slice()))]
+    BrknTrd(BrokenTrade),
+    #[byteserde(eq(PacketTypeOrderRejected::as_slice()))]
+    OrdRjctd(OrderRejected),
 }
 
 #[cfg(test)]
@@ -59,6 +63,8 @@ mod test {
         let ord_canceled = OrderCanceled::from((&enter_ord, &cancel_ord));
         let ord_aqi_canceled = OrderAiqCanceled::from(&enter_ord);
         let ord_executed = OrderExecuted::from(&enter_ord);
+        let brkn_trade = BrokenTrade::from(&enter_ord);
+        let ord_rejected = OrderRejected::from((&enter_ord, RejectReason::halted()));
 
         let msg_inp_inb = vec![
             Ouch5Inb::EntOrd(enter_ord),
@@ -74,8 +80,10 @@ mod test {
             Ouch5Oub::OrdAccptd(ord_accepted),
             Ouch5Oub::OrdReplcd(ord_replaced),
             Ouch5Oub::OrdCancld(ord_canceled),
-            Ouch5Oub::OrdQiqCancld(ord_aqi_canceled),
+            Ouch5Oub::OrdAiqCancld(ord_aqi_canceled),
             Ouch5Oub::OrdExecd(ord_executed),
+            Ouch5Oub::BrknTrd(brkn_trade),
+            Ouch5Oub::OrdRjctd(ord_rejected),
         ];
         let _ = msg_inp_inb.clone(); // to ensure clone is propagated to all Ouch5 variants
         let _ = msg_inp_oub.clone(); // to ensure clone is propagated to all Ouch5 variants

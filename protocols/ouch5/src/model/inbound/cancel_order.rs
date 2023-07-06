@@ -10,15 +10,19 @@ pub struct CancelOrder {
     pub quantity: Quantity,
 }
 pub trait CancelableOrder {
-    fn user_ref_number(&self) -> &UserRefNumber;
-    fn quantity(&self) -> &Quantity;
+    /// Copy 
+    fn user_ref_number(&self) -> UserRefNumber;
+    /// Copy 
+    fn quantity(&self) -> Quantity;
+    /// Copy 
+    fn cl_ord_id(&self) -> CltOrderId;
 }
 impl<T: CancelableOrder> From<&T> for CancelOrder {
     fn from(ord: &T) -> Self {
         Self {
             packet_type: PacketTypeCancelOrder::default(),
-            user_ref_number: ord.user_ref_number().clone(),
-            quantity: ord.quantity().clone(),
+            user_ref_number: ord.user_ref_number(),
+            quantity: ord.quantity(),
         }
     }
 }

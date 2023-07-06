@@ -24,19 +24,23 @@ pub struct EnterOrder {
     pub appendages: OptionalAppendage,
 }
 impl CancelableOrder for EnterOrder {
-    fn user_ref_number(&self) -> &UserRefNumber {
-        &self.user_ref_number
+    fn user_ref_number(&self) -> UserRefNumber {
+        self.user_ref_number
     }
-    fn quantity(&self) -> &Quantity {
-        &self.quantity
+    fn quantity(&self) -> Quantity {
+        self.quantity
+    }
+    fn cl_ord_id(&self) -> CltOrderId {
+        self.clt_order_id
     }
 }
 impl Default for EnterOrder {
     fn default() -> Self {
         let appendages = OptionalAppendage {
             customer_type: Some(TagValueElement::<CustomerType>::new(
-                CustomerTypeEnum::Retail.into(),
+                CustomerType::retail(),
             )),
+
             ..Default::default()
         };
         Self {
