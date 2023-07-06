@@ -3,6 +3,8 @@ use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedL
 
 use crate::prelude::*;
 
+use super::outbound::order_aiq_canceled::OrderAiqCanceled;
+
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(peek(0, 1))]
@@ -29,6 +31,12 @@ pub enum Ouch5Oub {
     OrdAccptd(OrderAccepted),
     #[byteserde(eq(PacketTypeOrderReplaced::as_slice()))]
     OrdReplcd(OrderReplaced),
+    #[byteserde(eq(PacketTypeOrderCanceled::as_slice()))]
+    OrdCancld(OrderCanceled),
+    #[byteserde(eq(PacketTypeOrderAiqCanceled::as_slice()))]
+    OrdQiqCancld(OrderAiqCanceled),
+    #[byteserde(eq(PacketTypeOrderExecuted::as_slice()))]
+    OrdExecd(OrderExecuted),
 }
 
 #[cfg(test)]
@@ -45,8 +53,13 @@ mod test {
         let enter_ord = EnterOrder::default();
         let replace_ord = ReplaceOrder::from(&enter_ord);
         let cancel_ord = CancelOrder::from(&enter_ord);
+
         let ord_accepted = OrderAccepted::from(&enter_ord);
         let ord_replaced = OrderReplaced::from((&enter_ord, &replace_ord));
+        let ord_canceled = OrderCanceled::from((&enter_ord, &cancel_ord));
+        let ord_aqi_canceled = OrderAiqCanceled::from(&enter_ord);
+        let ord_executed = OrderExecuted::from(&enter_ord);
+
         let msg_inp_inb = vec![
             Ouch5Inb::EntOrd(enter_ord),
             Ouch5Inb::RepOrd(replace_ord),
@@ -54,10 +67,15 @@ mod test {
             Ouch5Inb::ModOrd(ModifyOrder::default()),
             Ouch5Inb::AccQryReq(AccountQueryRequest::default()),
         ];
+
+
         let msg_inp_oub = vec![
             Ouch5Oub::SysEvt(SystemEvent::default()),
             Ouch5Oub::OrdAccptd(ord_accepted),
             Ouch5Oub::OrdReplcd(ord_replaced),
+            Ouch5Oub::OrdCancld(ord_canceled),
+            Ouch5Oub::OrdQiqCancld(ord_aqi_canceled),
+            Ouch5Oub::OrdExecd(ord_executed),
         ];
         let _ = msg_inp_inb.clone(); // to ensure clone is propagated to all Ouch5 variants
         let _ = msg_inp_oub.clone(); // to ensure clone is propagated to all Ouch5 variants

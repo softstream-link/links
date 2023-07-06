@@ -24,11 +24,11 @@ pub struct EnterOrder {
     pub appendages: OptionalAppendage,
 }
 impl CancelableOrder for EnterOrder {
-    fn user_ref_number(&self) -> UserRefNumber {
-        self.user_ref_number.clone()
+    fn user_ref_number(&self) -> &UserRefNumber {
+        &self.user_ref_number
     }
-    fn quantity(&self) -> Quantity {
-        self.quantity.clone()
+    fn quantity(&self) -> &Quantity {
+        &self.quantity
     }
 }
 impl Default for EnterOrder {

@@ -8,5 +8,8 @@ pub use crate::model::inbound::account_query_request::AccountQueryRequest;
 pub use crate::model::outbound::system_event::SystemEvent;
 pub use crate::model::outbound::order_accepted::OrderAccepted;
 pub use crate::model::outbound::order_replaced::OrderReplaced;
+pub use crate::model::outbound::order_canceled::OrderCanceled;
+pub use crate::model::outbound::order_aiq_canceled::OrderAiqCanceled;
+pub use crate::model::outbound::order_executed::OrderExecuted;
 
 pub use crate::model::ouch5::Ouch5Inb;

@@ -1,33 +1,36 @@
+pub use super::appendages::*;
+pub use aiq_strategy::AiqStrategy;
+pub use cancel_reason::CancelReason;
+pub use cancel_reason_aiq::CancelReasonAiq;
 pub use capacity::Capacity;
+pub use clt_order_id::*;
 pub use cross_type::CrossType;
 pub use display::Display;
 pub use event_code::EventCode;
 pub use int_mkt_sweep_eligibility::IntMktSweepEligibility;
+pub use liquidity_flag::LiquidityFlag;
+pub use match_number::MatchNumber;
 pub use order_reference_number::OrderReferenceNumber;
 pub use order_state::OrderState;
+pub use packet_types::*;
 pub use price::Price;
+pub use qty::*;
 pub use side::Side;
+pub use string_ascii_fixed::*;
 pub use time_in_force::TimeInForce;
 pub use timestamp::Timestamp;
-
-pub use super::appendages::*;
-pub use clt_order_id::*;
-pub use packet_types::*;
-pub use qty::*;
-pub use string_ascii_fixed::*;
 pub use user_ref::*;
 
 use byteserde::prelude::*;
 use byteserde_derive::{
     ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf, ByteSerializedSizeOf,
 };
-use byteserde_types::{char_ascii, string_ascii_fixed, u32_tuple, u64_tuple};
+use byteserde_types::{char_ascii, const_char_ascii, string_ascii_fixed, u32_tuple, u64_tuple};
 
 // const char ascii
 #[rustfmt::skip]
 pub mod packet_types{
     use super::*;
-    use byteserde_types::const_char_ascii;
     // inbound
     const_char_ascii!(PacketTypeEnterOrder, b'O', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
     const_char_ascii!(PacketTypeReplaceOrder, b'U', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
@@ -39,6 +42,9 @@ pub mod packet_types{
     const_char_ascii!(PacketTypeSystemEvent, b'S', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
     const_char_ascii!(PacketTypeOrderAccepted, b'A', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
     const_char_ascii!(PacketTypeOrderReplaced, b'U', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    const_char_ascii!(PacketTypeOrderCanceled, b'C', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    const_char_ascii!(PacketTypeOrderAiqCanceled, b'D', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    const_char_ascii!(PacketTypeOrderExecuted, b'E', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
 
 }
 // fixed ascii strings
@@ -79,8 +85,8 @@ pub mod clt_order_id {
     }
     #[cfg(test)]
     mod test {
-        use log::info;
         use crate::unittest::setup;
+        use log::info;
 
         use super::*;
 
@@ -411,6 +417,119 @@ pub mod order_reference_number {
             let next = iter.next().unwrap();
             info!("next: {:?}", next);
             assert_eq!(next, OrderReferenceNumber::new(2));
+        }
+    }
+}
+
+pub mod cancel_reason {
+    use super::*;
+
+    #[rustfmt::skip]
+    char_ascii!(CancelReason, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    #[rustfmt::skip]
+    impl CancelReason {
+        pub fn reg_restriction() -> Self{ CancelReason(b'D') }
+        pub fn closed() -> Self{ CancelReason(b'E') }
+        pub fn post_only_cancel_nms() -> Self{ CancelReason(b'F') }
+        pub fn post_only_cancel_displayed() -> Self{ CancelReason(b'G') }
+        pub fn halted() -> Self{ CancelReason(b'H') }
+        pub fn immediate_or_cancel() -> Self{ CancelReason(b'I') }
+        pub fn market_collars() -> Self{ CancelReason(b'K') }
+        pub fn self_match_prevention() -> Self{ CancelReason(b'Q') }
+        pub fn supervisory() -> Self{ CancelReason(b'S') }
+        pub fn timeout() -> Self{ CancelReason(b'T') }
+        pub fn user_requested() -> Self{ CancelReason(b'U') }
+        pub fn open_protection() -> Self{ CancelReason(b'X') }
+        pub fn system_cancel() -> Self{ CancelReason(b'Z') }
+        pub fn exceeds_allowable_shares() -> Self{ CancelReason(b'e') }
+        pub fn is_reg_restriction(reason: &CancelReason) -> bool{ Self::reg_restriction() == *reason }
+        pub fn is_closed(reason: &CancelReason) -> bool{ Self::closed() == *reason }
+        pub fn is_post_only_cancel_nms(reason: &CancelReason) -> bool{ Self::post_only_cancel_nms() == *reason }
+        pub fn is_post_only_cancel_displayed(reason: &CancelReason) -> bool{ Self::post_only_cancel_displayed() == *reason }
+        pub fn is_halted(reason: &CancelReason) -> bool{ Self::halted() == *reason }
+        pub fn is_immediate_or_cancel(reason: &CancelReason) -> bool{ Self::immediate_or_cancel() == *reason }
+        pub fn is_market_collars(reason: &CancelReason) -> bool{ Self::market_collars() == *reason }
+        pub fn is_self_match_prevention(reason: &CancelReason) -> bool{ Self::self_match_prevention() == *reason }
+        pub fn is_supervisory(reason: &CancelReason) -> bool{ Self::supervisory() == *reason }
+        pub fn is_timeout(reason: &CancelReason) -> bool{ Self::timeout() == *reason }
+        pub fn is_user_requested(reason: &CancelReason) -> bool{ Self::user_requested() == *reason }
+        pub fn is_open_protection(reason: &CancelReason) -> bool{ Self::open_protection() == *reason }
+        pub fn is_system_cancel(reason: &CancelReason) -> bool{ Self::system_cancel() == *reason }
+        pub fn is_exceeds_allowable_shares(reason: &CancelReason) -> bool{ Self::exceeds_allowable_shares() == *reason }
+    }
+}
+
+pub mod cancel_reason_aiq {
+    use super::*;
+
+    #[rustfmt::skip]
+    const_char_ascii!(CancelReasonAiq, b'Q', ByteSerializeStack, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+}
+
+pub mod liquidity_flag {
+    use super::*;
+
+    #[rustfmt::skip]
+    char_ascii!(LiquidityFlag, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    #[rustfmt::skip]
+    impl LiquidityFlag {
+        pub fn added() -> Self{ LiquidityFlag(b'A') }
+        pub fn closing_cross() -> Self{ LiquidityFlag(b'C') }
+        pub fn retail_designated_that_added_display_liq() -> Self{ LiquidityFlag(b'e') }
+        pub fn halt_ipo_cross() -> Self{ LiquidityFlag(b'H') }
+        pub fn after_hours_closing_cross() -> Self{ LiquidityFlag(b'i') }
+        pub fn non_display_adding_liq() -> Self{ LiquidityFlag(b'J') }
+        pub fn rpi_order_provides_liq() -> Self{ LiquidityFlag(b'j') }
+        pub fn added_liq_via_midpoint_order() -> Self{ LiquidityFlag(b'k') }
+        pub fn halt_cross() -> Self{ LiquidityFlag(b'K') }
+        pub fn closing_cross_imbalance() -> Self{ LiquidityFlag(b'L') }
+        pub fn opening_cross_imbalance() -> Self{ LiquidityFlag(b'M') }
+        pub fn removed_liq_at_midpoint() -> Self{ LiquidityFlag(b'm') }
+        pub fn passing_midpoint_execution() -> Self{ LiquidityFlag(b'N') }
+        pub fn midpoint_extended_life_order() -> Self{ LiquidityFlag(b'n') }
+        pub fn opening_cross() -> Self{ LiquidityFlag(b'O') }
+        pub fn removed_price_improving_non_display_liq() -> Self{ LiquidityFlag(b'p') }
+        pub fn rmo_retail_order_removes_non_rpi_midpoint_liq() -> Self{ LiquidityFlag(b'q') }
+        pub fn removed() -> Self{ LiquidityFlag(b'R') }
+        pub fn retail_order_removes_rpi_liq() -> Self{ LiquidityFlag(b'r') }
+        pub fn retain_order_removes_price_improving_non_display_liq_not_rpi_liq() -> Self{ LiquidityFlag(b't') }
+        pub fn supplemental_order_execution() -> Self{ LiquidityFlag(b'0') }
+        pub fn displayed_liq_adding_order_improves_nnbo() -> Self{ LiquidityFlag(b'7') }
+        pub fn displayed_liq_adding_order_sets_qbbo() -> Self{ LiquidityFlag(b'8') }
+        pub fn rpi_order_provides_liq_no_rpii() -> Self{ LiquidityFlag(b'1') }
+    }
+}
+
+pub mod aiq_strategy {
+    use super::*;
+
+    #[rustfmt::skip]
+    char_ascii!(AiqStrategy, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
+    impl Default for AiqStrategy {
+        fn default() -> Self {
+            AiqStrategy(b'?') // spect does not list valid values
+        }
+    }
+}
+
+pub mod match_number {
+    use super::*;
+
+    #[rustfmt::skip]
+    u64_tuple!(MatchNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Debug, Default);
+    pub struct MatchNumberIterator {
+        last: u64,
+    }
+    impl Default for MatchNumberIterator {
+        fn default() -> Self {
+            Self { last: 0 }
+        }
+    }
+    impl Iterator for MatchNumberIterator {
+        type Item = MatchNumber;
+        fn next(&mut self) -> Option<Self::Item> {
+            self.last += 1;
+            Some(MatchNumber::from(self.last))
         }
     }
 }

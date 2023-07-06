@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use byteserde::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 
 #[rustfmt::skip]
@@ -25,6 +24,7 @@ impl Default for SystemEvent {
 mod test {
     use super::*;
     use crate::unittest::setup;
+    use byteserde::prelude::*;
 
     use log::info;
 

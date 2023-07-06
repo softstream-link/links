@@ -6,12 +6,12 @@ use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedL
 #[byteserde(endian = "be")]
 pub struct CancelOrder {
     packet_type: PacketTypeCancelOrder,
-    user_ref_number: UserRefNumber,
-    quantity: Quantity,
+    pub user_ref_number: UserRefNumber,
+    pub quantity: Quantity,
 }
 pub trait CancelableOrder {
-    fn user_ref_number(&self) -> UserRefNumber;
-    fn quantity(&self) -> Quantity;
+    fn user_ref_number(&self) -> &UserRefNumber;
+    fn quantity(&self) -> &Quantity;
 }
 impl<T: CancelableOrder> From<&T> for CancelOrder {
     fn from(ord: &T) -> Self {
@@ -42,7 +42,7 @@ mod test {
     #[test]
     fn test_msg() {
         setup::log::configure();
-        
+
         let msg_inp = CancelOrder::from(&EnterOrder::default());
 
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
