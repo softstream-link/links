@@ -2,7 +2,7 @@ use byteserde::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 use std::fmt;
 
-use super::{sample_payload::SamplePayload, types::PacketTypeSequenceData};
+use super::{payload::SamplePayload, types::PacketTypeSequenceData};
 
 pub const SEQUENCED_DATA_HEADER_BYTE_LEN: usize = 3;
 
@@ -50,7 +50,7 @@ impl Default for SequencedData<SamplePayload> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{model::sample_payload::SamplePayload, unittest::setup};
+    use crate::{model::payload::SamplePayload, unittest::setup};
     use log::info;
 
     #[test]

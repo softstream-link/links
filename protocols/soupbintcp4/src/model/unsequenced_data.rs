@@ -2,7 +2,7 @@ use byteserde::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 use std::fmt;
 
-use super::sample_payload::SamplePayload;
+use super::payload::SamplePayload;
 use super::types::PacketTypeUnsequenceData;
 
 pub const UNSEQUENCED_DATA_BYTE_LEN: usize = 3;
@@ -53,7 +53,7 @@ impl Default for UnsequencedData<SamplePayload> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{model::sample_payload::SamplePayload, unittest::setup};
+    use crate::{model::payload::SamplePayload, unittest::setup};
     use log::info;
 
     #[test]

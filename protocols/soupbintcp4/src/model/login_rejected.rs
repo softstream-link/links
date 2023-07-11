@@ -30,6 +30,12 @@ impl LoginRejected {
             reject_reason_code: CharAscii::new(b'S'),
         }
     }
+    pub fn is_not_authorized(&self) -> bool {
+        self.reject_reason_code == LoginRejected::not_authorized().reject_reason_code
+    }
+    pub fn is_session_not_available(&self) -> bool {
+        self.reject_reason_code == LoginRejected::session_not_available().reject_reason_code
+    }
 }
 
 impl Display for LoginRejected {

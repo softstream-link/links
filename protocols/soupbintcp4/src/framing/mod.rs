@@ -1,11 +1,16 @@
 use bytes::{Bytes, BytesMut};
-use framing::prelude::*;
+use byteserde::prelude::*;
+use framing::{prelude::*, MessageHandler};
+
+use crate::prelude::SoupBin;
 
 // use crate::model::clt_heartbeat::ClientHeartbeat;
 // pub struct SoupBinTcp4FrameHandler;
-pub struct SoupBinTcp4FrameHandler;
 
-impl FrameHandler for SoupBinTcp4FrameHandler {
+#[derive(Debug)]
+pub struct SoupBinFrame;
+
+impl FrameHandler for SoupBinFrame {
     fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
         // ensures there is at least 2 bytes to represet packet_length
         if bytes.len() < 2 {
@@ -46,17 +51,29 @@ impl FrameHandler for SoupBinTcp4FrameHandler {
     }
 }
 
+#[derive(Debug)]
+pub struct SoupBinMessageHandler<PAYLOAD> {
+    phantom: std::marker::PhantomData<PAYLOAD>,
+}
+
+#[rustfmt::skip]
+impl<PAYLOAD, const STACK_SIZE: usize> MessageHandler<STACK_SIZE> for SoupBinMessageHandler<PAYLOAD>
+where
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone,
+{
+    type MSG = SoupBin<PAYLOAD>;
+    type FHANDLER = SoupBinFrame;
+}
+
+
 #[cfg(test)]
 mod test {
     use super::*;
     use bytes::{BufMut, BytesMut};
-    use byteserde::prelude::*;
     use log::info;
 
     use crate::{
-        model::{
-            sample_payload::SamplePayload, soup_bin::SoupBin, unsequenced_data::UnsequencedData,
-        },
+        model::{payload::SamplePayload, soup_bin::SoupBin, unsequenced_data::UnsequencedData},
         prelude::*,
         unittest::setup,
     };
@@ -89,7 +106,7 @@ mod test {
 
         let mut msg_out: Vec<SoupBin<SamplePayload>> = vec![];
         loop {
-            let frame = SoupBinTcp4FrameHandler::get_frame(&mut bytes);
+            let frame = SoupBinFrame::get_frame(&mut bytes);
             match frame {
                 Some(frame) => {
                     let des = &mut ByteDeserializerSlice::new(&frame[..]);

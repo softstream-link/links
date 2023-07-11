@@ -11,7 +11,7 @@ use super::unsequenced_data::UnsequencedData;
 #[byteserde(peek(2, 1))]
 pub enum SoupBin<T>
 where
-    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug,
+    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug, // TODO can this be done via super trait?
 {
     #[byteserde(eq(PacketTypeCltHeartbeat::as_slice()))]
     CltHBeat(CltHeartbeat),
@@ -34,6 +34,43 @@ where
     #[byteserde(eq(PacketTypeUnsequenceData::as_slice()))]
     UData(UnsequencedData::<T>),
 }
+#[rustfmt::skip]
+impl<PAYLOAD> SoupBin<PAYLOAD>
+where PAYLOAD: ByteSerializeStack + ByteDeserializeSlice<PAYLOAD> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug
+{
+    pub fn clt_hbeat() -> Self { SoupBin::CltHBeat(CltHeartbeat::default()) }
+    pub fn svc_hbeat() -> Self { SoupBin::SvcHBeat(SvcHeartbeat::default()) }
+    pub fn dbg(text: &[u8]) -> Self { SoupBin::Dbg(Debug::new(text)) }
+    pub fn end() -> Self { SoupBin::End(EndOfSession::default()) }
+    pub fn login_acc(id: SessionId, num: SequenceNumber) -> Self { 
+        SoupBin::LoginAcc(LoginAccepted::new(id, num)) 
+    }
+    
+    pub fn login_rej_not_auth() -> Self { SoupBin::LoginRej(LoginRejected::not_authorized()) }
+    pub fn login_rej_ses_not_avail() -> Self { SoupBin::LoginRej(LoginRejected::session_not_available()) }
+
+    pub fn login_req(usr: UserName, pwd: Password, id: Option<SessionId>, num: Option<SequenceNumber>, tmout: Option<TimeoutMs>) -> Self { 
+        SoupBin::LoginReq(
+            LoginRequest::new(
+                usr, 
+                pwd,
+                id.unwrap_or_default(), 
+                num.unwrap_or_default(),
+                tmout.unwrap_or_default()
+            )
+        ) 
+    }
+    pub fn logout_req() -> Self { SoupBin::LogoutReq(LogoutRequest::default()) }
+    pub fn sdata<T>(payload: T) -> SoupBin<T> 
+    where T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug{ 
+        SoupBin::SData(SequencedData::new(payload)) 
+    }
+    pub fn udata<T>(payload: T) -> SoupBin<T> 
+    where T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug{ 
+        SoupBin::UData(UnsequencedData::new(payload)) 
+    }
+
+}
 
 #[cfg(test)]
 mod test {
@@ -42,7 +79,7 @@ mod test {
 
     use super::*;
 
-    use crate::{unittest::setup, model::sample_payload::SamplePayload};
+    use crate::{model::payload::SamplePayload, unittest::setup};
 
     #[test]
     fn test_soup_bin() {

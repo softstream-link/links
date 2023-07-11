@@ -14,7 +14,7 @@ pub struct LoginRequest {
     packet_type: PacketTypeLoginRequest,
     usr: UserName,
     pwd: Password,
-    requested_session: SessionId,
+    requested_session_id: SessionId,
     requested_sequence_number: SequenceNumber,
     heartbeat_timeout_ms: TimeoutMs,
 }
@@ -22,7 +22,7 @@ impl LoginRequest {
     pub fn new(
         username: UserName,
         password: Password,
-        requested_session: SessionId,
+        requested_session_id: SessionId,
         requested_sequence_number: SequenceNumber,
         heartbeat_timeout_ms: TimeoutMs,
     ) -> LoginRequest {
@@ -31,7 +31,7 @@ impl LoginRequest {
             packet_type: Default::default(),
             usr: username,
             pwd: password,
-            requested_session,
+            requested_session_id,
             requested_sequence_number,
             heartbeat_timeout_ms,
         }
@@ -47,7 +47,7 @@ impl Debug for LoginRequest {
             .field("packet_type", &self.packet_type)
             .field("usr", &self.usr)
             .field("pwd", &pass)
-            .field("requested_session", &self.requested_session)
+            .field("requested_session", &self.requested_session_id)
             .field("requested_sequence_number", &self.requested_sequence_number)
             .field("heartbeat_timeout_ms", &self.heartbeat_timeout_ms)
             .finish()
@@ -71,7 +71,7 @@ impl Display for LoginRequest {
             f,
             "Login Request, as username \"{}\" requested for session \"{}\", sequence \"{}\", heartbeat timeout {}ms",
             self.usr,
-            self.requested_session,
+            self.requested_session_id,
             self.requested_sequence_number,
             self.heartbeat_timeout_ms,
         

@@ -7,7 +7,6 @@ string_ascii_fixed!(Context1, 10, b' ', true, ByteSerializeStack, ByteDeserializ
 string_ascii_fixed!(Context2, 10, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
 
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
-#[byteserde(endian = "be")]
 pub struct SamplePayload{
     pub context1: Context1,
     pub context2: Context2,
@@ -20,4 +19,12 @@ impl Default for SamplePayload{
             context2: b"hello world".as_slice().into(),
         }
     }
+}
+
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
+pub struct NoPayload;
+
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
+pub struct VecPayload{
+    pub payload: Vec<u8>,
 }

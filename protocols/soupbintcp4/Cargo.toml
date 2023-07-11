@@ -16,5 +16,5 @@ framing = { path = "../framing"}
 bytes = { workspace = true }
 
 [dev-dependencies]
-env_logger = "0.10"
-log = "0.4"
+env_logger = { workspace = true }
+log = { workspace = true }

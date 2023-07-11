@@ -20,6 +20,7 @@ pub enum Ouch5Inb {
     #[byteserde(eq(PacketTypeAccountQueryRequest::as_slice()))]
     AccQryReq(AccountQueryRequest),
 }
+
 /// Both [ReplaceOrder] & [OrderReplaced] are serialized as b'U' hence it is impossible to distinguish deserializetion type unless they are in two different enums.
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
@@ -55,17 +56,23 @@ pub enum Ouch5Oub {
     AccQryRes(AccountQueryResponse),
 }
 
+#[derive(Debug)]
+pub enum Ouch5 {
+    Inb(Ouch5Inb),
+    Oub(Ouch5Oub),
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::unittest::setup;
     use log::info;
 
+    // TODO max message length needed to optimize stack serialization assuem 512 bytes for now
     #[test]
     fn test_ouch5() {
         setup::log::configure();
 
-        let mut ser = ByteSerializerStack::<1024>::default();
         let enter_ord = EnterOrder::default();
         let replace_ord = ReplaceOrder::from(&enter_ord);
         let cancel_ord = CancelOrder::from(&enter_ord);
@@ -83,59 +90,56 @@ mod test {
         let ord_modified = OrderModified::from((&enter_ord, Side::buy()));
         let ord_rstd = OrderRestated::from((&enter_ord, RestatedReason::refresh_of_display()));
 
-        let msg_inp_inb: Vec<Ouch5Inb> = vec![
-            Ouch5Inb::EntOrd(enter_ord),
-            Ouch5Inb::RepOrd(replace_ord),
-            Ouch5Inb::CanOrd(cancel_ord),
-            Ouch5Inb::ModOrd(ModifyOrder::default()),
-            Ouch5Inb::AccQryReq(AccountQueryRequest::default()),
+        let msg_inp: Vec<Ouch5> = vec![
+            Ouch5::Inb(Ouch5Inb::EntOrd(enter_ord)),
+            Ouch5::Inb(Ouch5Inb::RepOrd(replace_ord)),
+            Ouch5::Inb(Ouch5Inb::CanOrd(cancel_ord)),
+            Ouch5::Inb(Ouch5Inb::ModOrd(ModifyOrder::default())),
+            Ouch5::Inb(Ouch5Inb::AccQryReq(AccountQueryRequest::default())),
+            Ouch5::Oub(Ouch5Oub::SysEvt(SystemEvent::default())),
+            Ouch5::Oub(Ouch5Oub::OrdAccptd(ord_accepted)),
+            Ouch5::Oub(Ouch5Oub::OrdReplcd(ord_replaced)),
+            Ouch5::Oub(Ouch5Oub::OrdCancld(ord_canceled)),
+            Ouch5::Oub(Ouch5Oub::OrdAiqCancld(ord_aqi_canceled)),
+            Ouch5::Oub(Ouch5Oub::OrdExecd(ord_executed)),
+            Ouch5::Oub(Ouch5Oub::BrknTrd(brkn_trade)),
+            Ouch5::Oub(Ouch5Oub::OrdRjctd(ord_rejected)),
+            Ouch5::Oub(Ouch5Oub::CanPend(can_pending)),
+            Ouch5::Oub(Ouch5Oub::CanRej(can_reject)),
+            Ouch5::Oub(Ouch5Oub::PrioUpdt(prio_update)),
+            Ouch5::Oub(Ouch5Oub::OrdMod(ord_modified)),
+            Ouch5::Oub(Ouch5Oub::OrdRstd(ord_rstd)),
+            Ouch5::Oub(Ouch5Oub::AccQryRes(AccountQueryResponse::default())),
         ];
-
-
-        let msg_inp_oub = vec![
-            Ouch5Oub::SysEvt(SystemEvent::default()),
-            Ouch5Oub::OrdAccptd(ord_accepted),
-            Ouch5Oub::OrdReplcd(ord_replaced),
-            Ouch5Oub::OrdCancld(ord_canceled),
-            Ouch5Oub::OrdAiqCancld(ord_aqi_canceled),
-            Ouch5Oub::OrdExecd(ord_executed),
-            Ouch5Oub::BrknTrd(brkn_trade),
-            Ouch5Oub::OrdRjctd(ord_rejected),
-            Ouch5Oub::CanPend(can_pending),
-            Ouch5Oub::CanRej(can_reject),
-            Ouch5Oub::PrioUpdt(prio_update),
-            Ouch5Oub::OrdMod(ord_modified),
-            Ouch5Oub::OrdRstd(ord_rstd),
-            Ouch5Oub::AccQryRes(AccountQueryResponse::default()),
-        ];
-        let _ = msg_inp_inb.clone(); // to ensure clone is propagated to all Ouch5 variants
-        let _ = msg_inp_oub.clone(); // to ensure clone is propagated to all Ouch5 variants
-
-        for msg in msg_inp_inb.iter() {
-            info!("msg_inp: {:?}", msg);
-            let _ = ser.serialize(msg).unwrap();
+        let mut ser = ByteSerializerStack::<1024>::default();
+        for ouch5 in msg_inp.iter() {
+            match ouch5 {
+                Ouch5::Inb(msg_inp_inb) => {
+                    info!("msg_inp_inb: {:?}", msg_inp_inb);
+                    let _ = ser.serialize(msg_inp_inb).unwrap();
+                }
+                Ouch5::Oub(msg_inp_oub) => {
+                    info!("msg_inp_oub: {:?}", msg_inp_oub);
+                    let _ = ser.serialize(msg_inp_oub).unwrap();
+                }
+            }
         }
-        for msg in msg_inp_oub.iter() {
-            info!("msg_inp: {:?}", msg);
-            let _ = ser.serialize(msg).unwrap();
-        }
-        info!("ser: {:#x}", ser);
-
         let mut des = ByteDeserializerSlice::new(ser.as_slice());
-        let mut msg_out_inb = vec![];
-        let mut msg_out_oub = vec![];
-        for _ in msg_inp_inb.iter() {
-            let msg: Ouch5Inb = des.deserialize().unwrap();
-            info!("msg_out: {:?}", msg);
-            msg_out_inb.push(msg);
+
+        for ouch5 in msg_inp.iter() {
+            match ouch5 {
+                Ouch5::Inb(msg_inp_inb) => {
+                    let msg_out_inb = des.deserialize::<Ouch5Inb>().unwrap();
+                    info!("msg_out_inb: {:?}", msg_out_inb);
+                    assert_eq!(msg_inp_inb, &msg_out_inb);
+                }
+                Ouch5::Oub(msg_inp_oub) => {
+                    let msg_out_oub = des.deserialize::<Ouch5Oub>().unwrap();
+                    info!("msg_out_oub: {:?}", msg_out_oub);
+                    assert_eq!(msg_inp_oub, &msg_out_oub);
+                }
+            }
         }
-        for _ in msg_inp_oub.iter() {
-            let msg: Ouch5Oub = des.deserialize().unwrap();
-            info!("msg_out: {:?}", msg);
-            msg_out_oub.push(msg);
-        }
-        assert_eq!(msg_inp_inb, msg_out_inb);
-        assert_eq!(msg_inp_oub, msg_out_oub);
         assert!(des.is_empty());
     }
 }

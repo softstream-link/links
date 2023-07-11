@@ -4,9 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-env_logger = "0.10"
-log = "0.4"
+log = { workspace = true }
+env_logger = { workspace = true }
+bytes = { workspace = true }
+tokio = { workspace = true }
 
-bytes = "1.4.0"
+framing = { path = "../protocols/framing" }
+soupbintcp4 = { path = "../protocols/soupbintcp4" }
+byteserde = { workspace = true }
 
 [dev-dependencies]
+tokio-test = { workspace = true }

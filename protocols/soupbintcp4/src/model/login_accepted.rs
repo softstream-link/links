@@ -10,15 +10,25 @@ pub const LOGING_ACCEPTED_BYTE_LEN: usize = LOGING_ACCEPTED_PACKET_LENGTH as usi
 pub struct LoginAccepted {
     packet_length: u16,
     packet_type: PacketTypeLoginAccepted,
-    session: SessionId,
+    session_id: SessionId,
     sequence_number: SequenceNumber,
+}
+impl LoginAccepted {
+    pub fn new(session_id: SessionId, sequence_number: SequenceNumber) -> LoginAccepted {
+        LoginAccepted {
+            packet_length: LOGING_ACCEPTED_PACKET_LENGTH,
+            packet_type: Default::default(),
+            session_id,
+            sequence_number,
+        }
+    }
 }
 impl Default for LoginAccepted {
     fn default() -> Self {
         LoginAccepted {
             packet_length: LOGING_ACCEPTED_PACKET_LENGTH,
             packet_type: Default::default(),
-            session: b"session #1".into(),
+            session_id: b"session #1".into(),
             sequence_number: 1_u64.into(),
         }
     }
@@ -29,7 +39,7 @@ impl Display for LoginAccepted {
         write!(
             f,
             "Login Accepted, your session \"{}\", next sequence number \"{}\"",
-            self.session, self.sequence_number
+            self.session_id, self.sequence_number
         )
     }
 }

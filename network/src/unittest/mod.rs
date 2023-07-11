@@ -11,4 +11,9 @@ pub mod setup {
             });
         }
     }
+    pub mod net {
+        pub fn svc_default_addr() -> String {
+            return String::from("0.0.0.0:8080");
+        }
+    }
 }
