@@ -1,73 +1,73 @@
-// use log::info;
-// use tokio::{net, spawn};
-// pub struct Svc {
-//     addr: String,
-// }
+use std::{
+    error::Error,
+    sync::{Arc, Mutex},
+};
 
-// impl Svc {
-//     pub fn new(addr: String) -> Self {
-//         Svc { addr }
-//     }
-//     pub async fn run(&self) {
-//         let listener = net::TcpListener::bind(&self.addr).await.unwrap();
-//         loop {
-//             let (mut socket, addr) = listener.accept().await.unwrap();
-//             info!("Accepted New Connection: {:?}, {:?}", socket, addr);
-//             self.service_client_connection(socket).await;
-//             // spawn(async move {
-//             //     let (mut rd, mut wr) = socket.split();
-//             //     io::copy(&mut rd, &mut wr).await.unwrap();
-//             // });
-//         }
-//     }
-//     async fn service_client_connection(&self, mut socket: net::TcpStream) {
-//         spawn(async move {});
-//     }
-// }
+use framing::MessageHandler;
+use log::{error, info};
+use tokio::net::TcpListener;
 
-// async fn say_world() {
-//     println!("world");
-// }
+use crate::asyn::clt::{Clt, CltWriter, ConId};
 
-// // #[tokio::main]
-// // async fn main() {
-// //     // Calling `say_world()` does not execute the body of `say_world()`.
-// //     let op = say_world();
+use super::con_msg::{StreamMessenderReader, StreamMessenderWriter};
 
-// //     // This println! comes first
-// //     println!("hello");
+pub type SvcReaderRef<HANDLER> = Arc<Mutex<Option<StreamMessenderReader<HANDLER>>>>;
+pub type SvcWriterRef<HANDLER> = Arc<Mutex<Option<StreamMessenderWriter<HANDLER>>>>;
 
-// //     // Calling `.await` on `op` starts executing `say_world`.
-// //     op.await;
-// // }
+#[derive(Debug)]
+pub struct Svc<HANDLER: MessageHandler> {
+    // reader: SvcReaderRef<HANDLER>,
+    // writer: SvcWriterRef<HANDLER>,
+    phantom: std::marker::PhantomData<HANDLER>,
+}
 
-// // fn main() {
-// //     let mut rt = tokio::runtime::Runtime::new().unwrap();
-// //     rt.block_on(async {
-// //         println!("hello");
-// //     })
-// // }
+impl<HANDLER> Svc<HANDLER>
+where
+    HANDLER: MessageHandler,
+{
+    pub async fn new(addr: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let con_id = ConId::Svc(addr.to_owned());
+        let lis = TcpListener::bind(&addr).await?;
+        info!("{:?} bound successfully", con_id);
 
-// // macro_rules! block_on{
-// //     ($any:expr) => {
-// //         tokio_test::block_on($any)
-// //     };
-// // }
+        tokio::spawn(async move {
+            info!("{:?} accept loop started", con_id);
+            match Self::run(lis).await {
+                Ok(()) => info!("{:?} accept loop stopped", con_id),
+                Err(err) => error!("{:?} accept loop exit err: {:?}", con_id, err),
+            }
+        });
+        Ok(())
+    }
+    async fn run(lis: TcpListener) -> Result<(), Box<dyn Error + Send + Sync>> {
+        loop {
+            let (stream, _) = lis.accept().await.unwrap();
+            let con_id = ConId::Svc(format!(
+                "{:?}<-{:?}",
+                stream.local_addr()?,
+                stream.peer_addr()?,
+            ));
+            let _: CltWriter<HANDLER> = Clt::<HANDLER>::from_stream(stream, con_id.clone()).await;
+            // info!("{:?} STREAM STOPPED", con_id);
+        }
+    }
+}
 
-// #[cfg(test)]
-// mod test {
-//     use super::*;
+#[cfg(test)]
+mod test {
+    use soupbintcp4::prelude::{NoPayload, SoupBinHandler};
 
-//     #[tokio::test]
-//     async fn test_svc() {
-//         say_world().await;
-//     }
+    use super::*;
+    use crate::unittest::setup;
+    use tokio::time::{sleep, Duration};
 
-//     pub fn reverse(input: &str) -> String {
-//         input.chars().rev().collect()
-//     }
-//     #[test]
-//     fn blah() {
-//         assert_eq!(reverse("hello"), "olleh");
-//     }
-// }
+    #[tokio::test]
+    async fn test_svc() {
+        setup::log::configure();
+        let addr = &setup::net::default_addr();
+        let svc = Svc::<SoupBinHandler<NoPayload>>::new(addr).await;
+        info!("svc: {:?}", svc);
+        // svc.send(SoupBinMsg::dbg(b"hello world from server!")).await;
+        sleep(Duration::from_secs(100)).await;
+    }
+}

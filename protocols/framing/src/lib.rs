@@ -5,24 +5,27 @@ use std::fmt::Debug;
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
 
-pub trait FrameHandler : Debug {
+pub trait FrameHandler: Debug {
     fn get_frame(bytes: &mut BytesMut) -> Option<Bytes>;
 }
 
-pub trait MessageHandler<const STACK_SIZE: usize> {
-    type MSG: ByteDeserializeSlice<Self::MSG> + ByteSerializeStack;
-    type FHANDLER: FrameHandler + Debug;
+pub trait Message: ByteSerializeStack + Debug + Send + Sync + 'static {}
+pub trait MessageHandler: Debug + Send + Sync + 'static {
+    type Item: ByteDeserializeSlice<Self::Item> + ByteSerializeStack + Debug + Send + Sync + 'static;
+    type FrameHandler: FrameHandler + Debug + Send + Sync + 'static;
 
     fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-        Self::FHANDLER::get_frame(bytes)
+        Self::FrameHandler::get_frame(bytes)
     }
 
     #[inline(always)]
-    fn into_msg(frame: Bytes) -> byteserde::prelude::Result<Self::MSG> {
-        from_slice::<Self::MSG>(&frame[..])
+    fn into_msg(frame: Bytes) -> byteserde::prelude::Result<Self::Item> {
+        from_slice::<Self::Item>(&frame[..])
     }
     #[inline(always)]
-    fn from_msg(msg: &Self::MSG) -> byteserde::prelude::Result<([u8; STACK_SIZE], usize)> {
+    fn from_msg<const STACK_SIZE: usize>(
+        msg: &Self::Item,
+    ) -> byteserde::prelude::Result<([u8; STACK_SIZE], usize)> {
         to_bytes_stack(msg)
     }
 }

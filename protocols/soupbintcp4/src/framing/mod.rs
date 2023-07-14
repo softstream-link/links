@@ -2,7 +2,7 @@ use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
 use framing::{prelude::*, MessageHandler};
 
-use crate::prelude::SoupBin;
+use crate::prelude::SoupBinMsg;
 
 // use crate::model::clt_heartbeat::ClientHeartbeat;
 // pub struct SoupBinTcp4FrameHandler;
@@ -52,19 +52,18 @@ impl FrameHandler for SoupBinFrame {
 }
 
 #[derive(Debug)]
-pub struct SoupBinMessageHandler<PAYLOAD> {
+pub struct SoupBinHandler<PAYLOAD> {
     phantom: std::marker::PhantomData<PAYLOAD>,
 }
 
 #[rustfmt::skip]
-impl<PAYLOAD, const STACK_SIZE: usize> MessageHandler<STACK_SIZE> for SoupBinMessageHandler<PAYLOAD>
+impl<PAYLOAD> MessageHandler for SoupBinHandler<PAYLOAD>
 where
-    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone,
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
 {
-    type MSG = SoupBin<PAYLOAD>;
-    type FHANDLER = SoupBinFrame;
+    type Item = SoupBinMsg<PAYLOAD>;
+    type FrameHandler = SoupBinFrame;
 }
-
 
 #[cfg(test)]
 mod test {
@@ -73,7 +72,7 @@ mod test {
     use log::info;
 
     use crate::{
-        model::{payload::SamplePayload, soup_bin::SoupBin, unsequenced_data::UnsequencedData},
+        model::{payload::SamplePayload, soup_bin::SoupBinMsg, unsequenced_data::UnsequencedData},
         prelude::*,
         unittest::setup,
     };
@@ -84,16 +83,16 @@ mod test {
         const CAP: usize = 1024;
         let mut ser = ByteSerializerStack::<CAP>::default();
         let msg_inp = vec![
-            SoupBin::CltHBeat(CltHeartbeat::default()),
-            SoupBin::SvcHBeat(SvcHeartbeat::default()),
-            SoupBin::Dbg(Debug::default()),
-            SoupBin::End(EndOfSession::default()),
-            SoupBin::LoginReq(LoginRequest::default()),
-            SoupBin::LoginAcc(LoginAccepted::default()),
-            SoupBin::LoginRej(LoginRejected::not_authorized()),
-            SoupBin::LogoutReq(LogoutRequest::default()),
-            SoupBin::SData(SequencedData::<SamplePayload>::default()),
-            SoupBin::UData(UnsequencedData::<SamplePayload>::default()),
+            SoupBinMsg::CltHBeat(CltHeartbeat::default()),
+            SoupBinMsg::SvcHBeat(SvcHeartbeat::default()),
+            SoupBinMsg::Dbg(Debug::default()),
+            SoupBinMsg::End(EndOfSession::default()),
+            SoupBinMsg::LoginReq(LoginRequest::default()),
+            SoupBinMsg::LoginAcc(LoginAccepted::default()),
+            SoupBinMsg::LoginRej(LoginRejected::not_authorized()),
+            SoupBinMsg::LogoutReq(LogoutRequest::default()),
+            SoupBinMsg::SData(SequencedData::<SamplePayload>::default()),
+            SoupBinMsg::UData(UnsequencedData::<SamplePayload>::default()),
         ];
         for msg in msg_inp.iter() {
             info!("msg_inp {:?}", msg);
@@ -104,13 +103,13 @@ mod test {
         let mut bytes = BytesMut::with_capacity(CAP);
         bytes.put_slice(ser.as_slice());
 
-        let mut msg_out: Vec<SoupBin<SamplePayload>> = vec![];
+        let mut msg_out: Vec<SoupBinMsg<SamplePayload>> = vec![];
         loop {
             let frame = SoupBinFrame::get_frame(&mut bytes);
             match frame {
                 Some(frame) => {
                     let des = &mut ByteDeserializerSlice::new(&frame[..]);
-                    let msg = SoupBin::byte_deserialize(des).unwrap();
+                    let msg = SoupBinMsg::byte_deserialize(des).unwrap();
                     info!("msg_out {:?}", msg);
                     msg_out.push(msg);
                 }
