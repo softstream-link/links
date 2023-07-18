@@ -1,7 +1,7 @@
 use std::{any::type_name, error::Error, fmt::Debug, marker::PhantomData};
 
 use bytes::{Bytes, BytesMut};
-use framing::FrameHandler;
+use framing::Framer;
 
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufWriter},
@@ -9,12 +9,12 @@ use tokio::{
 };
 
 #[derive(Debug)]
-pub struct StreamReadFramer<HANDLER: FrameHandler> {
+pub struct StreamReadFramer<HANDLER: Framer> {
     reader: OwnedReadHalf,
     buffer: BytesMut,
     phantom: PhantomData<HANDLER>, // this allows T declaration
 }
-impl<HANDLER: FrameHandler> StreamReadFramer<HANDLER> {
+impl<HANDLER: Framer> StreamReadFramer<HANDLER> {
     pub fn new(reader: OwnedReadHalf) -> StreamReadFramer<HANDLER> {
         Self {
             reader: reader,
@@ -48,12 +48,12 @@ impl<HANDLER: FrameHandler> StreamReadFramer<HANDLER> {
 }
 
 #[derive(Debug)]
-pub struct StreamWriteFramer<HANDLER: FrameHandler> {
+pub struct StreamWriteFramer<HANDLER: Framer> {
     writer: BufWriter<OwnedWriteHalf>,
     phantom: PhantomData<HANDLER>, // this allows T declaration
 }
 
-impl<HANDLER: FrameHandler> StreamWriteFramer<HANDLER> {
+impl<HANDLER: Framer> StreamWriteFramer<HANDLER> {
     pub fn new(writer: OwnedWriteHalf) -> StreamWriteFramer<HANDLER> {
         Self {
             writer: BufWriter::new(writer),
@@ -76,13 +76,13 @@ impl<HANDLER: FrameHandler> StreamWriteFramer<HANDLER> {
     }
 }
 
-pub struct StreamFramer<HANDLER: FrameHandler> {
+pub struct StreamFramer<HANDLER: Framer> {
     stream: BufWriter<TcpStream>,
     buffer: BytesMut,
 
     phantom: PhantomData<HANDLER>, // this allows T declaration
 }
-impl<HANDLER: FrameHandler> Debug for StreamFramer<HANDLER> {
+impl<HANDLER: Framer> Debug for StreamFramer<HANDLER> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let ty = type_name::<HANDLER>()
             .split("::")
@@ -98,7 +98,7 @@ impl<HANDLER: FrameHandler> Debug for StreamFramer<HANDLER> {
 
 impl<HANDLER> StreamFramer<HANDLER>
 where
-    HANDLER: FrameHandler + std::fmt::Debug,
+    HANDLER: Framer + std::fmt::Debug,
 {
     pub fn with_capacity(stream: TcpStream, capacity: usize) -> StreamFramer<HANDLER> {
         StreamFramer {
@@ -159,7 +159,7 @@ mod test {
             tokio::spawn(async move {
                 let listener = TcpListener::bind(addr).await.unwrap();
                 let (socket, _) = listener.accept().await.unwrap();
-                let mut con = StreamFramer::<SoupBinFrame>::with_capacity(socket, 128);
+                let mut con = StreamFramer::<SoupBinFramer>::with_capacity(socket, 128);
                 info!("svc con: {:?}", con);
                 loop {
                     let frame = con.read_frame().await.unwrap();
@@ -177,7 +177,7 @@ mod test {
             let addr = addr.clone();
             tokio::spawn(async move {
                 let socket = TcpStream::connect(addr).await.unwrap();
-                let mut con = StreamFramer::<SoupBinFrame>::new(socket);
+                let mut con = StreamFramer::<SoupBinFramer>::new(socket);
                 info!("clt conn: {:?}", con);
                 let msg = SoupBinX::dbg(b"hello world!");
                 let (slice, size): ([u8; 128], _) = to_bytes_stack(&msg).unwrap();

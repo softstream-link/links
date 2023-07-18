@@ -6,7 +6,7 @@ mod test {
     use soupbintcp4::prelude::*;
 
     use crate::{prelude::*, unittest::setup};
-    use framing::FrameHandler;
+    use framing::Framer;
 
     #[test]
     fn test_ouch5_inbound_frame_handler() {
@@ -33,7 +33,7 @@ mod test {
         buf.put_slice(ser.as_slice());
 
         let mut msg_out = vec![];
-        while let Some(frame) = SoupBinFrame::get_frame(&mut buf) {
+        while let Some(frame) = SoupBinFramer::get_frame(&mut buf) {
             info!("frame:\n{}", to_hex_pretty(&frame[..]));
             let des = &mut ByteDeserializerSlice::new(&frame[..]);
             let msg: SoupBinMsg<Ouch5Inb> = des.deserialize().unwrap();

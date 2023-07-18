@@ -23,7 +23,7 @@ pub enum ConId {
     Svc(String),
 }
 
-pub type CltReaderRef<HANDLER> = Arc<Mutex<StreamMessenderReader<HANDLER>>>;
+pub type CltMessageRecverRef<HANDLER> = Arc<Mutex<StreamMessenderReader<HANDLER>>>;
 pub type CltWriterRef<HANDLER> = Arc<Mutex<StreamMessenderWriter<HANDLER>>>;
 
 #[derive(Debug)]
@@ -49,7 +49,7 @@ impl<HANDLER: MessageHandler> CltWriter<HANDLER> {
 #[derive(Debug)]
 pub struct Clt<HANDLER: MessageHandler> {
     con_id: ConId,
-    reader: CltReaderRef<HANDLER>,
+    reader: CltMessageRecverRef<HANDLER>,
     writer: CltWriterRef<HANDLER>,
 }
 impl<HANLDER: MessageHandler> Display for Clt<HANLDER> {
@@ -91,7 +91,7 @@ impl<HANDLER: MessageHandler> Clt<HANDLER> {
     pub async fn from_stream(stream: TcpStream, con_id: ConId) -> CltWriter<HANDLER> {
         let (read, write) = stream.into_split();
         let read_ref =
-            CltReaderRef::new(Mutex::new(StreamMessenderReader::new(read, con_id.clone())));
+            CltMessageRecverRef::new(Mutex::new(StreamMessenderReader::new(read, con_id.clone())));
         let write_ref = CltWriterRef::new(Mutex::new(StreamMessenderWriter::new(
             write,
             con_id.clone(),

@@ -14,7 +14,7 @@ byteserde_derive = { workspace = true }
 byteserde_types = { workspace = true }
 framing = { path = "../framing"}
 bytes = { workspace = true }
+log = { workspace = true }
 
 [dev-dependencies]
 env_logger = { workspace = true }
-log = { workspace = true }

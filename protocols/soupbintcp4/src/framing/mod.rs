@@ -1,16 +1,15 @@
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
-use framing::{prelude::*, MessageHandler};
+use framing::{prelude::*, MessageHandler, Messenger};
+use log::info;
 
 use crate::prelude::SoupBinMsg;
 
-// use crate::model::clt_heartbeat::ClientHeartbeat;
-// pub struct SoupBinTcp4FrameHandler;
 
 #[derive(Debug)]
-pub struct SoupBinFrame;
+pub struct SoupBinFramer;
 
-impl FrameHandler for SoupBinFrame {
+impl Framer for SoupBinFramer {
     fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
         // ensures there is at least 2 bytes to represet packet_length
         if bytes.len() < 2 {
@@ -51,18 +50,68 @@ impl FrameHandler for SoupBinFrame {
     }
 }
 
-#[derive(Debug)]
-pub struct SoupBinHandler<PAYLOAD> {
-    phantom: std::marker::PhantomData<PAYLOAD>,
-}
 
-#[rustfmt::skip]
-impl<PAYLOAD> MessageHandler for SoupBinHandler<PAYLOAD>
+#[derive(Debug)]
+pub struct SoupBinMessageFramer<PAYLOAD>
 where
     PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
 {
-    type Item = SoupBinMsg<PAYLOAD>;
-    type FrameHandler = SoupBinFrame;
+    phantom: std::marker::PhantomData<PAYLOAD>,
+}
+impl<PAYLOAD> Messenger for SoupBinMessageFramer<PAYLOAD>
+where
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
+{
+    type Message = SoupBinMsg<PAYLOAD>;
+}
+
+impl<PAYLOAD> Framer for SoupBinMessageFramer<PAYLOAD>
+where
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
+{
+    fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
+        SoupBinFramer::get_frame(bytes)
+    }
+}
+
+impl<PAYLOAD> MessageFramer for SoupBinMessageFramer<PAYLOAD>
+where
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
+{
+}
+
+pub struct SoupBinLoggerCallback<PAYLOAD>
+where
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
+{
+    phantom: std::marker::PhantomData<PAYLOAD>,
+}
+impl<PAYLOAD> Default for SoupBinLoggerCallback<PAYLOAD>
+where
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
+{
+    fn default() -> Self {
+        Self {
+            phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+
+impl<PAYLOAD> Messenger for SoupBinLoggerCallback<PAYLOAD>
+where
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
+{
+    type Message = SoupBinMsg<PAYLOAD>;
+}
+
+impl<PAYLOAD> Callback for SoupBinLoggerCallback<PAYLOAD>
+where
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
+{
+    fn on_recv(&self, msg: Self::Message) {
+        info!("SoupBinLoggerCallback::on_recv {:?}", msg);
+    }
 }
 
 #[cfg(test)]
@@ -105,7 +154,7 @@ mod test {
 
         let mut msg_out: Vec<SoupBinMsg<SamplePayload>> = vec![];
         loop {
-            let frame = SoupBinFrame::get_frame(&mut bytes);
+            let frame = SoupBinFramer::get_frame(&mut bytes);
             match frame {
                 Some(frame) => {
                     let des = &mut ByteDeserializerSlice::new(&frame[..]);
@@ -119,3 +168,24 @@ mod test {
         assert_eq!(msg_inp, msg_out);
     }
 }
+
+
+
+
+
+
+
+#[derive(Debug)]
+pub struct SoupBinHandler<PAYLOAD> {
+    phantom: std::marker::PhantomData<PAYLOAD>,
+}
+
+#[rustfmt::skip]
+impl<PAYLOAD> MessageHandler for SoupBinHandler<PAYLOAD>
+where
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
+{
+    type Item = SoupBinMsg<PAYLOAD>;
+    type FrameHandler = SoupBinFramer;
+}
+
