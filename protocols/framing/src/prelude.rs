@@ -1,7 +1,5 @@
 pub use crate::Framer;
 pub use crate::Messenger;
-pub use crate::MessageFramer;
+pub use crate::ProtocolHandler;
 pub use crate::Callback;
-
-// TODO REMOVE
-pub use crate::MessageHandler;
+pub use crate::LoggerCallback;

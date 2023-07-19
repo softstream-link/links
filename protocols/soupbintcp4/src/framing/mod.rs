@@ -1,10 +1,10 @@
+use std::fmt::Debug;
+
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
-use framing::{prelude::*, MessageHandler, Messenger};
-use log::info;
+use framing::prelude::*;
 
 use crate::prelude::SoupBinMsg;
-
 
 #[derive(Debug)]
 pub struct SoupBinFramer;
@@ -50,68 +50,36 @@ impl Framer for SoupBinFramer {
     }
 }
 
-
+#[rustfmt::skip]
 #[derive(Debug)]
-pub struct SoupBinMessageFramer<PAYLOAD>
-where
-    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
-{
-    phantom: std::marker::PhantomData<PAYLOAD>,
+pub struct SoupBinProtocolHandler<PAYLOAD>
+where 
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
+{ 
+    phantom: std::marker::PhantomData<PAYLOAD> 
 }
-impl<PAYLOAD> Messenger for SoupBinMessageFramer<PAYLOAD>
-where
-    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
+#[rustfmt::skip]
+impl<PAYLOAD> Messenger for SoupBinProtocolHandler<PAYLOAD>
+where 
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
 {
     type Message = SoupBinMsg<PAYLOAD>;
 }
 
-impl<PAYLOAD> Framer for SoupBinMessageFramer<PAYLOAD>
-where
-    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
+#[rustfmt::skip]
+impl<PAYLOAD> Framer for SoupBinProtocolHandler<PAYLOAD>
+where 
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
 {
     fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
         SoupBinFramer::get_frame(bytes)
     }
 }
-
-impl<PAYLOAD> MessageFramer for SoupBinMessageFramer<PAYLOAD>
-where
-    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
+#[rustfmt::skip]
+impl<PAYLOAD> ProtocolHandler for SoupBinProtocolHandler<PAYLOAD>
+where 
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
 {
-}
-
-pub struct SoupBinLoggerCallback<PAYLOAD>
-where
-    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
-{
-    phantom: std::marker::PhantomData<PAYLOAD>,
-}
-impl<PAYLOAD> Default for SoupBinLoggerCallback<PAYLOAD>
-where
-    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
-{
-    fn default() -> Self {
-        Self {
-            phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-
-impl<PAYLOAD> Messenger for SoupBinLoggerCallback<PAYLOAD>
-where
-    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
-{
-    type Message = SoupBinMsg<PAYLOAD>;
-}
-
-impl<PAYLOAD> Callback for SoupBinLoggerCallback<PAYLOAD>
-where
-    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
-{
-    fn on_recv(&self, msg: Self::Message) {
-        info!("SoupBinLoggerCallback::on_recv {:?}", msg);
-    }
 }
 
 #[cfg(test)]
@@ -134,7 +102,7 @@ mod test {
         let msg_inp = vec![
             SoupBinMsg::CltHBeat(CltHeartbeat::default()),
             SoupBinMsg::SvcHBeat(SvcHeartbeat::default()),
-            SoupBinMsg::Dbg(Debug::default()),
+            SoupBinMsg::Dbg(crate::prelude::Debug::default()),
             SoupBinMsg::End(EndOfSession::default()),
             SoupBinMsg::LoginReq(LoginRequest::default()),
             SoupBinMsg::LoginAcc(LoginAccepted::default()),
@@ -168,24 +136,3 @@ mod test {
         assert_eq!(msg_inp, msg_out);
     }
 }
-
-
-
-
-
-
-
-#[derive(Debug)]
-pub struct SoupBinHandler<PAYLOAD> {
-    phantom: std::marker::PhantomData<PAYLOAD>,
-}
-
-#[rustfmt::skip]
-impl<PAYLOAD> MessageHandler for SoupBinHandler<PAYLOAD>
-where
-    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + std::fmt::Debug + Clone + Send + Sync + 'static,
-{
-    type Item = SoupBinMsg<PAYLOAD>;
-    type FrameHandler = SoupBinFramer;
-}
-

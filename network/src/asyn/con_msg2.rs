@@ -130,7 +130,7 @@ mod test {
 
                 let (stream, _) = listener.accept().await.unwrap();
                 let (mut sender, mut recver) = into_split_messenger::<
-                    SoupBinMessageFramer<NoPayload>,
+                    SoupBinProtocolHandler<NoPayload>,
                     MAX_MSG_SIZE,
                     SoupBinFramer,
                 >(stream, ConId::Svc(addr.clone()));
@@ -159,7 +159,7 @@ mod test {
             tokio::spawn(async move {
                 let stream = TcpStream::connect(addr.clone()).await.unwrap();
                 let (mut sender, mut recver) = into_split_messenger::<
-                    SoupBinMessageFramer<NoPayload>,
+                    SoupBinProtocolHandler<NoPayload>,
                     MAX_MSG_SIZE,
                     SoupBinFramer,
                 >(stream, ConId::Clt(addr.clone()));

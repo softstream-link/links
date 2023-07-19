@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 bytes = { workspace = true }
 byteserde = { workspace = true }
+log = { workspace = true }
 
 [dev-dependencies]
 env_logger = { workspace = true }
-log = { workspace = true }
