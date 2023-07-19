@@ -35,10 +35,8 @@ impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> MessageSender<MESSENGER, M
     }
     pub async fn send(
         &mut self,
-        msg: &mut MESSENGER::Message,
+        msg: &MESSENGER::Message,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        // MSGER::on_send(, msg); // TODO  complete this call back
-
         let (bytes, size) = to_bytes_stack::<MAX_MSG_SIZE, MESSENGER::Message>(msg)?;
         self.writer.write_frame(&bytes[..size]).await?;
         Ok(())

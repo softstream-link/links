@@ -21,13 +21,11 @@ pub trait Messenger: Debug + Send + Sync + 'static {
     type Message: ByteDeserializeSlice<Self::Message> + ByteSerializeStack + Debug + Send + Sync + 'static;
 }
 
-
 pub trait ProtocolHandler: Messenger + Framer + Send + Sync + 'static {}
-// TODO need to add hooks to this trait to handle auto responce
 
-pub trait Callback<MESSENGER: Messenger>:  Debug + Send + Sync + 'static {
-    fn on_recv(&mut self, con_id: &ConId, msg: MESSENGER::Message);
-    fn on_send(&self, con_id: &ConId, msg: &mut MESSENGER::Message);
+pub trait Callback<MESSENGER: Messenger>: Debug + Send + Sync + 'static {
+    fn on_recv(&mut self, con_id: &ConId, msg: MESSENGER::Message) -> Option<MESSENGER::Message>;
+    fn on_send(&self, con_id: &ConId, msg: &MESSENGER::Message);
 }
 
 #[derive(Debug)]
@@ -41,12 +39,13 @@ impl<MESSENGER: Messenger> LoggerCallback<MESSENGER> {
         }
     }
 }
-// TODO what about session id in the callback?
+
 impl<MESSENGER: Messenger> Callback<MESSENGER> for LoggerCallback<MESSENGER> {
-    fn on_recv(&mut self, con_id: &ConId, msg: MESSENGER::Message) {
+    fn on_recv(&mut self, con_id: &ConId, msg: MESSENGER::Message) -> Option<MESSENGER::Message> {
         info!("LoggerCallback::on_recv {:?} {:?}", con_id, msg);
+        None
     }
-    fn on_send(&self, con_id: &ConId, msg: &mut MESSENGER::Message) {
+    fn on_send(&self, con_id: &ConId, msg: &MESSENGER::Message) {
         info!("LoggerCallback::on_send {:?} {:?}", con_id, msg);
     }
 }

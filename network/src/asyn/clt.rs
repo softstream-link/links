@@ -31,12 +31,16 @@ impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> Display
 impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> CltSender<MESSENGER, MAX_MSG_SIZE> {
     pub async fn send(
         &mut self,
-        msg: &mut MESSENGER::Message,
+        msg: &MESSENGER::Message,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let callback = self.callback.lock().await;
-        callback.on_send(&self.con_id, msg);
-        let mut writer = self.sender.lock().await;
-        writer.send(msg).await
+        {
+            let callback = self.callback.lock().await;
+            callback.on_send(&self.con_id, msg);
+        }
+        {
+            let mut writer = self.sender.lock().await;
+            writer.send(msg).await
+        }
     }
 }
 
@@ -55,7 +59,7 @@ mod types{
 pub struct Clt<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> {
     con_id: ConId,
     recver: CltRecverRef<HANDLER, HANDLER>,
-    _sender: CltSenderRef<HANDLER, MAX_MSG_SIZE>,
+    sender: CltSenderRef<HANDLER, MAX_MSG_SIZE>,
 }
 impl<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> Display for Clt<HANDLER, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -110,7 +114,7 @@ impl<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> Clt<HANDLER, MAX_MSG_S
         let clt = Self {
             con_id: con_id.clone(),
             recver: Arc::clone(&recv_ref),
-            _sender: Arc::clone(&send_ref),
+            sender: Arc::clone(&send_ref),
         };
         {
             let con_id = con_id.clone();
@@ -133,7 +137,6 @@ impl<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> Clt<HANDLER, MAX_MSG_S
             con_id: con_id.clone(),
             sender: Arc::clone(&send_ref),
             callback: callback.clone(),
-            // callback: Arc::clone(&callback),
         }
     }
 
@@ -149,9 +152,14 @@ impl<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> Clt<HANDLER, MAX_MSG_S
             };
             match opt {
                 Some(msg) => {
-                    let mut callback = callback.lock().await;
-                    
-                    callback.on_recv(&con_id, msg);
+                    let mut reply = {
+                        let mut callback = callback.lock().await;
+                        callback.on_recv(&con_id, msg)
+                    };
+                    if let Some(ref mut msg) = reply {
+                        let mut clt_grd = clt.sender.lock().await;
+                        clt_grd.send(msg).await?;
+                    }
                 }
                 None => {
                     return Ok(()); // clean exist
@@ -193,8 +201,8 @@ mod test {
             .await
             .unwrap();
 
-        let msg = &mut SoupBin::dbg(b"hello world");
-        clt.send(msg).await.unwrap();
+        let msg = SoupBin::dbg(b"hello world");
+        clt.send(&msg).await.unwrap();
 
         sleep(Duration::from_secs(1)).await;
     }

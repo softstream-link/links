@@ -92,7 +92,7 @@ impl FrameWriter {
 }
 
 type FrameManger<HANDLER> = (FrameReader<HANDLER>, FrameWriter);
-fn into_split_frame_manager<HANDLER: Framer>(
+pub fn into_split_frame_manager<HANDLER: Framer>(
     stream: TcpStream,
     reader_capacity: usize,
 ) -> FrameManger<HANDLER> {
