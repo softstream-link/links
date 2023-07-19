@@ -1,184 +1,177 @@
-// use std::{
-//     error::Error,
-//     fmt::{Debug, Display},
-// };
+use std::{
+    error::Error,
+    fmt::{Debug, Display},
+};
 
-// use framing::prelude::*;
-// use tokio::net::{
-//     tcp::{OwnedReadHalf, OwnedWriteHalf},
-//     TcpStream,
-// };
+use byteserde::{prelude::from_slice, ser_stack::to_bytes_stack};
+use framing::{prelude::*, Messenger};
+use tokio::net::{
+    tcp::{OwnedReadHalf, OwnedWriteHalf},
+    TcpStream,
+};
 
-// use super::{
-//     clt::ConId,
-//     con_frame::{StreamFramer, StreamReadFramer, StreamWriteFramer},
-// };
+use super::con_frame::{FrameReader, FrameWriter};
 
-// #[derive(Debug)]
-// pub struct StreamMessenderWriter<HANDLER: MessageHandler> {
-//     con_id: ConId,
-//     writer: StreamWriteFramer<HANDLER::FrameHandler>,
-// }
-// impl<HANDLER: MessageHandler> Display for StreamMessenderWriter<HANDLER> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self.con_id)
-//     }
-// }
-// impl<HANDLER: MessageHandler> StreamMessenderWriter<HANDLER> {
-//     pub fn new(writer: OwnedWriteHalf, con_id: ConId) -> Self {
-//         Self {
-//             con_id,
-//             writer: StreamWriteFramer::new(writer),
-//         }
-//     }
-//     pub fn with_capacity(writer: OwnedWriteHalf, capacity: usize, con_id: ConId) -> Self {
-//         Self {
-//             con_id,
-//             writer: StreamWriteFramer::with_capacity(writer, capacity),
-//         }
-//     }
-//     pub async fn send<const MAX_MSG_SIZE: usize>(
-//         &mut self,
-//         msg: &HANDLER::Item,
-//     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-//         let (bytes, size) = HANDLER::from_msg::<MAX_MSG_SIZE>(msg)?; //TODO fix max size
-//         self.writer.write_frame(&bytes[..size]).await?;
-//         Ok(())
-//     }
-// }
+#[derive(Debug, Clone)]
+pub enum ConId {
+    Clt(String),
+    Svc(String),
+}
 
-// #[derive(Debug)]
-// pub struct StreamMessenderReader<HANDLER: MessageHandler> {
-//     con_id: ConId,
-//     reader: StreamReadFramer<HANDLER::FrameHandler>,
-// }
-// impl<HANDLER: MessageHandler> Display for StreamMessenderReader<HANDLER> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self.con_id)
-//     }
-// }
-// impl<HANDLER: MessageHandler> StreamMessenderReader<HANDLER> {
-//     pub fn new(reader: OwnedReadHalf, con_id: ConId) -> Self {
-//         Self {
-//             con_id,
-//             reader: StreamReadFramer::new(reader),
-//         }
-//     }
-//     pub fn with_capacity(reader: OwnedReadHalf, capacity: usize, con_id: ConId) -> Self {
-//         Self {
-//             con_id,
-//             reader: StreamReadFramer::with_capacity(reader, capacity),
-//         }
-//     }
-//     pub async fn recv(&mut self) -> Result<Option<HANDLER::Item>, Box<dyn Error + Send + Sync>> {
-//         let frame = self.reader.read_frame().await?;
-//         if let Some(frm) = frame {
-//             let msg = HANDLER::into_msg(frm)?;
-//             Ok(Some(msg))
-//         } else {
-//             Ok(None)
-//         }
-//     }
-// }
+#[derive(Debug)]
+pub struct MessageSender<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> {
+    con_id: ConId,
+    writer: FrameWriter,
+    phantom: std::marker::PhantomData<MESSENGER>,
+}
+impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> Display
+    for MessageSender<MESSENGER, MAX_MSG_SIZE>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.con_id)
+    }
+}
+impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> MessageSender<MESSENGER, MAX_MSG_SIZE> {
+    pub fn new(writer: OwnedWriteHalf, con_id: ConId) -> Self {
+        Self {
+            con_id,
+            writer: FrameWriter::new(writer),
+            phantom: std::marker::PhantomData,
+        }
+    }
+    pub async fn send(
+        &mut self,
+        msg: &mut MESSENGER::Message,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        // MSGER::on_send(, msg); // TODO  complete this call back
 
-// #[derive(Debug)]
-// pub struct StreamMessenger<HANDLER: MessageHandler> {
-//     con: StreamFramer<HANDLER::FrameHandler>,
-// }
+        let (bytes, size) = to_bytes_stack::<MAX_MSG_SIZE, MESSENGER::Message>(msg)?;
+        self.writer.write_frame(&bytes[..size]).await?;
+        Ok(())
+    }
+}
 
-// impl<HANDLER: MessageHandler> StreamMessenger<HANDLER> {
-//     pub fn new(stream: TcpStream) -> StreamMessenger<HANDLER> {
-//         StreamMessenger {
-//             con: StreamFramer::new(stream),
-//         }
-//     }
-//     pub fn with_capacity(stream: TcpStream, capacity: usize) -> StreamMessenger<HANDLER> {
-//         StreamMessenger {
-//             con: StreamFramer::with_capacity(stream, capacity),
-//         }
-//     }
+#[derive(Debug)]
+pub struct MessageRecver<MESSENGER: Messenger, FRAMER: Framer> {
+    con_id: ConId,
+    reader: FrameReader<FRAMER>,
+    phantom: std::marker::PhantomData<MESSENGER>,
+}
+impl<MESSENGER: Messenger, FRAMER: Framer> Display for MessageRecver<MESSENGER, FRAMER> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.con_id)
+    }
+}
 
-//     pub async fn send<const MAX_MSG_SIZE: usize>(
-//         // TODO how to package away const into a HANDLER trait
-//         &mut self,
-//         msg: &HANDLER::Item,
-//     ) -> std::result::Result<(), Box<dyn Error + Send + Sync>> {
-//         let (bytes, size) = HANDLER::from_msg::<MAX_MSG_SIZE>(msg).unwrap(); // TODO handle error
-//         self.con.write_frame(&bytes[..size]).await?;
-//         Ok(())
-//     }
+impl<MESSENGER: Messenger, FRAMER: Framer> MessageRecver<MESSENGER, FRAMER> {
+    pub fn with_capacity(reader: OwnedReadHalf, capacity: usize, con_id: ConId) -> Self {
+        Self {
+            con_id,
+            reader: FrameReader::with_capacity(reader, capacity),
+            phantom: std::marker::PhantomData,
+        }
+    }
+    pub async fn recv(
+        &mut self,
+    ) -> Result<Option<MESSENGER::Message>, Box<dyn Error + Send + Sync>> {
+        let frame = self.reader.read_frame().await?;
+        if let Some(frame) = frame {
+            let msg = from_slice::<MESSENGER::Message>(&frame[..])?;
+            Ok(Some(msg))
+        } else {
+            Ok(None)
+        }
+    }
+}
 
-//     pub async fn recv(
-//         &mut self,
-//     ) -> std::result::Result<Option<HANDLER::Item>, Box<dyn Error + Send + Sync>> {
-//         // TODO proper error
-//         let frame = self.con.read_frame().await?;
-//         if let Some(frm) = frame {
-//             let msg = HANDLER::into_msg(frm).unwrap();
-//             Ok(Some(msg))
-//         } else {
-//             Ok(None)
-//         }
-//     }
-// }
+type MessageManager<MESSENGER, const MAX_MSG_SIZE: usize, FRAMER> = (
+    MessageSender<MESSENGER, MAX_MSG_SIZE>,
+    MessageRecver<MESSENGER, FRAMER>,
+);
 
-// #[cfg(test)]
-// mod test {
+pub fn into_split_messenger<MESSENGER: Messenger, const MAX_MSG_SIZE: usize, FRAMER: Framer>(
+    stream: TcpStream,
+    con_id: ConId,
+) -> MessageManager<MESSENGER, MAX_MSG_SIZE, FRAMER> {
+    let locl = format!("{}", stream.local_addr().expect("unable to get local addr"));
+    let peer = format!("{}", stream.peer_addr().expect("unable to get peer addr"));
+    let con_id = match con_id {
+        ConId::Clt(_) => ConId::Clt(format!("{}->{}", locl, peer)),
+        ConId::Svc(_) => ConId::Svc(format!("{}<-{}", locl, peer)),
+    };
+    match stream.into_split() {
+        (reader, writer) => (
+            MessageSender::new(writer, con_id.clone()),
+            MessageRecver::with_capacity(reader, MAX_MSG_SIZE, con_id.clone()),
+        ),
+    }
+}
 
-//     use super::*;
+#[cfg(test)]
+mod test {
 
-//     use crate::unittest::setup;
-//     use log::info;
-//     use soupbintcp4::prelude::*;
-//     use tokio::net::TcpListener;
+    use super::*;
 
-//     #[tokio::test]
-//     async fn test_connection() {
-//         setup::log::configure();
-//         let addr = setup::net::default_addr();
-//         type SoupBinVec = SoupBinMsg<VecPayload>;
-//         type SoupBinDefaultHanlder = SoupBinHandler<VecPayload>;
-//         type SoupBinConnection = StreamMessenger<SoupBinDefaultHanlder>;
-//         let svc = {
-//             let addr = addr.clone();
-//             tokio::spawn(async move {
-//                 let listener = TcpListener::bind(addr).await.unwrap();
+    use crate::unittest::setup;
+    use log::info;
+    use soupbintcp4::prelude::*;
+    use tokio::net::TcpListener;
 
-//                 let (socket, _) = listener.accept().await.unwrap();
-//                 let mut svc = SoupBinConnection::new(socket);
-//                 info!("svc: {:?}", svc);
+    #[tokio::test]
+    async fn test_connection() {
+        setup::log::configure();
+        let addr = setup::net::default_addr();
 
-//                 loop {
-//                     let msg = svc.recv().await.unwrap();
-//                     match msg {
-//                         Some(msg) => {
-//                             info!("svc - msg: {:?}", msg);
-//                             let msg = SoupBinVec::dbg(b"hello world from server!");
-//                             info!("svc - msg: {:?}", msg);
-//                             svc.send::<1024>(&msg).await.unwrap();
-//                         }
-//                         None => {
-//                             info!("svc - msg: None - Connection Closed by Client");
-//                             break;
-//                         }
-//                     }
-//                 }
-//             })
-//         };
-//         let clt = {
-//             let addr = addr.clone();
-//             tokio::spawn(async move {
-//                 let socket = TcpStream::connect(addr).await.unwrap();
-//                 let mut clt = SoupBinConnection::new(socket);
-//                 info!("clt: {:?}", clt);
-//                 let msg = SoupBinVec::dbg(b"hello world from client!");
-//                 info!("clt - msg: {:?}", msg);
-//                 clt.send::<1024>(&msg).await.unwrap();
-//                 let msg = clt.recv().await.unwrap();
-//                 info!("clt - msg: {:?}", msg);
-//             })
-//         };
-//         clt.await.unwrap();
-//         svc.await.unwrap();
-//     }
-// }
+        const MAX_MSG_SIZE: usize = 1024;
+        let svc = {
+            let addr = addr.clone();
+            tokio::spawn(async move {
+                let listener = TcpListener::bind(addr.clone()).await.unwrap();
+
+                let (stream, _) = listener.accept().await.unwrap();
+                let (mut sender, mut recver) = into_split_messenger::<
+                    SoupBinProtocolHandler<NoPayload>,
+                    MAX_MSG_SIZE,
+                    SoupBinFramer,
+                >(stream, ConId::Svc(addr.clone()));
+
+                info!("{} started", recver);
+
+                loop {
+                    let msg = recver.recv().await.unwrap();
+                    info!("{} RECV msg: {:?}", recver, msg);
+                    match msg {
+                        Some(_) => {
+                            let msg =
+                                &mut SoupBinMsg::<NoPayload>::dbg(b"hello world from server!");
+                            sender.send(msg).await.unwrap();
+                        }
+                        None => {
+                            info!("{} Connection Closed by Client", recver);
+                            break;
+                        }
+                    }
+                }
+            })
+        };
+        let clt = {
+            let addr = addr.clone();
+            tokio::spawn(async move {
+                let stream = TcpStream::connect(addr.clone()).await.unwrap();
+                let (mut sender, mut recver) = into_split_messenger::<
+                    SoupBinProtocolHandler<NoPayload>,
+                    MAX_MSG_SIZE,
+                    SoupBinFramer,
+                >(stream, ConId::Clt(addr.clone()));
+
+                info!("{} connected", sender);
+                let msg = &mut SoupBinMsg::<NoPayload>::dbg(b"hello world from client!");
+                sender.send(msg).await.unwrap();
+                let msg = recver.recv().await.unwrap();
+                info!("{} RECV msg: {:?}", recver, msg);
+            })
+        };
+        clt.await.unwrap();
+        svc.await.unwrap();
+    }
+}

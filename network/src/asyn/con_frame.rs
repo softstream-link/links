@@ -1,192 +1,171 @@
-// use std::{any::type_name, error::Error, fmt::Debug, marker::PhantomData};
+use std::{
+    error::Error,
+    fmt::{Debug, Display},
+    marker::PhantomData,
+};
 
-// use bytes::{Bytes, BytesMut};
-// use framing::Framer;
+use bytes::{Bytes, BytesMut};
+use framing::Framer;
 
-// use tokio::{
-//     io::{AsyncReadExt, AsyncWriteExt, BufWriter},
-//     net::{tcp::{OwnedReadHalf, OwnedWriteHalf}, TcpStream},
-// };
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{
+        tcp::{OwnedReadHalf, OwnedWriteHalf},
+        TcpStream,
+    },
+};
 
-// #[derive(Debug)]
-// pub struct StreamReadFramer<HANDLER: Framer> {
-//     reader: OwnedReadHalf,
-//     buffer: BytesMut,
-//     phantom: PhantomData<HANDLER>, // this allows T declaration
-// }
-// impl<HANDLER: Framer> StreamReadFramer<HANDLER> {
-//     pub fn new(reader: OwnedReadHalf) -> StreamReadFramer<HANDLER> {
-//         Self {
-//             reader: reader,
-//             buffer: BytesMut::new(),
-//             phantom: PhantomData,
-//         }
-//     }
-//     pub fn with_capacity(reader: OwnedReadHalf, capacity: usize) -> StreamReadFramer<HANDLER> {
-//         Self {
-//             reader: reader,
-//             buffer: BytesMut::with_capacity(capacity),
-//             phantom: PhantomData,
-//         }
-//     }
-//     // TODO remove box in result
-//     pub async fn read_frame(&mut self) -> Result<Option<Bytes>, Box<dyn Error + Send + Sync>> {
-//         loop {
-//             if let Some(bytes) = HANDLER::get_frame(&mut self.buffer) {
-//                 return Ok(Some(bytes));
-//             } else {
-//                 if 0 == self.reader.read_buf(&mut self.buffer).await? {
-//                     if self.buffer.is_empty() {
-//                         return Ok(None);
-//                     } else {
-//                         return Err("connection reset by peer".into()); // TODO add remainder of buffer to message
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
+#[derive(Debug)]
+pub struct FrameReader<HANDLER: Framer> {
+    reader: OwnedReadHalf,
+    buffer: BytesMut,
+    phantom: PhantomData<HANDLER>,
+}
+impl<HANDLER: Framer> Display for FrameReader<HANDLER> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "FrameReader<{}> {{ {:?}->{:?} }}",
+            std::any::type_name::<HANDLER>(),
+            self.reader
+                .local_addr()
+                .expect("could not get reader's local address"),
+            self.reader
+                .peer_addr()
+                .expect("could not get reader's peer address"),
+        )
+    }
+}
+impl<HANDLER: Framer> FrameReader<HANDLER> {
+    pub fn with_capacity(reader: OwnedReadHalf, capacity: usize) -> FrameReader<HANDLER> {
+        Self {
+            reader,
+            buffer: BytesMut::with_capacity(capacity),
+            phantom: PhantomData,
+        }
+    }
 
-// #[derive(Debug)]
-// pub struct StreamWriteFramer<HANDLER: Framer> {
-//     writer: BufWriter<OwnedWriteHalf>,
-//     phantom: PhantomData<HANDLER>, // this allows T declaration
-// }
+    pub async fn read_frame(&mut self) -> Result<Option<Bytes>, Box<dyn Error + Send + Sync>> {
+        loop {
+            if let Some(bytes) = HANDLER::get_frame(&mut self.buffer) {
+                return Ok(Some(bytes));
+            } else {
+                if 0 == self.reader.read_buf(&mut self.buffer).await? {
+                    if self.buffer.is_empty() {
+                        return Ok(None);
+                    } else {
+                        return Err("connection reset by peer".into()); // TODO add remainder of buffer to message
+                    }
+                }
+            }
+        }
+    }
+}
 
-// impl<HANDLER: Framer> StreamWriteFramer<HANDLER> {
-//     pub fn new(writer: OwnedWriteHalf) -> StreamWriteFramer<HANDLER> {
-//         Self {
-//             writer: BufWriter::new(writer),
-//             phantom: PhantomData,
-//         }
-//     }
-//     pub fn with_capacity(
-//         writer: OwnedWriteHalf,
-//         capacity: usize,
-//     ) -> StreamWriteFramer<HANDLER> {
-//         Self {
-//             writer: BufWriter::with_capacity(capacity, writer),
-//             phantom: PhantomData,
-//         }
-//     }
-//     pub async fn write_frame(&mut self, bytes: &[u8]) -> Result<(), Box<dyn Error + Send + Sync>> {
-//         self.writer.write_all(bytes).await?;
-//         self.writer.flush().await?;
-//         Ok(())
-//     }
-// }
+#[derive(Debug)]
+pub struct FrameWriter {
+    writer: OwnedWriteHalf,
+}
+impl Display for FrameWriter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "FrameWriter {{ {:?}->{:?} }}",
+            self.writer
+                .local_addr()
+                .expect("could not get reader's local address"),
+            self.writer
+                .peer_addr()
+                .expect("could not get reader's peer address"),
+        )
+    }
+}
+impl FrameWriter {
+    pub fn new(writer: OwnedWriteHalf) -> FrameWriter {
+        Self { writer }
+    }
+    pub async fn write_frame(&mut self, bytes: &[u8]) -> Result<(), Box<dyn Error + Send + Sync>> {
+        self.writer.write_all(bytes).await?;
+        self.writer.flush().await?;
+        Ok(())
+    }
+}
 
-// pub struct StreamFramer<HANDLER: Framer> {
-//     stream: BufWriter<TcpStream>,
-//     buffer: BytesMut,
+type FrameManger<HANDLER> = (FrameReader<HANDLER>, FrameWriter);
+fn into_split_frame_manager<HANDLER: Framer>(
+    stream: TcpStream,
+    reader_capacity: usize,
+) -> FrameManger<HANDLER> {
+    match stream.into_split() {
+        (r, w) => (
+            FrameReader::<HANDLER>::with_capacity(r, reader_capacity),
+            FrameWriter::new(w),
+        ),
+    }
+}
 
-//     phantom: PhantomData<HANDLER>, // this allows T declaration
-// }
-// impl<HANDLER: Framer> Debug for StreamFramer<HANDLER> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         let ty = type_name::<HANDLER>()
-//             .split("::")
-//             .last()
-//             .unwrap_or("FrameHandler");
-//         let name = format!("ConnectionFrame<{}>", ty);
-//         f.debug_struct(name.as_str())
-//             .field("stream", &self.stream)
-//             .field("buffer", &self.buffer)
-//             .finish()
-//     }
-// }
+#[cfg(test)]
+mod test {
 
-// impl<HANDLER> StreamFramer<HANDLER>
-// where
-//     HANDLER: Framer + std::fmt::Debug,
-// {
-//     pub fn with_capacity(stream: TcpStream, capacity: usize) -> StreamFramer<HANDLER> {
-//         StreamFramer {
-//             stream: BufWriter::new(stream), // TODO figure out if the write makes performance worse
-//             buffer: BytesMut::with_capacity(capacity),
-//             phantom: PhantomData,
-//         }
-//     }
-//     pub fn new(stream: TcpStream) -> StreamFramer<HANDLER> {
-//         StreamFramer {
-//             stream: BufWriter::new(stream),
-//             buffer: BytesMut::new(),
-//             phantom: PhantomData,
-//         }
-//     }
+    use super::*;
 
-//     // TODO remove box in result
-//     pub async fn read_frame(&mut self) -> Result<Option<Bytes>, Box<dyn Error + Send + Sync>> {
-//         loop {
-//             if let Some(bytes) = HANDLER::get_frame(&mut self.buffer) {
-//                 return Ok(Some(bytes));
-//             } else {
-//                 if 0 == self.stream.read_buf(&mut self.buffer).await? {
-//                     if self.buffer.is_empty() {
-//                         return Ok(None);
-//                     } else {
-//                         return Err("connection reset by peer".into()); // TODO add remainder of buffer to message
-//                     }
-//                 }
-//             }
-//         }
-//     }
-//     pub async fn write_frame(&mut self, bytes: &[u8]) -> Result<(), Box<dyn Error + Send + Sync>> {
-//         self.stream.write_all(&bytes).await?;
-//         self.stream.flush().await?;
-//         Ok(())
-//     }
-// }
+    use crate::unittest::setup;
+    use byteserde::{prelude::*, utils::hex::to_hex_pretty};
+    use log::info;
+    use soupbintcp4::prelude::*;
+    use tokio::net::TcpListener;
 
-// #[cfg(test)]
-// mod test {
+    #[tokio::test]
+    async fn test_connection() {
+        setup::log::configure();
+        const CAP: usize = 1024;
+        let addr = setup::net::default_addr();
+        type SoupBinX = SoupBinMsg<NoPayload>;
+        let svc = {
+            let addr = addr.clone();
+            tokio::spawn(async move {
+                let listener = TcpListener::bind(addr).await.unwrap();
+                let (stream, _) = listener.accept().await.unwrap();
 
-//     use super::*;
+                let (mut reader, mut writer) = into_split_frame_manager::<SoupBinFramer>(stream, CAP);
+                info!("svc: writer: {}, reader: {}", writer, reader);
+                loop {
+                    let frame = reader.read_frame().await.unwrap();
+                    if let Some(frm) = frame {
+                        info!("svc: read_frame: \n{}", to_hex_pretty(&frm[..]));
+                        let msg: SoupBinX = from_slice(&frm[..]).unwrap();
+                        info!("svc: from_slice: {:?}", msg);
 
-//     use crate::unittest::setup;
-//     use byteserde::prelude::*;
-//     use log::info;
-//     use soupbintcp4::prelude::*;
-//     use tokio::net::TcpListener;
+                        let msg = SoupBinX::dbg(b"Hello From Server");
+                        let (slice, size): ([u8; CAP], _) = to_bytes_stack(&msg).unwrap();
+                        writer.write_frame(&slice[..size]).await.unwrap();
+                        info!("svc: write_frame: \n{}", to_hex_pretty(&slice[..size]))
+                    } else {
+                        info!("svc: msg: None - Client closed connection");
+                        break;
+                    }
+                }
+            })
+        };
+        let clt = {
+            let addr = addr.clone();
+            tokio::spawn(async move {
+                let stream = TcpStream::connect(addr).await.unwrap();
+                let (mut reader, mut writer) = into_split_frame_manager::<SoupBinFramer>(stream, CAP);
+                info!("clt: writer: {}, reader: {}", writer, reader);
+                let msg = SoupBinX::dbg(b"Hello From Client");
+                let (slice, size): ([u8; CAP], _) = to_bytes_stack(&msg).unwrap();
+                let slice = &slice[..size];
+                writer.write_frame(slice).await.unwrap();
+                info!("clt: write_frame: \n{}", to_hex_pretty(slice));
+                let frame = reader.read_frame().await.unwrap().unwrap();
 
-//     #[tokio::test]
-//     async fn test_connection() {
-//         setup::log::configure();
-//         let addr = setup::net::default_addr();
-//         type SoupBinX = SoupBinMsg<NoPayload>;
-//         let svc = {
-//             let addr = addr.clone();
-//             tokio::spawn(async move {
-//                 let listener = TcpListener::bind(addr).await.unwrap();
-//                 let (socket, _) = listener.accept().await.unwrap();
-//                 let mut con = StreamFramer::<SoupBinFramer>::with_capacity(socket, 128);
-//                 info!("svc con: {:?}", con);
-//                 loop {
-//                     let frame = con.read_frame().await.unwrap();
-//                     if let Some(frm) = frame {
-//                         let msg: SoupBinX = from_slice(&frm[..]).unwrap();
-//                         info!("svc: msg: {:?}", msg);
-//                     } else {
-//                         info!("svc: msg: None - Client closed connection");
-//                         break;
-//                     }
-//                 }
-//             })
-//         };
-//         let clt = {
-//             let addr = addr.clone();
-//             tokio::spawn(async move {
-//                 let socket = TcpStream::connect(addr).await.unwrap();
-//                 let mut con = StreamFramer::<SoupBinFramer>::new(socket);
-//                 info!("clt conn: {:?}", con);
-//                 let msg = SoupBinX::dbg(b"hello world!");
-//                 let (slice, size): ([u8; 128], _) = to_bytes_stack(&msg).unwrap();
-//                 let slice = &slice[..size];
-//                 info!("clt: msg: {:?}", msg);
-//                 con.write_frame(&slice).await.unwrap();
-//             })
-//         };
-//         clt.await.unwrap();
-//         svc.await.unwrap();
-//     }
-// }
+                info!("clt: read_frame: \n{}", to_hex_pretty(&frame[..]));
+                let msg: SoupBinX = from_slice(&frame[..]).unwrap();
+                info!("clt: from_slice: {:?}", msg);
+            })
+        };
+        clt.await.unwrap();
+        svc.await.unwrap();
+    }
+}
