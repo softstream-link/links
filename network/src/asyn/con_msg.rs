@@ -12,12 +12,6 @@ use tokio::net::{
 
 use super::con_frame::{FrameReader, FrameWriter};
 
-#[derive(Debug, Clone)]
-pub enum ConId {
-    Clt(String),
-    Svc(String),
-}
-
 #[derive(Debug)]
 pub struct MessageSender<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> {
     con_id: ConId,

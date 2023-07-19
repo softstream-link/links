@@ -7,18 +7,19 @@ use std::{
     time::{Duration, Instant},
 };
 
-use framing::{Callback, Messenger, ProtocolHandler};
+use framing::*;
 use log::info;
 use tokio::net::TcpStream;
 
-use super::con_msg::{into_split_messenger, ConId, MessageRecver, MessageSender};
+use super::con_msg::{into_split_messenger, MessageRecver, MessageSender};
 
 use tokio::{spawn, time::sleep};
 
 #[derive(Debug)]
 pub struct CltSender<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> {
     con_id: ConId,
-    sender: CltMessageSenderRef<MESSENGER, MAX_MSG_SIZE>,
+    sender: CltSenderRef<MESSENGER, MAX_MSG_SIZE>,
+    callback: Arc<Mutex<dyn Callback<MESSENGER>>>,
 }
 impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> Display
     for CltSender<MESSENGER, MAX_MSG_SIZE>
@@ -32,6 +33,8 @@ impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> CltSender<MESSENGER, MAX_M
         &mut self,
         msg: &mut MESSENGER::Message,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let callback = self.callback.lock().await;
+        callback.on_send(&self.con_id, msg);
         let mut writer = self.sender.lock().await;
         writer.send(msg).await
     }
@@ -41,15 +44,18 @@ pub use types::*;
 #[rustfmt::skip]
 mod types{
     use super::*;
-    pub type CltMessageRecverRef<MESSENGER, FRAMER> = Arc<Mutex<MessageRecver<MESSENGER, FRAMER>>>;
-    pub type CltMessageSenderRef<MESSENGER, const MAX_MSG_SIZE: usize> = Arc<Mutex<MessageSender<MESSENGER, MAX_MSG_SIZE>>>;
+    pub type CltRecverRef<MESSENGER, FRAMER> = Arc<Mutex<MessageRecver<MESSENGER, FRAMER>>>;
+    pub type CltSenderRef<MESSENGER, const MAX_MSG_SIZE: usize> = Arc<Mutex<MessageSender<MESSENGER, MAX_MSG_SIZE>>>;
+    // TODO impl Trait` in type aliases is unstable see issue #63063 <https://github.com/rust-lang/rust/issues/63063>
+    // pub type CltCallbackRef<MESSENGER> = Arc<Mutex<impl Callback<MESSENGER>>>;
+    pub type CltCallbackRef<MESSENGER> = Arc<Mutex<dyn Callback<MESSENGER>>>;
 }
 
 #[derive(Debug)]
 pub struct Clt<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> {
     con_id: ConId,
-    recver: CltMessageRecverRef<HANDLER, HANDLER>,
-    _sender: CltMessageSenderRef<HANDLER, MAX_MSG_SIZE>,
+    recver: CltRecverRef<HANDLER, HANDLER>,
+    _sender: CltSenderRef<HANDLER, MAX_MSG_SIZE>,
 }
 impl<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> Display for Clt<HANDLER, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -99,8 +105,8 @@ impl<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> Clt<HANDLER, MAX_MSG_S
         let (sender, recver) =
             into_split_messenger::<HANDLER, MAX_MSG_SIZE, HANDLER>(stream, con_id.clone());
 
-        let recv_ref = CltMessageRecverRef::new(Mutex::new(recver));
-        let send_ref = CltMessageSenderRef::new(Mutex::new(sender));
+        let recv_ref = CltRecverRef::new(Mutex::new(recver));
+        let send_ref = CltSenderRef::new(Mutex::new(sender));
         let clt = Self {
             con_id: con_id.clone(),
             recver: Arc::clone(&recv_ref),
@@ -108,9 +114,10 @@ impl<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> Clt<HANDLER, MAX_MSG_S
         };
         {
             let con_id = con_id.clone();
+            let callback = Arc::clone(&callback);
             spawn(async move {
                 info!("{:?} stream started", con_id);
-                let res = Self::run(clt, callback).await;
+                let res = Self::service_recv(clt, con_id.clone(), callback).await;
                 match res {
                     Ok(()) => {
                         info!("{:?} stream stopped", con_id);
@@ -125,22 +132,26 @@ impl<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> Clt<HANDLER, MAX_MSG_S
         CltSender {
             con_id: con_id.clone(),
             sender: Arc::clone(&send_ref),
+            callback: callback.clone(),
+            // callback: Arc::clone(&callback),
         }
     }
 
-    async fn run(
+    async fn service_recv(
         clt: Clt<HANDLER, MAX_MSG_SIZE>,
+        con_id: ConId,
         callback: Arc<Mutex<impl Callback<HANDLER>>>,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let mut callback = callback.lock().await;
         loop {
             let opt = {
-                let mut clt_r_grd = clt.recver.lock().await;
-                clt_r_grd.recv().await?
+                let mut clt_grd = clt.recver.lock().await;
+                clt_grd.recv().await?
             };
             match opt {
                 Some(msg) => {
-                    callback.on_recv(msg);
+                    let mut callback = callback.lock().await;
+                    
+                    callback.on_recv(&con_id, msg);
                 }
                 None => {
                     return Ok(()); // clean exist
@@ -152,7 +163,6 @@ impl<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> Clt<HANDLER, MAX_MSG_S
 
 #[cfg(test)]
 mod test {
-    use framing::LoggerCallback;
     use soupbintcp4::prelude::{NoPayload, SoupBinMsg, SoupBinProtocolHandler};
 
     use super::*;
@@ -185,7 +195,6 @@ mod test {
 
         let msg = &mut SoupBin::dbg(b"hello world");
         clt.send(msg).await.unwrap();
-        // info!("{} sent msg: {:?}", clt, msg);
 
         sleep(Duration::from_secs(1)).await;
     }

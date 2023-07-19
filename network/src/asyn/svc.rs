@@ -6,8 +6,7 @@ use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
 use crate::asyn::clt::Clt;
-
-use crate::asyn::con_msg::ConId;
+use framing::prelude::*;
 
 // pub type SvcReaderRef<MESSENGER, FRAMER> = Arc<Mutex<Option<MessageRecver<MESSENGER, FRAMER>>>>;
 // pub type SvcWriterRef<MESSENGER, const MAX_MSG_SIZE: usize> = Arc<Mutex<Option<MessageSender<MESSENGER, MAX_MSG_SIZE>>>>;
@@ -62,7 +61,7 @@ impl<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> Svc<HANDLER, MAX_MSG_S
 
 #[cfg(test)]
 mod test {
-    use framing::LoggerCallback;
+
     use soupbintcp4::prelude::*;
 
     use super::*;
