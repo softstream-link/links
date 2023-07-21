@@ -2,52 +2,60 @@ use std::collections::VecDeque;
 use std::fmt::Display;
 use std::{error::Error, sync::Arc};
 
-use framing::{Callback, ProtocolHandler};
-use log::{error, info, warn};
+use framing::prelude::*;
+use log::{debug, error, warn};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
 use crate::asyn::clt::Clt;
-use framing::prelude::*;
 
 use super::clt::CltSender;
 
 // pub type SvcReaderRef<MESSENGER, FRAMER> = Arc<Mutex<Option<MessageRecver<MESSENGER, FRAMER>>>>;
 #[rustfmt::skip]
-pub type SvcSendersRef<MESSENGER, const MAX_MSG_SIZE: usize> = Arc<Mutex<VecDeque<CltSender<MESSENGER, MAX_MSG_SIZE>>>>;
+pub type SvcSendersRef<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> = Arc<Mutex<VecDeque<CltSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>>>>;
 
 // pub type CallbackRef<HANDLER> = Arc<Mutex<impl Callback<HANDLER>>>;
 
 #[derive(Debug)]
-pub struct SvcSender<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> {
+pub struct SvcSender<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize>
+where
+    MESSENGER: Messenger,
+    CALLBACK: Callback<MESSENGER>,
+{
     con_id: ConId,
-    senders: SvcSendersRef<MESSENGER, MAX_MSG_SIZE>,
-    callback: Arc<Mutex<dyn Callback<MESSENGER>>>,
+    senders: SvcSendersRef<MESSENGER, CALLBACK, MAX_MSG_SIZE>,
 }
-impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> Display
-    for SvcSender<MESSENGER, MAX_MSG_SIZE>
+impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> Display
+    for SvcSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
+where
+    MESSENGER: Messenger,
+    CALLBACK: Callback<MESSENGER>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.con_id)
     }
 }
-impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> SvcSender<MESSENGER, MAX_MSG_SIZE> {
-    pub async fn send(
-        &mut self,
-        msg: &MESSENGER::Message,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> SvcSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
+where
+    MESSENGER: Messenger,
+    CALLBACK: Callback<MESSENGER>,
+{
+    pub async fn is_accepted(&self) -> bool {
+        let senders = self.senders.lock().await;
+        !senders.is_empty()
+    }
+    pub async fn send(&self, msg: &MESSENGER::Message) -> Result<(), Box<dyn Error + Send + Sync>> {
         {
             let mut senders = self.senders.lock().await;
             for idx in 0..senders.len() {
-                let mut sender = senders.pop_front().unwrap();
+                let sender = senders
+                    .pop_front()
+                    .expect("senders can't be empty since we are in the loop");
                 match sender.send(msg).await {
                     Ok(_) => {
                         senders.push_back(sender);
                         drop(senders);
-
-                        let callback = self.callback.lock().await;
-                        callback.on_send(&self.con_id, msg);
-
                         return Ok(());
                     }
                     Err(err) => {
@@ -65,47 +73,52 @@ impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> SvcSender<MESSENGER, MAX_M
 }
 
 #[derive(Debug)]
-pub struct Svc<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> {
-    // con_id: ConId,
-    // // reader: SvcReaderRef<HANDLER>,
-    // sender: SvcSendersRef<HANDLER, MAX_MSG_SIZE>,
-    phantom: std::marker::PhantomData<HANDLER>,
+pub struct Svc<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize>
+where
+    HANDLER: ProtocolHandler,
+    CALLBACK: Callback<HANDLER>,
+{
+    p1: std::marker::PhantomData<HANDLER>,
+    p2: std::marker::PhantomData<CALLBACK>,
 }
 
-impl<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> Svc<HANDLER, MAX_MSG_SIZE> {
+impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Svc<HANDLER, CALLBACK, MAX_MSG_SIZE>
+where
+    HANDLER: ProtocolHandler,
+    CALLBACK: Callback<HANDLER>,
+{
     pub async fn new(
         addr: &str,
-        callback: impl Callback<HANDLER>,
-    ) -> Result<SvcSender<HANDLER, MAX_MSG_SIZE>, Box<dyn Error + Send + Sync>> {
+        callback: Arc<CALLBACK>,
+    ) -> Result<SvcSender<HANDLER, CALLBACK, MAX_MSG_SIZE>, Box<dyn Error + Send + Sync>> {
         let con_id = ConId::Svc(addr.to_owned());
         let lis = TcpListener::bind(&addr).await?;
-        info!("{:?} bound successfully", con_id);
+        debug!("{:?} bound successfully", con_id);
 
-        let callback = Arc::new(Mutex::new(callback));
         let senders = SvcSendersRef::new(Mutex::new(VecDeque::new()));
-        {
+
+        tokio::spawn({
             let con_id = con_id.clone();
             let callback = Arc::clone(&callback);
             let senders = Arc::clone(&senders);
-            tokio::spawn(async move {
-                info!("{:?} accept loop started", con_id);
+            async move {
+                debug!("{:?} accept loop started", con_id);
                 match Self::service_recv(lis, callback, senders).await {
-                    Ok(()) => info!("{:?} accept loop stopped", con_id),
+                    Ok(()) => debug!("{:?} accept loop stopped", con_id),
                     Err(err) => error!("{:?} accept loop exit err: {:?}", con_id, err),
                 }
-            });
-        }
+            }
+        });
 
         Ok(SvcSender {
             con_id: con_id.clone(),
             senders: Arc::clone(&senders),
-            callback: callback.clone(),
         })
     }
     async fn service_recv(
         lis: TcpListener,
-        callback: Arc<Mutex<impl Callback<HANDLER>>>,
-        senders: SvcSendersRef<HANDLER, MAX_MSG_SIZE>,
+        callback: Arc<CALLBACK>,
+        senders: SvcSendersRef<HANDLER, CALLBACK, MAX_MSG_SIZE>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         loop {
             let (stream, _) = lis.accept().await.unwrap();
@@ -115,9 +128,12 @@ impl<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> Svc<HANDLER, MAX_MSG_S
                 stream.peer_addr()?,
             ));
 
-            let clt =
-                Clt::<HANDLER, MAX_MSG_SIZE>::from_stream(stream, callback.clone(), con_id.clone())
-                    .await;
+            let clt = Clt::<HANDLER, CALLBACK, MAX_MSG_SIZE>::from_stream(
+                stream,
+                callback.clone(),
+                con_id.clone(),
+            )
+            .await;
             senders.lock().await.push_back(clt);
         }
     }
@@ -126,29 +142,88 @@ impl<HANDLER: ProtocolHandler, const MAX_MSG_SIZE: usize> Svc<HANDLER, MAX_MSG_S
 #[cfg(test)]
 mod test {
 
+    use lazy_static::lazy_static;
+    use log::info;
     use soupbintcp4::prelude::*;
 
     use super::*;
     use crate::unittest::setup;
     use tokio::time::{sleep, Duration};
+
     type SoupBin = SoupBinMsg<NoPayload>;
+    type SoupBinProtocol = SoupBinProtocolHandler<NoPayload>;
+    type SoupBinEvenLog = EventLogCallback<SoupBinProtocol>;
+    type SoupBinChain = ChainCallback<SoupBinProtocol>;
+    type SoupBinChainRef = ChainCallbackRef<SoupBinProtocol>;
+    type SoupBinLoggerRef = LoggerCallbackRef<SoupBinProtocol>;
+    type SoupBinEvenLogRef = EventLogCallbackRef<SoupBinProtocol>;
+
+    const MAX_MSG_SIZE: usize = 128;
+
+    lazy_static! {
+        static ref ADDR: String = setup::net::default_addr();
+        static ref TIMEOUT: Duration = setup::net::default_connect_timeout();
+        static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
+        static ref FIND_TIMEOUT: Duration = setup::net::default_find_timeout();
+    }
 
     #[tokio::test]
     async fn test_svc() {
         setup::log::configure();
-        let addr = &setup::net::default_addr();
-        type SoupBinNative = SoupBinProtocolHandler<NoPayload>;
-        const MAX_MSG_SIZE: usize = 1024;
-        let logger = LoggerCallback::<SoupBinNative>::new();
-
-        let mut svc = Svc::<SoupBinNative, MAX_MSG_SIZE>::new(addr, logger)
-            .await
-            .unwrap();
+        let logger = SoupBinLoggerRef::default();
+        let svc = Svc::<SoupBinProtocol, LoggerCallback<SoupBinProtocol>, MAX_MSG_SIZE>::new(
+            &ADDR,
+            Arc::clone(&logger),
+        )
+        .await
+        .unwrap();
         info!("{} sender ready", svc);
-        loop {
-            let x = svc.send(&SoupBin::dbg(b"hello from server")).await;
-            info!("{} send result: {:?}", svc, x);
-            sleep(Duration::from_secs(5)).await;
-        }
+    }
+
+    #[tokio::test]
+    async fn test_svc_clt_connection() {
+        setup::log::configure();
+        let find_timeout = setup::net::default_find_timeout();
+        let event_log = SoupBinEvenLogRef::default();
+        let logger = SoupBinLoggerRef::default();
+        let callback =
+            SoupBinChainRef::new(ChainCallback::new(vec![logger.clone(), event_log.clone()]));
+
+            let svc =
+            Svc::<SoupBinProtocol, SoupBinChain, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&callback))
+                .await
+                .unwrap();
+
+        info!("{} sender ready", svc);
+
+        let clt = Clt::<SoupBinProtocol, SoupBinChain, MAX_MSG_SIZE>::new(
+            &ADDR,
+            *TIMEOUT,
+            *RETRY_AFTER,
+            Arc::clone(&callback),
+        )
+        .await
+        .unwrap();
+        info!("{} sender ready", clt);
+
+        while !svc.is_accepted().await {}
+
+        let msg_clt = SoupBin::dbg(b"hello from client");
+        let msg_svc = SoupBin::dbg(b"hello from server");
+        clt.send(&msg_clt).await.unwrap();
+        svc.send(&msg_svc).await.unwrap();
+
+        let found = event_log
+            .find(
+                |entry| entry.direction == Direction::Recv
+                && entry.msg == msg_svc,
+                // TODO need a name
+                find_timeout.into(),
+            )
+            .await;
+        info!("event_log: {}", *event_log);
+        info!("found: {:?}", found);
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().msg, msg_svc);
     }
 }

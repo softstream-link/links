@@ -76,10 +76,8 @@ impl<MESSENGER: Messenger, FRAMER: Framer> MessageRecver<MESSENGER, FRAMER> {
     }
 }
 
-type MessageManager<MESSENGER, const MAX_MSG_SIZE: usize, FRAMER> = (
-    MessageSender<MESSENGER, MAX_MSG_SIZE>,
-    MessageRecver<MESSENGER, FRAMER>,
-);
+#[rustfmt::skip]
+type MessageManager<MESSENGER, const MAX_MSG_SIZE: usize, FRAMER> = (MessageSender<MESSENGER, MAX_MSG_SIZE>, MessageRecver<MESSENGER, FRAMER>);
 
 pub fn into_split_messenger<MESSENGER: Messenger, const MAX_MSG_SIZE: usize, FRAMER: Framer>(
     stream: TcpStream,

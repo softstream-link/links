@@ -51,7 +51,7 @@ impl Framer for SoupBinFramer {
 }
 
 #[rustfmt::skip]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SoupBinProtocolHandler<PAYLOAD>
 where 
     PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
