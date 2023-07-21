@@ -51,7 +51,7 @@ mod test {
 
         for _ in 0..10 {
             let msg = PayLoad::new(b"hello".as_slice());
-            callback.on_recv(&ConId::Clt("test".to_owned()), msg);
+            callback.on_recv(&ConId::default(), msg);
         }
     }
 }

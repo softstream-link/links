@@ -89,8 +89,9 @@ where
     pub async fn new(
         addr: &str,
         callback: Arc<CALLBACK>,
+        name: Option<&str>,
     ) -> Result<SvcSender<HANDLER, CALLBACK, MAX_MSG_SIZE>, Box<dyn Error + Send + Sync>> {
-        let con_id = ConId::Svc(addr.to_owned());
+        let con_id = ConId::svc(name, addr, None);
         let lis = TcpListener::bind(&addr).await?;
         debug!("{:?} bound successfully", con_id);
 
@@ -102,7 +103,7 @@ where
             let senders = Arc::clone(&senders);
             async move {
                 debug!("{:?} accept loop started", con_id);
-                match Self::service_accept(lis, callback, senders).await {
+                match Self::service_accept(lis, callback, senders, con_id.clone()).await {
                     Ok(()) => debug!("{:?} accept loop stopped", con_id),
                     Err(err) => error!("{:?} accept loop exit err: {:?}", con_id, err),
                 }
@@ -118,14 +119,13 @@ where
         lis: TcpListener,
         callback: Arc<CALLBACK>,
         senders: SvcSendersRef<HANDLER, CALLBACK, MAX_MSG_SIZE>,
+        con_id: ConId,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         loop {
             let (stream, _) = lis.accept().await.unwrap();
-            let con_id = ConId::Svc(format!(
-                "{:?}<-{:?}",
-                stream.local_addr()?,
-                stream.peer_addr()?,
-            ));
+            let mut con_id = con_id.clone();
+            con_id.set_local(stream.local_addr()?);
+            con_id.set_peer(stream.peer_addr()?);
 
             let clt = Clt::<HANDLER, CALLBACK, MAX_MSG_SIZE>::from_stream(
                 stream,
@@ -147,7 +147,10 @@ mod test {
 
     use super::*;
     use crate::unittest::setup;
-    use tokio::time::{sleep, Duration};
+    use tokio::{
+        spawn,
+        time::{sleep, Duration},
+    };
 
     type SoupBin = SoupBinMsg<NoPayload>;
     type SoupBinProtocol = SoupBinProtocolHandler<NoPayload>;
@@ -168,7 +171,7 @@ mod test {
     async fn test_svc() {
         setup::log::configure();
         let logger = SoupBinLoggerRef::default();
-        let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&logger))
+        let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&logger), None)
             .await
             .unwrap();
         info!("{} sender ready", svc);
@@ -184,7 +187,7 @@ mod test {
             event_log.clone(),
         ]));
 
-        let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&callback))
+        let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&callback), None)
             .await
             .unwrap();
 
@@ -195,6 +198,7 @@ mod test {
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,
             Arc::clone(&callback),
+            None,
         )
         .await
         .unwrap();
@@ -224,30 +228,48 @@ mod test {
     async fn test_svc_clt_connection1() {
         setup::log::configure();
         // let find_timeout = setup::net::default_find_timeout();
-        let event_log = SoupBinEvenLogRef::default();
-        let callback = SoupBinChainRef::new(ChainCallback::new(vec![
-            SoupBinLoggerRef::default(),
-            event_log.clone(),
-        ]));
+        // let event_log = SoupBinEvenLogRef::default();
+        let callback = SoupBinLoggerRef::default();
+        // let callback = SoupBinChainRef::new(ChainCallback::new(vec![
+        //     SoupBinLoggerRef::default(),
+        //     event_log.clone(),
+        // ]));
 
-        let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&callback))
+        let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&callback), None)
             .await
             .unwrap();
 
         info!("{} sender ready", svc);
 
+ 
         for _ in 0..2 {
             let clt = Clt::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(
                 &ADDR,
                 *CONNECT_TIMEOUT,
                 *RETRY_AFTER,
                 Arc::clone(&callback),
+                None,
             )
             .await
             .unwrap();
+
             // info!("{} sender ready", clt);
+            
             drop(clt);
+            sleep(*CONNECT_TIMEOUT).await;
         }
-        sleep(*CONNECT_TIMEOUT*10).await;
+
+        spawn(async move {
+            loop {
+                if !svc.is_accepted().await {
+                    continue;
+                }
+                let msg_svc = SoupBin::dbg(b"hello from server");
+                let res = svc.send(&msg_svc).await;
+                info!("svc send res: {:?}", res);
+                break;
+            }
+        });
+        sleep(*CONNECT_TIMEOUT).await;
     }
 }

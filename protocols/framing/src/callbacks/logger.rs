@@ -34,7 +34,7 @@ impl<MESSENGER: Messenger> Callback<MESSENGER> for LoggerCallback<MESSENGER> {
         if !log_enabled!(self.level) {
             return ();
         }
-        let text = format!("LoggerCallback::on_recv {:?} {:?}", con_id, msg);
+        let text = format!("LoggerCallback::on_recv {} {:?}", con_id, msg);
         match self.level {
             Level::Error => error!("{}", text),
             Level::Warn => warn!("{}", text),
@@ -47,7 +47,7 @@ impl<MESSENGER: Messenger> Callback<MESSENGER> for LoggerCallback<MESSENGER> {
         if !log_enabled!(self.level) {
             return ();
         }
-        let text = format!("LoggerCallback::on_send {:?} {:?}", con_id, msg);
+        let text = format!("LoggerCallback::on_send {} {:?}", con_id, msg);
         match self.level {
             Level::Error => error!("{}", text),
             Level::Warn => warn!("{}", text),
@@ -75,7 +75,7 @@ mod test {
 
         for _ in 0..10 {
             let msg = PayLoad::new(b"hello".as_slice());
-            log.on_recv(&ConId::Clt("test".to_owned()), msg);
+            log.on_recv(&ConId::default(), msg);
         }
     }
 }

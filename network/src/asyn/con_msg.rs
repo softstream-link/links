@@ -5,6 +5,7 @@ use std::{
 
 use byteserde::{prelude::from_slice, ser_stack::to_bytes_stack};
 use framing::{prelude::*, Messenger};
+use log::warn;
 use tokio::net::{
     tcp::{OwnedReadHalf, OwnedWriteHalf},
     TcpStream,
@@ -66,7 +67,15 @@ impl<MESSENGER: Messenger, FRAMER: Framer> MessageRecver<MESSENGER, FRAMER> {
     pub async fn recv(
         &mut self,
     ) -> Result<Option<MESSENGER::Message>, Box<dyn Error + Send + Sync>> {
-        let frame = self.reader.read_frame().await?;
+        let frame = self.reader.read_frame().await;
+        let frame = match frame {
+            Ok(frm) => frm,
+            Err(err) => {
+                warn!("{} recv error: {}", self, err);
+                return Err(err);
+            }
+        };
+        // let frame = self.reader.read_frame().await?;
         if let Some(frame) = frame {
             let msg = from_slice::<MESSENGER::Message>(&frame[..])?;
             Ok(Some(msg))
@@ -83,12 +92,6 @@ pub fn into_split_messenger<MESSENGER: Messenger, const MAX_MSG_SIZE: usize, FRA
     stream: TcpStream,
     con_id: ConId,
 ) -> MessageManager<MESSENGER, MAX_MSG_SIZE, FRAMER> {
-    let locl = format!("{}", stream.local_addr().expect("unable to get local addr"));
-    let peer = format!("{}", stream.peer_addr().expect("unable to get peer addr"));
-    let con_id = match con_id {
-        ConId::Clt(_) => ConId::Clt(format!("{}->{}", locl, peer)),
-        ConId::Svc(_) => ConId::Svc(format!("{}<-{}", locl, peer)),
-    };
     match stream.into_split() {
         (reader, writer) => (
             MessageSender::new(writer, con_id.clone()),
@@ -119,11 +122,12 @@ mod test {
                 let listener = TcpListener::bind(addr.clone()).await.unwrap();
 
                 let (stream, _) = listener.accept().await.unwrap();
-                let (mut sender, mut recver) = into_split_messenger::<
-                    SoupBinProtocolHandler<NoPayload>,
-                    MAX_MSG_SIZE,
-                    SoupBinFramer,
-                >(stream, ConId::Svc(addr.clone()));
+                let (mut sender, mut recver) =
+                    into_split_messenger::<
+                        SoupBinProtocolHandler<NoPayload>,
+                        MAX_MSG_SIZE,
+                        SoupBinFramer,
+                    >(stream, ConId::svc(None, &addr, None));
 
                 info!("{} started", recver);
 
@@ -148,11 +152,12 @@ mod test {
             let addr = addr.clone();
             tokio::spawn(async move {
                 let stream = TcpStream::connect(addr.clone()).await.unwrap();
-                let (mut sender, mut recver) = into_split_messenger::<
-                    SoupBinProtocolHandler<NoPayload>,
-                    MAX_MSG_SIZE,
-                    SoupBinFramer,
-                >(stream, ConId::Clt(addr.clone()));
+                let (mut sender, mut recver) =
+                    into_split_messenger::<
+                        SoupBinProtocolHandler<NoPayload>,
+                        MAX_MSG_SIZE,
+                        SoupBinFramer,
+                    >(stream, ConId::clt(None, None, &addr));
 
                 info!("{} connected", sender);
                 let msg = &mut SoupBinMsg::<NoPayload>::dbg(b"hello world from client!");

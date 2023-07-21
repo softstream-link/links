@@ -7,7 +7,7 @@ use std::{
 use bytes::{Bytes, BytesMut};
 use framing::Framer;
 
-use log::info;
+
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{
@@ -52,7 +52,6 @@ impl<HANDLER: Framer> FrameReader<HANDLER> {
                 return Ok(Some(bytes));
             } else {
                 if 0 == self.reader.read_buf(&mut self.buffer).await? {
-                    info!("read_frame: 0 bytes"); //TODO remove
                     if self.buffer.is_empty() {
                         return Ok(None);
                     } else {
@@ -62,6 +61,7 @@ impl<HANDLER: Framer> FrameReader<HANDLER> {
             }
         }
     }
+
 }
 
 #[derive(Debug)]
@@ -91,6 +91,10 @@ impl FrameWriter {
         self.writer.flush().await?;
         Ok(())
     }
+    // pub async fn shutdown(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    //     self.writer.shutdown().await?;
+    //     Ok(())
+    // }
 }
 
 type FrameManger<HANDLER> = (FrameReader<HANDLER>, FrameWriter);
@@ -129,7 +133,8 @@ mod test {
                 let listener = TcpListener::bind(addr).await.unwrap();
                 let (stream, _) = listener.accept().await.unwrap();
 
-                let (mut reader, mut writer) = into_split_frame_manager::<SoupBinFramer>(stream, CAP);
+                let (mut reader, mut writer) =
+                    into_split_frame_manager::<SoupBinFramer>(stream, CAP);
                 info!("svc: writer: {}, reader: {}", writer, reader);
                 loop {
                     let frame = reader.read_frame().await.unwrap();
@@ -153,7 +158,8 @@ mod test {
             let addr = addr.clone();
             tokio::spawn(async move {
                 let stream = TcpStream::connect(addr).await.unwrap();
-                let (mut reader, mut writer) = into_split_frame_manager::<SoupBinFramer>(stream, CAP);
+                let (mut reader, mut writer) =
+                    into_split_frame_manager::<SoupBinFramer>(stream, CAP);
                 info!("clt: writer: {}, reader: {}", writer, reader);
                 let msg = SoupBinX::dbg(b"Hello From Client");
                 let (slice, size): ([u8; CAP], _) = to_bytes_stack(&msg).unwrap();

@@ -1,6 +1,6 @@
 use std::{
     fmt::Display,
-    sync::{Mutex, MutexGuard, Arc},
+    sync::{Arc, Mutex, MutexGuard},
     time::{Duration, Instant},
 };
 
@@ -23,6 +23,19 @@ pub struct Entry<MESSENGER: Messenger> {
     pub instant: Instant,
     pub msg: MESSENGER::Message,
 }
+impl<MESSENGER: Messenger> Display for Entry<MESSENGER> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} {:?} {:?}",
+            self.con_id,
+            self.direction,
+            // self.instant,
+            self.msg
+        )
+    }
+}
+
 impl<MESSENGER: Messenger> From<(ConId, MESSENGER::Message)> for Entry<MESSENGER> {
     fn from(value: (ConId, MESSENGER::Message)) -> Self {
         let (con_id, msg) = value;
@@ -45,8 +58,18 @@ impl<MESSENGER: Messenger> Display for EventLogCallback<MESSENGER> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let events = self.lock();
         writeln!(f, "EventLogCallback len: {}", events.len())?;
-        for (idx, entry) in events.iter().enumerate() {
-            writeln!(f, "{:<04} {:?}", idx + 1, entry)?;
+
+        for (idx, pair) in events.windows(2).enumerate() {
+            let entry1 = &pair[0];
+            if idx == 0 {
+                let delta = format!("{:?}", Duration::from_secs(0));
+                writeln!(f, "{:<04} Δ{: >15} {}", idx + 1, delta, entry1)?;
+            }
+
+            let entry2 = &pair[1];
+            let delta = entry2.instant - entry1.instant;
+            let delta = format!("{:?}", delta);
+            writeln!(f, "{:<04} Δ{: >15} {}", idx + 2, delta, entry2)?;
         }
         Ok(())
     }
@@ -60,7 +83,7 @@ impl<MESSENGER: Messenger> Default for EventLogCallback<MESSENGER> {
     }
 }
 impl<MESSENGER: Messenger> Callback<MESSENGER> for EventLogCallback<MESSENGER> {
-    fn on_recv(&self, con_id: &ConId, msg: <MESSENGER as Messenger>::Message){
+    fn on_recv(&self, con_id: &ConId, msg: <MESSENGER as Messenger>::Message) {
         let entry = Entry::from((con_id.clone(), msg));
         self.push(entry);
     }
@@ -101,7 +124,7 @@ impl<MESSENGER: Messenger> EventLogCallback<MESSENGER> {
             }
             drop(events);
 
-            if now.elapsed() > timeout{
+            if now.elapsed() > timeout {
                 break;
             }
             yield_now().await;
@@ -113,7 +136,6 @@ impl<MESSENGER: Messenger> EventLogCallback<MESSENGER> {
         events.last().cloned()
     }
 }
-
 
 #[cfg(test)]
 mod test {
@@ -135,7 +157,7 @@ mod test {
         let mut msg = PayLoad::new(format!("hello").as_bytes());
         for idx in 0..10 {
             msg = PayLoad::new(format!("hello  #{}", idx).as_bytes());
-            let entry = Entry::from((ConId::Clt("test".into()), msg.clone()));
+            let entry = Entry::from((ConId::default(), msg.clone()));
             event_log.push(entry);
         }
         info!("event_log: {}", event_log);

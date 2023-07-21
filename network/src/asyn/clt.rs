@@ -93,25 +93,24 @@ where
         timeout: Duration,
         retry_after: Duration,
         callback: Arc<CALLBACK>,
+        name: Option<&str>,
     ) -> Result<CltSender<HANDLER, CALLBACK, MAX_MSG_SIZE>, Box<dyn Error + Send + Sync>> {
         assert!(timeout > retry_after);
         let now = Instant::now();
-        let con_id = ConId::Clt(addr.to_owned());
+        let con_id = ConId::clt(name, None, addr);
         while now.elapsed() < timeout {
             let res = TcpStream::connect(addr).await;
             match res {
                 Err(e) => {
-                    debug!("{:?} connect failed. e: {:?}", con_id, e);
+                    debug!("{} connect failed. e: {:?}", con_id, e);
                     sleep(retry_after).await;
                     continue;
                 }
                 Ok(stream) => {
-                    let con_id = ConId::Clt(format!(
-                        "{:?}->{:?}",
-                        stream.local_addr()?,
-                        stream.peer_addr()?
-                    ));
-                    debug!("{:?} connected", con_id);
+                    let mut con_id = con_id.clone();
+                    con_id.set_local(stream.local_addr()?);
+                    con_id.set_peer(stream.peer_addr()?);
+                    debug!("{} connected", con_id);
                     return Ok(Self::from_stream(stream, callback, con_id).await);
                 }
             }
@@ -206,6 +205,7 @@ mod test {
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,
             Arc::clone(&logger),
+            None,
         )
         .await;
 
