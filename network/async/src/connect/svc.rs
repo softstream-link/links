@@ -1,15 +1,10 @@
-use std::collections::VecDeque;
-use std::fmt::Display;
-use std::{error::Error, sync::Arc};
+use std::{collections::VecDeque, error::Error, fmt::Display, sync::Arc};
 
 use framing::prelude::*;
 use log::{debug, error, warn};
-use tokio::task::AbortHandle;
-use tokio::{net::TcpListener, sync::Mutex};
+use tokio::{net::TcpListener, sync::Mutex, task::AbortHandle};
 
-use crate::clt::Clt;
-
-use super::clt::CltSender;
+use super::clt::{Clt, CltSender};
 
 // pub type SvcReaderRef<MESSENGER, FRAMER> = Arc<Mutex<Option<MessageRecver<MESSENGER, FRAMER>>>>;
 #[rustfmt::skip]
