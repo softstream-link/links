@@ -3,7 +3,7 @@ members = [
     "protocols/framing",
     "protocols/soupbintcp4",
     "protocols/ouch5",
-    "network",
+    "network/async",
 ]
 
 [workspace.dependencies]

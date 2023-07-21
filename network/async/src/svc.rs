@@ -7,7 +7,7 @@ use log::{debug, error, warn};
 use tokio::task::AbortHandle;
 use tokio::{net::TcpListener, sync::Mutex};
 
-use crate::asyn::clt::Clt;
+use crate::clt::Clt;
 
 use super::clt::CltSender;
 

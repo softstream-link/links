@@ -1,5 +1,5 @@
 [package]
-name = "network"
+name = "links-network-async"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,8 +9,8 @@ env_logger = { workspace = true }
 bytes = { workspace = true }
 tokio = { workspace = true }
 
-framing = { path = "../protocols/framing" }
-soupbintcp4 = { path = "../protocols/soupbintcp4" }
+framing = { path = "../../protocols/framing" }
+soupbintcp4 = { path = "../../protocols/soupbintcp4" }
 byteserde = { workspace = true }
 
 [dev-dependencies]
