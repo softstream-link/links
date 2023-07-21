@@ -148,11 +148,10 @@ mod test {
 
     use super::*;
     use crate::unittest::setup;
-    use tokio::time::{sleep, Duration};
+    use tokio::time::Duration;
 
     type SoupBin = SoupBinMsg<NoPayload>;
     type SoupBinProtocol = SoupBinProtocolHandler<NoPayload>;
-    type SoupBinEvenLog = EventLogCallback<SoupBinProtocol>;
     type SoupBinChain = ChainCallback<SoupBinProtocol>;
     type SoupBinChainRef = ChainCallbackRef<SoupBinProtocol>;
     type SoupBinLoggerRef = LoggerCallbackRef<SoupBinProtocol>;
@@ -171,12 +170,9 @@ mod test {
     async fn test_svc() {
         setup::log::configure();
         let logger = SoupBinLoggerRef::default();
-        let svc = Svc::<SoupBinProtocol, LoggerCallback<SoupBinProtocol>, MAX_MSG_SIZE>::new(
-            &ADDR,
-            Arc::clone(&logger),
-        )
-        .await
-        .unwrap();
+        let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&logger))
+            .await
+            .unwrap();
         info!("{} sender ready", svc);
     }
 
@@ -185,18 +181,18 @@ mod test {
         setup::log::configure();
         let find_timeout = setup::net::default_find_timeout();
         let event_log = SoupBinEvenLogRef::default();
-        let logger = SoupBinLoggerRef::default();
-        let callback =
-            SoupBinChainRef::new(ChainCallback::new(vec![logger.clone(), event_log.clone()]));
+        let callback = SoupBinChainRef::new(ChainCallback::new(vec![
+            SoupBinLoggerRef::default(),
+            event_log.clone(),
+        ]));
 
-            let svc =
-            Svc::<SoupBinProtocol, SoupBinChain, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&callback))
-                .await
-                .unwrap();
+        let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&callback))
+            .await
+            .unwrap();
 
         info!("{} sender ready", svc);
 
-        let clt = Clt::<SoupBinProtocol, SoupBinChain, MAX_MSG_SIZE>::new(
+        let clt = Clt::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(
             &ADDR,
             *TIMEOUT,
             *RETRY_AFTER,
@@ -215,8 +211,7 @@ mod test {
 
         let found = event_log
             .find(
-                |entry| entry.direction == Direction::Recv
-                && entry.msg == msg_svc,
+                |entry| entry.direction == Direction::Recv && entry.msg == msg_svc,
                 // TODO need a name
                 find_timeout.into(),
             )

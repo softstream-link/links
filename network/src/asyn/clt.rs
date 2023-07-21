@@ -42,10 +42,7 @@ where
     MESSENGER: Messenger,
     CALLBACK: Callback<MESSENGER>,
 {
-    pub async fn send(
-        &self,
-        msg: &MESSENGER::Message,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn send(&self, msg: &MESSENGER::Message) -> Result<(), Box<dyn Error + Send + Sync>> {
         {
             // let callback = self.callback.lock().await;
             self.callback.on_send(&self.con_id, msg);
@@ -190,25 +187,23 @@ mod test {
     use crate::unittest::setup;
 
     type SoupBinProtocol = SoupBinProtocolHandler<NoPayload>;
-    type SoupBinLogger = LoggerCallback<SoupBinProtocol>;
     type SoupBinLoggerRef = LoggerCallbackRef<SoupBinProtocol>;
     const MAX_MSG_SIZE: usize = 128;
     lazy_static! {
         static ref ADDR: String = setup::net::default_addr();
         static ref TIMEOUT: Duration = setup::net::default_connect_timeout();
         static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
-        static ref LOGGER: SoupBinLoggerRef = SoupBinLoggerRef::default();
     }
 
     #[tokio::test]
     async fn test_clt_not_connected() {
         setup::log::configure();
-
-        let clt = Clt::<SoupBinProtocol, SoupBinLogger, MAX_MSG_SIZE>::new(
+        let logger: SoupBinLoggerRef = SoupBinLoggerRef::default();
+        let clt = Clt::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(
             &ADDR,
             *TIMEOUT,
             *RETRY_AFTER,
-            Arc::clone(&LOGGER),
+            Arc::clone(&logger),
         )
         .await;
 
