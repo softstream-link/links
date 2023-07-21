@@ -4,6 +4,7 @@ use std::{error::Error, sync::Arc};
 
 use framing::prelude::*;
 use log::{debug, error, warn};
+use tokio::task::AbortHandle;
 use tokio::{net::TcpListener, sync::Mutex};
 
 use crate::asyn::clt::Clt;
@@ -24,6 +25,7 @@ where
 {
     con_id: ConId,
     senders: SvcSendersRef<MESSENGER, CALLBACK, MAX_MSG_SIZE>,
+    recver_abort_handle: AbortHandle,
 }
 impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> Display
     for SvcSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
@@ -32,7 +34,19 @@ where
     CALLBACK: Callback<MESSENGER>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.con_id)
+        write!(f, "{} SvcSender", self.con_id) // TOOD add active connection info
+    }
+}
+
+impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> Drop
+    for SvcSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
+where
+    MESSENGER: Messenger,
+    CALLBACK: Callback<MESSENGER>,
+{
+    fn drop(&mut self) {
+        debug!("{} recv stream aborting", self);
+        self.recver_abort_handle.abort();
     }
 }
 impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> SvcSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
@@ -93,26 +107,28 @@ where
     ) -> Result<SvcSender<HANDLER, CALLBACK, MAX_MSG_SIZE>, Box<dyn Error + Send + Sync>> {
         let con_id = ConId::svc(name, addr, None);
         let lis = TcpListener::bind(&addr).await?;
-        debug!("{:?} bound successfully", con_id);
+        debug!("{} bound successfully", con_id);
 
         let senders = SvcSendersRef::new(Mutex::new(VecDeque::new()));
 
-        tokio::spawn({
+        let recver_abort_handle = tokio::spawn({
             let con_id = con_id.clone();
             let callback = Arc::clone(&callback);
             let senders = Arc::clone(&senders);
             async move {
-                debug!("{:?} accept loop started", con_id);
+                debug!("{} accept loop started", con_id);
                 match Self::service_accept(lis, callback, senders, con_id.clone()).await {
-                    Ok(()) => debug!("{:?} accept loop stopped", con_id),
-                    Err(err) => error!("{:?} accept loop exit err: {:?}", con_id, err),
+                    Ok(()) => debug!("{} accept loop stopped", con_id),
+                    Err(e) => error!("{} accept loop error: {:?}", con_id, e),
                 }
             }
-        });
+        })
+        .abort_handle();
 
         Ok(SvcSender {
             con_id: con_id.clone(),
             senders: Arc::clone(&senders),
+            recver_abort_handle,
         })
     }
     async fn service_accept(
@@ -147,10 +163,7 @@ mod test {
 
     use super::*;
     use crate::unittest::setup;
-    use tokio::{
-        spawn,
-        time::{sleep, Duration},
-    };
+    use tokio::time::Duration;
 
     type SoupBin = SoupBinMsg<NoPayload>;
     type SoupBinProtocol = SoupBinProtocolHandler<NoPayload>;
@@ -187,9 +200,13 @@ mod test {
             event_log.clone(),
         ]));
 
-        let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&callback), None)
-            .await
-            .unwrap();
+        let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(
+            &ADDR,
+            Arc::clone(&callback),
+            Some("venue"),
+        )
+        .await
+        .unwrap();
 
         info!("{} sender ready", svc);
 
@@ -198,7 +215,7 @@ mod test {
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,
             Arc::clone(&callback),
-            None,
+            Some("broker"),
         )
         .await
         .unwrap();
@@ -213,8 +230,13 @@ mod test {
 
         let found = event_log
             .find(
-                |entry| entry.direction == Direction::Recv && entry.msg == msg_svc,
-                // TODO need a name
+                |entry| {
+                    entry.direction == Direction::Recv
+                        && entry.msg == msg_svc
+                        && match &entry.con_id {
+                            ConId::Clt { name, .. } | ConId::Svc { name, .. } => name == "broker",
+                        }
+                },
                 find_timeout.into(),
             )
             .await;
@@ -222,54 +244,5 @@ mod test {
         info!("found: {:?}", found);
         assert!(found.is_some());
         assert_eq!(found.unwrap().msg, msg_svc);
-    }
-
-    #[tokio::test]
-    async fn test_svc_clt_connection1() {
-        setup::log::configure();
-        // let find_timeout = setup::net::default_find_timeout();
-        // let event_log = SoupBinEvenLogRef::default();
-        let callback = SoupBinLoggerRef::default();
-        // let callback = SoupBinChainRef::new(ChainCallback::new(vec![
-        //     SoupBinLoggerRef::default(),
-        //     event_log.clone(),
-        // ]));
-
-        let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&callback), None)
-            .await
-            .unwrap();
-
-        info!("{} sender ready", svc);
-
- 
-        for _ in 0..2 {
-            let clt = Clt::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(
-                &ADDR,
-                *CONNECT_TIMEOUT,
-                *RETRY_AFTER,
-                Arc::clone(&callback),
-                None,
-            )
-            .await
-            .unwrap();
-
-            // info!("{} sender ready", clt);
-            
-            drop(clt);
-            sleep(*CONNECT_TIMEOUT).await;
-        }
-
-        spawn(async move {
-            loop {
-                if !svc.is_accepted().await {
-                    continue;
-                }
-                let msg_svc = SoupBin::dbg(b"hello from server");
-                let res = svc.send(&msg_svc).await;
-                info!("svc send res: {:?}", res);
-                break;
-            }
-        });
-        sleep(*CONNECT_TIMEOUT).await;
     }
 }

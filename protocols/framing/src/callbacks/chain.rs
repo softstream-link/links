@@ -1,4 +1,4 @@
-use std::{fmt::Debug, sync::Arc};
+use std::{fmt::{Debug, Display}, sync::Arc};
 
 use crate::{ConId, Messenger};
 
@@ -16,7 +16,11 @@ impl<MESSENGER: Messenger> ChainCallback<MESSENGER> {
         Self { chain }
     }
 }
-
+impl<MESSENGER: Messenger> Display for ChainCallback<MESSENGER> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ChainCallback<{}>", self.chain.len())
+    }
+}
 impl<MESSENGER: Messenger> Callback<MESSENGER> for ChainCallback<MESSENGER> {
     fn on_recv(&self, con_id: &ConId, msg: MESSENGER::Message) {
         for callback in self.chain.iter() {

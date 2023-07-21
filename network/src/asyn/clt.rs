@@ -1,4 +1,4 @@
-use tokio::sync::Mutex;
+use tokio::{sync::Mutex, task::AbortHandle};
 
 use std::{
     error::Error,
@@ -8,7 +8,7 @@ use std::{
 };
 
 use framing::prelude::*;
-use log::{debug, info};
+use log::debug;
 use tokio::net::TcpStream;
 
 use super::con_msg::{into_split_messenger, MessageRecver, MessageSender};
@@ -24,6 +24,7 @@ where
     con_id: ConId,
     sender: CltSenderRef<MESSENGER, MAX_MSG_SIZE>,
     callback: Arc<CALLBACK>,
+    recver_abort_handle: AbortHandle,
     // callback: CallbackRef<MESSENGER>, // TODO can't be fixed for now.
     // pub type CallbackRef<MESSENGER> = Arc<Mutex<impl Callback<MESSENGER>>>; // impl Trait` in type aliases is unstable see issue #63063 <https://github.com/rust-lang/rust/issues/63063>
 }
@@ -34,9 +35,21 @@ where
     CALLBACK: Callback<MESSENGER>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.con_id)
+        write!(f, "{} CltSender<TODO, {}, {}>", self.con_id, self.callback, MAX_MSG_SIZE) // TODO add protocol handler
     }
 }
+impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> Drop
+    for CltSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
+where
+    MESSENGER: Messenger,
+    CALLBACK: Callback<MESSENGER>,
+{
+    fn drop(&mut self) {
+        debug!("{} recv stream aborting", self);
+        self.recver_abort_handle.abort();
+    }
+}
+
 impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> CltSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
 where
     MESSENGER: Messenger,
@@ -71,18 +84,27 @@ where
     con_id: ConId,
     recver: CltRecverRef<HANDLER, HANDLER>,
     sender: CltSenderRef<HANDLER, MAX_MSG_SIZE>,
-    phantom: std::marker::PhantomData<CALLBACK>,
+    callback: Arc<CALLBACK>,
 }
+
 impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Display for Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>
 where
     HANDLER: ProtocolHandler,
     CALLBACK: Callback<HANDLER>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.con_id)
+        write!(f, "{} Clt<TODO, {}, {}>", self.con_id, self.callback, MAX_MSG_SIZE) // TODO add protocol handler
     }
 }
-
+impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Drop for Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>
+where
+    HANDLER: ProtocolHandler,
+    CALLBACK: Callback<HANDLER>,
+{
+    fn drop(&mut self) {
+        debug!("{} recv stream stopped", self);
+    }
+}
 impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>
 where
     HANDLER: ProtocolHandler,
@@ -110,8 +132,9 @@ where
                     let mut con_id = con_id.clone();
                     con_id.set_local(stream.local_addr()?);
                     con_id.set_peer(stream.peer_addr()?);
-                    debug!("{} connected", con_id);
-                    return Ok(Self::from_stream(stream, callback, con_id).await);
+                    let clt = Self::from_stream(stream, callback, con_id).await;
+                    debug!("{} connected", clt);
+                    return Ok(clt);
                 }
             }
         }
@@ -133,45 +156,46 @@ where
             con_id: con_id.clone(),
             recver: Arc::clone(&recv_ref),
             sender: Arc::clone(&send_ref),
-            phantom: std::marker::PhantomData,
+            callback: Arc::clone(&callback),
         };
 
-        spawn({
+        let recver_abort_handle = spawn({
             let con_id = con_id.clone();
-            let callback = Arc::clone(&callback);
             async move {
-                debug!("{:?} stream started", con_id);
-                let res = Self::service_recv(clt, con_id.clone(), callback).await;
+                debug!("{} recv stream started", con_id);
+                let res = Self::service_recv(clt, con_id.clone()).await;
                 match res {
                     Ok(()) => {
-                        debug!("{:?} stream stopped", con_id);
+                        debug!("{} recv stream stopped", con_id);
                     }
                     Err(e) => {
-                        debug!("{:?} stream exit err:: {:?}", con_id, e);
+                        debug!("{} recv stream error: {:?}", con_id, e);
                     }
                 }
             }
-        });
+        })
+        .abort_handle();
 
         CltSender {
             con_id: con_id.clone(),
             sender: Arc::clone(&send_ref),
             callback: Arc::clone(&callback),
+            recver_abort_handle,
         }
     }
 
     async fn service_recv(
         clt: Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>,
         con_id: ConId,
-        callback: Arc<CALLBACK>,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         loop {
             let opt = {
                 let mut clt_grd = clt.recver.lock().await;
                 clt_grd.recv().await?
+                // TODO add protocol handler logic and exit logic
             };
             match opt {
-                Some(msg) => callback.on_recv(&con_id, msg),
+                Some(msg) => clt.callback.on_recv(&con_id, msg),
                 None => break, // clean exist
             }
         }
@@ -182,6 +206,7 @@ where
 #[cfg(test)]
 mod test {
     use lazy_static::lazy_static;
+    use log::info;
     use soupbintcp4::prelude::*;
 
     use super::*;

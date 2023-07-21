@@ -1,4 +1,7 @@
-use std::{fmt::Debug, sync::Arc};
+use std::{
+    fmt::{Debug, Display},
+    sync::Arc,
+};
 
 use crate::{ConId, Messenger};
 use log::{debug, error, info, log_enabled, trace, warn, Level};
@@ -26,6 +29,12 @@ impl<MESSENGER: Messenger> LoggerCallback<MESSENGER> {
             level,
             p1: std::marker::PhantomData,
         }
+    }
+}
+
+impl<MESSENGER: Messenger> Display for LoggerCallback<MESSENGER> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "LoggerCallback<{}>", self.level)
     }
 }
 
