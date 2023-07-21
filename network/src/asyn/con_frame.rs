@@ -7,6 +7,7 @@ use std::{
 use bytes::{Bytes, BytesMut};
 use framing::Framer;
 
+use log::info;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{
@@ -44,13 +45,14 @@ impl<HANDLER: Framer> FrameReader<HANDLER> {
             phantom: PhantomData,
         }
     }
-
+    // TODO error types for this crait
     pub async fn read_frame(&mut self) -> Result<Option<Bytes>, Box<dyn Error + Send + Sync>> {
         loop {
             if let Some(bytes) = HANDLER::get_frame(&mut self.buffer) {
                 return Ok(Some(bytes));
             } else {
                 if 0 == self.reader.read_buf(&mut self.buffer).await? {
+                    info!("read_frame: 0 bytes"); //TODO remove
                     if self.buffer.is_empty() {
                         return Ok(None);
                     } else {

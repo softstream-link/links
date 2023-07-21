@@ -127,6 +127,7 @@ where
         let (sender, recver) =
             into_split_messenger::<HANDLER, MAX_MSG_SIZE, HANDLER>(stream, con_id.clone());
 
+        // TODO remove mutes on recv since it is only used in one place
         let recv_ref = CltRecverRef::new(Mutex::new(recver));
         let send_ref = CltSenderRef::new(Mutex::new(sender));
         let clt = Self {
@@ -140,14 +141,14 @@ where
             let con_id = con_id.clone();
             let callback = Arc::clone(&callback);
             async move {
-                info!("{:?} stream started", con_id);
+                debug!("{:?} stream started", con_id);
                 let res = Self::service_recv(clt, con_id.clone(), callback).await;
                 match res {
                     Ok(()) => {
-                        info!("{:?} stream stopped", con_id);
+                        debug!("{:?} stream stopped", con_id);
                     }
                     Err(e) => {
-                        info!("{:?} stream exit err:: {:?}", con_id, e);
+                        debug!("{:?} stream exit err:: {:?}", con_id, e);
                     }
                 }
             }
@@ -172,9 +173,10 @@ where
             };
             match opt {
                 Some(msg) => callback.on_recv(&con_id, msg),
-                None => (), // clean exist
+                None => break, // clean exist
             }
         }
+        Ok(())
     }
 }
 
@@ -191,7 +193,7 @@ mod test {
     const MAX_MSG_SIZE: usize = 128;
     lazy_static! {
         static ref ADDR: String = setup::net::default_addr();
-        static ref TIMEOUT: Duration = setup::net::default_connect_timeout();
+        static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
         static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
     }
 
@@ -201,7 +203,7 @@ mod test {
         let logger: SoupBinLoggerRef = SoupBinLoggerRef::default();
         let clt = Clt::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(
             &ADDR,
-            *TIMEOUT,
+            *CONNECT_TIMEOUT,
             *RETRY_AFTER,
             Arc::clone(&logger),
         )

@@ -4,8 +4,7 @@ use std::{error::Error, sync::Arc};
 
 use framing::prelude::*;
 use log::{debug, error, warn};
-use tokio::net::TcpListener;
-use tokio::sync::Mutex;
+use tokio::{net::TcpListener, sync::Mutex};
 
 use crate::asyn::clt::Clt;
 
@@ -103,7 +102,7 @@ where
             let senders = Arc::clone(&senders);
             async move {
                 debug!("{:?} accept loop started", con_id);
-                match Self::service_recv(lis, callback, senders).await {
+                match Self::service_accept(lis, callback, senders).await {
                     Ok(()) => debug!("{:?} accept loop stopped", con_id),
                     Err(err) => error!("{:?} accept loop exit err: {:?}", con_id, err),
                 }
@@ -115,7 +114,7 @@ where
             senders: Arc::clone(&senders),
         })
     }
-    async fn service_recv(
+    async fn service_accept(
         lis: TcpListener,
         callback: Arc<CALLBACK>,
         senders: SvcSendersRef<HANDLER, CALLBACK, MAX_MSG_SIZE>,
@@ -148,11 +147,10 @@ mod test {
 
     use super::*;
     use crate::unittest::setup;
-    use tokio::time::Duration;
+    use tokio::time::{sleep, Duration};
 
     type SoupBin = SoupBinMsg<NoPayload>;
     type SoupBinProtocol = SoupBinProtocolHandler<NoPayload>;
-    type SoupBinChain = ChainCallback<SoupBinProtocol>;
     type SoupBinChainRef = ChainCallbackRef<SoupBinProtocol>;
     type SoupBinLoggerRef = LoggerCallbackRef<SoupBinProtocol>;
     type SoupBinEvenLogRef = EventLogCallbackRef<SoupBinProtocol>;
@@ -161,7 +159,7 @@ mod test {
 
     lazy_static! {
         static ref ADDR: String = setup::net::default_addr();
-        static ref TIMEOUT: Duration = setup::net::default_connect_timeout();
+        static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
         static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
         static ref FIND_TIMEOUT: Duration = setup::net::default_find_timeout();
     }
@@ -194,7 +192,7 @@ mod test {
 
         let clt = Clt::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(
             &ADDR,
-            *TIMEOUT,
+            *CONNECT_TIMEOUT,
             *RETRY_AFTER,
             Arc::clone(&callback),
         )
@@ -220,5 +218,36 @@ mod test {
         info!("found: {:?}", found);
         assert!(found.is_some());
         assert_eq!(found.unwrap().msg, msg_svc);
+    }
+
+    #[tokio::test]
+    async fn test_svc_clt_connection1() {
+        setup::log::configure();
+        // let find_timeout = setup::net::default_find_timeout();
+        let event_log = SoupBinEvenLogRef::default();
+        let callback = SoupBinChainRef::new(ChainCallback::new(vec![
+            SoupBinLoggerRef::default(),
+            event_log.clone(),
+        ]));
+
+        let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&callback))
+            .await
+            .unwrap();
+
+        info!("{} sender ready", svc);
+
+        for _ in 0..2 {
+            let clt = Clt::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(
+                &ADDR,
+                *CONNECT_TIMEOUT,
+                *RETRY_AFTER,
+                Arc::clone(&callback),
+            )
+            .await
+            .unwrap();
+            // info!("{} sender ready", clt);
+            drop(clt);
+        }
+        sleep(*CONNECT_TIMEOUT*10).await;
     }
 }
