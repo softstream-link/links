@@ -2,7 +2,8 @@ use std::fmt::Debug;
 
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
-use framing::prelude::*;
+// use framing::prelude::*;
+use links_network_async::prelude::*;
 
 use crate::prelude::SoupBinMsg;
 

@@ -1,6 +1,6 @@
-use std::{collections::VecDeque, error::Error, fmt::Display, sync::Arc};
+use std::{any::type_name, collections::VecDeque, error::Error, fmt::Display, sync::Arc};
 
-use framing::prelude::*;
+use crate::prelude::*;
 use log::{debug, error, warn};
 use tokio::{net::TcpListener, sync::Mutex, task::AbortHandle};
 
@@ -29,7 +29,26 @@ where
     CALLBACK: Callback<MESSENGER>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} SvcSender", self.con_id) // TOOD add active connection info
+        let msg_name = type_name::<MESSENGER>()
+            .split("::")
+            .last()
+            .unwrap_or("Unknown");
+        let clb_name = type_name::<CALLBACK>()
+            .split("<")
+            .next()
+            .unwrap_or("Unknown")
+            .split("::")
+            .last()
+            .unwrap_or("Unknown");
+        let con_name = match &self.con_id {
+            ConId::Svc { name, local, .. } => format!("Svc({}@{})", name, local),
+            _ => panic!("SvcSender has Invalid ConId: {:?}", self.con_id),
+        };
+        write!(
+            f,
+            "{} SvcSender<{}, {}, {}>",
+            con_name, msg_name, clb_name, MAX_MSG_SIZE
+        )
     }
 }
 
@@ -40,7 +59,7 @@ where
     CALLBACK: Callback<MESSENGER>,
 {
     fn drop(&mut self) {
-        debug!("{} recv stream aborting", self);
+        debug!("{} aborting receiver queue", self);
         self.recver_abort_handle.abort();
     }
 }
@@ -154,19 +173,10 @@ mod test {
 
     use lazy_static::lazy_static;
     use log::info;
-    use soupbintcp4::prelude::*;
 
     use super::*;
-    use crate::unittest::setup;
+    use crate::unittest::setup::{self, model::*, protocol::*};
     use tokio::time::Duration;
-
-    type SoupBin = SoupBinMsg<NoPayload>;
-    type SoupBinProtocol = SoupBinProtocolHandler<NoPayload>;
-    type SoupBinChainRef = ChainCallbackRef<SoupBinProtocol>;
-    type SoupBinLoggerRef = LoggerCallbackRef<SoupBinProtocol>;
-    type SoupBinEvenLogRef = EventLogCallbackRef<SoupBinProtocol>;
-
-    const MAX_MSG_SIZE: usize = 128;
 
     lazy_static! {
         static ref ADDR: String = setup::net::default_addr();
@@ -174,28 +184,32 @@ mod test {
         static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
         static ref FIND_TIMEOUT: Duration = setup::net::default_find_timeout();
     }
-
+    const MAX_MSG_SIZE: usize = 128;
     #[tokio::test]
     async fn test_svc() {
         setup::log::configure();
-        let logger = SoupBinLoggerRef::default();
-        let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&logger), None)
-            .await
-            .unwrap();
-        info!("{} sender ready", svc);
+        let logger = LoggerCallbackRef::<MsgProtocolHandler>::default();
+        let svc = Svc::<MsgProtocolHandler, _, MAX_MSG_SIZE>::new(
+            &ADDR,
+            Arc::clone(&logger),
+            Some("unittest"),
+        )
+        .await
+        .unwrap();
+        info!("{} ready", svc);
     }
 
     #[tokio::test]
     async fn test_svc_clt_connection() {
         setup::log::configure();
         let find_timeout = setup::net::default_find_timeout();
-        let event_log = SoupBinEvenLogRef::default();
-        let callback = SoupBinChainRef::new(ChainCallback::new(vec![
-            SoupBinLoggerRef::default(),
+        let event_log = EventLogCallbackRef::<MsgProtocolHandler>::default();
+        let callback = ChainCallbackRef::new(ChainCallback::new(vec![
+            LoggerCallbackRef::<MsgProtocolHandler>::default(),
             event_log.clone(),
         ]));
 
-        let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(
+        let svc = Svc::<MsgProtocolHandler, _, MAX_MSG_SIZE>::new(
             &ADDR,
             Arc::clone(&callback),
             Some("venue"),
@@ -205,7 +219,7 @@ mod test {
 
         info!("{} sender ready", svc);
 
-        let clt = Clt::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(
+        let clt = Clt::<MsgProtocolHandler, _, MAX_MSG_SIZE>::new(
             &ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,
@@ -218,16 +232,16 @@ mod test {
 
         while !svc.is_accepted().await {}
 
-        let msg_clt = SoupBin::dbg(b"hello from client");
-        let msg_svc = SoupBin::dbg(b"hello from server");
-        clt.send(&msg_clt).await.unwrap();
-        svc.send(&msg_svc).await.unwrap();
+        let inp_clt_msg = Msg::Clt(MsgFromClt::new(b"Hello Frm Client Msg"));
+        let inp_svc_msg = Msg::Svc(MsgFromSvc::new(b"Hello Frm Server Msg"));
+        clt.send(&inp_clt_msg).await.unwrap();
+        svc.send(&inp_svc_msg).await.unwrap();
 
         let found = event_log
             .find(
                 |entry| {
                     entry.direction == Direction::Recv
-                        && entry.msg == msg_svc
+                        && entry.msg == inp_svc_msg
                         && match &entry.con_id {
                             ConId::Clt { name, .. } | ConId::Svc { name, .. } => name == "broker",
                         }
@@ -238,6 +252,88 @@ mod test {
         info!("event_log: {}", *event_log);
         info!("found: {:?}", found);
         assert!(found.is_some());
-        assert_eq!(found.unwrap().msg, msg_svc);
+        assert_eq!(found.unwrap().msg, inp_svc_msg);
     }
+
+    //  TODO move to soupbin
+    // type SoupBin = SoupBinMsg<NoPayload>;
+    // type SoupBinProtocol = SoupBinProtocolHandler<NoPayload>;
+    // type SoupBinChainRef = ChainCallbackRef<SoupBinProtocol>;
+    // type SoupBinLoggerRef = LoggerCallbackRef<SoupBinProtocol>;
+    // type SoupBinEvenLogRef = EventLogCallbackRef<SoupBinProtocol>;
+
+    // const MAX_MSG_SIZE: usize = 128;
+
+    // lazy_static! {
+    //     static ref ADDR: String = setup::net::default_addr();
+    //     static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
+    //     static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
+    //     static ref FIND_TIMEOUT: Duration = setup::net::default_find_timeout();
+    // }
+
+    // #[tokio::test]
+    // async fn test_svc() {
+    //     setup::log::configure();
+    //     let logger = SoupBinLoggerRef::default();
+    //     let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&logger), None)
+    //         .await
+    //         .unwrap();
+    //     info!("{} sender ready", svc);
+    // }
+
+    // #[tokio::test]
+    // async fn test_svc_clt_connection() {
+    //     setup::log::configure();
+    //     let find_timeout = setup::net::default_find_timeout();
+    //     let event_log = SoupBinEvenLogRef::default();
+    //     let callback = SoupBinChainRef::new(ChainCallback::new(vec![
+    //         SoupBinLoggerRef::default(),
+    //         event_log.clone(),
+    //     ]));
+
+    //     let svc = Svc::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(
+    //         &ADDR,
+    //         Arc::clone(&callback),
+    //         Some("venue"),
+    //     )
+    //     .await
+    //     .unwrap();
+
+    //     info!("{} sender ready", svc);
+
+    //     let clt = Clt::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(
+    //         &ADDR,
+    //         *CONNECT_TIMEOUT,
+    //         *RETRY_AFTER,
+    //         Arc::clone(&callback),
+    //         Some("broker"),
+    //     )
+    //     .await
+    //     .unwrap();
+    //     info!("{} sender ready", clt);
+
+    //     while !svc.is_accepted().await {}
+
+    //     let msg_clt = SoupBin::dbg(b"hello from client");
+    //     let msg_svc = SoupBin::dbg(b"hello from server");
+    //     clt.send(&msg_clt).await.unwrap();
+    //     svc.send(&msg_svc).await.unwrap();
+
+    //     let found = event_log
+    //         .find(
+    //             |entry| {
+    //                 entry.direction == Direction::Recv
+    //                     && entry.msg == msg_svc
+    //                     && match &entry.con_id {
+    //                         ConId::Clt { name, .. } | ConId::Svc { name, .. } => name == "broker",
+    //                     }
+    //             },
+    //             find_timeout.into(),
+    //         )
+    //         .await;
+    //     info!("event_log: {}", *event_log);
+    //     info!("found: {:?}", found);
+    //     assert!(found.is_some());
+    //     assert_eq!(found.unwrap().msg, msg_svc);
+    // }
 }

@@ -12,7 +12,10 @@ edition = "2021"
 byteserde = { workspace = true }
 byteserde_derive = { workspace = true }
 byteserde_types = { workspace = true }
-framing = { path = "../framing"}
+
+# framing = { path = "../framing"}
+links_network_async = { path = "../../network/async" }
+
 bytes = { workspace = true }
 log = { workspace = true }
 

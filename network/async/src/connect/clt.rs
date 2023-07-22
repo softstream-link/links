@@ -1,17 +1,18 @@
 use tokio::{sync::Mutex, task::AbortHandle};
 
 use std::{
+    any::type_name,
     error::Error,
     fmt::Display,
     sync::Arc,
     time::{Duration, Instant},
 };
 
-use framing::prelude::*;
+use crate::prelude::*;
 use log::debug;
 use tokio::net::TcpStream;
 
-use super::con_msg::{into_split_messenger, MessageRecver, MessageSender};
+use super::messaging::{into_split_messenger, MessageRecver, MessageSender};
 
 use tokio::{spawn, time::sleep};
 
@@ -35,7 +36,22 @@ where
     CALLBACK: Callback<MESSENGER>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} CltSender<TODO, {}, {}>", self.con_id, self.callback, MAX_MSG_SIZE) // TODO add protocol handler
+        let msg_name = type_name::<MESSENGER>()
+            .split("::")
+            .last()
+            .unwrap_or("Unknown");
+        let clb_name = type_name::<CALLBACK>()
+            .split("<")
+            .next()
+            .unwrap_or("Unknown")
+            .split("::")
+            .last()
+            .unwrap_or("Unknown");
+        write!(
+            f,
+            "{} CltSender<{}, {}, {}>",
+            self.con_id, msg_name, clb_name, MAX_MSG_SIZE
+        )
     }
 }
 impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> Drop
@@ -45,7 +61,7 @@ where
     CALLBACK: Callback<MESSENGER>,
 {
     fn drop(&mut self) {
-        debug!("{} recv stream aborting", self);
+        debug!("{} aborting receiver", self);
         self.recver_abort_handle.abort();
     }
 }
@@ -93,7 +109,19 @@ where
     CALLBACK: Callback<HANDLER>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} Clt<TODO, {}, {}>", self.con_id, self.callback, MAX_MSG_SIZE) // TODO add protocol handler
+        let hdl_name = type_name::<HANDLER>()
+            .split("::")
+            .last()
+            .unwrap_or("Unknown");
+        let clb_name = type_name::<CALLBACK>()
+            .split("::")
+            .last()
+            .unwrap_or("Unknown");
+        write!(
+            f,
+            "{} Clt<{}, {}, {}>",
+            self.con_id, hdl_name, clb_name, MAX_MSG_SIZE
+        )
     }
 }
 impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Drop for Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>
@@ -102,7 +130,7 @@ where
     CALLBACK: Callback<HANDLER>,
 {
     fn drop(&mut self) {
-        debug!("{} recv stream stopped", self);
+        debug!("{} receiver stopped", self);
     }
 }
 impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>
@@ -149,7 +177,6 @@ where
         let (sender, recver) =
             into_split_messenger::<HANDLER, MAX_MSG_SIZE, HANDLER>(stream, con_id.clone());
 
-        // TODO remove mutes on recv since it is only used in one place
         let recv_ref = CltRecverRef::new(Mutex::new(recver));
         let send_ref = CltSenderRef::new(Mutex::new(sender));
         let clt = Self {
@@ -205,30 +232,22 @@ where
 
 #[cfg(test)]
 mod test {
-    use lazy_static::lazy_static;
+
     use log::info;
-    use soupbintcp4::prelude::*;
 
     use super::*;
-    use crate::unittest::setup;
-
-    type SoupBinProtocol = SoupBinProtocolHandler<NoPayload>;
-    type SoupBinLoggerRef = LoggerCallbackRef<SoupBinProtocol>;
-    const MAX_MSG_SIZE: usize = 128;
-    lazy_static! {
-        static ref ADDR: String = setup::net::default_addr();
-        static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
-        static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
-    }
+    use crate::unittest::setup::{self, protocol::*};
 
     #[tokio::test]
     async fn test_clt_not_connected() {
         setup::log::configure();
-        let logger: SoupBinLoggerRef = SoupBinLoggerRef::default();
-        let clt = Clt::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(
-            &ADDR,
-            *CONNECT_TIMEOUT,
-            *RETRY_AFTER,
+        const MAX_MSG_SIZE: usize = 128;
+        let logger = LoggerCallbackRef::<MsgProtocolHandler>::default();
+        // TODO remove MsgProtocolHandler type parameter once implmentedn as instance and passed as argument
+        let clt = Clt::<MsgProtocolHandler, _, MAX_MSG_SIZE>::new(
+            &setup::net::default_addr(),
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
             Arc::clone(&logger),
             None,
         )
@@ -237,4 +256,30 @@ mod test {
         info!("{:?}", clt);
         assert!(clt.is_err())
     }
+    // TODO move to soupbin
+    // type SoupBinProtocol = SoupBinProtocolHandler<NoPayload>;
+    // type SoupBinLoggerRef = LoggerCallbackRef<SoupBinProtocol>;
+    // const MAX_MSG_SIZE: usize = 128;
+    // lazy_static! {
+    //     static ref ADDR: String = setup::net::default_addr();
+    //     static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
+    //     static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
+    // }
+
+    // #[tokio::test]
+    // async fn test_clt_not_connected() {
+    //     setup::log::configure();
+    //     let logger: SoupBinLoggerRef = SoupBinLoggerRef::default();
+    //     let clt = Clt::<SoupBinProtocol, _, MAX_MSG_SIZE>::new(
+    //         &ADDR,
+    //         *CONNECT_TIMEOUT,
+    //         *RETRY_AFTER,
+    //         Arc::clone(&logger),
+    //         None,
+    //     )
+    //     .await;
+
+    //     info!("{:?}", clt);
+    //     assert!(clt.is_err())
+    // }
 }
