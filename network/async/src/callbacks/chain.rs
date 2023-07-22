@@ -43,21 +43,22 @@ mod test {
     use crate::callbacks::eventlog::EventLogCallbackRef;
     use crate::callbacks::logger::LoggerCallbackRef;
     use crate::unittest::setup;
-    use crate::unittest::setup::callbacks::*;
+    use crate::unittest::setup::model::*;
+    use crate::unittest::setup::protocol::*;
 
     use super::*;
 
-    type EventLog = EventLogCallbackRef<MessengerImpl>;
-    type Logger = LoggerCallbackRef<MessengerImpl>;
+    type EventLog = EventLogCallbackRef<MsgProtocolHandler>;
+    type Logger = LoggerCallbackRef<MsgProtocolHandler>;
 
     #[test]
     fn test_event_log() {
         setup::log::configure();
-        let chain: Chain<MessengerImpl> = vec![EventLog::default(), Logger::default()];
+        let chain: Chain<MsgProtocolHandler> = vec![EventLog::default(), Logger::default()];
         let callback = ChainCallback::new(chain);
 
         for _ in 0..10 {
-            let msg = Msg1::new(b"hello".as_slice());
+            let msg = Msg::Clt(MsgFromClt::new(b"hello".as_slice()));
             callback.on_recv(&ConId::default(), msg);
         }
     }

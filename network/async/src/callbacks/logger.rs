@@ -3,11 +3,9 @@ use std::{
     sync::Arc,
 };
 
-
-
 use log::{debug, error, info, log_enabled, trace, warn, Level};
 
-use crate::core::{Messenger, ConId};
+use crate::core::{ConId, Messenger};
 
 use super::Callback;
 
@@ -74,11 +72,12 @@ impl<MESSENGER: Messenger> Callback<MESSENGER> for LoggerCallback<MESSENGER> {
 mod test {
 
     use crate::unittest::setup;
-    use crate::unittest::setup::callbacks::*;
+    use crate::unittest::setup::model::*;
+    use crate::unittest::setup::protocol::*;
 
     use super::*;
 
-    type Log = LoggerCallback<MessengerImpl>;
+    type Log = LoggerCallback<MsgProtocolHandler>;
 
     #[test]
     fn test_event_log() {
@@ -86,7 +85,7 @@ mod test {
         let log = Log::default();
 
         for _ in 0..10 {
-            let msg = Msg1::new(b"hello".as_slice());
+            let msg = Msg::Clt(MsgFromClt::new(b"hello".as_slice()));
             log.on_recv(&ConId::default(), msg);
         }
     }

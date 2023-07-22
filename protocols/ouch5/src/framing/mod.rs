@@ -12,7 +12,7 @@ mod test {
     fn test_ouch5_inbound_frame_handler() {
         setup::log::configure();
         let mut ser = ByteSerializerStack::<1024>::default();
-        type Ouch5 = SoupBinMsg<Ouch5Inb>;
+        type Ouch5 = SBMsg<Ouch5Inb>;
         let msg_inp = vec![
             Ouch5::sdata(Ouch5Inb::EntOrd(EnterOrder::default())),
             Ouch5::sdata(Ouch5Inb::RepOrd(ReplaceOrder::from(&EnterOrder::default()))),
@@ -36,7 +36,7 @@ mod test {
         while let Some(frame) = SoupBinFramer::get_frame(&mut buf) {
             info!("frame:\n{}", to_hex_pretty(&frame[..]));
             let des = &mut ByteDeserializerSlice::new(&frame[..]);
-            let msg: SoupBinMsg<Ouch5Inb> = des.deserialize().unwrap();
+            let msg: SBMsg<Ouch5Inb> = des.deserialize().unwrap();
             info!("msg_out: {:?}", msg);
             msg_out.push(msg);
         }

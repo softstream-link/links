@@ -9,7 +9,7 @@ use super::unsequenced_data::UnsequencedData;
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug)]
 #[byteserde(peek(2, 1))]
-pub enum SoupBinMsg<T>
+pub enum SBMsg<T>
 where
     T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug, // TODO can this be done via super trait?
 {
@@ -35,22 +35,22 @@ where
     UData(UnsequencedData::<T>),
 }
 #[rustfmt::skip]
-impl<PAYLOAD> SoupBinMsg<PAYLOAD>
+impl<PAYLOAD> SBMsg<PAYLOAD>
 where PAYLOAD: ByteSerializeStack + ByteDeserializeSlice<PAYLOAD> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug
 {
-    pub fn clt_hbeat() -> Self { SoupBinMsg::CltHBeat(CltHeartbeat::default()) }
-    pub fn svc_hbeat() -> Self { SoupBinMsg::SvcHBeat(SvcHeartbeat::default()) }
-    pub fn dbg(text: &[u8]) -> Self { SoupBinMsg::Dbg(Debug::new(text)) }
-    pub fn end() -> Self { SoupBinMsg::End(EndOfSession::default()) }
+    pub fn clt_hbeat() -> Self { SBMsg::CltHBeat(CltHeartbeat::default()) }
+    pub fn svc_hbeat() -> Self { SBMsg::SvcHBeat(SvcHeartbeat::default()) }
+    pub fn dbg(text: &[u8]) -> Self { SBMsg::Dbg(Debug::new(text)) }
+    pub fn end() -> Self { SBMsg::End(EndOfSession::default()) }
     pub fn login_acc(id: SessionId, num: SequenceNumber) -> Self { 
-        SoupBinMsg::LoginAcc(LoginAccepted::new(id, num)) 
+        SBMsg::LoginAcc(LoginAccepted::new(id, num)) 
     }
     
-    pub fn login_rej_not_auth() -> Self { SoupBinMsg::LoginRej(LoginRejected::not_authorized()) }
-    pub fn login_rej_ses_not_avail() -> Self { SoupBinMsg::LoginRej(LoginRejected::session_not_available()) }
+    pub fn login_rej_not_auth() -> Self { SBMsg::LoginRej(LoginRejected::not_authorized()) }
+    pub fn login_rej_ses_not_avail() -> Self { SBMsg::LoginRej(LoginRejected::session_not_available()) }
 
     pub fn login_req(usr: UserName, pwd: Password, id: Option<SessionId>, num: Option<SequenceNumber>, tmout: Option<TimeoutMs>) -> Self { 
-        SoupBinMsg::LoginReq(
+        SBMsg::LoginReq(
             LoginRequest::new(
                 usr, 
                 pwd,
@@ -60,14 +60,14 @@ where PAYLOAD: ByteSerializeStack + ByteDeserializeSlice<PAYLOAD> + ByteSerializ
             )
         ) 
     }
-    pub fn logout_req() -> Self { SoupBinMsg::LogoutReq(LogoutRequest::default()) }
-    pub fn sdata<T>(payload: T) -> SoupBinMsg<T> 
+    pub fn logout_req() -> Self { SBMsg::LogoutReq(LogoutRequest::default()) }
+    pub fn sdata<T>(payload: T) -> SBMsg<T> 
     where T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug{ 
-        SoupBinMsg::SData(SequencedData::new(payload)) 
+        SBMsg::SData(SequencedData::new(payload)) 
     }
-    pub fn udata<T>(payload: T) -> SoupBinMsg<T> 
+    pub fn udata<T>(payload: T) -> SBMsg<T> 
     where T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug{ 
-        SoupBinMsg::UData(UnsequencedData::new(payload)) 
+        SBMsg::UData(UnsequencedData::new(payload)) 
     }
 
 }
@@ -86,16 +86,16 @@ mod test {
         setup::log::configure();
         let mut ser = ByteSerializerStack::<1024>::default();
         let msg_inp = vec![
-            SoupBinMsg::CltHBeat(CltHeartbeat::default()),
-            SoupBinMsg::SvcHBeat(SvcHeartbeat::default()),
-            SoupBinMsg::Dbg(Debug::default()),
-            SoupBinMsg::End(EndOfSession::default()),
-            SoupBinMsg::LoginReq(LoginRequest::default()),
-            SoupBinMsg::LoginAcc(LoginAccepted::default()),
-            SoupBinMsg::LoginRej(LoginRejected::not_authorized()),
-            SoupBinMsg::LogoutReq(LogoutRequest::default()),
-            SoupBinMsg::SData(SequencedData::<SamplePayload>::default()),
-            SoupBinMsg::UData(UnsequencedData::<SamplePayload>::default()),
+            SBMsg::CltHBeat(CltHeartbeat::default()),
+            SBMsg::SvcHBeat(SvcHeartbeat::default()),
+            SBMsg::Dbg(Debug::default()),
+            SBMsg::End(EndOfSession::default()),
+            SBMsg::LoginReq(LoginRequest::default()),
+            SBMsg::LoginAcc(LoginAccepted::default()),
+            SBMsg::LoginRej(LoginRejected::not_authorized()),
+            SBMsg::LogoutReq(LogoutRequest::default()),
+            SBMsg::SData(SequencedData::<SamplePayload>::default()),
+            SBMsg::UData(UnsequencedData::<SamplePayload>::default()),
         ];
 
         for msg in msg_inp.iter() {
@@ -105,9 +105,9 @@ mod test {
         info!("ser: {:#x}", ser);
 
         let mut des = ByteDeserializerSlice::new(ser.as_slice());
-        let mut msg_out: Vec<SoupBinMsg<SamplePayload>> = vec![];
+        let mut msg_out: Vec<SBMsg<SamplePayload>> = vec![];
         while !des.is_empty() {
-            let msg = SoupBinMsg::<SamplePayload>::byte_deserialize(&mut des).unwrap();
+            let msg = SBMsg::<SamplePayload>::byte_deserialize(&mut des).unwrap();
             info!("msg_out: {:?}", msg);
             msg_out.push(msg);
         }

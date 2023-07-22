@@ -6,7 +6,7 @@ use std::{
 
 use tokio::task::yield_now;
 
-use crate::core::{Messenger, ConId};
+use crate::core::{ConId, Messenger};
 
 use super::Callback;
 
@@ -143,20 +143,21 @@ mod test {
     use log::info;
 
     use crate::unittest::setup;
-    use crate::unittest::setup::callbacks::*;
+    use crate::unittest::setup::model::*;
+    use crate::unittest::setup::protocol::*;
 
     use super::*;
 
-    type EventLog = EventLogCallback<MessengerImpl>;
+    type EventLog = EventLogCallback<MsgProtocolHandler>;
 
     #[tokio::test]
     async fn test_event_log() {
         setup::log::configure();
         let event_log = EventLog::default();
 
-        let mut msg = Msg1::new(format!("hello").as_bytes());
+        let mut msg = Msg::Clt(MsgFromClt::new(format!("hello").as_bytes()));
         for idx in 0..10 {
-            msg = Msg1::new(format!("hello  #{}", idx).as_bytes());
+            msg = Msg::Clt(MsgFromClt::new(format!("hello  #{}", idx).as_bytes()));
             let entry = Entry::from((ConId::default(), msg.clone()));
             event_log.push(entry);
         }
