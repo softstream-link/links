@@ -7,10 +7,11 @@ pub type SBSvc<PAYLOAD, CALLBACK, const MAX_MSG_SIZE: usize> =
 
 #[cfg(test)]
 mod test {
-    use super::*;
+
     use std::{sync::Arc, time::Duration};
 
     use lazy_static::lazy_static;
+    use links_network_async::prelude::*;
     use log::info;
 
     use crate::{prelude::*, unittest::setup};
