@@ -19,7 +19,7 @@ pub use crate::model::payload::SamplePayload;
 pub use crate::model::payload::NoPayload;
 pub use crate::model::payload::VecPayload;
 pub use crate::model::soup_bin::SBMsg;
-pub use crate::model::soup_bin::MAX_FRAME_SIZE_NO_PAYLOAD;
+pub use crate::model::soup_bin::MAX_FRAME_SIZE_SOUPBIN_NO_PAYLOAD;
 
 // msg field types
 pub use crate::model::types::*;

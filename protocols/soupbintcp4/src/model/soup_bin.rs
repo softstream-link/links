@@ -6,7 +6,7 @@ use std::fmt;
 
 use super::unsequenced_data::UnsequencedData;
 
-pub const MAX_FRAME_SIZE_NO_PAYLOAD: usize = 54;
+pub const MAX_FRAME_SIZE_SOUPBIN_NO_PAYLOAD: usize = 54;
 
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug)]
@@ -133,15 +133,15 @@ mod test {
             SBMsg::SData(SequencedData::new(NoPayload::default())),
             SBMsg::UData(UnsequencedData::new(NoPayload::default())),
         ];
-        let msg_len = msg_inp
-            .iter()
-            .map(|msg| (msg, msg.byte_len()))
+        let msg_inp = msg_inp
+            .into_iter()
+            .map(|msg| (msg.byte_len(), msg))
             .collect::<Vec<_>>();
-        for (msg, len) in msg_len.iter() {
-            info!("len: {:>3} msg: {:?} ", len, msg);
+        for (len, msg) in msg_inp.iter() {
+            info!("len: {:>3}, msg: {:?} ", len, msg);
         }
-        let max_frame_size_no_payload = msg_len.iter().map(|(_, len)| *len).max().unwrap();
+        let max_frame_size_no_payload = msg_inp.iter().map(|(len, _)| *len).max().unwrap();
         info!("max_frame_size_no_payload: {}", max_frame_size_no_payload);
-        assert_eq!(max_frame_size_no_payload, MAX_FRAME_SIZE_NO_PAYLOAD)
+        assert_eq!(max_frame_size_no_payload, MAX_FRAME_SIZE_SOUPBIN_NO_PAYLOAD)
     }
 }

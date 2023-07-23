@@ -23,3 +23,9 @@ pub use crate::model::outbound::account_query_res::AccountQueryResponse;
 pub use crate::model::ouch5::Ouch5Inb;
 pub use crate::model::ouch5::Ouch5Oub;
 pub use crate::model::ouch5::Ouch5;
+
+pub use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_OUB;
+pub use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_INB;
+
+pub use crate::model::ouch5::MAX_FRAME_SIZE_SOUPBIN_OUCH5_OUB;
+pub use crate::model::ouch5::MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB;
