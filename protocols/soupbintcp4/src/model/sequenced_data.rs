@@ -1,8 +1,9 @@
+use std::fmt::Debug;
+
 use byteserde::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
-use std::fmt;
 
-use super::{payload::SamplePayload, types::PacketTypeSequenceData};
+use super::types::PacketTypeSequenceData;
 
 pub const SEQUENCED_DATA_HEADER_BYTE_LEN: usize = 3;
 
@@ -26,24 +27,20 @@ impl SequencedDataHeader {
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(endian = "be")]
-pub struct SequencedData<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug>
+pub struct SequencedData<T>
+where 
+    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + Debug
 {
     header: SequencedDataHeader,
     #[byteserde(deplete ( header.packet_length as usize - 1 ))]
     body: T,
 }
 #[rustfmt::skip]
-impl<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug> SequencedData<T>
+impl<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + Debug> SequencedData<T>
 {
     pub fn new(body: T) -> SequencedData<T> {
         let header = SequencedDataHeader::new((body.byte_len() + 1) as u16);
         SequencedData { header, body }
-    }
-}
-
-impl Default for SequencedData<SamplePayload> {
-    fn default() -> Self {
-        SequencedData::new(SamplePayload::default())
     }
 }
 
@@ -72,7 +69,7 @@ mod test {
     fn test_sequenced_data() {
         setup::log::configure();
         let expected_len = SEQUENCED_DATA_HEADER_BYTE_LEN + SamplePayload::default().byte_len();
-        let msg_inp = SequencedData::default();
+        let msg_inp = SequencedData::new(SamplePayload::default());
         info!("msg_inp:? {:?}", msg_inp);
 
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();

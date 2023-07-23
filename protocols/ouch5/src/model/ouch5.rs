@@ -1,4 +1,3 @@
-use byteserde::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 
 use crate::prelude::*;
@@ -64,7 +63,8 @@ pub enum Ouch5 {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use crate::prelude::*;
+    use byteserde::prelude::*;
     use crate::unittest::setup;
     use log::info;
 

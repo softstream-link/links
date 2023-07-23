@@ -21,3 +21,5 @@ pub use crate::model::outbound::order_restated::OrderRestated;
 pub use crate::model::outbound::account_query_res::AccountQueryResponse;
 
 pub use crate::model::ouch5::Ouch5Inb;
+pub use crate::model::ouch5::Ouch5Oub;
+pub use crate::model::ouch5::Ouch5;

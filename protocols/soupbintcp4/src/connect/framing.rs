@@ -74,8 +74,8 @@ mod test {
             SBMsg::LoginAcc(LoginAccepted::default()),
             SBMsg::LoginRej(LoginRejected::not_authorized()),
             SBMsg::LogoutReq(LogoutRequest::default()),
-            SBMsg::SData(SequencedData::<SamplePayload>::default()),
-            SBMsg::UData(UnsequencedData::<SamplePayload>::default()),
+            SBMsg::SData(SequencedData::new(SamplePayload::default())),
+            SBMsg::UData(UnsequencedData::new(SamplePayload::default())),
         ];
         for msg in msg_inp.iter() {
             info!("msg_inp {:?}", msg);

@@ -6,6 +6,8 @@ use std::fmt;
 
 use super::unsequenced_data::UnsequencedData;
 
+pub const MAX_FRAME_SIZE_NO_PAYLOAD: usize = 54;
+
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug)]
 #[byteserde(peek(2, 1))]
@@ -36,7 +38,8 @@ where
 }
 #[rustfmt::skip]
 impl<PAYLOAD> SBMsg<PAYLOAD>
-where PAYLOAD: ByteSerializeStack + ByteDeserializeSlice<PAYLOAD> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug
+where 
+    PAYLOAD: ByteSerializeStack + ByteDeserializeSlice<PAYLOAD> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug
 {
     pub fn clt_hbeat() -> Self { SBMsg::CltHBeat(CltHeartbeat::default()) }
     pub fn svc_hbeat() -> Self { SBMsg::SvcHBeat(SvcHeartbeat::default()) }
@@ -77,9 +80,10 @@ mod test {
 
     use log::info;
 
-    use super::*;
+    use crate::prelude::*;
+    use byteserde::prelude::*;
 
-    use crate::{model::payload::SamplePayload, unittest::setup};
+    use crate::unittest::setup;
 
     #[test]
     fn test_soup_bin() {
@@ -94,8 +98,8 @@ mod test {
             SBMsg::LoginAcc(LoginAccepted::default()),
             SBMsg::LoginRej(LoginRejected::not_authorized()),
             SBMsg::LogoutReq(LogoutRequest::default()),
-            SBMsg::SData(SequencedData::<SamplePayload>::default()),
-            SBMsg::UData(UnsequencedData::<SamplePayload>::default()),
+            SBMsg::SData(SequencedData::new(SamplePayload::default())),
+            SBMsg::UData(UnsequencedData::new(SamplePayload::default())),
         ];
 
         for msg in msg_inp.iter() {
@@ -105,12 +109,39 @@ mod test {
         info!("ser: {:#x}", ser);
 
         let mut des = ByteDeserializerSlice::new(ser.as_slice());
-        let mut msg_out: Vec<SBMsg<SamplePayload>> = vec![];
+        let mut msg_out = vec![];
         while !des.is_empty() {
             let msg = SBMsg::<SamplePayload>::byte_deserialize(&mut des).unwrap();
             info!("msg_out: {:?}", msg);
             msg_out.push(msg);
         }
         assert_eq!(msg_inp, msg_out);
+    }
+
+    #[test]
+    fn test_soup_max_frame_size() {
+        setup::log::configure();
+        let msg_inp = vec![
+            SBMsg::CltHBeat(CltHeartbeat::default()),
+            SBMsg::SvcHBeat(SvcHeartbeat::default()),
+            SBMsg::Dbg(Debug::default()),
+            SBMsg::End(EndOfSession::default()),
+            SBMsg::LoginReq(LoginRequest::default()),
+            SBMsg::LoginAcc(LoginAccepted::default()),
+            SBMsg::LoginRej(LoginRejected::not_authorized()),
+            SBMsg::LogoutReq(LogoutRequest::default()),
+            SBMsg::SData(SequencedData::new(NoPayload::default())),
+            SBMsg::UData(UnsequencedData::new(NoPayload::default())),
+        ];
+        let msg_len = msg_inp
+            .iter()
+            .map(|msg| (msg, msg.byte_len()))
+            .collect::<Vec<_>>();
+        for (msg, len) in msg_len.iter() {
+            info!("len: {:>3} msg: {:?} ", len, msg);
+        }
+        let max_frame_size_no_payload = msg_len.iter().map(|(_, len)| *len).max().unwrap();
+        info!("max_frame_size_no_payload: {}", max_frame_size_no_payload);
+        assert_eq!(max_frame_size_no_payload, MAX_FRAME_SIZE_NO_PAYLOAD)
     }
 }
