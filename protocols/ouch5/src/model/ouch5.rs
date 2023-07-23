@@ -69,7 +69,6 @@ pub enum Ouch5 {
 
 #[cfg(test)]
 mod test {
-    use std::any::type_name;
 
     use crate::prelude::*;
     use crate::unittest::setup;

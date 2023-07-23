@@ -4,17 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# byteserde = "*" # { path = "../../github-softstream.link/byteserde/" }
-# byteserde_derive = "*" #{ path = "../../github-softstream.link/byteserde/byteserde_derive" }
-# byteserde_types = "*" # { path = "../../../byteserde/byteserde_types" }
 byteserde = { workspace = true }
 byteserde_derive = { workspace = true }
 byteserde_types = { workspace = true }
-bytes = { workspace = true }
+
+# bytes = { workspace = true }
 soupbintcp4 = { path = "../soupbintcp4" }
-framing = { path = "../framing" }
+
 chrono = { workspace = true }
+tokio = { workspace = true }
 
 [dev-dependencies]
 env_logger = { workspace = true }
 log = { workspace = true }
+
+tokio-test = { workspace = true }
+lazy_static = { workspace = true }

@@ -1,10 +1,14 @@
+// field types
 pub use crate::model::types::*;
+
+// message types inbound
 pub use crate::model::inbound::enter_order::EnterOrder;
 pub use crate::model::inbound::replace_order::ReplaceOrder;
 pub use crate::model::inbound::cancel_order::{CancelOrder, CancelableOrder};
 pub use crate::model::inbound::modify_order::ModifyOrder;
 pub use crate::model::inbound::account_query_req::AccountQueryRequest;
 
+// message types outbound
 pub use crate::model::outbound::system_event::SystemEvent;
 pub use crate::model::outbound::order_accepted::OrderAccepted;
 pub use crate::model::outbound::order_replaced::OrderReplaced;
@@ -20,12 +24,19 @@ pub use crate::model::outbound::order_modified::OrderModified;
 pub use crate::model::outbound::order_restated::OrderRestated;
 pub use crate::model::outbound::account_query_res::AccountQueryResponse;
 
+// message types enums
 pub use crate::model::ouch5::Ouch5Inb;
 pub use crate::model::ouch5::Ouch5Oub;
 pub use crate::model::ouch5::Ouch5;
 
+// message frame size
 pub use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_OUB;
 pub use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_INB;
 
 pub use crate::model::ouch5::MAX_FRAME_SIZE_SOUPBIN_OUCH5_OUB;
 pub use crate::model::ouch5::MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB;
+
+// connect
+pub use crate::connect::clt::Ouch5Clt;
+pub use crate::connect::messaging::Ouch5InbProtocolHandler;
+pub use crate::connect::messaging::Ouch5OubProtocolHandler;
