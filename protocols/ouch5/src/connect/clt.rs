@@ -1,6 +1,5 @@
 use soupbintcp4::prelude::*;
 
-use super::messaging::Ouch5InbProtocolHandler;
 use crate::{model::ouch5::MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB, prelude::Ouch5Inb};
 
 pub type Ouch5Clt<CALLBACK> = SBClt<Ouch5Inb, CALLBACK, MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB>;

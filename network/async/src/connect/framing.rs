@@ -17,17 +17,17 @@ use tokio::{
 use crate::core::Framer;
 
 #[derive(Debug)]
-pub struct FrameReader<HANDLER: Framer> {
+pub struct FrameReader<FRAMER: Framer> {
     reader: OwnedReadHalf,
     buffer: BytesMut,
-    phantom: PhantomData<HANDLER>,
+    phantom: PhantomData<FRAMER>,
 }
-impl<HANDLER: Framer> Display for FrameReader<HANDLER> {
+impl<FRAMER: Framer> Display for FrameReader<FRAMER> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "FrameReader<{}> {{ {:?}->{:?} }}",
-            std::any::type_name::<HANDLER>(),
+            std::any::type_name::<FRAMER>(),
             self.reader
                 .local_addr()
                 .expect("could not get reader's local address"),
@@ -37,8 +37,8 @@ impl<HANDLER: Framer> Display for FrameReader<HANDLER> {
         )
     }
 }
-impl<HANDLER: Framer> FrameReader<HANDLER> {
-    pub fn with_capacity(reader: OwnedReadHalf, capacity: usize) -> FrameReader<HANDLER> {
+impl<FRAMER: Framer> FrameReader<FRAMER> {
+    pub fn with_capacity(reader: OwnedReadHalf, capacity: usize) -> FrameReader<FRAMER> {
         Self {
             reader,
             buffer: BytesMut::with_capacity(capacity),
@@ -48,7 +48,7 @@ impl<HANDLER: Framer> FrameReader<HANDLER> {
     // TODO error types for this crait
     pub async fn read_frame(&mut self) -> Result<Option<Bytes>, Box<dyn Error + Send + Sync>> {
         loop {
-            if let Some(bytes) = HANDLER::get_frame(&mut self.buffer) {
+            if let Some(bytes) = FRAMER::get_frame(&mut self.buffer) {
                 return Ok(Some(bytes));
             } else {
                 if 0 == self.reader.read_buf(&mut self.buffer).await? {
@@ -92,14 +92,15 @@ impl FrameWriter {
     }
 }
 
-type FrameManger<HANDLER> = (FrameReader<HANDLER>, FrameWriter);
-pub fn into_split_frame_manager<HANDLER: Framer>(
+type FrameManger<FRAMER> = (FrameReader<FRAMER>, FrameWriter);
+
+pub fn into_split_frame_manager<FRAMER: Framer>(
     stream: TcpStream,
     reader_capacity: usize,
-) -> FrameManger<HANDLER> {
+) -> FrameManger<FRAMER> {
     match stream.into_split() {
         (r, w) => (
-            FrameReader::<HANDLER>::with_capacity(r, reader_capacity),
+            FrameReader::<FRAMER>::with_capacity(r, reader_capacity),
             FrameWriter::new(w),
         ),
     }
@@ -111,11 +112,10 @@ mod test {
     use super::*;
 
     use crate::unittest::setup;
-    use crate::unittest::setup::protocol::*;
     use crate::unittest::setup::model::*;
+    use crate::unittest::setup::protocol::*;
     use byteserde::{prelude::*, utils::hex::to_hex_pretty};
     use log::info;
-    // use soupbintcp4::prelude::*;
     use tokio::net::TcpListener;
 
     #[tokio::test]

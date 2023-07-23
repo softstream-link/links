@@ -1,20 +1,15 @@
 [workspace]
-members = [
-    "protocols/framing",
-    "protocols/soupbintcp4",
-    "protocols/ouch5",
-    "network/async",
-]
+members = ["protocols/soupbintcp4", "protocols/ouch5", "network/async"]
 
 [workspace.dependencies]
 byteserde = { path = "./../byteserde/byteserde" }
-byteserde_derive = {path = "./../byteserde/byteserde_derive" }
-byteserde_types = {path = "./../byteserde/byteserde_types" }
+byteserde_derive = { path = "./../byteserde/byteserde_derive" }
+byteserde_types = { path = "./../byteserde/byteserde_types" }
 
 log = "0.4"
 env_logger = "0.10"
 bytes = "1.4"
-chrono =  "0.4.26"
+chrono = "0.4.26"
 tokio = { version = "1.28", features = ["full"] }
 tokio-test = "0.4.2"
 lazy_static = "1.4.0"
