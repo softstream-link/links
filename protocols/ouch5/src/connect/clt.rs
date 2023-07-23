@@ -1,16 +1,16 @@
 use soupbintcp4::prelude::*;
 
 use super::messaging::Ouch5InbProtocolHandler;
-use crate::model::ouch5::MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB;
+use crate::{model::ouch5::MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB, prelude::Ouch5Inb};
 
-pub type Ouch5Clt<CALLBACK> =
-    SBClt<Ouch5InbProtocolHandler, CALLBACK, MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB>;
+pub type Ouch5Clt<CALLBACK> = SBClt<Ouch5Inb, CALLBACK, MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB>;
 
 #[cfg(test)]
 mod test {
     use std::time::Duration;
 
     use lazy_static::lazy_static;
+    use log::info;
     use soupbintcp4::prelude::*;
     lazy_static! {
         static ref ADDR: String = setup::net::default_addr();
@@ -22,16 +22,16 @@ mod test {
     #[tokio::test]
     async fn test_clt() {
         setup::log::configure();
-        // let clt = Ouch5Clt::<_>::new();
-        let clb = SBLoggerCallbackRef::<Ouch5Inb>::default();
-        let clt = SBClt::<SoupBinProtocolHandler<Ouch5Inb>, _, MAX_FRAME_SIZE_OUCH5_INB>::new(
-            *ADDR,
+        let callback = SBLoggerCallbackRef::<Ouch5Inb>::default();
+        let clt = Ouch5Clt::new(
+            &ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,
-            clb,
-            Some("ouch5/broker")
+            callback,
+            Some("ouch5/broker"),
         )
-        .await
-        .unwrap();
+        .await;
+        info!("{:?} not connected", clt);
+        assert!(clt.is_err());
     }
 }

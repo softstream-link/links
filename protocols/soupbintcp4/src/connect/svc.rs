@@ -27,6 +27,20 @@ mod test {
         static ref FIND_TIMEOUT: Duration = setup::net::default_find_timeout();
     }
 
+
+    #[tokio::test]
+    async fn test_svc() {
+        setup::log::configure();
+        let callback = SBLoggerCallbackRef::<SamplePayload>::default();
+        let svc = SBSvc::<SamplePayload, _, MAX_MSG_SIZE>::new(
+            &ADDR,
+            Arc::clone(&callback),
+            Some("soupbin/unittest"),
+        )
+        .await;
+        info!("{:?} not connected", svc);
+        assert!(svc.is_err());
+    }
     #[tokio::test]
     async fn test_svc_clt_connection() {
         setup::log::configure();
