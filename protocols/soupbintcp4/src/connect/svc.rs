@@ -27,7 +27,6 @@ mod test {
         static ref FIND_TIMEOUT: Duration = setup::net::default_find_timeout();
     }
 
-
     #[tokio::test]
     async fn test_svc() {
         setup::log::configure();
@@ -82,13 +81,17 @@ mod test {
         let found = event_log
             .find(
                 |entry| {
-                    entry.direction == Direction::Recv
-                        && entry.event == msg_svc
-                        && match &entry.con_id {
-                            ConId::Clt { name, .. } | ConId::Svc { name, .. } => {
-                                name == "soupbin/broker"
-                            }
+                    let hit = match &entry.event {
+                        Event::Recv(msg) => msg == &msg_svc,
+                        _ => false,
+                    };
+
+                    let src = match &entry.con_id {
+                        ConId::Clt { name, .. } | ConId::Svc { name, .. } => {
+                            name == "soupbin/broker"
                         }
+                    };
+                    hit && src
                 },
                 find_timeout.into(),
             )
@@ -96,6 +99,6 @@ mod test {
         info!("event_log: {}", *event_log);
         info!("found: {:?}", found);
         assert!(found.is_some());
-        assert_eq!(found.unwrap().event, msg_svc);
+        assert_eq!(&msg_svc, found.unwrap().try_into_recv().unwrap());
     }
 }

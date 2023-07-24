@@ -20,6 +20,7 @@ where
     PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
 {
     type SendMsg = SBMsg<PAYLOAD>;
+    type RecvMsg = SBMsg<PAYLOAD>;
 }
 
 #[rustfmt::skip]
