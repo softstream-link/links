@@ -83,7 +83,7 @@ mod test {
             .find(
                 |entry| {
                     entry.direction == Direction::Recv
-                        && entry.msg == msg_svc
+                        && entry.event == msg_svc
                         && match &entry.con_id {
                             ConId::Clt { name, .. } | ConId::Svc { name, .. } => {
                                 name == "soupbin/broker"
@@ -96,6 +96,6 @@ mod test {
         info!("event_log: {}", *event_log);
         info!("found: {:?}", found);
         assert!(found.is_some());
-        assert_eq!(found.unwrap().msg, msg_svc);
+        assert_eq!(found.unwrap().event, msg_svc);
     }
 }

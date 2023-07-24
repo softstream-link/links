@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::prelude::*;
-use log::debug;
+use log::{debug, error};
 use tokio::net::TcpStream;
 
 use super::messaging::{into_split_messenger, MessageRecver, MessageSender};
@@ -71,7 +71,7 @@ where
     MESSENGER: Messenger,
     CALLBACK: Callback<MESSENGER>,
 {
-    pub async fn send(&self, msg: &MESSENGER::Message) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn send(&self, msg: &MESSENGER::SendMsg) -> Result<(), Box<dyn Error + Send + Sync>> {
         {
             // let callback = self.callback.lock().await;
             self.callback.on_send(&self.con_id, msg);
@@ -94,7 +94,7 @@ mod types{
 #[derive(Debug)]
 pub struct Clt<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize>
 where
-    HANDLER: ProtocolHandler,
+    HANDLER: Protocol,
     CALLBACK: Callback<HANDLER>,
 {
     con_id: ConId,
@@ -105,7 +105,7 @@ where
 
 impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Display for Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>
 where
-    HANDLER: ProtocolHandler,
+    HANDLER: Protocol,
     CALLBACK: Callback<HANDLER>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -126,7 +126,7 @@ where
 }
 impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Drop for Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>
 where
-    HANDLER: ProtocolHandler,
+    HANDLER: Protocol,
     CALLBACK: Callback<HANDLER>,
 {
     fn drop(&mut self) {
@@ -135,7 +135,7 @@ where
 }
 impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>
 where
-    HANDLER: ProtocolHandler,
+    HANDLER: Protocol,
     CALLBACK: Callback<HANDLER>,
 {
     pub async fn new(
@@ -196,7 +196,7 @@ where
                         debug!("{} recv stream stopped", con_id);
                     }
                     Err(e) => {
-                        debug!("{} recv stream error: {:?}", con_id, e);
+                        error!("{} recv stream error: {:?}", con_id, e);
                     }
                 }
             }
@@ -242,9 +242,9 @@ mod test {
     async fn test_clt_not_connected() {
         setup::log::configure();
         const MAX_MSG_SIZE: usize = 128;
-        let logger = LoggerCallbackRef::<MsgProtocolHandler>::default();
+        let logger = LoggerCallbackRef::<CltMsgProtocol>::default();
         // TODO remove MsgProtocolHandler type parameter once implmentedn as instance and passed as argument
-        let clt = Clt::<MsgProtocolHandler, _, MAX_MSG_SIZE>::new(
+        let clt = Clt::<_, _, MAX_MSG_SIZE>::new(
             &setup::net::default_addr(),
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),

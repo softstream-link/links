@@ -45,9 +45,9 @@ impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> MessageSender<MESSENGER, M
     }
     pub async fn send(
         &mut self,
-        msg: &MESSENGER::Message,
+        msg: &MESSENGER::SendMsg,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let (bytes, size) = to_bytes_stack::<MAX_MSG_SIZE, MESSENGER::Message>(msg)?;
+        let (bytes, size) = to_bytes_stack::<MAX_MSG_SIZE, MESSENGER::SendMsg>(msg)?;
         self.writer.write_frame(&bytes[..size]).await?;
         Ok(())
     }
@@ -79,7 +79,7 @@ impl<MESSENGER: Messenger, FRAMER: Framer> MessageRecver<MESSENGER, FRAMER> {
     }
     pub async fn recv(
         &mut self,
-    ) -> Result<Option<MESSENGER::Message>, Box<dyn Error + Send + Sync>> {
+    ) -> Result<Option<MESSENGER::RecvMsg>, Box<dyn Error + Send + Sync>> {
         let res = self.reader.read_frame().await;
         let opt_frame = match res {
             Ok(opt) => opt,
@@ -89,7 +89,7 @@ impl<MESSENGER: Messenger, FRAMER: Framer> MessageRecver<MESSENGER, FRAMER> {
             }
         };
         if let Some(frame) = opt_frame {
-            let msg = from_slice::<MESSENGER::Message>(&frame[..])?;
+            let msg = from_slice::<MESSENGER::RecvMsg>(&frame[..])?;
             Ok(Some(msg))
         } else {
             Ok(None)
@@ -127,7 +127,7 @@ mod test {
         let addr = setup::net::default_addr();
 
         const MAX_MSG_SIZE: usize = 1024;
-        let inp_svc_msg = Msg::Svc(MsgFromSvc::new(b"Hello Frm Server Msg"));
+        let inp_svc_msg = SvcMsg::new(b"Hello Frm Server Msg");
         let svc = {
             let addr = addr.clone();
             tokio::spawn({
@@ -137,12 +137,12 @@ mod test {
 
                     let (stream, _) = listener.accept().await.unwrap();
                     let (mut sender, mut recver) =
-                        into_split_messenger::<MsgProtocolHandler, MAX_MSG_SIZE, MsgProtocolHandler>(
+                        into_split_messenger::<SvcMsgProtocol, MAX_MSG_SIZE, SvcMsgProtocol>(
                             stream,
                             ConId::svc(Some("unittest"), &addr, None),
                         );
                     info!("{} connected", sender);
-                    let mut out_svc_msg: Option<Msg> = None;
+                    let mut out_svc_msg: Option<CltMsg> = None;
                     loop {
                         let opt = recver.recv().await.unwrap();
                         match opt {
@@ -160,7 +160,7 @@ mod test {
                 }
             })
         };
-        let inp_clt_msg = Msg::Clt(MsgFromClt::new(b"Hello Frm Client Msg"));
+        let inp_clt_msg = CltMsg::new(b"Hello Frm Client Msg");
         let clt = {
             let addr = addr.clone();
             tokio::spawn({
@@ -168,7 +168,7 @@ mod test {
                 async move {
                     let stream = TcpStream::connect(addr.clone()).await.unwrap();
                     let (mut sender, mut recver) =
-                        into_split_messenger::<MsgProtocolHandler, MAX_MSG_SIZE, MsgProtocolHandler>(
+                        into_split_messenger::<CltMsgProtocol, MAX_MSG_SIZE, CltMsgProtocol>(
                             stream,
                             ConId::clt(Some("unittest"), None, &addr),
                         );

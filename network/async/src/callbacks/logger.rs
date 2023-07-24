@@ -40,7 +40,7 @@ impl<MESSENGER: Messenger> Display for LoggerCallback<MESSENGER> {
 }
 
 impl<MESSENGER: Messenger> Callback<MESSENGER> for LoggerCallback<MESSENGER> {
-    fn on_recv(&self, con_id: &ConId, msg: MESSENGER::Message) {
+    fn on_recv(&self, con_id: &ConId, msg: MESSENGER::RecvMsg) {
         if !log_enabled!(self.level) {
             return ();
         }
@@ -53,7 +53,7 @@ impl<MESSENGER: Messenger> Callback<MESSENGER> for LoggerCallback<MESSENGER> {
             Level::Trace => trace!("{}", text),
         }
     }
-    fn on_send(&self, con_id: &ConId, msg: &MESSENGER::Message) {
+    fn on_send(&self, con_id: &ConId, msg: &MESSENGER::SendMsg) {
         if !log_enabled!(self.level) {
             return ();
         }
@@ -77,15 +77,17 @@ mod test {
 
     use super::*;
 
-    type Log = LoggerCallback<MsgProtocolHandler>;
-
     #[test]
     fn test_event_log() {
         setup::log::configure();
-        let log = Log::default();
+        let log = LoggerCallback::<CltMsgProtocol>::default();
 
-        for _ in 0..10 {
-            let msg = Msg::Clt(MsgFromClt::new(b"hello".as_slice()));
+        for _ in 0..2 {
+            let msg = CltMsg::new(b"hello".as_slice());
+            log.on_send(&ConId::default(), &msg);
+        }
+        for _ in 0..2 {
+            let msg = SvcMsg::new(b"hello".as_slice());
             log.on_recv(&ConId::default(), msg);
         }
     }

@@ -25,12 +25,12 @@ impl<MESSENGER: Messenger> Display for ChainCallback<MESSENGER> {
     }
 }
 impl<MESSENGER: Messenger> Callback<MESSENGER> for ChainCallback<MESSENGER> {
-    fn on_recv(&self, con_id: &ConId, msg: MESSENGER::Message) {
+    fn on_recv(&self, con_id: &ConId, msg: MESSENGER::RecvMsg) {
         for callback in self.chain.iter() {
             callback.on_recv(con_id, msg.clone());
         }
     }
-    fn on_send(&self, con_id: &ConId, msg: &MESSENGER::Message) {
+    fn on_send(&self, con_id: &ConId, msg: &MESSENGER::SendMsg) {
         for callback in self.chain.iter() {
             callback.on_send(con_id, msg);
         }
@@ -48,18 +48,18 @@ mod test {
 
     use super::*;
 
-    type EventLog = EventLogCallbackRef<MsgProtocolHandler>;
-    type Logger = LoggerCallbackRef<MsgProtocolHandler>;
+    type EventLog = EventLogCallbackRef<CltMsgProtocol>;
+    type Logger = LoggerCallbackRef<CltMsgProtocol>;
 
     #[test]
     fn test_event_log() {
         setup::log::configure();
-        let chain: Chain<MsgProtocolHandler> = vec![EventLog::default(), Logger::default()];
+        let chain: Chain<CltMsgProtocol> = vec![EventLog::default(), Logger::default()];
         let callback = ChainCallback::new(chain);
 
         for _ in 0..10 {
-            let msg = Msg::Clt(MsgFromClt::new(b"hello".as_slice()));
-            callback.on_recv(&ConId::default(), msg);
+            let msg = CltMsg::new(b"hello".as_slice());
+            callback.on_send(&ConId::default(), &msg);
         }
     }
 }

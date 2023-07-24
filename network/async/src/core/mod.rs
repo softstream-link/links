@@ -77,11 +77,16 @@ pub trait Framer {
 }
 
 #[rustfmt::skip]
-pub trait Messenger: Debug + Clone + Send + Sync + 'static {
-    type Message: ByteDeserializeSlice<Self::Message> + ByteSerializeStack + Debug + Clone + PartialEq + Send + Sync + 'static;
+pub trait Messenger: Debug + Clone + Send + Sync + 'static 
+// where
+//     TARGET: From<Self::SendMsg> + From<Self::RecvMsg> + Debug + Clone + PartialEq + Send + Sync +,
+{
+    type SendMsg: ByteDeserializeSlice<Self::SendMsg> + ByteSerializeStack + Debug + Clone + PartialEq + Send + Sync + 'static;
+    type RecvMsg: ByteDeserializeSlice<Self::RecvMsg> + ByteSerializeStack + Debug + Clone + PartialEq + Send + Sync + 'static;
+
 }
 
-pub trait ProtocolHandler: Messenger + Framer + Send + Sync + 'static {}
+pub trait Protocol: Messenger + Framer + Send + Sync + 'static {}
 
 #[cfg(test)]
 mod test {

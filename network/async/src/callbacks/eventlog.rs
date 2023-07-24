@@ -1,7 +1,7 @@
 use std::{
     fmt::Display,
     sync::{Arc, Mutex, MutexGuard},
-    time::{Duration, Instant},
+    time::{Duration, Instant}, any::type_name,
 };
 
 use tokio::task::yield_now;
@@ -11,40 +11,20 @@ use crate::core::{ConId, Messenger};
 use super::Callback;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Direction {
-    Send,
-    Recv,
+pub enum Event<MESSENGER: Messenger> {
+    Recv(MESSENGER::RecvMsg),
+    Send(MESSENGER::SendMsg),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Entry<MESSENGER: Messenger> {
     pub con_id: ConId,
-    pub direction: Direction,
     pub instant: Instant,
-    pub msg: MESSENGER::Message,
+    pub event: Event<MESSENGER>,
 }
 impl<MESSENGER: Messenger> Display for Entry<MESSENGER> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} {:?} {:?}",
-            self.con_id,
-            self.direction,
-            // self.instant,
-            self.msg
-        )
-    }
-}
-
-impl<MESSENGER: Messenger> From<(ConId, MESSENGER::Message)> for Entry<MESSENGER> {
-    fn from(value: (ConId, MESSENGER::Message)) -> Self {
-        let (con_id, msg) = value;
-        Self {
-            con_id,
-            direction: Direction::Recv,
-            instant: Instant::now(),
-            msg,
-        }
+        write!(f, "{} {:?}", self.con_id, self.event)
     }
 }
 
@@ -56,9 +36,19 @@ pub struct EventLogCallback<MESSENGER: Messenger> {
 
 impl<MESSENGER: Messenger> Display for EventLogCallback<MESSENGER> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = type_name::<MESSENGER>()
+            .split("::")
+            .last()
+            .unwrap_or("Unknown");
         let events = self.lock();
-        writeln!(f, "EventLogCallback len: {}", events.len())?;
+        writeln!(f, "EventLogCallback<{}, {}>", name, events.len())?;
 
+        if events.len() == 1 {
+            let entry1 = events.first().expect("Could Not Get First Entry");
+            let idx = 0;
+            let delta = format!("{:?}", Duration::from_secs(0));
+            writeln!(f, "{:<04} Δ{: >15} {}", idx + 1, delta, entry1)?;
+        }
         for (idx, pair) in events.windows(2).enumerate() {
             let entry1 = &pair[0];
             if idx == 0 {
@@ -83,16 +73,19 @@ impl<MESSENGER: Messenger> Default for EventLogCallback<MESSENGER> {
     }
 }
 impl<MESSENGER: Messenger> Callback<MESSENGER> for EventLogCallback<MESSENGER> {
-    fn on_recv(&self, con_id: &ConId, msg: <MESSENGER as Messenger>::Message) {
-        let entry = Entry::from((con_id.clone(), msg));
-        self.push(entry);
-    }
-    fn on_send(&self, con_id: &ConId, msg: &<MESSENGER as Messenger>::Message) {
+    fn on_recv(&self, con_id: &ConId, msg: <MESSENGER as Messenger>::RecvMsg) {
         let entry = Entry {
             con_id: con_id.clone(),
-            direction: Direction::Send,
             instant: Instant::now(),
-            msg: msg.clone(),
+            event: Event::Recv(msg),
+        };
+        self.push(entry);
+    }
+    fn on_send(&self, con_id: &ConId, msg: &<MESSENGER as Messenger>::SendMsg) {
+        let entry = Entry {
+            con_id: con_id.clone(),
+            instant: Instant::now(),
+            event: Event::Send(msg.clone()),
         };
         self.push(entry);
     }
@@ -148,18 +141,17 @@ mod test {
 
     use super::*;
 
-    type EventLog = EventLogCallback<MsgProtocolHandler>;
+    type EventLog = EventLogCallback<CltMsgProtocol>;
 
     #[tokio::test]
     async fn test_event_log() {
         setup::log::configure();
         let event_log = EventLog::default();
 
-        let mut msg = Msg::Clt(MsgFromClt::new(format!("hello").as_bytes()));
+        let mut msg = CltMsg::new(format!("initialized").as_bytes());
         for idx in 0..10 {
-            msg = Msg::Clt(MsgFromClt::new(format!("hello  #{}", idx).as_bytes()));
-            let entry = Entry::from((ConId::default(), msg.clone()));
-            event_log.push(entry);
+            msg = CltMsg::new(format!("hello  #{}", idx).as_bytes());
+            event_log.on_send(&Default::default(), &msg);
         }
         info!("event_log: {}", event_log);
         let found = event_log.find(|_| true, None).await;
@@ -167,6 +159,9 @@ mod test {
         let last = event_log.last();
         info!("last: {:?}", last);
         assert_eq!(last, found);
-        assert_eq!(found.unwrap().msg, msg);
+        match found.unwrap().event {
+            Event::Send(msg) => assert_eq!(msg, msg),
+            _ => panic!("unexpected event"),
+        }
     }
 }

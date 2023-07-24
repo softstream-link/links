@@ -19,7 +19,7 @@ impl<PAYLOAD> Messenger for SoupBinProtocolHandler<PAYLOAD>
 where 
     PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
 {
-    type Message = SBMsg<PAYLOAD>;
+    type SendMsg = SBMsg<PAYLOAD>;
 }
 
 #[rustfmt::skip]
@@ -33,7 +33,7 @@ where
     }
 }
 #[rustfmt::skip]
-impl<PAYLOAD> ProtocolHandler for SoupBinProtocolHandler<PAYLOAD>
+impl<PAYLOAD> Protocol for SoupBinProtocolHandler<PAYLOAD>
 where 
     PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
 {
