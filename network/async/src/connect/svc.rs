@@ -175,14 +175,13 @@ mod test {
     use log::info;
 
     use super::*;
-    use crate::unittest::setup::{self, model::*, protocol::*};
+    use crate::unittest::setup::{self, model::*, net::default_find_timeout, protocol::*};
     use tokio::time::Duration;
 
     lazy_static! {
         static ref ADDR: String = setup::net::default_addr();
         static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
         static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
-        static ref FIND_TIMEOUT: Duration = setup::net::default_find_timeout();
     }
     const MAX_MSG_SIZE: usize = 128;
     #[tokio::test]
@@ -198,7 +197,7 @@ mod test {
     #[tokio::test]
     async fn test_svc_clt_connection() {
         setup::log::configure();
-        let find_timeout = setup::net::default_find_timeout();
+
         let clt_event_log = EventLogCallbackRef::<CltMsgProtocol>::default();
         let clt_callback = ChainCallbackRef::new(ChainCallback::new(vec![
             LoggerCallbackRef::default(),
@@ -210,8 +209,7 @@ mod test {
             LoggerCallbackRef::default(),
             svc_event_log.clone(),
         ]));
-        // let clt_callback = LoggerCallbackRef::<CltMsgProtocol>::default();
-        // let svc_callback = LoggerCallbackRef::<SvcMsgProtocol>::default();
+
         let svc = Svc::<_, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&svc_callback), Some("venue"))
             .await
             .unwrap();
@@ -236,24 +234,31 @@ mod test {
         clt.send(&inp_clt_msg).await.unwrap();
         svc.send(&inp_svc_msg).await.unwrap();
 
-        tokio::time::sleep(Duration::from_secs(2)).await; // TODO fix find
+        let out_svc_msg = svc_event_log
+            .find(
+                |entry| match &entry.event {
+                    Event::Recv(msg) => msg == &inp_clt_msg,
+                    _ => false,
+                },
+                default_find_timeout(),
+            )
+            .await;
+
+        let out_clt_msg = clt_event_log
+            .find(
+                |entry| match &entry.event {
+                    Event::Recv(msg) => msg == &inp_svc_msg,
+                    _ => false,
+                },
+                default_find_timeout(),
+            )
+            .await;
+
+        info!("Found out_svc_msg: {:?}", out_svc_msg);
+        info!("Found out_clt_msg: {:?}", out_clt_msg);
+        assert_eq!(&inp_clt_msg, out_svc_msg.unwrap().try_into_recv().unwrap());
+        assert_eq!(&inp_svc_msg, out_clt_msg.unwrap().try_into_recv().unwrap());
         info!("clt_event_log: {}", clt_event_log);
         info!("svc_event_log: {}", svc_event_log);
-        // let found = clt_event_log
-        //     .find(
-        //         |entry| {
-        //             entry.direction == Direction::Recv
-        //                 && entry.event == inp_svc_msg
-        //                 && match &entry.con_id {
-        //                     ConId::Clt { name, .. } | ConId::Svc { name, .. } => name == "broker",
-        //                 }
-        //         },
-        //         find_timeout.into(),
-        //     )
-        //     .await;
-        // info!("event_log: {}", *clt_event_log);
-        // info!("found: {:?}", found);
-        // assert!(found.is_some());
-        // assert_eq!(found.unwrap().event, inp_svc_msg);
     }
 }

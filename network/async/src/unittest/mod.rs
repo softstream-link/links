@@ -25,8 +25,8 @@ pub mod setup {
             default_connect_timeout() / 5
         }
 
-        pub fn default_find_timeout() -> Duration {
-            Duration::from_secs_f32(1.)
+        pub fn default_find_timeout() -> Option<Duration> {
+            Some(Duration::from_secs_f32(1.))
         }
     }
 

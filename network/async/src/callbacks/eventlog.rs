@@ -1,7 +1,8 @@
 use std::{
+    any::type_name,
     fmt::Display,
     sync::{Arc, Mutex, MutexGuard},
-    time::{Duration, Instant}, any::type_name,
+    time::{Duration, Instant},
 };
 
 use tokio::task::yield_now;
@@ -22,6 +23,21 @@ pub struct Entry<MESSENGER: Messenger> {
     pub instant: Instant,
     pub event: Event<MESSENGER>,
 }
+impl<MESSENGER: Messenger> Entry<MESSENGER> {
+    pub fn try_into_recv(&self) -> Result<&MESSENGER::RecvMsg, &str> {
+        match &self.event {
+            Event::Recv(msg) => Ok(msg),
+            _ => Err("Entry's event is not Recv"),
+        }
+    }
+    pub fn try_into_sent(&self) -> Result<&MESSENGER::SendMsg, &str> {
+        match &self.event {
+            Event::Send(msg) => Ok(msg),
+            _ => Err("Entry's event is not Send"),
+        }
+    }
+}
+
 impl<MESSENGER: Messenger> Display for Entry<MESSENGER> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {:?}", self.con_id, self.event)
@@ -77,7 +93,7 @@ impl<MESSENGER: Messenger> Callback<MESSENGER> for EventLogCallback<MESSENGER> {
         let entry = Entry {
             con_id: con_id.clone(),
             instant: Instant::now(),
-            event: Event::Recv(msg),
+            event: Event::Recv(msg.clone()),
         };
         self.push(entry);
     }
@@ -148,6 +164,7 @@ mod test {
         setup::log::configure();
         let event_log = EventLog::default();
 
+        #[allow(unused_assignments)]
         let mut msg = CltMsg::new(format!("initialized").as_bytes());
         for idx in 0..10 {
             msg = CltMsg::new(format!("hello  #{}", idx).as_bytes());
