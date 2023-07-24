@@ -204,21 +204,17 @@ mod test {
             LoggerCallbackRef::default(),
             clt_event_log.clone(),
         ]));
-        let clt_callback = LoggerCallbackRef::<CltMsgProtocol>::default();
 
         let svc_event_log = EventLogCallbackRef::<SvcMsgProtocol>::default();
         let svc_callback = ChainCallbackRef::new(ChainCallback::new(vec![
             LoggerCallbackRef::default(),
             svc_event_log.clone(),
         ]));
-        let svc_callback = LoggerCallbackRef::<SvcMsgProtocol>::default();
-        let svc = Svc::<_, _, MAX_MSG_SIZE>::new(
-            &ADDR,
-            Arc::clone(&svc_callback),
-            Some("venue"),
-        )
-        .await
-        .unwrap();
+        // let clt_callback = LoggerCallbackRef::<CltMsgProtocol>::default();
+        // let svc_callback = LoggerCallbackRef::<SvcMsgProtocol>::default();
+        let svc = Svc::<_, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&svc_callback), Some("venue"))
+            .await
+            .unwrap();
 
         info!("{} sender ready", svc);
 
@@ -240,6 +236,7 @@ mod test {
         clt.send(&inp_clt_msg).await.unwrap();
         svc.send(&inp_svc_msg).await.unwrap();
 
+        tokio::time::sleep(Duration::from_secs(2)).await; // TODO fix find
         info!("clt_event_log: {}", clt_event_log);
         info!("svc_event_log: {}", svc_event_log);
         // let found = clt_event_log

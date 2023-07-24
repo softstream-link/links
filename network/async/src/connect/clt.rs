@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::prelude::*;
-use log::{debug, error};
+use log::{debug, error, warn};
 use tokio::net::TcpStream;
 
 use super::messaging::{into_split_messenger, MessageRecver, MessageSender};
@@ -197,6 +197,7 @@ where
                     }
                     Err(e) => {
                         error!("{} recv stream error: {:?}", con_id, e);
+                        // TODO CRITICAL shall add panic?
                     }
                 }
             }
