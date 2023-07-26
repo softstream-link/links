@@ -7,9 +7,9 @@ members = [
 ]
 
 [workspace.dependencies]
-byteserde = { path = "./../byteserde/byteserde", version = "0.3.0" }
-byteserde_derive = { path = "./../byteserde/byteserde_derive", version = "0.3.0" }
-byteserde_types = { path = "./../byteserde/byteserde_types", version = "0.3.0" }
+byteserde = { version = "0.3.0" }
+byteserde_derive = { version = "0.3.0" }
+byteserde_types = { version = "0.3.0" }
 
 log = "0.4"
 env_logger = "0.10"
