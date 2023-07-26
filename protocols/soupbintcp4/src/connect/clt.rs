@@ -30,7 +30,7 @@ mod test {
 
         let callback = SBLoggerCallbackRef::<SamplePayload>::default();
 
-        let clt = SBClt::<SamplePayload, _, MAX_MSG_SIZE>::new(
+        let clt = SBClt::<SamplePayload, _, MAX_MSG_SIZE>::connect(
             &ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,

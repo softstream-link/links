@@ -19,9 +19,8 @@ pub mod setup {
         lazy_static! {
             static ref AVAILABLE_PORT: u16 = {
                 for port in 8000..9000 {
-                    match TcpListener::bind(format!("0.0.0.0:{}", port)) {
-                        Ok(_) => return port,
-                        _ => {}
+                    if TcpListener::bind(format!("0.0.0.0:{}", port)).is_ok() {
+                        return port
                     }
                 }
                 panic!("Unable to find an available port in range 8000..9000");
@@ -29,7 +28,7 @@ pub mod setup {
         }
 
         pub fn default_addr() -> String {
-            String::from(format!("0.0.0.0:{}", *AVAILABLE_PORT))
+            format!("0.0.0.0:{}", *AVAILABLE_PORT)
         }
 
         pub fn default_connect_timeout() -> Duration {

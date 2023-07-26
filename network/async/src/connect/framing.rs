@@ -50,13 +50,11 @@ impl<FRAMER: Framer> FrameReader<FRAMER> {
         loop {
             if let Some(bytes) = FRAMER::get_frame(&mut self.buffer) {
                 return Ok(Some(bytes));
-            } else {
-                if 0 == self.reader.read_buf(&mut self.buffer).await? {
-                    if self.buffer.is_empty() {
-                        return Ok(None);
-                    } else {
-                        return Err("connection reset by peer".into()); // TODO add remainder of buffer to message
-                    }
+            } else if 0 == self.reader.read_buf(&mut self.buffer).await? {
+                if self.buffer.is_empty() {
+                    return Ok(None);
+                } else {
+                    return Err("connection reset by peer".into()); // TODO add remainder of buffer to message
                 }
             }
         }
@@ -111,10 +109,10 @@ mod test {
 
     use super::*;
 
-    use links_testing::unittest::setup;
     use crate::unittest::setup::model::*;
     use crate::unittest::setup::protocol::*;
     use byteserde::{prelude::*, utils::hex::to_hex_pretty};
+    use links_testing::unittest::setup;
     use log::info;
     use tokio::net::TcpListener;
 

@@ -93,7 +93,7 @@ impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for EventLogCallback<MESS
         let entry = Entry {
             con_id: con_id.clone(),
             instant: Instant::now(),
-            event: Event::Recv(msg.clone()),
+            event: Event::Recv(msg),
         };
         self.push(entry);
     }

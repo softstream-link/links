@@ -26,10 +26,10 @@ impl ConId {
             local: local
                 .unwrap_or("0.0.0.0:0")
                 .parse()
-                .expect(format!("unable to parse addr: {:?}", local).as_str()),
+                .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", local)),
             peer: peer
                 .parse()
-                .expect(format!("unable to parse addr: {:?}", peer).as_str()),
+                .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", peer)),
         }
     }
     pub fn set_local(&mut self, local: SocketAddr) {
@@ -50,11 +50,11 @@ impl ConId {
             name: name.unwrap_or("unknown").to_owned(),
             local: local
                 .parse()
-                .expect(format!("unable to parse addr: {:?}", local).as_str()),
+                .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", local)),
             peer: peer
                 .unwrap_or("0.0.0.0:0")
                 .parse()
-                .expect(format!("unable to parse addr: {:?}", peer).as_str()),
+                .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", peer)),
         }
     }
 }

@@ -42,7 +42,7 @@ impl<MESSENGER: Messenger> Display for LoggerCallback<MESSENGER> {
 impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for LoggerCallback<MESSENGER> {
     fn on_recv(&self, con_id: &ConId, msg: MESSENGER::RecvMsg) {
         if !log_enabled!(self.level) {
-            return ();
+            return;
         }
         let text = format!("LoggerCallback::on_recv {} {:?}", con_id, msg);
         match self.level {
@@ -55,7 +55,7 @@ impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for LoggerCallback<MESSEN
     }
     fn on_send(&self, con_id: &ConId, msg: &MESSENGER::SendMsg) {
         if !log_enabled!(self.level) {
-            return ();
+            return;
         }
         let text = format!("LoggerCallback::on_send {} {:?}", con_id, msg);
         match self.level {
@@ -71,9 +71,9 @@ impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for LoggerCallback<MESSEN
 #[cfg(test)]
 mod test {
 
-    use links_testing::unittest::setup;
     use crate::unittest::setup::model::*;
     use crate::unittest::setup::protocol::*;
+    use links_testing::unittest::setup;
 
     use super::*;
 

@@ -41,7 +41,7 @@ where
             .last()
             .unwrap_or("Unknown");
         let clb_name = type_name::<CALLBACK>()
-            .split("<")
+            .split('<')
             .next()
             .unwrap_or("Unknown")
             .split("::")
@@ -138,7 +138,7 @@ where
     HANDLER: Protocol,
     CALLBACK: CallbackSendRecv<HANDLER>,
 {
-    pub async fn new(
+    pub async fn connect(
         addr: &str,
         timeout: Duration,
         retry_after: Duration,
@@ -205,7 +205,7 @@ where
         .abort_handle();
 
         CltSender {
-            con_id: con_id.clone(),
+            con_id,
             sender: Arc::clone(&send_ref),
             callback: Arc::clone(&callback),
             recver_abort_handle,
@@ -246,7 +246,7 @@ mod test {
         const MAX_MSG_SIZE: usize = 128;
         let logger = LoggerCallbackRef::<CltMsgProtocol>::default();
         // TODO remove MsgProtocolHandler type parameter once implmentedn as instance and passed as argument
-        let clt = Clt::<_, _, MAX_MSG_SIZE>::new(
+        let clt = Clt::<_, _, MAX_MSG_SIZE>::connect(
             &setup::net::default_addr(),
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),

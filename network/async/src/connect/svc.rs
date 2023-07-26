@@ -34,7 +34,7 @@ where
             .last()
             .unwrap_or("Unknown");
         let clb_name = type_name::<CALLBACK>()
-            .split("<")
+            .split('<')
             .next()
             .unwrap_or("Unknown")
             .split("::")
@@ -114,7 +114,7 @@ where
     HANDLER: Protocol,
     CALLBACK: CallbackSendRecv<HANDLER>,
 {
-    pub async fn new(
+    pub async fn bind(
         addr: &str,
         callback: Arc<CALLBACK>,
         name: Option<&str>,
@@ -189,7 +189,7 @@ mod test {
     async fn test_svc_not_connected() {
         setup::log::configure();
         let logger = LoggerCallbackRef::<SvcMsgProtocol>::default();
-        let svc = Svc::<_, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&logger), Some("unittest"))
+        let svc = Svc::<_, _, MAX_MSG_SIZE>::bind(&ADDR, Arc::clone(&logger), Some("unittest"))
             .await
             .unwrap();
         info!("{} ready", svc);
@@ -211,13 +211,13 @@ mod test {
             svc_event_log.clone(),
         ]));
 
-        let svc = Svc::<_, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&svc_callback), Some("venue"))
+        let svc = Svc::<_, _, MAX_MSG_SIZE>::bind(&ADDR, Arc::clone(&svc_callback), Some("venue"))
             .await
             .unwrap();
 
         info!("{} sender ready", svc);
 
-        let clt = Clt::<CltMsgProtocol, _, MAX_MSG_SIZE>::new(
+        let clt = Clt::<CltMsgProtocol, _, MAX_MSG_SIZE>::connect(
             &ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,

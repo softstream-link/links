@@ -30,7 +30,7 @@ mod test {
     async fn test_svc() {
         setup::log::configure();
         let callback = SBLoggerCallbackRef::<SamplePayload>::default();
-        let svc = SBSvc::<SamplePayload, _, MAX_MSG_SIZE>::new(
+        let svc = SBSvc::<SamplePayload, _, MAX_MSG_SIZE>::bind(
             &ADDR,
             Arc::clone(&callback),
             Some("soupbin/unittest"),
@@ -50,7 +50,7 @@ mod test {
             event_log.clone(),
         ]));
 
-        let svc = SBSvc::<SamplePayload, _, MAX_MSG_SIZE>::new(
+        let svc = SBSvc::<SamplePayload, _, MAX_MSG_SIZE>::bind(
             &ADDR,
             Arc::clone(&callback),
             Some("soupbin/venue"),
@@ -60,7 +60,7 @@ mod test {
 
         info!("{} started", svc);
 
-        let clt = SBClt::<SamplePayload, _, MAX_MSG_SIZE>::new(
+        let clt = SBClt::<SamplePayload, _, MAX_MSG_SIZE>::connect(
             &ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,
