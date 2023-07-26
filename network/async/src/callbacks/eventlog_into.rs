@@ -12,7 +12,7 @@ use crate::core::{ConId, Messenger};
 use super::{CallbackEvent, CallbackSendRecv, Event};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct EventLogEntry<INTO, MESSENGER>
+pub struct Entry<INTO, MESSENGER>
 where
     INTO:
         From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
@@ -23,7 +23,7 @@ where
     pub event: Event<INTO, MESSENGER>,
 }
 
-impl<INTO, MESSENGER> Display for EventLogEntry<INTO, MESSENGER>
+impl<INTO, MESSENGER> Display for Entry<INTO, MESSENGER>
 where
     INTO:
         From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
@@ -41,7 +41,7 @@ where
     INTO:
         From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
 {
-    events: Mutex<Vec<EventLogEntry<INTO, MESSENGER>>>,
+    events: Mutex<Vec<Entry<INTO, MESSENGER>>>,
     phantom: std::marker::PhantomData<MESSENGER>,
 }
 
@@ -106,7 +106,7 @@ where
     MESSENGER: Messenger,
 {
     fn on_event(&self, cond_id: &crate::core::ConId, event: Event<INTO, MESSENGER>) {
-        self.push(EventLogEntry {
+        self.push(Entry {
             con_id: cond_id.clone(),
             instant: Instant::now(),
             event,
@@ -135,10 +135,10 @@ where
         From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
     MESSENGER: Messenger,
 {
-    fn lock(&self) -> MutexGuard<'_, Vec<EventLogEntry<INTO, MESSENGER>>> {
+    fn lock(&self) -> MutexGuard<'_, Vec<Entry<INTO, MESSENGER>>> {
         self.events.lock().expect("Could Not Lock EventLog")
     }
-    pub fn push(&self, e: EventLogEntry<INTO, MESSENGER>) {
+    pub fn push(&self, e: Entry<INTO, MESSENGER>) {
         let mut events = self.lock();
         events.push(e);
     }
@@ -146,9 +146,9 @@ where
         &self,
         mut predicate: P,
         timeout: Option<Duration>,
-    ) -> Option<EventLogEntry<INTO, MESSENGER>>
+    ) -> Option<Entry<INTO, MESSENGER>>
     where
-        P: FnMut(&EventLogEntry<INTO, MESSENGER>) -> bool,
+        P: FnMut(&Entry<INTO, MESSENGER>) -> bool,
     {
         let now = Instant::now();
         let timeout = timeout.unwrap_or_else(|| Duration::from_secs(0));
@@ -167,7 +167,7 @@ where
         }
         None
     }
-    pub fn last(&self) -> Option<EventLogEntry<INTO, MESSENGER>> {
+    pub fn last(&self) -> Option<Entry<INTO, MESSENGER>> {
         let events = self.lock();
         events.last().cloned()
     }
