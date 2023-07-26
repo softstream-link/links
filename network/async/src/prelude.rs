@@ -6,7 +6,7 @@ pub use crate::connect::svc::Svc;
 pub use crate::connect::svc::SvcSender;
 
 // callback
-pub use crate::callbacks::Callback;
+pub use crate::callbacks::CallbackSendRecv;
 
 pub use crate::callbacks::eventlog::EventLogCallback;
 pub use crate::callbacks::eventlog::EventLogCallbackRef;

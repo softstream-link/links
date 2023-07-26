@@ -20,7 +20,7 @@ use tokio::{spawn, time::sleep};
 pub struct CltSender<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize>
 where
     MESSENGER: Messenger,
-    CALLBACK: Callback<MESSENGER>,
+    CALLBACK: CallbackSendRecv<MESSENGER>,
 {
     con_id: ConId,
     sender: CltSenderRef<MESSENGER, MAX_MSG_SIZE>,
@@ -33,7 +33,7 @@ impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> Display
     for CltSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
 where
     MESSENGER: Messenger,
-    CALLBACK: Callback<MESSENGER>,
+    CALLBACK: CallbackSendRecv<MESSENGER>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg_name = type_name::<MESSENGER>()
@@ -58,7 +58,7 @@ impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> Drop
     for CltSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
 where
     MESSENGER: Messenger,
-    CALLBACK: Callback<MESSENGER>,
+    CALLBACK: CallbackSendRecv<MESSENGER>,
 {
     fn drop(&mut self) {
         debug!("{} aborting receiver", self);
@@ -69,7 +69,7 @@ where
 impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> CltSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
 where
     MESSENGER: Messenger,
-    CALLBACK: Callback<MESSENGER>,
+    CALLBACK: CallbackSendRecv<MESSENGER>,
 {
     pub async fn send(&self, msg: &MESSENGER::SendMsg) -> Result<(), Box<dyn Error + Send + Sync>> {
         {
@@ -95,7 +95,7 @@ mod types{
 pub struct Clt<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize>
 where
     HANDLER: Protocol,
-    CALLBACK: Callback<HANDLER>,
+    CALLBACK: CallbackSendRecv<HANDLER>,
 {
     con_id: ConId,
     recver: CltRecverRef<HANDLER, HANDLER>,
@@ -106,7 +106,7 @@ where
 impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Display for Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>
 where
     HANDLER: Protocol,
-    CALLBACK: Callback<HANDLER>,
+    CALLBACK: CallbackSendRecv<HANDLER>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let hdl_name = type_name::<HANDLER>()
@@ -127,7 +127,7 @@ where
 impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Drop for Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>
 where
     HANDLER: Protocol,
-    CALLBACK: Callback<HANDLER>,
+    CALLBACK: CallbackSendRecv<HANDLER>,
 {
     fn drop(&mut self) {
         debug!("{} receiver stopped", self);
@@ -136,7 +136,7 @@ where
 impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>
 where
     HANDLER: Protocol,
-    CALLBACK: Callback<HANDLER>,
+    CALLBACK: CallbackSendRecv<HANDLER>,
 {
     pub async fn new(
         addr: &str,

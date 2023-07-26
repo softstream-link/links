@@ -1,6 +1,6 @@
 use std::{
     any::type_name,
-    fmt::Display,
+    fmt::{Debug, Display},
     sync::{Arc, Mutex, MutexGuard},
     time::{Duration, Instant},
 };
@@ -9,55 +9,60 @@ use tokio::task::yield_now;
 
 use crate::core::{ConId, Messenger};
 
-use super::CallbackSendRecv;
+use super::{CallbackEvent, CallbackSendRecv, Event};
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Event<MESSENGER: Messenger> {
-    Recv(MESSENGER::RecvMsg),
-    Send(MESSENGER::SendMsg),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Entry<MESSENGER: Messenger> {
+pub struct EventLogEntry<INTO, MESSENGER>
+where
+    INTO:
+        From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    MESSENGER: Messenger,
+{
     pub con_id: ConId,
     pub instant: Instant,
-    pub event: Event<MESSENGER>,
-}
-impl<MESSENGER: Messenger> Entry<MESSENGER> {
-    pub fn try_into_recv(&self) -> Result<&MESSENGER::RecvMsg, &str> {
-        match &self.event {
-            Event::Recv(msg) => Ok(msg),
-            _ => Err("Entry's event is not Recv"),
-        }
-    }
-    pub fn try_into_sent(&self) -> Result<&MESSENGER::SendMsg, &str> {
-        match &self.event {
-            Event::Send(msg) => Ok(msg),
-            _ => Err("Entry's event is not Send"),
-        }
-    }
+    pub event: Event<INTO, MESSENGER>,
 }
 
-impl<MESSENGER: Messenger> Display for Entry<MESSENGER> {
+impl<INTO, MESSENGER> Display for EventLogEntry<INTO, MESSENGER>
+where
+    INTO:
+        From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    MESSENGER: Messenger,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {:?}", self.con_id, self.event)
     }
 }
 
-pub type EventLogCallbackRef<MESSENGER> = Arc<EventLogCallback<MESSENGER>>;
+pub type EventLogCallbackRef<INTO, MESSENGER> = Arc<EventLogCallback<INTO, MESSENGER>>;
 #[derive(Debug)]
-pub struct EventLogCallback<MESSENGER: Messenger> {
-    events: Mutex<Vec<Entry<MESSENGER>>>,
+pub struct EventLogCallback<INTO, MESSENGER: Messenger>
+where
+    INTO:
+        From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
+{
+    events: Mutex<Vec<EventLogEntry<INTO, MESSENGER>>>,
+    phantom: std::marker::PhantomData<MESSENGER>,
 }
 
-impl<MESSENGER: Messenger> Display for EventLogCallback<MESSENGER> {
+impl<INTO, MESSENGER> Display for EventLogCallback<INTO, MESSENGER>
+where
+    INTO:
+        From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    MESSENGER: Messenger,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = type_name::<MESSENGER>()
             .split("::")
             .last()
             .unwrap_or("Unknown");
         let events = self.lock();
-        writeln!(f, "EventLogCallback<{}, {}>", name, events.len())?;
+        writeln!(
+            f,
+            "ConsolidatedEventLogCallback<{}, {}>",
+            name,
+            events.len()
+        )?;
 
         if events.len() == 1 {
             let entry1 = events.first().expect("Could Not Get First Entry");
@@ -81,37 +86,59 @@ impl<MESSENGER: Messenger> Display for EventLogCallback<MESSENGER> {
     }
 }
 
-impl<MESSENGER: Messenger> Default for EventLogCallback<MESSENGER> {
+impl<INTO, MESSENGER> Default for EventLogCallback<INTO, MESSENGER>
+where
+    INTO:
+        From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    MESSENGER: Messenger,
+{
     fn default() -> Self {
         Self {
             events: Mutex::new(vec![]),
+            phantom: std::marker::PhantomData,
         }
     }
 }
-impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for EventLogCallback<MESSENGER> {
-    fn on_recv(&self, con_id: &ConId, msg: <MESSENGER as Messenger>::RecvMsg) {
-        let entry = Entry {
-            con_id: con_id.clone(),
+impl<INTO, MESSENGER> CallbackEvent<INTO, MESSENGER> for EventLogCallback<INTO, MESSENGER>
+where
+    INTO:
+        From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    MESSENGER: Messenger,
+{
+    fn on_event(&self, cond_id: &crate::core::ConId, event: Event<INTO, MESSENGER>) {
+        self.push(EventLogEntry {
+            con_id: cond_id.clone(),
             instant: Instant::now(),
-            event: Event::Recv(msg.clone()),
-        };
-        self.push(entry);
+            event,
+        })
     }
-    fn on_send(&self, con_id: &ConId, msg: &<MESSENGER as Messenger>::SendMsg) {
-        let entry = Entry {
-            con_id: con_id.clone(),
-            instant: Instant::now(),
-            event: Event::Send(msg.clone()),
-        };
-        self.push(entry);
+}
+impl<INTO, MESSENGER> CallbackSendRecv<MESSENGER> for EventLogCallback<INTO, MESSENGER>
+where
+    INTO:
+        From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    MESSENGER: Messenger,
+{
+    fn on_recv(&self, con_id: &crate::core::ConId, msg: <MESSENGER as Messenger>::RecvMsg) {
+        let entry = msg.into();
+        self.on_event(con_id, Event::Recv(entry));
+    }
+    fn on_send(&self, con_id: &crate::core::ConId, msg: &<MESSENGER as Messenger>::SendMsg) {
+        let entry = msg.clone().into();
+        self.on_event(con_id, Event::Send(entry));
     }
 }
 
-impl<MESSENGER: Messenger> EventLogCallback<MESSENGER> {
-    fn lock(&self) -> MutexGuard<'_, Vec<Entry<MESSENGER>>> {
+impl<INTO, MESSENGER> EventLogCallback<INTO, MESSENGER>
+where
+    INTO:
+        From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    MESSENGER: Messenger,
+{
+    fn lock(&self) -> MutexGuard<'_, Vec<EventLogEntry<INTO, MESSENGER>>> {
         self.events.lock().expect("Could Not Lock EventLog")
     }
-    pub fn push(&self, e: Entry<MESSENGER>) {
+    pub fn push(&self, e: EventLogEntry<INTO, MESSENGER>) {
         let mut events = self.lock();
         events.push(e);
     }
@@ -119,9 +146,9 @@ impl<MESSENGER: Messenger> EventLogCallback<MESSENGER> {
         &self,
         mut predicate: P,
         timeout: Option<Duration>,
-    ) -> Option<Entry<MESSENGER>>
+    ) -> Option<EventLogEntry<INTO, MESSENGER>>
     where
-        P: FnMut(&Entry<MESSENGER>) -> bool,
+        P: FnMut(&EventLogEntry<INTO, MESSENGER>) -> bool,
     {
         let now = Instant::now();
         let timeout = timeout.unwrap_or_else(|| Duration::from_secs(0));
@@ -140,7 +167,7 @@ impl<MESSENGER: Messenger> EventLogCallback<MESSENGER> {
         }
         None
     }
-    pub fn last(&self) -> Option<Entry<MESSENGER>> {
+    pub fn last(&self) -> Option<EventLogEntry<INTO, MESSENGER>> {
         let events = self.lock();
         events.last().cloned()
     }
@@ -151,13 +178,13 @@ mod test {
 
     use log::info;
 
-    use links_testing::unittest::setup;
     use crate::unittest::setup::model::*;
     use crate::unittest::setup::protocol::*;
+    use links_testing::unittest::setup;
 
     use super::*;
 
-    type EventLog = EventLogCallback<CltMsgProtocol>;
+    type EventLog = EventLogCallback<Msg, CltMsgProtocol>;
 
     #[tokio::test]
     async fn test_event_log() {
@@ -167,10 +194,10 @@ mod test {
         #[allow(unused_assignments)]
         let mut clt_msg = CltMsg::new(format!("initialized").as_bytes());
         for idx in 0..10 {
-            let svc_msg = SvcMsg::new("hello".as_bytes());
+            let svc_msg = SvcMsg::new(format!("hello  svc #{}", idx).as_bytes());
             event_log.on_recv(&Default::default(), svc_msg.clone());
 
-            clt_msg = CltMsg::new(format!("hello  #{}", idx).as_bytes());
+            clt_msg = CltMsg::new(format!("hello  clt #{}", idx).as_bytes());
             event_log.on_send(&Default::default(), &clt_msg);
         }
         info!("event_log: {}", event_log);

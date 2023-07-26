@@ -5,10 +5,10 @@ use std::{
 
 use crate::core::{ConId, Messenger};
 
-use super::Callback;
+use super::CallbackSendRecv;
 
 pub type ChainCallbackRef<MESSENGER> = Arc<ChainCallback<MESSENGER>>;
-pub type Chain<MESSENGER> = Vec<Arc<dyn Callback<MESSENGER>>>;
+pub type Chain<MESSENGER> = Vec<Arc<dyn CallbackSendRecv<MESSENGER>>>;
 #[derive(Debug)]
 pub struct ChainCallback<MESSENGER: Messenger> {
     chain: Chain<MESSENGER>,
@@ -24,7 +24,7 @@ impl<MESSENGER: Messenger> Display for ChainCallback<MESSENGER> {
         write!(f, "ChainCallback<{}>", self.chain.len())
     }
 }
-impl<MESSENGER: Messenger> Callback<MESSENGER> for ChainCallback<MESSENGER> {
+impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for ChainCallback<MESSENGER> {
     fn on_recv(&self, con_id: &ConId, msg: MESSENGER::RecvMsg) {
         for callback in self.chain.iter() {
             callback.on_recv(con_id, msg.clone());

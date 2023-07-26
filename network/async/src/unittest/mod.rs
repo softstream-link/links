@@ -42,6 +42,16 @@ pub mod setup {
             Clt(CltMsg),
             Svc(SvcMsg),
         }
+        impl From<CltMsg> for Msg {
+            fn from(msg: CltMsg) -> Self {
+                Self::Clt(msg)
+            }
+        }
+        impl From<SvcMsg> for Msg {
+            fn from(msg: SvcMsg) -> Self {
+                Self::Svc(msg)
+            }
+        }
     }
     pub mod protocol {
         use bytes::{Bytes, BytesMut};

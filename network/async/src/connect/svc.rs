@@ -16,7 +16,7 @@ pub type SvcSendersRef<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> = Arc<Mut
 pub struct SvcSender<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize>
 where
     MESSENGER: Messenger,
-    CALLBACK: Callback<MESSENGER>,
+    CALLBACK: CallbackSendRecv<MESSENGER>,
 {
     con_id: ConId,
     senders: SvcSendersRef<MESSENGER, CALLBACK, MAX_MSG_SIZE>,
@@ -26,7 +26,7 @@ impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> Display
     for SvcSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
 where
     MESSENGER: Messenger,
-    CALLBACK: Callback<MESSENGER>,
+    CALLBACK: CallbackSendRecv<MESSENGER>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg_name = type_name::<MESSENGER>()
@@ -56,7 +56,7 @@ impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> Drop
     for SvcSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
 where
     MESSENGER: Messenger,
-    CALLBACK: Callback<MESSENGER>,
+    CALLBACK: CallbackSendRecv<MESSENGER>,
 {
     fn drop(&mut self) {
         debug!("{} aborting receiver queue", self);
@@ -66,7 +66,7 @@ where
 impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> SvcSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
 where
     MESSENGER: Messenger,
-    CALLBACK: Callback<MESSENGER>,
+    CALLBACK: CallbackSendRecv<MESSENGER>,
 {
     pub async fn is_accepted(&self) -> bool {
         let senders = self.senders.lock().await;
@@ -103,7 +103,7 @@ where
 pub struct Svc<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize>
 where
     HANDLER: Protocol,
-    CALLBACK: Callback<HANDLER>,
+    CALLBACK: CallbackSendRecv<HANDLER>,
 {
     p1: std::marker::PhantomData<HANDLER>,
     p2: std::marker::PhantomData<CALLBACK>,
@@ -112,7 +112,7 @@ where
 impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Svc<HANDLER, CALLBACK, MAX_MSG_SIZE>
 where
     HANDLER: Protocol,
-    CALLBACK: Callback<HANDLER>,
+    CALLBACK: CallbackSendRecv<HANDLER>,
 {
     pub async fn new(
         addr: &str,

@@ -7,7 +7,7 @@ use log::{debug, error, info, log_enabled, trace, warn, Level};
 
 use crate::core::{ConId, Messenger};
 
-use super::Callback;
+use super::CallbackSendRecv;
 
 pub type LoggerCallbackRef<MESSENGER> = Arc<LoggerCallback<MESSENGER>>;
 #[derive(Debug)]
@@ -39,7 +39,7 @@ impl<MESSENGER: Messenger> Display for LoggerCallback<MESSENGER> {
     }
 }
 
-impl<MESSENGER: Messenger> Callback<MESSENGER> for LoggerCallback<MESSENGER> {
+impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for LoggerCallback<MESSENGER> {
     fn on_recv(&self, con_id: &ConId, msg: MESSENGER::RecvMsg) {
         if !log_enabled!(self.level) {
             return ();
