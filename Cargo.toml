@@ -1,10 +1,15 @@
 [workspace]
-members = ["protocols/soupbintcp4", "protocols/ouch5", "network/async", "testing"]
+members = [
+    "protocols/soupbintcp4",
+    "protocols/ouch5",
+    "network/async",
+    "testing",
+]
 
 [workspace.dependencies]
-byteserde = { path = "./../byteserde/byteserde" }
-byteserde_derive = { path = "./../byteserde/byteserde_derive" }
-byteserde_types = { path = "./../byteserde/byteserde_types" }
+byteserde = { path = "./../byteserde/byteserde", version = "0.3.0" }
+byteserde_derive = { path = "./../byteserde/byteserde_derive", version = "0.3.0" }
+byteserde_types = { path = "./../byteserde/byteserde_types", version = "0.3.0" }
 
 log = "0.4"
 env_logger = "0.10"

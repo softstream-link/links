@@ -1,5 +1,5 @@
 # samples https://github.com/actions/starter-workflows/blob/main/ci/rust.yml
-name: Test Snapshot
+name: Test Non Master Snapshot
 on:
   push:
      branches:
