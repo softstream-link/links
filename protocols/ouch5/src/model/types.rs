@@ -98,7 +98,7 @@ pub mod clt_order_id {
     }
     #[cfg(test)]
     mod test {
-        use crate::unittest::setup;
+        use links_testing::unittest::setup;
         use log::info;
 
         use super::*;
@@ -273,7 +273,7 @@ pub mod user_ref {
     mod test {
         use log::info;
 
-        use crate::unittest::setup;
+        use links_testing::unittest::setup;
 
         use super::*;
 
@@ -349,7 +349,7 @@ pub mod timestamp {
 
     #[cfg(test)]
     mod test {
-        use crate::unittest::setup;
+        use links_testing::unittest::setup;
         use log::info;
 
         use super::*;
@@ -411,7 +411,7 @@ pub mod order_reference_number {
         use log::info;
 
         use super::*;
-        use crate::unittest::setup;
+        use links_testing::unittest::setup;
         #[test]
         fn test_order_ref_number_iterator() {
             setup::log::configure();

@@ -42,7 +42,7 @@ mod test {
 
     use crate::callbacks::eventlog::EventLogCallbackRef;
     use crate::callbacks::logger::LoggerCallbackRef;
-    use crate::unittest::setup;
+    use links_testing::unittest::setup;
     use crate::unittest::setup::model::*;
     use crate::unittest::setup::protocol::*;
 

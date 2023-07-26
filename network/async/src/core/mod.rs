@@ -93,9 +93,8 @@ mod test {
 
     use log::info;
 
-    use crate::unittest::setup;
-
     use crate::prelude::*;
+    use links_testing::unittest::setup;
 
     #[test]
     fn test_cond_id() {

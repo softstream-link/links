@@ -111,7 +111,7 @@ mod test {
 
     use super::*;
 
-    use crate::unittest::setup;
+    use links_testing::unittest::setup;
     use crate::unittest::setup::model::*;
     use crate::unittest::setup::protocol::*;
     use byteserde::{prelude::*, utils::hex::to_hex_pretty};

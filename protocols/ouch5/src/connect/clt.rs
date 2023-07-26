@@ -9,15 +9,16 @@ mod test {
     use std::time::Duration;
 
     use lazy_static::lazy_static;
+    use links_testing::unittest::setup;
     use log::info;
     use soupbintcp4::prelude::*;
     lazy_static! {
         static ref ADDR: String = setup::net::default_addr();
         static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
         static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
-        static ref FIND_TIMEOUT: Duration = setup::net::default_find_timeout();
     }
-    use crate::{prelude::*, unittest::setup};
+    use crate::prelude::*;
+
     #[tokio::test]
     async fn test_clt() {
         setup::log::configure();

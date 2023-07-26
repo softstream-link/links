@@ -20,3 +20,5 @@ log = { workspace = true }
 
 tokio-test = { workspace = true }
 lazy_static = { workspace = true }
+
+links_testing = { workspace = true }

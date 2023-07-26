@@ -99,7 +99,7 @@ where
 {
     con_id: ConId,
     recver: CltRecverRef<HANDLER, HANDLER>,
-    sender: CltSenderRef<HANDLER, MAX_MSG_SIZE>,
+    sender: CltSenderRef<HANDLER, MAX_MSG_SIZE>, // TODO possibly inject a protocol handler which will automatically reply and or send heartbeat for now keep the warning
     callback: Arc<CALLBACK>,
 }
 
@@ -237,7 +237,8 @@ mod test {
     use log::info;
 
     use super::*;
-    use crate::unittest::setup::{self, protocol::*};
+    use crate::unittest::setup::protocol::*;
+    use links_testing::unittest::setup;
 
     #[tokio::test]
     async fn test_clt_not_connected() {

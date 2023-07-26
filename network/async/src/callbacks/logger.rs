@@ -71,7 +71,7 @@ impl<MESSENGER: Messenger> Callback<MESSENGER> for LoggerCallback<MESSENGER> {
 #[cfg(test)]
 mod test {
 
-    use crate::unittest::setup;
+    use links_testing::unittest::setup;
     use crate::unittest::setup::model::*;
     use crate::unittest::setup::protocol::*;
 

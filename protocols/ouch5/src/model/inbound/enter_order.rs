@@ -65,7 +65,7 @@ impl Default for EnterOrder {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::unittest::setup;
+    use links_testing::unittest::setup;
 
     use log::info;
 

@@ -116,8 +116,8 @@ pub fn into_split_messenger<MESSENGER: Messenger, const MAX_MSG_SIZE: usize, FRA
 mod test {
 
     use super::*;
-
-    use crate::unittest::setup::{self, model::*, protocol::*};
+    use crate::unittest::setup::{model::*, protocol::*};
+    use links_testing::unittest::setup;
     use log::info;
     use tokio::net::TcpListener;
 
@@ -187,7 +187,6 @@ mod test {
         info!("out_svc_msg: {:?}", out_svc_msg);
         assert_eq!(inp_clt_msg, out_svc_msg);
         assert_eq!(inp_svc_msg, out_clt_msg);
-
     }
 
     // TODO move to soupbin

@@ -36,9 +36,10 @@ mod test {
             Arc::clone(&callback),
             Some("soupbin/unittest"),
         )
-        .await;
-        info!("{:?} not connected", svc);
-        assert!(svc.is_err());
+        .await
+        .unwrap();
+        info!("{:?} connected", svc);
+        assert!(!svc.is_accepted().await)
     }
     #[tokio::test]
     async fn test_svc_clt_connection() {

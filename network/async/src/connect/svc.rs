@@ -175,7 +175,8 @@ mod test {
     use log::info;
 
     use super::*;
-    use crate::unittest::setup::{self, model::*, net::default_find_timeout, protocol::*};
+    use crate::unittest::setup::{model::*, protocol::*};
+    use links_testing::unittest::setup;
     use tokio::time::Duration;
 
     lazy_static! {
@@ -185,7 +186,7 @@ mod test {
     }
     const MAX_MSG_SIZE: usize = 128;
     #[tokio::test]
-    async fn test_svc() {
+    async fn test_svc_not_connected() {
         setup::log::configure();
         let logger = LoggerCallbackRef::<SvcMsgProtocol>::default();
         let svc = Svc::<_, _, MAX_MSG_SIZE>::new(&ADDR, Arc::clone(&logger), Some("unittest"))
@@ -240,7 +241,7 @@ mod test {
                     Event::Recv(msg) => msg == &inp_clt_msg,
                     _ => false,
                 },
-                default_find_timeout(),
+                setup::net::default_find_timeout(),
             )
             .await;
 
@@ -250,7 +251,7 @@ mod test {
                     Event::Recv(msg) => msg == &inp_svc_msg,
                     _ => false,
                 },
-                default_find_timeout(),
+                setup::net::default_find_timeout(),
             )
             .await;
 

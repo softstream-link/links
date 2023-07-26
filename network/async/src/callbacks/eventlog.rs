@@ -151,7 +151,7 @@ mod test {
 
     use log::info;
 
-    use crate::unittest::setup;
+    use links_testing::unittest::setup;
     use crate::unittest::setup::model::*;
     use crate::unittest::setup::protocol::*;
 

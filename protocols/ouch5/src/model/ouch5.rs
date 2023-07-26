@@ -71,7 +71,7 @@ pub enum Ouch5 {
 mod test {
 
     use crate::prelude::*;
-    use crate::unittest::setup;
+    use links_testing::unittest::setup;
     use byteserde::prelude::*;
     use log::info;
 

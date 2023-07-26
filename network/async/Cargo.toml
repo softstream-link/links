@@ -17,3 +17,5 @@ byteserde_derive = { workspace = true } # required to setup unit test models
 
 tokio-test = { workspace = true }
 lazy_static = { workspace = true } 
+
+links_testing = { workspace = true }

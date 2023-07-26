@@ -372,33 +372,38 @@ impl Default for OptionalAppendage {
     }
 }
 
-#[test]
-fn tag_value_elements() {
-    use crate::unittest::setup;
-    use log::info;
-    setup::log::configure();
+#[cfg(test)]
+mod test {
+    use links_testing::unittest::setup;
+    use super::*;
+    #[test]
+    fn tag_value_elements() {
+        use log::info;
+        setup::log::configure();
 
-    let msg_sec_ord_ref = TagValueElement::<SecondaryOrdRefNum>::new(SecondaryOrdRefNum::new(1));
-    let msg_firm = TagValueElement::<Firm>::new(Firm::new(*b"ABCD"));
-    let msg_min_qty = TagValueElement::<MinQty>::new(MinQty::new(1));
-    info!("msg_sec_ord_ref: \t{:?}", msg_sec_ord_ref);
-    info!("msg_firm: \t{:?}", msg_firm);
-    info!("msg_min_qty: \t{:?}", msg_min_qty);
-    let inp_appendage = OptionalAppendage {
-        secondary_ord_ref_num: Some(msg_sec_ord_ref.clone()),
-        firm: Some(msg_firm.clone()),
-        min_qty: Some(msg_min_qty.clone()),
-        ..Default::default()
-    };
-    let _ = inp_appendage.clone(); // to ensure clone is propagated to all members
+        let msg_sec_ord_ref =
+            TagValueElement::<SecondaryOrdRefNum>::new(SecondaryOrdRefNum::new(1));
+        let msg_firm = TagValueElement::<Firm>::new(Firm::new(*b"ABCD"));
+        let msg_min_qty = TagValueElement::<MinQty>::new(MinQty::new(1));
+        info!("msg_sec_ord_ref: \t{:?}", msg_sec_ord_ref);
+        info!("msg_firm: \t{:?}", msg_firm);
+        info!("msg_min_qty: \t{:?}", msg_min_qty);
+        let inp_appendage = OptionalAppendage {
+            secondary_ord_ref_num: Some(msg_sec_ord_ref.clone()),
+            firm: Some(msg_firm.clone()),
+            min_qty: Some(msg_min_qty.clone()),
+            ..Default::default()
+        };
+        let _ = inp_appendage.clone(); // to ensure clone is propagated to all members
 
-    let mut ser = ByteSerializerStack::<128>::default();
-    ser.serialize(&inp_appendage).unwrap();
-    info!("ser: {:#x}", ser);
+        let mut ser = ByteSerializerStack::<128>::default();
+        ser.serialize(&inp_appendage).unwrap();
+        info!("ser: {:#x}", ser);
 
-    let mut des = ByteDeserializerSlice::new(ser.as_slice());
-    let out_appendage = OptionalAppendage::byte_deserialize(&mut des).unwrap();
-    info!("inp_appendage: {:?}", inp_appendage);
-    info!("out_appendage: {:?}", out_appendage);
-    assert_eq!(inp_appendage, out_appendage);
+        let mut des = ByteDeserializerSlice::new(ser.as_slice());
+        let out_appendage = OptionalAppendage::byte_deserialize(&mut des).unwrap();
+        info!("inp_appendage: {:?}", inp_appendage);
+        info!("out_appendage: {:?}", out_appendage);
+        assert_eq!(inp_appendage, out_appendage);
+    }
 }
