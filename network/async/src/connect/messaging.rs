@@ -104,12 +104,11 @@ pub fn into_split_messenger<MESSENGER: Messenger, const MAX_MSG_SIZE: usize, FRA
     stream: TcpStream,
     con_id: ConId,
 ) -> MessageManager<MESSENGER, MAX_MSG_SIZE, FRAMER> {
-    match stream.into_split() {
-        (reader, writer) => (
-            MessageSender::new(writer, con_id.clone()),
-            MessageRecver::with_capacity(reader, MAX_MSG_SIZE, con_id.clone()),
-        ),
-    }
+    let (reader, writer) = stream.into_split();
+    (
+        MessageSender::new(writer, con_id.clone()),
+        MessageRecver::with_capacity(reader, MAX_MSG_SIZE, con_id),
+    )
 }
 
 #[cfg(test)]

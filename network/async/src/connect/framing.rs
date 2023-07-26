@@ -96,12 +96,11 @@ pub fn into_split_frame_manager<FRAMER: Framer>(
     stream: TcpStream,
     reader_capacity: usize,
 ) -> FrameManger<FRAMER> {
-    match stream.into_split() {
-        (r, w) => (
-            FrameReader::<FRAMER>::with_capacity(r, reader_capacity),
-            FrameWriter::new(w),
-        ),
-    }
+    let (reader, writer) = stream.into_split();
+    (
+        FrameReader::<FRAMER>::with_capacity(reader, reader_capacity),
+        FrameWriter::new(writer),
+    )
 }
 
 #[cfg(test)]
