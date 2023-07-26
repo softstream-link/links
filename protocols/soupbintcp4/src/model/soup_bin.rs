@@ -83,7 +83,7 @@ mod test {
     use crate::prelude::*;
     use byteserde::prelude::*;
 
-    use crate::unittest::setup;
+    use links_testing::unittest::setup;
 
     #[test]
     fn test_soup_bin() {

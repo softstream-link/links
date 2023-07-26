@@ -47,7 +47,8 @@ impl<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + Par
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{model::payload::SamplePayload, unittest::setup};
+    use crate::model::payload::SamplePayload;
+    use links_testing::unittest::setup;
     use log::info;
 
     #[test]

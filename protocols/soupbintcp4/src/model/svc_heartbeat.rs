@@ -31,8 +31,8 @@ impl Display for SvcHeartbeat {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::unittest::setup;
     use byteserde::prelude::*;
+    use links_testing::unittest::setup;
     use log::info;
 
     #[test]

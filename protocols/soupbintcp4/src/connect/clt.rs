@@ -13,13 +13,13 @@ mod test {
 
     use log::info;
 
-    use crate::{prelude::*, unittest::setup};
+    use crate::prelude::*;
+    use links_testing::unittest::setup;
 
     lazy_static! {
         static ref ADDR: String = setup::net::default_addr();
         static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
         static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
-        static ref FIND_TIMEOUT: Duration = setup::net::default_find_timeout();
     }
 
     const MAX_MSG_SIZE: usize = 128;

@@ -57,8 +57,8 @@ mod test {
     use crate::{
         model::{payload::SamplePayload, soup_bin::SBMsg, unsequenced_data::UnsequencedData},
         prelude::*,
-        unittest::setup,
     };
+    use links_testing::unittest::setup;
 
     #[test]
     fn test_soup_bin_admin() {
