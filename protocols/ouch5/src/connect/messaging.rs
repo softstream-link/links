@@ -1,4 +1,4 @@
-use soupbintcp4::prelude::*;
+use links_soupbintcp4::prelude::*;
 
 use crate::prelude::{Ouch5Inb, Ouch5Oub};
 

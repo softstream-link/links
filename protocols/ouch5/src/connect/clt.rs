@@ -1,4 +1,4 @@
-use soupbintcp4::prelude::*;
+use links_soupbintcp4::prelude::*;
 
 use crate::{model::ouch5::MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB, prelude::Ouch5Inb};
 
@@ -11,7 +11,7 @@ mod test {
     use lazy_static::lazy_static;
     use links_testing::unittest::setup;
     use log::info;
-    use soupbintcp4::prelude::*;
+    use links_soupbintcp4::prelude::*;
     lazy_static! {
         static ref ADDR: String = setup::net::default_addr();
         static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();

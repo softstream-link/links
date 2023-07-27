@@ -1,5 +1,5 @@
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
-use soupbintcp4::prelude::MAX_FRAME_SIZE_SOUPBIN_NO_PAYLOAD;
+use links_soupbintcp4::prelude::MAX_FRAME_SIZE_SOUPBIN_NO_PAYLOAD;
 
 use crate::prelude::*;
 

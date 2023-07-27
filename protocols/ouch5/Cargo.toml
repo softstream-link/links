@@ -1,5 +1,5 @@
 [package]
-name = "ouch5"
+name = "links_ouch5"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,7 +9,7 @@ byteserde_derive = { workspace = true }
 byteserde_types = { workspace = true }
 
 # bytes = { workspace = true }
-soupbintcp4 = { path = "../soupbintcp4" }
+links_soupbintcp4 = { workspace = true }
 
 chrono = { workspace = true }
 tokio = { workspace = true }
