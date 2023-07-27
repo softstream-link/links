@@ -2,19 +2,12 @@ use crate::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 
 #[rustfmt::skip]
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
 #[byteserde(endian = "be")]
 pub struct AccountQueryRequest {
     packet_type: PacketTypeAccountQueryRequest,
 }
 
-impl Default for AccountQueryRequest {
-    fn default() -> Self {
-        Self {
-            packet_type: PacketTypeAccountQueryRequest::default(),
-        }
-    }
-}
 #[cfg(test)]
 mod test {
     use super::*;

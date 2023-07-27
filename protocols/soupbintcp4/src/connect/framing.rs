@@ -39,10 +39,10 @@ impl Framer for SoupBinFramer {
         // ensure that there is a full frame available in the buffer
         let frame_length = (packet_length + 2) as usize;
         if bytes.len() < frame_length {
-            return None;
+            None
         } else {
             let frame = bytes.split_to(frame_length);
-            return Some(frame.freeze());
+            Some(frame.freeze())
         }
     }
 }

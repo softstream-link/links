@@ -46,7 +46,6 @@ pub mod field_types{
 
     string_ascii_fixed!(TimeoutMs, 5, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone);
     impl From<u16> for TimeoutMs{ fn from(v: u16) -> Self { v.to_string().as_bytes().into() } }
-    impl From<i32> for TimeoutMs{ fn from(v: i32) -> Self { if v <=0 { panic!("timeout must be positive")} if v > u16::MAX as i32 {panic! {"timeout exceeds u16::MAX"} } v.to_string().as_bytes().into() } }
     impl Default for TimeoutMs{
         fn default() -> Self {
             1000u16.into()

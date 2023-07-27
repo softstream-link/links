@@ -153,12 +153,13 @@ where
         let now = Instant::now();
         let timeout = timeout.unwrap_or_else(|| Duration::from_secs(0));
         loop {
-            let events = self.lock();
-            let opt = events.iter().rev().find(|entry| predicate(*entry));
-            if opt.is_some() {
-                return opt.cloned();
+            { // this scope will drop the lock before the next await
+                let events = self.lock();
+                let opt = events.iter().rev().find(|entry| predicate(*entry));
+                if opt.is_some() {
+                    return opt.cloned();
+                }
             }
-            drop(events);
 
             if now.elapsed() > timeout {
                 break;

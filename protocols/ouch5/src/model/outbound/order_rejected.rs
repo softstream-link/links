@@ -27,7 +27,7 @@ where
             timestamp: Timestamp::default(), // Venue assigned
 
             user_ref_number: ord.user_ref_number(),
-            reason: reason,
+            reason,
             clt_order_id: ord.cl_ord_id(),
         }
     }

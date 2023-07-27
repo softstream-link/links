@@ -30,8 +30,8 @@ impl CancelOrder {
     pub fn new(user_ref_number: UserRefNumber, quantity: Quantity) -> Self {
         Self {
             packet_type: PacketTypeCancelOrder::default(),
-            user_ref_number: user_ref_number,
-            quantity: quantity,
+            user_ref_number,
+            quantity,
         }
     }
 }

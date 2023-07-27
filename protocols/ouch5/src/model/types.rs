@@ -73,7 +73,7 @@ pub mod clt_order_id {
     string_ascii_fixed!(CltOrderId, 14, b' ', false, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     impl Default for CltOrderId {
         fn default() -> Self {
-            Self::new(b"REPLACE_ME____".clone())
+            Self::new(b"REPLACE_ME____".to_owned())
         }
     }
     impl From<u64> for CltOrderId {
@@ -81,13 +81,10 @@ pub mod clt_order_id {
             Self::from(format!("{}", id).as_str().as_bytes())
         }
     }
+
+    #[derive(Default)]
     pub struct CltOrderIdIterator {
         last: u64,
-    }
-    impl Default for CltOrderIdIterator {
-        fn default() -> Self {
-            Self { last: 0 }
-        }
     }
     impl Iterator for CltOrderIdIterator {
         type Item = CltOrderId;
@@ -250,13 +247,9 @@ pub mod user_ref {
     #[rustfmt::skip]
     u32_tuple!(UserRefNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy, Debug, Default);
 
+    #[derive(Default)]
     pub struct UserRefNumberIterator {
         last: u32,
-    }
-    impl Default for UserRefNumberIterator {
-        fn default() -> Self {
-            UserRefNumberIterator { last: 0 }
-        }
     }
     impl Iterator for UserRefNumberIterator {
         type Item = UserRefNumber;
@@ -379,20 +372,11 @@ pub mod timestamp {
 pub mod order_reference_number {
     use super::*;
     #[rustfmt::skip]
-    u64_tuple!(OrderReferenceNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy, Debug);
+    u64_tuple!(OrderReferenceNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy, Debug, Default);
 
-    impl Default for OrderReferenceNumber {
-        fn default() -> Self {
-            OrderReferenceNumber(0)
-        }
-    }
+    #[derive(Default)]
     pub struct OrderReferenceNumberIterator {
         last: u64,
-    }
-    impl Default for OrderReferenceNumberIterator {
-        fn default() -> Self {
-            OrderReferenceNumberIterator { last: 0 }
-        }
     }
     impl Iterator for OrderReferenceNumberIterator {
         type Item = OrderReferenceNumber;
@@ -523,13 +507,9 @@ pub mod match_number {
 
     #[rustfmt::skip]
     u64_tuple!(MatchNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy, Debug, Default);
+    #[derive(Default)]
     pub struct MatchNumberIterator {
         last: u64,
-    }
-    impl Default for MatchNumberIterator {
-        fn default() -> Self {
-            Self { last: 0 }
-        }
     }
     impl Iterator for MatchNumberIterator {
         type Item = MatchNumber;

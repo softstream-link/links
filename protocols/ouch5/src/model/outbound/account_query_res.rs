@@ -2,7 +2,7 @@ use crate::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 
 #[rustfmt::skip]
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
 #[byteserde(endian = "be")]
 pub struct AccountQueryResponse {
     pub packet_type: PacketTypeAccountQueryResponse,
@@ -10,15 +10,6 @@ pub struct AccountQueryResponse {
     pub next_user_ref_number: UserRefNumber,
 }
 
-impl Default for AccountQueryResponse {
-    fn default() -> Self {
-        Self {
-            packet_type: PacketTypeAccountQueryResponse::default(),
-            timestamp: Timestamp::default(),
-            next_user_ref_number: UserRefNumber::default(),
-        }
-    }
-}
 #[cfg(test)]
 mod test {
     use super::*;

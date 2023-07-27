@@ -27,7 +27,7 @@ impl From<(&EnterOrder, OrderReferenceNumber)> for PriorityUpdate {
             price: ord.price,
             display: ord.display,
 
-            order_reference_number: order_reference_number, // Venue assigned
+            order_reference_number, // Venue assigned
         }
     }
 }

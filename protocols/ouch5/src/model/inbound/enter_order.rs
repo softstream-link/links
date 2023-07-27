@@ -57,7 +57,7 @@ impl Default for EnterOrder {
             cross_type: CrossType::continuous_market(),
             clt_order_id: CltOrderIdIterator::default().next().unwrap(),
             appendage_length: appendages.byte_len() as u16,
-            appendages: appendages,
+            appendages,
         }
     }
 }

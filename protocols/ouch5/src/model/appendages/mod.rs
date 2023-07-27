@@ -138,9 +138,9 @@ mod optional_values{
         option_tag!(PostOnly, 12);
 
         impl PostOnly{
-            pub fn post_only() -> Self{ PostOnly(b'P') }
+            pub fn yes() -> Self{ PostOnly(b'P') }
             pub fn no() -> Self{ PostOnly(b'N') }
-            pub fn is_post_only(other: PostOnly) -> bool{ PostOnly(b'P') == other }
+            pub fn is_yes(other: PostOnly) -> bool{ PostOnly(b'P') == other }
             pub fn is_no(other: PostOnly) -> bool{ PostOnly(b'N') == other }
         }
     }
@@ -277,7 +277,7 @@ where
 }
 
 #[rustfmt::skip]
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Copy, Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Copy, Debug, Default)]
 #[byteserde(peek(1, 1))] // peek(start, len) -> peek one byte after skiping one
 pub struct OptionalAppendage {
     #[byteserde(eq(SecondaryOrdRefNum::tag_as_slice()))]
@@ -344,38 +344,10 @@ pub struct OptionalAppendage {
     pub shares_located: Option<TagValueElement<SharesLocated>>,
 }
 
-impl Default for OptionalAppendage {
-    fn default() -> Self {
-        OptionalAppendage {
-            secondary_ord_ref_num: None,
-            firm: None,
-            min_qty: None,
-            customer_type: None,
-            max_floor: None,
-            price_type: None,
-            peg_offset: None,
-            discretion_price: None,
-            discretion_price_type: None,
-            discretion_peg_offset: None,
-            post_only: None,
-            random_reserves: None,
-            route: None,
-            exprire_time: None,
-            trade_now: None,
-            handle_inst: None,
-            bbo_weight_indicator: None,
-            display_qty: None,
-            display_price: None,
-            group_id: None,
-            shares_located: None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use links_testing::unittest::setup;
     use super::*;
+    use links_testing::unittest::setup;
     #[test]
     fn tag_value_elements() {
         use log::info;

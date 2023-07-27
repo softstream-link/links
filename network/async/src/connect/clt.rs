@@ -219,8 +219,12 @@ where
         loop {
             let opt = {
                 let mut clt_grd = clt.recver.lock().await;
-                clt_grd.recv().await?
                 // TODO add protocol handler logic and exit logic
+                if false{
+                    let _ = clt.sender.lock().await;
+                }
+                clt_grd.recv().await?
+                
             };
             match opt {
                 Some(msg) => clt.callback.on_recv(&con_id, msg),
