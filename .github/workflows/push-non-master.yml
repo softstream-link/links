@@ -1,0 +1,43 @@
+# samples https://github.com/actions/starter-workflows/blob/main/ci/rust.yml
+name: Test Non Master Snapshot
+on:
+  push:
+     branches:
+      - '*'
+      - '!master'
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@nextest
+      - name: Toolchain Info
+        run: |
+          cargo --version --verbose
+          rustc --version
+      - name: Test
+        run: |
+          cargo nextest run --success-output final
+          # cargo test --examples
+      # - name: Benchmark
+      #   run: cargo bench
+      - name: Clippy Deny Warnings
+        run: cargo clippy --all-features -- --deny warnings
+      # - name: Publish Dry Run to crates.io
+      #   run: |
+      #     pwd
+      #     ls -la
+      #     pushd byteserde
+      #     cargo publish --dry-run
+      #     popd
+      #     pushd byteserde_derive
+      #     cargo publish --dry-run
+      #     popd
+
+
+    
+    
+
+
+

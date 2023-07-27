@@ -1,0 +1,22 @@
+[workspace]
+members = [
+    "protocols/soupbintcp4",
+    "protocols/ouch5",
+    "network/async",
+    "testing",
+]
+
+[workspace.dependencies]
+byteserde = { version = "0.3.0" }
+byteserde_derive = { version = "0.3.0" }
+byteserde_types = { version = "0.3.0" }
+
+log = "0.4"
+env_logger = "0.10"
+bytes = "1.4"
+chrono = "0.4.26"
+tokio = { version = "1.28", features = ["full"] }
+tokio-test = "0.4.2"
+lazy_static = "1.4.0"
+
+links_testing = { path = "./testing", features = ["unittest"] }

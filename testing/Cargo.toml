@@ -1,0 +1,16 @@
+[package]
+name = "links_testing"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# links_network_async ={ workspace = true }
+log = { workspace = true, optional = true}
+env_logger = { workspace = true, optional = true}
+lazy_static = { workspace = true, optional = true}
+
+[features]
+default = ["unittest"]
+unittest = ["dep:log", "dep:env_logger", "dep:lazy_static"]

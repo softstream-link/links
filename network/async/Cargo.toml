@@ -1,0 +1,21 @@
+[package]
+name = "links_network_async"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = { workspace = true }
+env_logger = { workspace = true }
+bytes = { workspace = true }
+tokio = { workspace = true }
+
+byteserde = { workspace = true } # required to do serialization and deserialization
+
+[dev-dependencies]
+byteserde_types = { workspace = true } # required to setup unit test models
+byteserde_derive = { workspace = true } # required to setup unit test models
+
+tokio-test = { workspace = true }
+lazy_static = { workspace = true } 
+
+links_testing = { workspace = true }
