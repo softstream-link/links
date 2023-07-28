@@ -6,14 +6,7 @@ use links_network_async::prelude::*;
 
 use crate::prelude::{SBMsg, SoupBinFramer};
 
-#[rustfmt::skip]
-#[derive(Debug, Clone)]
-pub struct SoupBinProtocolHandler<PAYLOAD>
-where 
-    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
-{ 
-    phantom: std::marker::PhantomData<PAYLOAD> 
-}
+
 #[rustfmt::skip]
 impl<PAYLOAD> Messenger for SoupBinProtocolHandler<PAYLOAD>
 where 
@@ -38,5 +31,27 @@ impl<PAYLOAD> Protocol for SoupBinProtocolHandler<PAYLOAD>
 where 
     PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
 {
+    
 }
 
+
+#[rustfmt::skip]
+#[derive(Debug, Clone)]
+pub struct SoupBinProtocolHandler<PAYLOAD>
+where 
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
+{ 
+    phantom: std::marker::PhantomData<PAYLOAD> 
+}
+
+#[rustfmt::skip]
+impl<PAYLOAD> SoupBinProtocolHandler<PAYLOAD>
+where 
+    PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
+{
+    pub fn new_svc() -> Self {
+        Self {
+            phantom: std::marker::PhantomData,
+        }
+    }
+}

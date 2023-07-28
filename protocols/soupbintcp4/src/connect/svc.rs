@@ -1,6 +1,6 @@
 use links_network_async::prelude::*;
 
-use super::messaging::SoupBinProtocolHandler;
+use super::protocol::SoupBinProtocolHandler;
 
 pub type SBSvc<PAYLOAD, CALLBACK, const MAX_MSG_SIZE: usize> =
     Svc<SoupBinProtocolHandler<PAYLOAD>, CALLBACK, MAX_MSG_SIZE>;
@@ -30,7 +30,7 @@ mod test {
     async fn test_svc() {
         setup::log::configure();
         let callback = SBLoggerCallbackRef::<SamplePayload>::default();
-        let svc = SBSvc::<SamplePayload, _, MAX_MSG_SIZE>::bind(
+        let svc = SBSvc::<_, _, MAX_MSG_SIZE>::bind(
             &ADDR,
             Arc::clone(&callback),
             Some("soupbin/unittest"),

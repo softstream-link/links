@@ -72,8 +72,7 @@ where
     CALLBACK: CallbackSendRecv<MESSENGER>,
 {
     pub async fn send(&self, msg: &MESSENGER::SendMsg) -> Result<(), Box<dyn Error + Send + Sync>> {
-        {
-            // let callback = self.callback.lock().await;
+        {   
             self.callback.on_send(&self.con_id, msg);
         }
         {
@@ -190,7 +189,7 @@ where
             let con_id = con_id.clone();
             async move {
                 debug!("{} recv stream started", con_id);
-                let res = Self::service_recv(clt, con_id.clone()).await;
+                let res = Self::service_loop(clt, con_id.clone()).await;
                 match res {
                     Ok(()) => {
                         debug!("{} recv stream stopped", con_id);
@@ -212,7 +211,7 @@ where
         }
     }
 
-    async fn service_recv(
+    async fn service_loop(
         clt: Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>,
         con_id: ConId,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
@@ -249,7 +248,7 @@ mod test {
         setup::log::configure();
         const MAX_MSG_SIZE: usize = 128;
         let logger = LoggerCallbackRef::<CltMsgProtocol>::default();
-        // TODO remove MsgProtocolHandler type parameter once implmentedn as instance and passed as argument
+        // TODO remove MsgProtocolHandler type parameter once implemented as instance and passed as argument
         let clt = Clt::<_, _, MAX_MSG_SIZE>::connect(
             &setup::net::default_addr(),
             setup::net::default_connect_timeout(),

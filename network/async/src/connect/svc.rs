@@ -100,25 +100,25 @@ where
 }
 
 #[derive(Debug)]
-pub struct Svc<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize>
+pub struct Svc<PROTOCOL, CALLBACK, const MAX_MSG_SIZE: usize>
 where
-    HANDLER: Protocol,
-    CALLBACK: CallbackSendRecv<HANDLER>,
+    PROTOCOL: Protocol,
+    CALLBACK: CallbackSendRecv<PROTOCOL>,
 {
-    p1: std::marker::PhantomData<HANDLER>,
+    p1: std::marker::PhantomData<PROTOCOL>,
     p2: std::marker::PhantomData<CALLBACK>,
 }
 
-impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Svc<HANDLER, CALLBACK, MAX_MSG_SIZE>
+impl<PROTOCOL, CALLBACK, const MAX_MSG_SIZE: usize> Svc<PROTOCOL, CALLBACK, MAX_MSG_SIZE>
 where
-    HANDLER: Protocol,
-    CALLBACK: CallbackSendRecv<HANDLER>,
+    PROTOCOL: Protocol,
+    CALLBACK: CallbackSendRecv<PROTOCOL>,
 {
     pub async fn bind(
         addr: &str,
         callback: Arc<CALLBACK>,
         name: Option<&str>,
-    ) -> Result<SvcSender<HANDLER, CALLBACK, MAX_MSG_SIZE>, Box<dyn Error + Send + Sync>> {
+    ) -> Result<SvcSender<PROTOCOL, CALLBACK, MAX_MSG_SIZE>, Box<dyn Error + Send + Sync>> {
         let con_id = ConId::svc(name, addr, None);
         let lis = TcpListener::bind(&addr).await?;
         debug!("{} bound successfully", con_id);
@@ -148,7 +148,7 @@ where
     async fn service_accept(
         lis: TcpListener,
         callback: Arc<CALLBACK>,
-        senders: SvcSendersRef<HANDLER, CALLBACK, MAX_MSG_SIZE>,
+        senders: SvcSendersRef<PROTOCOL, CALLBACK, MAX_MSG_SIZE>,
         con_id: ConId,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         loop {
@@ -157,7 +157,7 @@ where
             con_id.set_local(stream.local_addr()?);
             con_id.set_peer(stream.peer_addr()?);
 
-            let clt = Clt::<HANDLER, CALLBACK, MAX_MSG_SIZE>::from_stream(
+            let clt = Clt::<PROTOCOL, CALLBACK, MAX_MSG_SIZE>::from_stream(
                 stream,
                 callback.clone(),
                 con_id.clone(),

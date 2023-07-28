@@ -38,7 +38,7 @@ impl LoginRequest {
     }
 }
 
-// obfiscate password
+// obfuscate password
 impl Debug for LoginRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let pass: Password = b"********".as_slice().into();
