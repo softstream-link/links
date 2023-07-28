@@ -1,9 +1,9 @@
 use links_network_async::prelude::*;
 
-use super::protocol::SoupBinProtocolHandler;
+use super::protocol::SoupBinProtocol;
 
 pub type SBClt<PAYLOAD, CALLBACK, const MAX_MSG_SIZE: usize> =
-    Clt<SoupBinProtocolHandler<PAYLOAD>, CALLBACK, MAX_MSG_SIZE>;
+    Clt<SoupBinProtocol<PAYLOAD>, CALLBACK, MAX_MSG_SIZE>;
 
 #[cfg(test)]
 mod test {

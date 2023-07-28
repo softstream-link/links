@@ -91,14 +91,14 @@ mod types{
 }
 
 #[derive(Debug)]
-pub struct Clt<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize>
+pub struct Clt<PROTOCOL, CALLBACK, const MAX_MSG_SIZE: usize>
 where
-    HANDLER: Protocol,
-    CALLBACK: CallbackSendRecv<HANDLER>,
+    PROTOCOL: Protocol,
+    CALLBACK: CallbackSendRecv<PROTOCOL>,
 {
     con_id: ConId,
-    recver: CltRecverRef<HANDLER, HANDLER>,
-    sender: CltSenderRef<HANDLER, MAX_MSG_SIZE>, // TODO possibly inject a protocol handler which will automatically reply and or send heartbeat for now keep the warning
+    recver: CltRecverRef<PROTOCOL, PROTOCOL>,
+    sender: CltSenderRef<PROTOCOL, MAX_MSG_SIZE>, // TODO possibly inject a protocol handler which will automatically reply and or send heartbeat for now keep the warning
     callback: Arc<CALLBACK>,
 }
 
@@ -132,10 +132,10 @@ where
         debug!("{} receiver stopped", self);
     }
 }
-impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>
+impl<PROTOCOL, CALLBACK, const MAX_MSG_SIZE: usize> Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>
 where
-    HANDLER: Protocol,
-    CALLBACK: CallbackSendRecv<HANDLER>,
+    PROTOCOL: Protocol,
+    CALLBACK: CallbackSendRecv<PROTOCOL>,
 {
     pub async fn connect(
         addr: &str,
@@ -143,7 +143,7 @@ where
         retry_after: Duration,
         callback: Arc<CALLBACK>,
         name: Option<&str>,
-    ) -> Result<CltSender<HANDLER, CALLBACK, MAX_MSG_SIZE>, Box<dyn Error + Send + Sync>> {
+    ) -> Result<CltSender<PROTOCOL, CALLBACK, MAX_MSG_SIZE>, Box<dyn Error + Send + Sync>> {
         assert!(timeout > retry_after);
         let now = Instant::now();
         let con_id = ConId::clt(name, None, addr);
@@ -172,9 +172,9 @@ where
         stream: TcpStream,
         callback: Arc<CALLBACK>,
         con_id: ConId,
-    ) -> CltSender<HANDLER, CALLBACK, MAX_MSG_SIZE> {
+    ) -> CltSender<PROTOCOL, CALLBACK, MAX_MSG_SIZE> {
         let (sender, recver) =
-            into_split_messenger::<HANDLER, MAX_MSG_SIZE, HANDLER>(stream, con_id.clone());
+            into_split_messenger::<PROTOCOL, MAX_MSG_SIZE, PROTOCOL>(stream, con_id.clone());
 
         let recv_ref = CltRecverRef::new(Mutex::new(recver));
         let send_ref = CltSenderRef::new(Mutex::new(sender));
@@ -212,7 +212,7 @@ where
     }
 
     async fn service_loop(
-        clt: Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>,
+        clt: Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>,
         con_id: ConId,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         loop {

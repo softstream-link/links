@@ -27,7 +27,7 @@ pub use crate::model::types::*;
 
 // connect
 pub use crate::connect::framing::SoupBinFramer;
-pub use crate::connect::protocol::SoupBinProtocolHandler;
+pub use crate::connect::protocol::SoupBinProtocol;
 pub use crate::connect::clt::SBClt;
 pub use crate::connect::svc::SBSvc;
 

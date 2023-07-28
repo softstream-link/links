@@ -1,6 +1,6 @@
 use std::{
     fmt::{Debug, Display},
-    net::SocketAddr,
+    net::SocketAddr, error::Error,
 };
 
 use bytes::{Bytes, BytesMut};
@@ -102,6 +102,9 @@ pub trait Protocol: Messenger + Framer + Send + Sync + 'static {
     /// through the connection
     fn is_connected(&self) -> bool {
         false
+    }
+    fn init_sequence(&self) -> std::result::Result<(), Box<dyn Error>> {
+        Ok(())
     }
     fn on_recv(&mut self, _con_id: &ConId, _msg: &Self::RecvMsg) {}
     fn on_send(&mut self, _con_id: &ConId, _msg: &mut Self::SendMsg) {}

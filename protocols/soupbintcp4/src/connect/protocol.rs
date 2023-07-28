@@ -8,7 +8,7 @@ use crate::prelude::{SBMsg, SoupBinFramer};
 
 
 #[rustfmt::skip]
-impl<PAYLOAD> Messenger for SoupBinProtocolHandler<PAYLOAD>
+impl<PAYLOAD> Messenger for SoupBinProtocol<PAYLOAD>
 where 
     PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
 {
@@ -17,7 +17,7 @@ where
 }
 
 #[rustfmt::skip]
-impl<PAYLOAD> Framer for SoupBinProtocolHandler<PAYLOAD>
+impl<PAYLOAD> Framer for SoupBinProtocol<PAYLOAD>
 where 
     PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
 {
@@ -27,7 +27,7 @@ where
     }
 }
 #[rustfmt::skip]
-impl<PAYLOAD> Protocol for SoupBinProtocolHandler<PAYLOAD>
+impl<PAYLOAD> Protocol for SoupBinProtocol<PAYLOAD>
 where 
     PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
 {
@@ -37,7 +37,7 @@ where
 
 #[rustfmt::skip]
 #[derive(Debug, Clone)]
-pub struct SoupBinProtocolHandler<PAYLOAD>
+pub struct SoupBinProtocol<PAYLOAD>
 where 
     PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
 { 
@@ -45,7 +45,7 @@ where
 }
 
 #[rustfmt::skip]
-impl<PAYLOAD> SoupBinProtocolHandler<PAYLOAD>
+impl<PAYLOAD> SoupBinProtocol<PAYLOAD>
 where 
     PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
 {

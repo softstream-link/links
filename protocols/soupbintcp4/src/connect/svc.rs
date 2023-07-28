@@ -1,9 +1,9 @@
 use links_network_async::prelude::*;
 
-use super::protocol::SoupBinProtocolHandler;
+use super::protocol::SoupBinProtocol;
 
 pub type SBSvc<PAYLOAD, CALLBACK, const MAX_MSG_SIZE: usize> =
-    Svc<SoupBinProtocolHandler<PAYLOAD>, CALLBACK, MAX_MSG_SIZE>;
+    Svc<SoupBinProtocol<PAYLOAD>, CALLBACK, MAX_MSG_SIZE>;
 
 #[cfg(test)]
 mod test {
