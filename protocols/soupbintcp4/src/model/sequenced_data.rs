@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use byteserde::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 
-use super::types::PacketTypeSequenceData;
+use super::types::PacketTypeSequencedData;
 
 pub const SEQUENCED_DATA_HEADER_BYTE_LEN: usize = 3;
 
@@ -12,14 +12,14 @@ pub const SEQUENCED_DATA_HEADER_BYTE_LEN: usize = 3;
 #[byteserde(endian = "be")]
 pub struct SequencedDataHeader {
     pub packet_length: u16,
-    pub packet_type: PacketTypeSequenceData,
+    pub packet_type: PacketTypeSequencedData,
 }
 
 impl SequencedDataHeader {
     pub fn new(packet_length: u16) -> Self {
         SequencedDataHeader {
             packet_length,
-            packet_type: PacketTypeSequenceData::default(),
+            packet_type: PacketTypeSequencedData::default(),
         }
     }
 }

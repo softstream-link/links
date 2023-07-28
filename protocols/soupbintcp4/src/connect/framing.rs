@@ -8,7 +8,7 @@ pub struct SoupBinFramer;
 
 impl Framer for SoupBinFramer {
     fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-        // ensures there is at least 2 bytes to represet packet_length
+        // ensures there is at least 2 bytes to represent packet_length
         if bytes.len() < 2 {
             return None;
         }

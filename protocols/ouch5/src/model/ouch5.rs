@@ -21,12 +21,12 @@ pub enum Ouch5Inb {
     AccQryReq(AccountQueryRequest),
 }
 
-pub const MAX_FRAME_SIZE_OUCH5_OUB: usize = 72; // TODO revize Options fields and remeasure
+pub const MAX_FRAME_SIZE_OUCH5_OUB: usize = 72; // TODO revise Options fields and remeasure
 pub const MAX_FRAME_SIZE_SOUPBIN_OUCH5_OUB: usize = MAX_FRAME_SIZE_OUCH5_OUB + MAX_FRAME_SIZE_SOUPBIN_NO_PAYLOAD;
 
-pub const MAX_FRAME_SIZE_OUCH5_INB: usize = 51; // TODO revize Options fields and remeasure
+pub const MAX_FRAME_SIZE_OUCH5_INB: usize = 51; // TODO revise Options fields and remeasure
 pub const MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB: usize = MAX_FRAME_SIZE_OUCH5_INB + MAX_FRAME_SIZE_SOUPBIN_NO_PAYLOAD;
-/// Both [ReplaceOrder] & [OrderReplaced] are serialized as b'U' hence it is impossible to distinguish deserializetion type unless they are in two different enums.
+/// Both [ReplaceOrder] & [OrderReplaced] are serialized as b'U' hence it is impossible to distinguish deserialization type unless they are in two different enums.
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(peek(0, 1))]
@@ -75,7 +75,7 @@ mod test {
     use byteserde::prelude::*;
     use log::info;
 
-    // TODO max message length needed to optimize stack serialization assuem 512 bytes for now
+    // TODO max message length needed to optimize stack serialization assume 512 bytes for now
     #[test]
     fn test_ouch5() {
         setup::log::configure();

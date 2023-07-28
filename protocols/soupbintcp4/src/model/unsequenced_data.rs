@@ -3,7 +3,7 @@ use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedL
 use std::fmt;
 
 use super::payload::SamplePayload;
-use super::types::PacketTypeUnsequenceData;
+use super::types::PacketTypeUnsequencedData;
 
 pub const UNSEQUENCED_DATA_BYTE_LEN: usize = 3;
 
@@ -12,13 +12,13 @@ pub const UNSEQUENCED_DATA_BYTE_LEN: usize = 3;
 #[byteserde(endian = "be")]
 pub struct UnsequencedDataHeader {
     packet_length: u16,
-    packet_type: PacketTypeUnsequenceData,
+    packet_type: PacketTypeUnsequencedData,
 }
 impl UnsequencedDataHeader {
     pub fn new(packet_length: u16) -> Self {
         UnsequencedDataHeader {
             packet_length,
-            packet_type: PacketTypeUnsequenceData::default(),
+            packet_type: PacketTypeUnsequencedData::default(),
         }
     }
 }

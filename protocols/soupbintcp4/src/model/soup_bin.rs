@@ -31,9 +31,9 @@ where
     LoginReq(LoginRequest),
     #[byteserde(eq(PacketTypeLogoutRequest::as_slice()))]
     LogoutReq(LogoutRequest),
-    #[byteserde(eq(PacketTypeSequenceData::as_slice()))]
+    #[byteserde(eq(PacketTypeSequencedData::as_slice()))]
     SData(SequencedData::<T>),
-    #[byteserde(eq(PacketTypeUnsequenceData::as_slice()))]
+    #[byteserde(eq(PacketTypeUnsequencedData::as_slice()))]
     UData(UnsequencedData::<T>),
 }
 #[rustfmt::skip]
