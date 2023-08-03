@@ -72,7 +72,7 @@ where
     CALLBACK: CallbackSendRecv<MESSENGER>,
 {
     pub async fn send(&self, msg: &MESSENGER::SendMsg) -> Result<(), Box<dyn Error + Send + Sync>> {
-        {   
+        {
             self.callback.on_send(&self.con_id, msg);
         }
         {
@@ -102,13 +102,14 @@ where
     callback: Arc<CALLBACK>,
 }
 
-impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Display for Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>
+impl<PROTOCOL, CALLBACK, const MAX_MSG_SIZE: usize> Display
+    for Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>
 where
-    HANDLER: Protocol,
-    CALLBACK: CallbackSendRecv<HANDLER>,
+    PROTOCOL: Protocol,
+    CALLBACK: CallbackSendRecv<PROTOCOL>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let hdl_name = type_name::<HANDLER>()
+        let hdl_name = type_name::<PROTOCOL>()
             .split("::")
             .last()
             .unwrap_or("Unknown");
@@ -123,10 +124,10 @@ where
         )
     }
 }
-impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Drop for Clt<HANDLER, CALLBACK, MAX_MSG_SIZE>
+impl<PROTOCOL, CALLBACK, const MAX_MSG_SIZE: usize> Drop for Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>
 where
-    HANDLER: Protocol,
-    CALLBACK: CallbackSendRecv<HANDLER>,
+    PROTOCOL: Protocol,
+    CALLBACK: CallbackSendRecv<PROTOCOL>,
 {
     fn drop(&mut self) {
         debug!("{} receiver stopped", self);
@@ -142,6 +143,7 @@ where
         timeout: Duration,
         retry_after: Duration,
         callback: Arc<CALLBACK>,
+        protocol: Option<PROTOCOL>,
         name: Option<&str>,
     ) -> Result<CltSender<PROTOCOL, CALLBACK, MAX_MSG_SIZE>, Box<dyn Error + Send + Sync>> {
         assert!(timeout > retry_after);
@@ -159,7 +161,7 @@ where
                     let mut con_id = con_id.clone();
                     con_id.set_local(stream.local_addr()?);
                     con_id.set_peer(stream.peer_addr()?);
-                    let clt = Self::from_stream(stream, callback, con_id).await;
+                    let clt = Self::from_stream(stream, callback, protocol, con_id).await;
                     debug!("{} connected", clt);
                     return Ok(clt);
                 }
@@ -168,9 +170,10 @@ where
         Err(format!("{:?} connect timeout: {:?}", con_id, timeout).into())
     }
 
-    pub async fn from_stream(
+    pub(crate) async fn from_stream(
         stream: TcpStream,
         callback: Arc<CALLBACK>,
+        protocol: Option<PROTOCOL>,
         con_id: ConId,
     ) -> CltSender<PROTOCOL, CALLBACK, MAX_MSG_SIZE> {
         let (sender, recver) =
@@ -189,7 +192,7 @@ where
             let con_id = con_id.clone();
             async move {
                 debug!("{} recv stream started", con_id);
-                let res = Self::service_loop(clt, con_id.clone()).await;
+                let res = Self::service_loop(clt, protocol, con_id.clone()).await;
                 match res {
                     Ok(()) => {
                         debug!("{} recv stream stopped", con_id);
@@ -213,24 +216,47 @@ where
 
     async fn service_loop(
         clt: Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>,
+        protocol: Option<PROTOCOL>,
         con_id: ConId,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        if let Some(prot) = protocol {
+            // let res = protocol.init_sequence(clt.clone()).await;
+            let res = prot.init_sequence(&clt).await;
+        }
+        // TODO add protocol handler logic and exit logic
+
         loop {
-            let opt = {
+            let opt_recv = {
                 let mut clt_grd = clt.recver.lock().await;
-                // TODO add protocol handler logic and exit logic
-                if false{
-                    let _ = clt.sender.lock().await;
-                }
                 clt_grd.recv().await?
-                
             };
-            match opt {
+
+            match opt_recv {
                 Some(msg) => clt.callback.on_recv(&con_id, msg),
                 None => break, // clean exist
             }
         }
         Ok(())
+    }
+
+    pub async fn send(&self, msg: &PROTOCOL::SendMsg) -> Result<(), Box<dyn Error + Send + Sync>> {
+        {
+            self.callback.on_send(&self.con_id, msg);
+        }
+        {
+            let mut writer = self.sender.lock().await;
+            writer.send(msg).await
+        }
+    }
+    pub async fn recv(&self) -> Result<Option<PROTOCOL::RecvMsg>, Box<dyn Error + Send + Sync>> {
+        let res = {
+            let mut reader = self.recver.lock().await;
+            reader.recv().await
+        };
+        if let Ok(Some(ref msg)) = res {
+            self.callback.on_recv(&self.con_id, msg.clone());
+        }
+        res
     }
 }
 
@@ -248,12 +274,12 @@ mod test {
         setup::log::configure();
         const MAX_MSG_SIZE: usize = 128;
         let logger = LoggerCallbackRef::<CltMsgProtocol>::default();
-        // TODO remove MsgProtocolHandler type parameter once implemented as instance and passed as argument
         let clt = Clt::<_, _, MAX_MSG_SIZE>::connect(
             &setup::net::default_addr(),
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
             Arc::clone(&logger),
+            Some(CltMsgProtocol),
             None,
         )
         .await;

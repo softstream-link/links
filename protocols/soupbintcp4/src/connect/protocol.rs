@@ -6,7 +6,6 @@ use links_network_async::prelude::*;
 
 use crate::prelude::{SBMsg, SoupBinFramer};
 
-
 #[rustfmt::skip]
 impl<PAYLOAD> Messenger for SoupBinProtocol<PAYLOAD>
 where 
@@ -34,7 +33,6 @@ where
     
 }
 
-
 #[rustfmt::skip]
 #[derive(Debug, Clone)]
 pub struct SoupBinProtocol<PAYLOAD>
@@ -49,9 +47,5 @@ impl<PAYLOAD> SoupBinProtocol<PAYLOAD>
 where 
     PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
 {
-    pub fn new_svc() -> Self {
-        Self {
-            phantom: std::marker::PhantomData,
-        }
-    }
+
 }

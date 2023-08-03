@@ -1,10 +1,15 @@
 use std::{
+    error::Error,
     fmt::{Debug, Display},
-    net::SocketAddr, error::Error,
+    future::Future,
+    net::SocketAddr,
 };
 
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
+use log::{debug, warn};
+
+use crate::prelude::{CallbackSendRecv, Clt};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConId {
@@ -103,12 +108,23 @@ pub trait Protocol: Messenger + Framer + Send + Sync + 'static {
     fn is_connected(&self) -> bool {
         false
     }
-    fn init_sequence(&self) -> std::result::Result<(), Box<dyn Error>> {
-        Ok(())
+    fn init_sequence<
+        's,
+        PROTOCOL: Protocol<SendMsg = Self::SendMsg, RecvMsg = Self::RecvMsg>,
+        CALLBACK: CallbackSendRecv<PROTOCOL>,
+        const MAX_MSG_SIZE: usize,
+    >(
+        &'s self,
+        _clt: &'s Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>,
+    ) -> impl Future<Output = ()> + Send + '_
+//  -> std::result::Result<(), Box<dyn Error + Send + Sync + 'static>>
+    {
+        async move {
+            debug!("default not implemented init_sequence: ");
+        }
     }
-    fn on_recv(&mut self, _con_id: &ConId, _msg: &Self::RecvMsg) {}
-    fn on_send(&mut self, _con_id: &ConId, _msg: &mut Self::SendMsg) {}
 }
+
 
 #[cfg(test)]
 mod test {

@@ -44,13 +44,13 @@ impl<MESSENGER: Messenger> Display for Entry<MESSENGER> {
     }
 }
 
-pub type EventLogCallbackRef<MESSENGER> = Arc<EventLogCallback<MESSENGER>>;
+pub type MessengerStoreCallbackRef<MESSENGER> = Arc<MessengerStoreCallback<MESSENGER>>;
 #[derive(Debug)]
-pub struct EventLogCallback<MESSENGER: Messenger> {
-    events: Mutex<Vec<Entry<MESSENGER>>>,
+pub struct MessengerStoreCallback<MESSENGER: Messenger> {
+    store: Mutex<Vec<Entry<MESSENGER>>>,
 }
 
-impl<MESSENGER: Messenger> Display for EventLogCallback<MESSENGER> {
+impl<MESSENGER: Messenger> Display for MessengerStoreCallback<MESSENGER> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = type_name::<MESSENGER>()
             .split("::")
@@ -81,14 +81,14 @@ impl<MESSENGER: Messenger> Display for EventLogCallback<MESSENGER> {
     }
 }
 
-impl<MESSENGER: Messenger> Default for EventLogCallback<MESSENGER> {
+impl<MESSENGER: Messenger> Default for MessengerStoreCallback<MESSENGER> {
     fn default() -> Self {
         Self {
-            events: Mutex::new(vec![]),
+            store: Mutex::new(vec![]),
         }
     }
 }
-impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for EventLogCallback<MESSENGER> {
+impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for MessengerStoreCallback<MESSENGER> {
     fn on_recv(&self, con_id: &ConId, msg: <MESSENGER as Messenger>::RecvMsg) {
         let entry = Entry {
             con_id: con_id.clone(),
@@ -107,9 +107,9 @@ impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for EventLogCallback<MESS
     }
 }
 
-impl<MESSENGER: Messenger> EventLogCallback<MESSENGER> {
+impl<MESSENGER: Messenger> MessengerStoreCallback<MESSENGER> {
     fn lock(&self) -> MutexGuard<'_, Vec<Entry<MESSENGER>>> {
-        self.events.lock().expect("Could Not Lock EventLog")
+        self.store.lock().expect("Could Not Lock EventLog")
     }
     pub fn push(&self, e: Entry<MESSENGER>) {
         let mut events = self.lock();
@@ -158,7 +158,7 @@ mod test {
 
     use super::*;
 
-    type EventLog = EventLogCallback<CltMsgProtocol>;
+    type EventLog = MessengerStoreCallback<CltMsgProtocol>;
 
     #[tokio::test]
     async fn test_event_log() {
@@ -166,12 +166,12 @@ mod test {
         let event_log = EventLog::default();
 
         #[allow(unused_assignments)]
-        let mut clt_msg = CltMsg::new(format!("initialized").as_bytes());
+        let mut clt_msg = CltMsg::Dbg(CltDebugMsg::new(format!("initialized").as_bytes()));
         for idx in 0..10 {
-            let svc_msg = SvcMsg::new("hello".as_bytes());
+            let svc_msg = SvcMsg::Dbg(SvcDebugMsg::new("hello".as_bytes()));
             event_log.on_recv(&Default::default(), svc_msg.clone());
 
-            clt_msg = CltMsg::new(format!("hello  #{}", idx).as_bytes());
+            clt_msg = CltMsg::Dbg(CltDebugMsg::new(format!("hello  #{}", idx).as_bytes()));
             event_log.on_send(&Default::default(), &clt_msg);
         }
         info!("event_log: {}", event_log);

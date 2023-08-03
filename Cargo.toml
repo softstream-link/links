@@ -5,17 +5,20 @@ members = [
     "network/async",
     "testing",
 ]
+resolver = "2"
+
+
 
 [workspace.dependencies]
-byteserde = { version = "0.3.0" }
-byteserde_derive = { version = "0.3.0" }
-byteserde_types = { version = "0.3.0" }
+byteserde = { version = "0.3.0", path="./../byteserde/byteserde"}
+byteserde_derive = { version = "0.3.0", path="./../byteserde/byteserde_derive"}
+byteserde_types = { version = "0.3.0", path="./../byteserde/byteserde_types"}
 
 log = "0.4"
 env_logger = "0.10"
 bytes = "1.4"
 chrono = "0.4.26"
-tokio = { version = "1.28", features = ["full"] }
+tokio = { version = "1.29", features = ["full"] }
 tokio-test = "0.4.2"
 lazy_static = "1.4.0"
 

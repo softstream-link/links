@@ -83,11 +83,11 @@ mod test {
         let log = LoggerCallback::<CltMsgProtocol>::default();
 
         for _ in 0..2 {
-            let msg = CltMsg::new(b"hello".as_slice());
+            let msg = CltMsg::Dbg(CltDebugMsg::new(b"hello".as_slice()));
             log.on_send(&ConId::default(), &msg);
         }
         for _ in 0..2 {
-            let msg = SvcMsg::new(b"hello".as_slice());
+            let msg = SvcMsg::Dbg(SvcDebugMsg::new(b"hello".as_slice()));
             log.on_recv(&ConId::default(), msg);
         }
     }

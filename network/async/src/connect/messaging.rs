@@ -126,7 +126,7 @@ mod test {
         let addr = setup::net::default_addr();
 
         const MAX_MSG_SIZE: usize = 1024;
-        let inp_svc_msg = SvcMsg::new(b"Hello Frm Server Msg");
+        let inp_svc_msg = SvcMsg::Dbg(SvcDebugMsg::new(b"Hello Frm Server Msg"));
         let svc = {
             let addr = addr.clone();
             tokio::spawn({
@@ -159,7 +159,7 @@ mod test {
                 }
             })
         };
-        let inp_clt_msg = CltMsg::new(b"Hello Frm Client Msg");
+        let inp_clt_msg = CltMsg::Dbg(CltDebugMsg::new(b"Hello Frm Client Msg"));
         let clt = {
             let addr = addr.clone();
             tokio::spawn({

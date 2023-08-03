@@ -18,6 +18,9 @@ impl<MESSENGER: Messenger> ChainCallback<MESSENGER> {
     pub fn new(chain: Chain<MESSENGER>) -> Self {
         Self { chain }
     }
+    pub fn new_ref(chain: Chain<MESSENGER>) -> ChainCallbackRef<MESSENGER> {
+        Arc::new(Self::new(chain))
+    }
 }
 impl<MESSENGER: Messenger> Display for ChainCallback<MESSENGER> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -40,7 +43,7 @@ impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for ChainCallback<MESSENG
 #[cfg(test)]
 mod test {
 
-    use crate::callbacks::eventlog::EventLogCallbackRef;
+    use crate::callbacks::messengerstore::MessengerStoreCallbackRef;
     use crate::callbacks::logger::LoggerCallbackRef;
     use links_testing::unittest::setup;
     use crate::unittest::setup::model::*;
@@ -48,7 +51,7 @@ mod test {
 
     use super::*;
 
-    type EventLog = EventLogCallbackRef<CltMsgProtocol>;
+    type EventLog = MessengerStoreCallbackRef<CltMsgProtocol>;
     type Logger = LoggerCallbackRef<CltMsgProtocol>;
 
     #[test]
@@ -58,7 +61,7 @@ mod test {
         let callback = ChainCallback::new(chain);
 
         for _ in 0..10 {
-            let msg = CltMsg::new(b"hello".as_slice());
+            let msg = CltMsg::Dbg(CltDebugMsg::new(b"hello".as_slice()));
             callback.on_send(&ConId::default(), &msg);
         }
     }
