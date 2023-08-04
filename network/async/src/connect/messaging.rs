@@ -15,13 +15,13 @@ use tokio::net::{
 use super::framing::{FrameReader, FrameWriter};
 
 #[derive(Debug)]
-pub struct MessageSender<M: Messenger, const MAX_MSG_SIZE: usize> {
+pub struct MessageSender<M: Messenger, const MMS: usize> {
     con_id: ConId,
     writer: FrameWriter,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: Messenger, const MAX_MSG_SIZE: usize> Display
-    for MessageSender<M, MAX_MSG_SIZE>
+impl<M: Messenger, const MMS: usize> Display
+    for MessageSender<M, MMS>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = type_name::<M>()
@@ -31,11 +31,11 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> Display
         write!(
             f,
             "{:?} MessageSender<{}, {}>",
-            self.con_id, name, MAX_MSG_SIZE
+            self.con_id, name, MMS
         )
     }
 }
-impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
+impl<M: Messenger, const MMS: usize> MessageSender<M, MMS> {
     pub fn new(writer: OwnedWriteHalf, con_id: ConId) -> Self {
         Self {
             con_id,
@@ -47,7 +47,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
         &mut self,
         msg: &M::SendMsg,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let (bytes, size) = to_bytes_stack::<MAX_MSG_SIZE, M::SendMsg>(msg)?;
+        let (bytes, size) = to_bytes_stack::<MMS, M::SendMsg>(msg)?;
         self.writer.write_frame(&bytes[..size]).await?;
         Ok(())
     }
@@ -98,16 +98,16 @@ impl<M: Messenger, FRAMER: Framer> MessageRecver<M, FRAMER> {
 }
 
 #[rustfmt::skip]
-type MessageManager<M, const MAX_MSG_SIZE: usize, FRAMER> = (MessageSender<M, MAX_MSG_SIZE>, MessageRecver<M, FRAMER>);
+type MessageManager<M, const MMS: usize, FRAMER> = (MessageSender<M, MMS>, MessageRecver<M, FRAMER>);
 
-pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize, FRAMER: Framer>(
+pub fn into_split_messenger<M: Messenger, const MMS: usize, FRAMER: Framer>(
     stream: TcpStream,
     con_id: ConId,
-) -> MessageManager<M, MAX_MSG_SIZE, FRAMER> {
+) -> MessageManager<M, MMS, FRAMER> {
     let (reader, writer) = stream.into_split();
     (
         MessageSender::new(writer, con_id.clone()),
-        MessageRecver::with_capacity(reader, MAX_MSG_SIZE, con_id),
+        MessageRecver::with_capacity(reader, MMS, con_id),
     )
 }
 
@@ -125,7 +125,7 @@ mod test {
         setup::log::configure();
         let addr = setup::net::default_addr();
 
-        const MAX_MSG_SIZE: usize = 1024;
+        const MMS: usize = 1024;
         let inp_svc_msg = SvcMsg::Dbg(SvcMsgDebug::new(b"Hello Frm Server Msg"));
         let svc = {
             let addr = addr.clone();
@@ -136,7 +136,7 @@ mod test {
 
                     let (stream, _) = listener.accept().await.unwrap();
                     let (mut sender, mut recver) =
-                        into_split_messenger::<SvcMsgProtocol, MAX_MSG_SIZE, SvcMsgProtocol>(
+                        into_split_messenger::<SvcMsgProtocol, MMS, SvcMsgProtocol>(
                             stream,
                             ConId::svc(Some("unittest"), &addr, None),
                         );
@@ -167,7 +167,7 @@ mod test {
                 async move {
                     let stream = TcpStream::connect(addr.clone()).await.unwrap();
                     let (mut sender, mut recver) =
-                        into_split_messenger::<CltMsgProtocol, MAX_MSG_SIZE, CltMsgProtocol>(
+                        into_split_messenger::<CltMsgProtocol, MMS, CltMsgProtocol>(
                             stream,
                             ConId::clt(Some("unittest"), None, &addr),
                         );
@@ -194,7 +194,7 @@ mod test {
     //     setup::log::configure();
     //     let addr = setup::net::default_addr();
 
-    //     const MAX_MSG_SIZE: usize = 1024;
+    //     const MMS: usize = 1024;
     //     let svc = {
     //         let addr = addr.clone();
     //         tokio::spawn(async move {
@@ -204,7 +204,7 @@ mod test {
     //             let (mut sender, mut recver) =
     //                 into_split_messenger::<
     //                     SoupBinProtocolHandler<NoPayload>,
-    //                     MAX_MSG_SIZE,
+    //                     MMS,
     //                     SoupBinFramer,
     //                 >(stream, ConId::svc(None, &addr, None));
 
@@ -234,7 +234,7 @@ mod test {
     //             let (mut sender, mut recver) =
     //                 into_split_messenger::<
     //                     SoupBinProtocolHandler<NoPayload>,
-    //                     MAX_MSG_SIZE,
+    //                     MMS,
     //                     SoupBinFramer,
     //                 >(stream, ConId::clt(None, None, &addr));
 

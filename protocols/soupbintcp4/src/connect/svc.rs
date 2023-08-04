@@ -2,8 +2,8 @@ use links_network_async::prelude::*;
 
 use super::protocol::SoupBinProtocol;
 
-pub type SBSvc<PAYLOAD, CALLBACK, const MAX_MSG_SIZE: usize> =
-    Svc<SoupBinProtocol<PAYLOAD>, CALLBACK, MAX_MSG_SIZE>;
+pub type SBSvc<PAYLOAD, C, const MMS: usize> =
+    Svc<SoupBinProtocol<PAYLOAD>, C, MMS>;
 
 #[cfg(test)]
 mod test {
@@ -18,7 +18,7 @@ mod test {
 
     type Msg = SBMsg<SamplePayload>;
 
-    const MAX_MSG_SIZE: usize = 128;
+    const MMS: usize = 128;
 
     lazy_static! {
         static ref ADDR: String = setup::net::default_addr();
@@ -30,7 +30,7 @@ mod test {
     async fn test_svc() {
         setup::log::configure();
         let callback = SBLoggerCallbackRef::<SamplePayload>::default();
-        let svc = SBSvc::<_, _, MAX_MSG_SIZE>::bind(
+        let svc = SBSvc::<_, _, MMS>::bind(
             &ADDR,
             Arc::clone(&callback),
             Some("soupbin/unittest"),
@@ -50,7 +50,7 @@ mod test {
             event_log.clone(),
         ]));
 
-        let svc = SBSvc::<SamplePayload, _, MAX_MSG_SIZE>::bind(
+        let svc = SBSvc::<SamplePayload, _, MMS>::bind(
             &ADDR,
             Arc::clone(&callback),
             Some("soupbin/venue"),
@@ -60,7 +60,7 @@ mod test {
 
         info!("{} started", svc);
 
-        let clt = SBClt::<SamplePayload, _, MAX_MSG_SIZE>::connect(
+        let clt = SBClt::<SamplePayload, _, MMS>::connect(
             &ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,

@@ -8,32 +8,32 @@ use super::clt::{Clt, CltSender};
 
 // pub type SvcReaderRef<M, FRAMER> = Arc<Mutex<Option<MessageRecver<M, FRAMER>>>>;
 #[rustfmt::skip]
-pub type SvcSendersRef<M, CALLBACK, const MAX_MSG_SIZE: usize> = Arc<Mutex<VecDeque<CltSender<M, CALLBACK, MAX_MSG_SIZE>>>>;
+pub type SvcSendersRef<M, C, const MMS: usize> = Arc<Mutex<VecDeque<CltSender<M, C, MMS>>>>;
 
 // pub type CallbackRef<HANDLER> = Arc<Mutex<impl Callback<HANDLER>>>;
 
 #[derive(Debug)]
-pub struct SvcSender<M, CALLBACK, const MAX_MSG_SIZE: usize>
+pub struct SvcSender<M, C, const MMS: usize>
 where
     M: Messenger,
-    CALLBACK: CallbackSendRecv<M>,
+    C: CallbackSendRecv<M>,
 {
     con_id: ConId,
-    senders: SvcSendersRef<M, CALLBACK, MAX_MSG_SIZE>,
+    senders: SvcSendersRef<M, C, MMS>,
     acceptor_abort_handle: AbortHandle,
 }
-impl<M, CALLBACK, const MAX_MSG_SIZE: usize> Display
-    for SvcSender<M, CALLBACK, MAX_MSG_SIZE>
+impl<M, C, const MMS: usize> Display
+    for SvcSender<M, C, MMS>
 where
     M: Messenger,
-    CALLBACK: CallbackSendRecv<M>,
+    C: CallbackSendRecv<M>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg_name = type_name::<M>()
             .split("::")
             .last()
             .unwrap_or("Unknown");
-        let clb_name = type_name::<CALLBACK>()
+        let clb_name = type_name::<C>()
             .split('<')
             .next()
             .unwrap_or("Unknown")
@@ -47,26 +47,26 @@ where
         write!(
             f,
             "{} SvcSender<{}, {}, {}>",
-            con_name, msg_name, clb_name, MAX_MSG_SIZE
+            con_name, msg_name, clb_name, MMS
         )
     }
 }
 
-impl<M, CALLBACK, const MAX_MSG_SIZE: usize> Drop
-    for SvcSender<M, CALLBACK, MAX_MSG_SIZE>
+impl<M, C, const MMS: usize> Drop
+    for SvcSender<M, C, MMS>
 where
     M: Messenger,
-    CALLBACK: CallbackSendRecv<M>,
+    C: CallbackSendRecv<M>,
 {
     fn drop(&mut self) {
         debug!("{} aborting receiver queue", self);
         self.acceptor_abort_handle.abort();
     }
 }
-impl<M, CALLBACK, const MAX_MSG_SIZE: usize> SvcSender<M, CALLBACK, MAX_MSG_SIZE>
+impl<M, C, const MMS: usize> SvcSender<M, C, MMS>
 where
     M: Messenger,
-    CALLBACK: CallbackSendRecv<M>,
+    C: CallbackSendRecv<M>,
 {
     pub async fn is_accepted(&self) -> bool {
         let senders = self.senders.lock().await;
@@ -103,26 +103,26 @@ where
 }
 
 #[derive(Debug)]
-pub struct Svc<PROTOCOL, CALLBACK, const MAX_MSG_SIZE: usize>
+pub struct Svc<P, C, const MMS: usize>
 where
-    PROTOCOL: Protocol,
-    CALLBACK: CallbackSendRecv<PROTOCOL>,
+    P: Protocol,
+    C: CallbackSendRecv<P>,
 {
-    p1: std::marker::PhantomData<PROTOCOL>,
-    p2: std::marker::PhantomData<CALLBACK>,
+    p1: std::marker::PhantomData<P>,
+    p2: std::marker::PhantomData<C>,
 }
 
-impl<PROTOCOL, CALLBACK, const MAX_MSG_SIZE: usize> Svc<PROTOCOL, CALLBACK, MAX_MSG_SIZE>
+impl<P, C, const MMS: usize> Svc<P, C, MMS>
 where
-    PROTOCOL: Protocol,
-    CALLBACK: CallbackSendRecv<PROTOCOL>,
+    P: Protocol,
+    C: CallbackSendRecv<P>,
 {
     pub async fn bind(
         addr: &str,
-        callback: Arc<CALLBACK>,
-        protocol: Option<PROTOCOL>,
+        callback: Arc<C>,
+        protocol: Option<P>,
         name: Option<&str>,
-    ) -> Result<SvcSender<PROTOCOL, CALLBACK, MAX_MSG_SIZE>, Box<dyn Error + Send + Sync>> {
+    ) -> Result<SvcSender<P, C, MMS>, Box<dyn Error + Send + Sync>> {
         let con_id = ConId::svc(name, addr, None);
         let lis = TcpListener::bind(&addr).await?;
         debug!("{} bound successfully", con_id);
@@ -151,9 +151,9 @@ where
     }
     async fn service_accept(
         lis: TcpListener,
-        callback: Arc<CALLBACK>,
-        protocol: Option<PROTOCOL>,
-        senders: SvcSendersRef<PROTOCOL, CALLBACK, MAX_MSG_SIZE>,
+        callback: Arc<C>,
+        protocol: Option<P>,
+        senders: SvcSendersRef<P, C, MMS>,
         con_id: ConId,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         loop {
@@ -162,7 +162,7 @@ where
             con_id.set_local(stream.local_addr()?);
             con_id.set_peer(stream.peer_addr()?);
 
-            let clt = Clt::<PROTOCOL, CALLBACK, MAX_MSG_SIZE>::from_stream(
+            let clt = Clt::<P, C, MMS>::from_stream(
                 stream,
                 Arc::clone(&callback),
                 protocol.clone(),
@@ -198,12 +198,12 @@ mod test {
         static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
         static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
     }
-    const MAX_MSG_SIZE: usize = 128;
+    const MMS: usize = 128;
     #[tokio::test]
     async fn test_svc_not_connected() {
         setup::log::configure();
         let logger = LoggerCallbackRef::<SvcMsgProtocol>::default();
-        let svc = Svc::<_, _, MAX_MSG_SIZE>::bind(
+        let svc = Svc::<_, _, MMS>::bind(
             &ADDR,
             Arc::clone(&logger),
             Some(SvcMsgProtocol),
@@ -231,7 +231,7 @@ mod test {
         let svc_callback =
             EventStoreProxyCallback::<Msg, SvcMsgProtocol>::new_ref(event_store.clone());
 
-        let svc = Svc::<_, _, MAX_MSG_SIZE>::bind(
+        let svc = Svc::<_, _, MMS>::bind(
             &ADDR,
             svc_callback,
             Some(SvcMsgProtocol),
@@ -242,7 +242,7 @@ mod test {
 
         info!("{} sender ready", svc);
 
-        let clt = Clt::<_, _, MAX_MSG_SIZE>::connect(
+        let clt = Clt::<_, _, MMS>::connect(
             &ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,

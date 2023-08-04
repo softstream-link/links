@@ -110,12 +110,12 @@ pub trait Protocol: Messenger + Framer + Send + Sync + 'static {
     }
     fn init_sequence<
         's,
-        PROTOCOL: Protocol<SendMsg = Self::SendMsg, RecvMsg = Self::RecvMsg>,
-        CALLBACK: CallbackSendRecv<PROTOCOL>,
-        const MAX_MSG_SIZE: usize,
+        P: Protocol<SendMsg = Self::SendMsg, RecvMsg = Self::RecvMsg>,
+        C: CallbackSendRecv<P>,
+        const MMS: usize,
     >(
         &'s self,
-        _clt: &'s Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>,
+        _clt: &'s Clt<P, C, MMS>,
     ) -> impl Future<Output = std::result::Result<(), Box<dyn Error + Send + Sync>>> + Send + '_
     {
         async move {

@@ -2,7 +2,7 @@ use links_soupbintcp4::prelude::*;
 
 use crate::{model::ouch5::MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB, prelude::Ouch5Inb};
 
-pub type Ouch5Clt<CALLBACK> = SBClt<Ouch5Inb, CALLBACK, MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB>;
+pub type Ouch5Clt<C> = SBClt<Ouch5Inb, C, MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB>;
 
 #[cfg(test)]
 mod test {

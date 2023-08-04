@@ -139,12 +139,12 @@ pub mod setup {
         pub struct SvcMsgProtocol;
         impl Protocol for CltMsgProtocol {
             async fn init_sequence<
-                PROTOCOL: Protocol<SendMsg = Self::SendMsg, RecvMsg = Self::RecvMsg>,
-                CALLBACK: CallbackSendRecv<PROTOCOL>,
-                const MAX_MSG_SIZE: usize,
+                P: Protocol<SendMsg = Self::SendMsg, RecvMsg = Self::RecvMsg>,
+                C: CallbackSendRecv<P>,
+                const MMS: usize,
             >(
                 &self,
-                clt: &Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>,
+                clt: &Clt<P, C, MMS>,
             ) -> Result<(), Box<dyn Error + Send + Sync>> {
                 let login = CltMsg::Login(CltMsgLoginReq::default());
                 clt.send(&login).await?;
@@ -163,12 +163,12 @@ pub mod setup {
         }
         impl Protocol for SvcMsgProtocol {
             async fn init_sequence<
-                PROTOCOL: Protocol<SendMsg = Self::SendMsg, RecvMsg = Self::RecvMsg>,
-                CALLBACK: CallbackSendRecv<PROTOCOL>,
-                const MAX_MSG_SIZE: usize,
+                P: Protocol<SendMsg = Self::SendMsg, RecvMsg = Self::RecvMsg>,
+                C: CallbackSendRecv<P>,
+                const MMS: usize,
             >(
                 &self,
-                clt: &Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>,
+                clt: &Clt<P, C, MMS>,
             ) -> Result<(), Box<dyn Error + Send + Sync>> {
                 let login = clt.recv().await?;
                 info!("{}<-{:?}", clt.con_id(), login);

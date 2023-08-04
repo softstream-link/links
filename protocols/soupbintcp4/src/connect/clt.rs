@@ -2,8 +2,8 @@ use links_network_async::prelude::*;
 
 use super::protocol::SoupBinProtocol;
 
-pub type SBClt<PAYLOAD, CALLBACK, const MAX_MSG_SIZE: usize> =
-    Clt<SoupBinProtocol<PAYLOAD>, CALLBACK, MAX_MSG_SIZE>;
+pub type SBClt<PAYLOAD, C, const MMS: usize> =
+    Clt<SoupBinProtocol<PAYLOAD>, C, MMS>;
 
 #[cfg(test)]
 mod test {
@@ -22,7 +22,7 @@ mod test {
         static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
     }
 
-    const MAX_MSG_SIZE: usize = 128;
+    const MMS: usize = 128;
 
     #[tokio::test]
     async fn test_clt() {
@@ -30,7 +30,7 @@ mod test {
 
         let callback = SBLoggerCallbackRef::<SamplePayload>::default();
 
-        let clt = SBClt::<SamplePayload, _, MAX_MSG_SIZE>::connect(
+        let clt = SBClt::<SamplePayload, _, MMS>::connect(
             &ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,
