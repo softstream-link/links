@@ -31,7 +31,7 @@ impl<M: Messenger> LoggerCallback<M> {
             p1: std::marker::PhantomData,
         }
     }
-    pub fn new_ref(level: Level) -> LoggerCallbackRef<M>{
+    pub fn new_ref(level: Level) -> LoggerCallbackRef<M> {
         Arc::new(Self::new(level))
     }
 }
@@ -83,7 +83,7 @@ mod test {
     #[test]
     fn test_event_log() {
         setup::log::configure_at(log::LevelFilter::Trace);
-        let log = LoggerCallback::<CltMsgProtocol>::new_ref(Level::Trace);
+        let log: LoggerCallbackRef<CltMsgProtocol> = LoggerCallback::new(Level::Trace).into();
 
         for _ in 0..2 {
             let msg = CltMsg::Dbg(CltMsgDebug::new(b"hello".as_slice()));

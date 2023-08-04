@@ -7,7 +7,6 @@ use std::{
 
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
-use log::info;
 
 use crate::prelude::{CallbackSendRecv, Clt};
 
@@ -94,7 +93,7 @@ pub trait Framer {
 /// Provides a two types that a peer in the connection can send or recv if the message types are the same 
 /// in both direction, just set to that same type in the implementation
 #[rustfmt::skip]
-pub trait Messenger: Debug + Clone + Send + Sync + 'static 
+pub trait Messenger: Debug + Send + Sync + 'static 
 {
     type SendT: ByteDeserializeSlice<Self::SendT> + ByteSerializeStack + Debug + Clone + PartialEq + Send + Sync + 'static;
     type RecvT: ByteDeserializeSlice<Self::RecvT> + ByteSerializeStack + Debug + Clone + PartialEq + Send + Sync + 'static;
@@ -102,26 +101,36 @@ pub trait Messenger: Debug + Clone + Send + Sync + 'static
 
 /// This trait brings the Framer and Messenger traits together as well as provides a series of functions
 /// that can be used to enable automated reply logics or provide telemetry information on the connection
-pub trait Protocol: Messenger + Framer + Send + Sync + 'static {
+///
+/// Why Clone?
+///     Because specifically in the Svc connection case it is possible to accept several Clt's. Hence each Svc stream
+/// needs to have own protocol instance.
+///  
+#[allow(unused_variables)]
+pub trait Protocol: Clone + Messenger + Framer + Send + Sync + 'static {
     /// Provides a protocol specific implementation of the connection status by analyzing packets going
     /// through the connection
     fn is_connected(&self) -> bool {
         false
     }
-    fn init_sequence<
+    fn handshake<
         's,
         P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
         C: CallbackSendRecv<P>,
         const MMS: usize,
     >(
         &'s self,
-        _clt: &'s Clt<P, C, MMS>,
+        clt: &'s Clt<P, C, MMS>,
     ) -> impl Future<Output = std::result::Result<(), Box<dyn Error + Send + Sync>>> + Send + '_
     {
-        async move {
-            info!("default not implemented init_sequence: ");
-            Ok(())
-        }
+        async move { Ok(()) }
+    }
+
+    fn on_recv(&self, con_id: &ConId, msg: &Self::RecvT) {
+        ()
+    }
+    fn on_send(&self, con_id: &ConId, msg: &mut Self::SendT) {
+        ()
     }
 }
 

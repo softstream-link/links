@@ -56,7 +56,7 @@ mod test {
         setup::log::configure();
         let store = EventStore::new_ref();
 
-        let callback = ChainedCallback::new_ref(vec![
+        let callback = ChainedCallback::new(vec![
             LoggerCallback::new_ref(Level::Info),
             EventStoreCallback::<Msg, CltMsgProtocol>::new_ref(store.clone()),
         ]);

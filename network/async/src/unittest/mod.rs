@@ -124,7 +124,6 @@ pub mod setup {
 
         #[derive(Debug, Clone, PartialEq)]
         pub struct CltMsgProtocol;
-
         impl Messenger for CltMsgProtocol {
             type SendT = CltMsg;
             type RecvT = SvcMsg;
@@ -137,8 +136,36 @@ pub mod setup {
 
         #[derive(Debug, Clone, PartialEq)]
         pub struct SvcMsgProtocol;
+        impl Messenger for SvcMsgProtocol {
+            type SendT = SvcMsg;
+            type RecvT = CltMsg;
+        }
+        impl Framer for SvcMsgProtocol {
+            fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
+                MsgFramer::get_frame(bytes)
+            }
+        }
+        
+        impl Protocol for SvcMsgProtocol {
+            async fn handshake<
+                P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
+                C: CallbackSendRecv<P>,
+                const MMS: usize,
+            >(
+                &self,
+                clt: &Clt<P, C, MMS>,
+            ) -> Result<(), Box<dyn Error + Send + Sync>> {
+                let login = clt.recv().await?;
+                info!("{}<-{:?}", clt.con_id(), login);
+                let auth = SvcMsg::Accept(SvcMsgLoginAcpt::default());
+                clt.send(&auth).await?;
+                info!("{}->{:?}", clt.con_id(), auth);
+                Ok(())
+            }
+        }
+        
         impl Protocol for CltMsgProtocol {
-            async fn init_sequence<
+            async fn handshake<
                 P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
                 C: CallbackSendRecv<P>,
                 const MMS: usize,
@@ -159,32 +186,6 @@ pub mod setup {
                     }
                     _ => Err(format!("Not Expected {}<-{:?}", clt.con_id(), msg).into()),
                 }
-            }
-        }
-        impl Protocol for SvcMsgProtocol {
-            async fn init_sequence<
-                P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
-                C: CallbackSendRecv<P>,
-                const MMS: usize,
-            >(
-                &self,
-                clt: &Clt<P, C, MMS>,
-            ) -> Result<(), Box<dyn Error + Send + Sync>> {
-                let login = clt.recv().await?;
-                info!("{}<-{:?}", clt.con_id(), login);
-                let auth = SvcMsg::Accept(SvcMsgLoginAcpt::default());
-                clt.send(&auth).await?;
-                info!("{}->{:?}", clt.con_id(), auth);
-                Ok(())
-            }
-        }
-        impl Messenger for SvcMsgProtocol {
-            type SendT = SvcMsg;
-            type RecvT = CltMsg;
-        }
-        impl Framer for SvcMsgProtocol {
-            fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-                MsgFramer::get_frame(bytes)
             }
         }
     }
