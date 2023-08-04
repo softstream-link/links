@@ -33,8 +33,8 @@ impl<M: Messenger> Display for DevNullCallback<M> {
 }
 
 impl<M: Messenger> CallbackSendRecv<M> for DevNullCallback<M> {
-    fn on_recv(&self, _con_id: &ConId, _msg: M::RecvMsg) {}
-    fn on_send(&self, _con_id: &ConId, _msg: &M::SendMsg) {}
+    fn on_recv(&self, _con_id: &ConId, _msg: M::RecvT) {}
+    fn on_send(&self, _con_id: &ConId, _msg: &M::SendT) {}
 }
 
 #[cfg(test)]

@@ -8,8 +8,8 @@ pub mod eventstore;
 pub mod chain;
 
 pub trait CallbackSendRecv<M: Messenger>: Debug + Display + Send + Sync + 'static {
-    fn on_recv(&self, con_id: &ConId, msg: M::RecvMsg);
-    fn on_send(&self, con_id: &ConId, msg: &M::SendMsg);
+    fn on_recv(&self, con_id: &ConId, msg: M::RecvT);
+    fn on_send(&self, con_id: &ConId, msg: &M::SendT);
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,7 +28,7 @@ impl<T> Dir<T> {
 
 pub trait CallbackEvent<T, M: Messenger>: CallbackSendRecv<M>
 where
-    T: From<M::RecvMsg> + From<M::SendMsg> + Debug + Send + Sync + 'static,
+    T: From<M::RecvT> + From<M::SendT> + Debug + Send + Sync + 'static,
 {
     fn on_event(&self, cond_id: &ConId, event: Dir<T>);
 }

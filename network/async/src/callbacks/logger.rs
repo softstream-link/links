@@ -43,7 +43,7 @@ impl<M: Messenger> Display for LoggerCallback<M> {
 }
 
 impl<M: Messenger> CallbackSendRecv<M> for LoggerCallback<M> {
-    fn on_recv(&self, con_id: &ConId, msg: M::RecvMsg) {
+    fn on_recv(&self, con_id: &ConId, msg: M::RecvT) {
         if !log_enabled!(self.level) {
             return;
         }
@@ -56,7 +56,7 @@ impl<M: Messenger> CallbackSendRecv<M> for LoggerCallback<M> {
             Level::Trace => trace!("{}", text),
         }
     }
-    fn on_send(&self, con_id: &ConId, msg: &M::SendMsg) {
+    fn on_send(&self, con_id: &ConId, msg: &M::SendT) {
         if !log_enabled!(self.level) {
             return;
         }

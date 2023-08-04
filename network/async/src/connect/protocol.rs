@@ -20,19 +20,10 @@ pub struct MessageSender<M: Messenger, const MMS: usize> {
     writer: FrameWriter,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: Messenger, const MMS: usize> Display
-    for MessageSender<M, MMS>
-{
+impl<M: Messenger, const MMS: usize> Display for MessageSender<M, MMS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = type_name::<M>()
-            .split("::")
-            .last()
-            .unwrap_or("Unknown");
-        write!(
-            f,
-            "{:?} MessageSender<{}, {}>",
-            self.con_id, name, MMS
-        )
+        let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
+        write!(f, "{:?} MessageSender<{}, {}>", self.con_id, name, MMS)
     }
 }
 impl<M: Messenger, const MMS: usize> MessageSender<M, MMS> {
@@ -43,33 +34,27 @@ impl<M: Messenger, const MMS: usize> MessageSender<M, MMS> {
             phantom: std::marker::PhantomData,
         }
     }
-    pub async fn send(
-        &mut self,
-        msg: &M::SendMsg,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let (bytes, size) = to_bytes_stack::<MMS, M::SendMsg>(msg)?;
+    pub async fn send(&mut self, msg: &M::SendT) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let (bytes, size) = to_bytes_stack::<MMS, M::SendT>(msg)?;
         self.writer.write_frame(&bytes[..size]).await?;
         Ok(())
     }
 }
 
 #[derive(Debug)]
-pub struct MessageRecver<M: Messenger, FRAMER: Framer> {
+pub struct MessageRecver<M: Messenger, F: Framer> {
     con_id: ConId,
-    reader: FrameReader<FRAMER>,
+    reader: FrameReader<F>,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: Messenger, FRAMER: Framer> Display for MessageRecver<M, FRAMER> {
+impl<M: Messenger, F: Framer> Display for MessageRecver<M, F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = type_name::<M>()
-            .split("::")
-            .last()
-            .unwrap_or("Unknown");
+        let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
         write!(f, "{:?} MessageRecver<{}>", self.con_id, name)
     }
 }
 
-impl<M: Messenger, FRAMER: Framer> MessageRecver<M, FRAMER> {
+impl<M: Messenger, F: Framer> MessageRecver<M, F> {
     pub fn with_capacity(reader: OwnedReadHalf, capacity: usize, con_id: ConId) -> Self {
         Self {
             con_id,
@@ -77,9 +62,7 @@ impl<M: Messenger, FRAMER: Framer> MessageRecver<M, FRAMER> {
             phantom: std::marker::PhantomData,
         }
     }
-    pub async fn recv(
-        &mut self,
-    ) -> Result<Option<M::RecvMsg>, Box<dyn Error + Send + Sync>> {
+    pub async fn recv(&mut self) -> Result<Option<M::RecvT>, Box<dyn Error + Send + Sync>> {
         let res = self.reader.read_frame().await;
         let opt_frame = match res {
             Ok(opt) => opt,
@@ -89,7 +72,7 @@ impl<M: Messenger, FRAMER: Framer> MessageRecver<M, FRAMER> {
             }
         };
         if let Some(frame) = opt_frame {
-            let msg = from_slice::<M::RecvMsg>(&frame[..])?;
+            let msg = from_slice::<M::RecvT>(&frame[..])?;
             Ok(Some(msg))
         } else {
             Ok(None)
@@ -98,12 +81,12 @@ impl<M: Messenger, FRAMER: Framer> MessageRecver<M, FRAMER> {
 }
 
 #[rustfmt::skip]
-type MessageManager<M, const MMS: usize, FRAMER> = (MessageSender<M, MMS>, MessageRecver<M, FRAMER>);
+type MessageManager<M, const MMS: usize, F> = (MessageSender<M, MMS>, MessageRecver<M, F>);
 
-pub fn into_split_messenger<M: Messenger, const MMS: usize, FRAMER: Framer>(
+pub fn into_split_messenger<M: Messenger, const MMS: usize, F: Framer>(
     stream: TcpStream,
     con_id: ConId,
-) -> MessageManager<M, MMS, FRAMER> {
+) -> MessageManager<M, MMS, F> {
     let (reader, writer) = stream.into_split();
     (
         MessageSender::new(writer, con_id.clone()),

@@ -96,8 +96,8 @@ pub trait Framer {
 #[rustfmt::skip]
 pub trait Messenger: Debug + Clone + Send + Sync + 'static 
 {
-    type SendMsg: ByteDeserializeSlice<Self::SendMsg> + ByteSerializeStack + Debug + Clone + PartialEq + Send + Sync + 'static;
-    type RecvMsg: ByteDeserializeSlice<Self::RecvMsg> + ByteSerializeStack + Debug + Clone + PartialEq + Send + Sync + 'static;
+    type SendT: ByteDeserializeSlice<Self::SendT> + ByteSerializeStack + Debug + Clone + PartialEq + Send + Sync + 'static;
+    type RecvT: ByteDeserializeSlice<Self::RecvT> + ByteSerializeStack + Debug + Clone + PartialEq + Send + Sync + 'static;
 }
 
 /// This trait brings the Framer and Messenger traits together as well as provides a series of functions
@@ -110,7 +110,7 @@ pub trait Protocol: Messenger + Framer + Send + Sync + 'static {
     }
     fn init_sequence<
         's,
-        P: Protocol<SendMsg = Self::SendMsg, RecvMsg = Self::RecvMsg>,
+        P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
         C: CallbackSendRecv<P>,
         const MMS: usize,
     >(

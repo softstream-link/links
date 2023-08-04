@@ -17,17 +17,17 @@ use tokio::{
 use crate::core::Framer;
 
 #[derive(Debug)]
-pub struct FrameReader<FRAMER: Framer> {
+pub struct FrameReader<F: Framer> {
     reader: OwnedReadHalf,
     buffer: BytesMut,
-    phantom: PhantomData<FRAMER>,
+    phantom: PhantomData<F>,
 }
-impl<FRAMER: Framer> Display for FrameReader<FRAMER> {
+impl<F: Framer> Display for FrameReader<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "FrameReader<{}> {{ {:?}->{:?} }}",
-            std::any::type_name::<FRAMER>(),
+            std::any::type_name::<F>(),
             self.reader
                 .local_addr()
                 .expect("could not get reader's local address"),
@@ -37,18 +37,17 @@ impl<FRAMER: Framer> Display for FrameReader<FRAMER> {
         )
     }
 }
-impl<FRAMER: Framer> FrameReader<FRAMER> {
-    pub fn with_capacity(reader: OwnedReadHalf, capacity: usize) -> FrameReader<FRAMER> {
+impl<F: Framer> FrameReader<F> {
+    pub fn with_capacity(reader: OwnedReadHalf, capacity: usize) -> FrameReader<F> {
         Self {
             reader,
             buffer: BytesMut::with_capacity(capacity),
             phantom: PhantomData,
         }
     }
-    // TODO error types for this crait
     pub async fn read_frame(&mut self) -> Result<Option<Bytes>, Box<dyn Error + Send + Sync>> {
         loop {
-            if let Some(bytes) = FRAMER::get_frame(&mut self.buffer) {
+            if let Some(bytes) = F::get_frame(&mut self.buffer) {
                 return Ok(Some(bytes));
             } else if 0 == self.reader.read_buf(&mut self.buffer).await? {
                 if self.buffer.is_empty() {
@@ -90,15 +89,15 @@ impl FrameWriter {
     }
 }
 
-type FrameManger<FRAMER> = (FrameReader<FRAMER>, FrameWriter);
+type FrameManger<F> = (FrameReader<F>, FrameWriter);
 
-pub fn into_split_frame_manager<FRAMER: Framer>(
+pub fn into_split_frame_manager<F: Framer>(
     stream: TcpStream,
     reader_capacity: usize,
-) -> FrameManger<FRAMER> {
+) -> FrameManger<F> {
     let (reader, writer) = stream.into_split();
     (
-        FrameReader::<FRAMER>::with_capacity(reader, reader_capacity),
+        FrameReader::<F>::with_capacity(reader, reader_capacity),
         FrameWriter::new(writer),
     )
 }

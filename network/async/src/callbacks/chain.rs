@@ -28,12 +28,12 @@ impl<M: Messenger> Display for ChainedCallback<M> {
     }
 }
 impl<M: Messenger> CallbackSendRecv<M> for ChainedCallback<M> {
-    fn on_recv(&self, con_id: &ConId, msg: M::RecvMsg) {
+    fn on_recv(&self, con_id: &ConId, msg: M::RecvT) {
         for callback in self.chain.iter() {
             callback.on_recv(con_id, msg.clone());
         }
     }
-    fn on_send(&self, con_id: &ConId, msg: &M::SendMsg) {
+    fn on_send(&self, con_id: &ConId, msg: &M::SendT) {
         for callback in self.chain.iter() {
             callback.on_send(con_id, msg);
         }

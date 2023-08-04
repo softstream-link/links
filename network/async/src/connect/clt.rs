@@ -12,7 +12,7 @@ use crate::prelude::*;
 use log::{debug, error};
 use tokio::net::TcpStream;
 
-use super::messaging::{into_split_messenger, MessageRecver, MessageSender};
+use super::protocol::{into_split_messenger, MessageRecver, MessageSender};
 
 use tokio::{spawn, time::sleep};
 
@@ -66,7 +66,7 @@ where
     M: Messenger,
     C: CallbackSendRecv<M>,
 {
-    pub async fn send(&self, msg: &M::SendMsg) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn send(&self, msg: &M::SendT) -> Result<(), Box<dyn Error + Send + Sync>> {
         {
             self.callback.on_send(&self.con_id, msg);
         }
@@ -81,7 +81,7 @@ pub use types::*;
 #[rustfmt::skip]
 mod types{
     use super::*;
-    pub type CltRecverRef<M, FRAMER> = Arc<Mutex<MessageRecver<M, FRAMER>>>;
+    pub type CltRecverRef<M, F> = Arc<Mutex<MessageRecver<M, F>>>;
     pub type CltSenderRef<M, const MMS: usize> = Arc<Mutex<MessageSender<M, MMS>>>;
 }
 
@@ -227,7 +227,7 @@ where
         Ok(())
     }
 
-    pub async fn send(&self, msg: &P::SendMsg) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn send(&self, msg: &P::SendT) -> Result<(), Box<dyn Error + Send + Sync>> {
         {
             self.callback.on_send(&self.con_id, msg);
         }
@@ -236,7 +236,7 @@ where
             writer.send(msg).await
         }
     }
-    pub async fn recv(&self) -> Result<Option<P::RecvMsg>, Box<dyn Error + Send + Sync>> {
+    pub async fn recv(&self) -> Result<Option<P::RecvT>, Box<dyn Error + Send + Sync>> {
         let res = {
             let mut reader = self.recver.lock().await;
             reader.recv().await

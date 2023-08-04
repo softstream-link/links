@@ -6,7 +6,7 @@ use tokio::{net::TcpListener, sync::Mutex, task::AbortHandle};
 
 use super::clt::{Clt, CltSender};
 
-// pub type SvcReaderRef<M, FRAMER> = Arc<Mutex<Option<MessageRecver<M, FRAMER>>>>;
+// pub type SvcReaderRef<M, F> = Arc<Mutex<Option<MessageRecver<M, F>>>>;
 #[rustfmt::skip]
 pub type SvcSendersRef<M, C, const MMS: usize> = Arc<Mutex<VecDeque<CltSender<M, C, MMS>>>>;
 
@@ -67,7 +67,7 @@ where
         let senders = self.senders.lock().await;
         !senders.is_empty()
     }
-    pub async fn send(&self, msg: &M::SendMsg) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn send(&self, msg: &M::SendT) -> Result<(), Box<dyn Error + Send + Sync>> {
         {
             let mut senders = self.senders.lock().await;
             for idx in 0..senders.len() {

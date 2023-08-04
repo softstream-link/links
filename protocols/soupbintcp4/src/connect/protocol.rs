@@ -11,8 +11,8 @@ impl<PAYLOAD> Messenger for SoupBinProtocol<PAYLOAD>
 where 
     PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
 {
-    type SendMsg = SBMsg<PAYLOAD>;
-    type RecvMsg = SBMsg<PAYLOAD>;
+    type SendT = SBMsg<PAYLOAD>;
+    type RecvT = SBMsg<PAYLOAD>;
 }
 
 #[rustfmt::skip]

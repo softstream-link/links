@@ -126,8 +126,8 @@ pub mod setup {
         pub struct CltMsgProtocol;
 
         impl Messenger for CltMsgProtocol {
-            type SendMsg = CltMsg;
-            type RecvMsg = SvcMsg;
+            type SendT = CltMsg;
+            type RecvT = SvcMsg;
         }
         impl Framer for CltMsgProtocol {
             fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
@@ -139,7 +139,7 @@ pub mod setup {
         pub struct SvcMsgProtocol;
         impl Protocol for CltMsgProtocol {
             async fn init_sequence<
-                P: Protocol<SendMsg = Self::SendMsg, RecvMsg = Self::RecvMsg>,
+                P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
                 C: CallbackSendRecv<P>,
                 const MMS: usize,
             >(
@@ -163,7 +163,7 @@ pub mod setup {
         }
         impl Protocol for SvcMsgProtocol {
             async fn init_sequence<
-                P: Protocol<SendMsg = Self::SendMsg, RecvMsg = Self::RecvMsg>,
+                P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
                 C: CallbackSendRecv<P>,
                 const MMS: usize,
             >(
@@ -179,8 +179,8 @@ pub mod setup {
             }
         }
         impl Messenger for SvcMsgProtocol {
-            type SendMsg = SvcMsg;
-            type RecvMsg = CltMsg;
+            type SendT = SvcMsg;
+            type RecvT = CltMsg;
         }
         impl Framer for SvcMsgProtocol {
             fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
