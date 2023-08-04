@@ -4,7 +4,7 @@ use crate::core::{ConId, Messenger};
 
 pub mod devnull;
 pub mod logger;
-pub mod store;
+pub mod eventstore;
 pub mod chain;
 
 pub trait CallbackSendRecv<M: Messenger>: Debug + Display + Send + Sync + 'static {

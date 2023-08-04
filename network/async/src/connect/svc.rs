@@ -184,7 +184,7 @@ mod test {
     use log::{info, Level};
 
     use super::*;
-    use crate::{unittest::setup::{model::*, protocol::*}, callbacks::store::EventStore};
+    use crate::{unittest::setup::{model::*, protocol::*}, callbacks::eventstore::EventStore};
     use links_testing::unittest::setup;
     use tokio::time::Duration;
 
@@ -253,7 +253,7 @@ mod test {
 
         let out_svc_msg = event_store
             .find(
-                |entry| match &entry.payload {
+                |entry| match &entry.event {
                     Dir::Recv(Msg::Clt(msg)) => msg == &inp_clt_msg,
                     _ => false,
                 },
@@ -261,11 +261,11 @@ mod test {
             )
             .await
             .unwrap()
-            .payload;
+            .event;
 
         let out_clt_msg = event_store
             .find(
-                |entry| match &entry.payload {
+                |entry| match &entry.event {
                     Dir::Recv(Msg::Svc(msg)) => msg == &inp_svc_msg,
                     _ => false,
                 },
@@ -273,7 +273,7 @@ mod test {
             )
             .await
             .unwrap()
-            .payload;
+            .event;
 
         info!("Found out_svc_msg: {:?}", out_svc_msg);
         info!("Found out_clt_msg: {:?}", out_clt_msg);

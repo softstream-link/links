@@ -44,7 +44,7 @@ impl<M: Messenger> CallbackSendRecv<M> for ChainedCallback<M> {
 mod test {
 
     use super::*;
-    use crate::callbacks::store::EventStore;
+    use crate::callbacks::eventstore::EventStore;
     use crate::prelude::*;
     use crate::unittest::setup::model::*;
     use crate::unittest::setup::protocol::*;

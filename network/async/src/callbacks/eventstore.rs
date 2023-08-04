@@ -15,7 +15,7 @@ use super::{CallbackEvent, CallbackSendRecv, Dir};
 pub struct Entry<T> {
     pub con_id: ConId,
     pub instant: Instant,
-    pub payload: Dir<T>,
+    pub event: Dir<T>,
 }
 
 impl<T> Display for Entry<T>
@@ -23,7 +23,7 @@ where
     T: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}\t{:?}", self.con_id, self.payload)
+        write!(f, "{}\t{:?}", self.con_id, self.event)
     }
 }
 
@@ -154,7 +154,7 @@ where
         self.store.push(Entry {
             con_id: cond_id.clone(),
             instant: Instant::now(),
-            payload: event,
+            event,
         })
     }
 }
@@ -234,7 +234,7 @@ mod test {
         let last = event_store.last();
         info!("last: {:?}", last);
         assert_eq!(last, found);
-        match found.unwrap().payload {
+        match found.unwrap().event {
             Dir::Send(msg) => assert_eq!(msg, msg),
             _ => panic!("unexpected event"),
         }

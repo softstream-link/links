@@ -17,7 +17,7 @@ pub use crate::callbacks::chain::ChainCallbackRef;
 
 // consolidated msg type callbacks
 pub use crate::callbacks::{Dir, CallbackEvent};
-pub use crate::callbacks::store::{EventStoreCallback, EventStoreRef, Entry};
+pub use crate::callbacks::eventstore::{EventStoreCallback, EventStoreRef, Entry};
 
 // core
 
