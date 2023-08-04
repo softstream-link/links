@@ -12,7 +12,7 @@ use crate::prelude::*;
 use log::{debug, error};
 use tokio::net::TcpStream;
 
-use super::protocol::{into_split_messenger, MessageRecver, MessageSender};
+use super::messenger::{into_split_messenger, MessageRecver, MessageSender};
 
 use tokio::{spawn, time::sleep};
 
