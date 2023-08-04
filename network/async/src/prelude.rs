@@ -8,17 +8,16 @@ pub use crate::connect::svc::SvcSender;
 // single endpoint callbacks
 pub use crate::callbacks::CallbackSendRecv;
 
-pub use crate::callbacks::messengerstore::{MessengerStoreCallback,MessengerStoreCallbackRef, MessengerEntry, MessengerEvent};
 
 pub use crate::callbacks::logger::LoggerCallback;
 pub use crate::callbacks::logger::LoggerCallbackRef;
 
-pub use crate::callbacks::chain::ChainCallback;
+pub use crate::callbacks::chain::ChainedCallback;
 pub use crate::callbacks::chain::ChainCallbackRef;
 
 // consolidated msg type callbacks
 pub use crate::callbacks::{Dir, CallbackEvent};
-pub use crate::callbacks::eventstore::{EventStoreProxyCallback, EventStoreRef, Entry};
+pub use crate::callbacks::store::{EventStoreCallback, EventStoreRef, Entry};
 
 // core
 

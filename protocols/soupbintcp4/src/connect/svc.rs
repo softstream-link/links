@@ -45,7 +45,7 @@ mod test {
         setup::log::configure();
         let find_timeout = setup::net::optional_find_timeout();
         let event_log = SBEvenLogCallbackRef::default();
-        let callback = SBChainCallbackRef::new(ChainCallback::new(vec![
+        let callback = SBChainCallbackRef::new(ChainedCallback::new(vec![
             SBLoggerCallbackRef::default(),
             event_log.clone(),
         ]));

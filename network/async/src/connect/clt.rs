@@ -254,7 +254,7 @@ where
 #[cfg(test)]
 mod test {
 
-    use log::info;
+    use log::{info, Level};
 
     use super::*;
     use crate::unittest::setup::protocol::*;
@@ -263,13 +263,13 @@ mod test {
     #[tokio::test]
     async fn test_clt_not_connected() {
         setup::log::configure();
-        const MMS: usize = 128;
-        let logger = LoggerCallbackRef::<CltMsgProtocol>::default();
-        let clt = Clt::<_, _, MMS>::connect(
+
+        let logger = LoggerCallback::new_ref(Level::Debug);
+        let clt = Clt::<_, _, 128>::connect(
             &setup::net::default_addr(),
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
-            Arc::clone(&logger),
+            logger,
             Some(CltMsgProtocol),
             None,
         )

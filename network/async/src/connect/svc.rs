@@ -181,10 +181,10 @@ where
 mod test {
 
     use lazy_static::lazy_static;
-    use log::info;
+    use log::{info, Level};
 
     use super::*;
-    use crate::unittest::setup::{model::*, protocol::*};
+    use crate::{unittest::setup::{model::*, protocol::*}, callbacks::store::EventStore};
     use links_testing::unittest::setup;
     use tokio::time::Duration;
 
@@ -197,7 +197,7 @@ mod test {
     #[tokio::test]
     async fn test_svc_not_connected() {
         setup::log::configure();
-        let logger = LoggerCallbackRef::<SvcMsgProtocol>::default();
+        let logger = LoggerCallback::new_ref(Level::Debug);
         let svc = Svc::<_, _, MMS>::bind(
             &ADDR,
             Arc::clone(&logger),
@@ -212,7 +212,7 @@ mod test {
     #[tokio::test]
     async fn test_svc_clt_connection() {
         setup::log::configure_at(log::LevelFilter::Info);
-        let event_store = EventStoreRef::<Msg>::default();
+        let event_store = EventStore::<Msg>::new_ref();
         // let clt_callback = ChainCallback::new_ref(vec![
         //     LoggerCallback::new_ref(log::Level::Warn),
         //     EventStoreProxyCallback::<Msg, CltMsgProtocol>::new_ref(event_store.clone()),
@@ -222,9 +222,9 @@ mod test {
         //     EventStoreProxyCallback::<Msg, SvcMsgProtocol>::new_ref(event_store.clone()),
         // ]);
         let clt_callback =
-            EventStoreProxyCallback::<Msg, CltMsgProtocol>::new_ref(event_store.clone());
+            EventStoreCallback::<Msg, CltMsgProtocol>::new_ref(event_store.clone());
         let svc_callback =
-            EventStoreProxyCallback::<Msg, SvcMsgProtocol>::new_ref(event_store.clone());
+            EventStoreCallback::<Msg, SvcMsgProtocol>::new_ref(event_store.clone());
 
         let svc = Svc::<_, _, MMS>::bind(&ADDR, svc_callback, Some(SvcMsgProtocol), Some("venue"))
             .await

@@ -82,8 +82,8 @@ mod test {
 
     #[test]
     fn test_event_log() {
-        setup::log::configure();
-        let log = LoggerCallback::<CltMsgProtocol>::default();
+        setup::log::configure_at(log::LevelFilter::Trace);
+        let log = LoggerCallback::<CltMsgProtocol>::new_ref(Level::Trace);
 
         for _ in 0..2 {
             let msg = CltMsg::Dbg(CltMsgDebug::new(b"hello".as_slice()));
