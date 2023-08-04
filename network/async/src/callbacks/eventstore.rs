@@ -122,9 +122,10 @@ where
 
 pub type EventStoreCallbackRef<T, M> = Arc<EventStoreProxyCallback<T, M>>;
 #[derive(Debug)]
-pub struct EventStoreProxyCallback<T, M: Messenger>
+pub struct EventStoreProxyCallback<T, M>
 where
     T: From<M::RecvMsg> + From<M::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    M: Messenger,
 {
     store: EventStoreRef<T>,
     phantom: std::marker::PhantomData<M>,
@@ -182,8 +183,7 @@ where
 
 impl<T, M> EventStoreProxyCallback<T, M>
 where
-    T:
-        From<M::RecvMsg> + From<M::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    T: From<M::RecvMsg> + From<M::SendMsg> + Debug + Clone + Send + Sync + 'static,
     M: Messenger,
 {
     pub fn new(store: EventStoreRef<T>) -> Self {

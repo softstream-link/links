@@ -22,17 +22,13 @@ where
     senders: SvcSendersRef<M, C, MMS>,
     acceptor_abort_handle: AbortHandle,
 }
-impl<M, C, const MMS: usize> Display
-    for SvcSender<M, C, MMS>
+impl<M, C, const MMS: usize> Display for SvcSender<M, C, MMS>
 where
     M: Messenger,
     C: CallbackSendRecv<M>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msg_name = type_name::<M>()
-            .split("::")
-            .last()
-            .unwrap_or("Unknown");
+        let msg_name = type_name::<M>().split("::").last().unwrap_or("Unknown");
         let clb_name = type_name::<C>()
             .split('<')
             .next()
@@ -52,8 +48,7 @@ where
     }
 }
 
-impl<M, C, const MMS: usize> Drop
-    for SvcSender<M, C, MMS>
+impl<M, C, const MMS: usize> Drop for SvcSender<M, C, MMS>
 where
     M: Messenger,
     C: CallbackSendRecv<M>,
@@ -231,14 +226,9 @@ mod test {
         let svc_callback =
             EventStoreProxyCallback::<Msg, SvcMsgProtocol>::new_ref(event_store.clone());
 
-        let svc = Svc::<_, _, MMS>::bind(
-            &ADDR,
-            svc_callback,
-            Some(SvcMsgProtocol),
-            Some("venue"),
-        )
-        .await
-        .unwrap();
+        let svc = Svc::<_, _, MMS>::bind(&ADDR, svc_callback, Some(SvcMsgProtocol), Some("venue"))
+            .await
+            .unwrap();
 
         info!("{} sender ready", svc);
 
@@ -272,38 +262,23 @@ mod test {
             .await
             .unwrap()
             .payload;
-        // .into_t();
-        // let out_svc_msg = event_store
-        //     .find(
-        //         |entry| match &entry.event {
-        //             // Event::Recv(msg) => msg == &inp_svc_msg,
-        //             Event::Recv(..) => true,
-        //             // Event::<Msg>::Recv(msg) => msg == &inp_clt_msg,
-        //             // _ => false,
-        //         },
-        //         setup::net::optional_find_timeout(),
-        //     )
-        //     .await;
 
-        // let out_clt_msg = clt_event_store
-        //     .find(
-        //         |entry| match &entry.event {
-        //             Event::Recv(msg) => msg == &inp_svc_msg,
-        //             _ => false,
-        //         },
-        //         setup::net::default_find_timeout(),
-        //     )
-        //     .await;
+        let out_clt_msg = event_store
+            .find(
+                |entry| match &entry.payload {
+                    Dir::Recv(Msg::Svc(msg)) => msg == &inp_svc_msg,
+                    _ => false,
+                },
+                setup::net::optional_find_timeout(),
+            )
+            .await
+            .unwrap()
+            .payload;
 
         info!("Found out_svc_msg: {:?}", out_svc_msg);
-        // info!("Found out_clt_msg: {:?}", out_clt_msg);
-        // assert_eq!(&inp_clt_msg, out_svc_msg.unwrap().try_into_recv().unwrap());
-        // assert_eq!(&inp_svc_msg, out_clt_msg.unwrap().try_into_recv().unwrap());
-        // info!("clt_event_log: {}", clt_event_store);
-        // info!("svc_event_log: {}", svc_event_store);
-        // tokio::time::sleep(Duration::from_secs(1)).await;
-        // info!("clt: {}", clt);
-        // info!("svc: {}", svc);
+        info!("Found out_clt_msg: {:?}", out_clt_msg);
+        info!("clt: {}", clt);
+        info!("svc: {}", svc);
         info!("event_store: {}", event_store);
     }
 }
