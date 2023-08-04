@@ -15,16 +15,16 @@ use tokio::net::{
 use super::framing::{FrameReader, FrameWriter};
 
 #[derive(Debug)]
-pub struct MessageSender<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> {
+pub struct MessageSender<M: Messenger, const MAX_MSG_SIZE: usize> {
     con_id: ConId,
     writer: FrameWriter,
-    phantom: std::marker::PhantomData<MESSENGER>,
+    phantom: std::marker::PhantomData<M>,
 }
-impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> Display
-    for MessageSender<MESSENGER, MAX_MSG_SIZE>
+impl<M: Messenger, const MAX_MSG_SIZE: usize> Display
+    for MessageSender<M, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = type_name::<MESSENGER>()
+        let name = type_name::<M>()
             .split("::")
             .last()
             .unwrap_or("Unknown");
@@ -35,7 +35,7 @@ impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> Display
         )
     }
 }
-impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> MessageSender<MESSENGER, MAX_MSG_SIZE> {
+impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
     pub fn new(writer: OwnedWriteHalf, con_id: ConId) -> Self {
         Self {
             con_id,
@@ -45,23 +45,23 @@ impl<MESSENGER: Messenger, const MAX_MSG_SIZE: usize> MessageSender<MESSENGER, M
     }
     pub async fn send(
         &mut self,
-        msg: &MESSENGER::SendMsg,
+        msg: &M::SendMsg,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let (bytes, size) = to_bytes_stack::<MAX_MSG_SIZE, MESSENGER::SendMsg>(msg)?;
+        let (bytes, size) = to_bytes_stack::<MAX_MSG_SIZE, M::SendMsg>(msg)?;
         self.writer.write_frame(&bytes[..size]).await?;
         Ok(())
     }
 }
 
 #[derive(Debug)]
-pub struct MessageRecver<MESSENGER: Messenger, FRAMER: Framer> {
+pub struct MessageRecver<M: Messenger, FRAMER: Framer> {
     con_id: ConId,
     reader: FrameReader<FRAMER>,
-    phantom: std::marker::PhantomData<MESSENGER>,
+    phantom: std::marker::PhantomData<M>,
 }
-impl<MESSENGER: Messenger, FRAMER: Framer> Display for MessageRecver<MESSENGER, FRAMER> {
+impl<M: Messenger, FRAMER: Framer> Display for MessageRecver<M, FRAMER> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = type_name::<MESSENGER>()
+        let name = type_name::<M>()
             .split("::")
             .last()
             .unwrap_or("Unknown");
@@ -69,7 +69,7 @@ impl<MESSENGER: Messenger, FRAMER: Framer> Display for MessageRecver<MESSENGER, 
     }
 }
 
-impl<MESSENGER: Messenger, FRAMER: Framer> MessageRecver<MESSENGER, FRAMER> {
+impl<M: Messenger, FRAMER: Framer> MessageRecver<M, FRAMER> {
     pub fn with_capacity(reader: OwnedReadHalf, capacity: usize, con_id: ConId) -> Self {
         Self {
             con_id,
@@ -79,7 +79,7 @@ impl<MESSENGER: Messenger, FRAMER: Framer> MessageRecver<MESSENGER, FRAMER> {
     }
     pub async fn recv(
         &mut self,
-    ) -> Result<Option<MESSENGER::RecvMsg>, Box<dyn Error + Send + Sync>> {
+    ) -> Result<Option<M::RecvMsg>, Box<dyn Error + Send + Sync>> {
         let res = self.reader.read_frame().await;
         let opt_frame = match res {
             Ok(opt) => opt,
@@ -89,7 +89,7 @@ impl<MESSENGER: Messenger, FRAMER: Framer> MessageRecver<MESSENGER, FRAMER> {
             }
         };
         if let Some(frame) = opt_frame {
-            let msg = from_slice::<MESSENGER::RecvMsg>(&frame[..])?;
+            let msg = from_slice::<M::RecvMsg>(&frame[..])?;
             Ok(Some(msg))
         } else {
             Ok(None)
@@ -98,12 +98,12 @@ impl<MESSENGER: Messenger, FRAMER: Framer> MessageRecver<MESSENGER, FRAMER> {
 }
 
 #[rustfmt::skip]
-type MessageManager<MESSENGER, const MAX_MSG_SIZE: usize, FRAMER> = (MessageSender<MESSENGER, MAX_MSG_SIZE>, MessageRecver<MESSENGER, FRAMER>);
+type MessageManager<M, const MAX_MSG_SIZE: usize, FRAMER> = (MessageSender<M, MAX_MSG_SIZE>, MessageRecver<M, FRAMER>);
 
-pub fn into_split_messenger<MESSENGER: Messenger, const MAX_MSG_SIZE: usize, FRAMER: Framer>(
+pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize, FRAMER: Framer>(
     stream: TcpStream,
     con_id: ConId,
-) -> MessageManager<MESSENGER, MAX_MSG_SIZE, FRAMER> {
+) -> MessageManager<M, MAX_MSG_SIZE, FRAMER> {
     let (reader, writer) = stream.into_split();
     (
         MessageSender::new(writer, con_id.clone()),
@@ -126,7 +126,7 @@ mod test {
         let addr = setup::net::default_addr();
 
         const MAX_MSG_SIZE: usize = 1024;
-        let inp_svc_msg = SvcMsg::Dbg(SvcDebugMsg::new(b"Hello Frm Server Msg"));
+        let inp_svc_msg = SvcMsg::Dbg(SvcMsgDebug::new(b"Hello Frm Server Msg"));
         let svc = {
             let addr = addr.clone();
             tokio::spawn({
@@ -159,7 +159,7 @@ mod test {
                 }
             })
         };
-        let inp_clt_msg = CltMsg::Dbg(CltDebugMsg::new(b"Hello Frm Client Msg"));
+        let inp_clt_msg = CltMsg::Dbg(CltMsgDebug::new(b"Hello Frm Client Msg"));
         let clt = {
             let addr = addr.clone();
             tokio::spawn({

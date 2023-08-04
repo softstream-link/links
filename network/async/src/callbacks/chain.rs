@@ -7,33 +7,33 @@ use crate::core::{ConId, Messenger};
 
 use super::CallbackSendRecv;
 
-pub type ChainCallbackRef<MESSENGER> = Arc<ChainCallback<MESSENGER>>;
-pub type Chain<MESSENGER> = Vec<Arc<dyn CallbackSendRecv<MESSENGER>>>;
+pub type ChainCallbackRef<M> = Arc<ChainCallback<M>>;
+pub type Chain<M> = Vec<Arc<dyn CallbackSendRecv<M>>>;
 #[derive(Debug)]
-pub struct ChainCallback<MESSENGER: Messenger> {
-    chain: Chain<MESSENGER>,
+pub struct ChainCallback<M: Messenger> {
+    chain: Chain<M>,
 }
 
-impl<MESSENGER: Messenger> ChainCallback<MESSENGER> {
-    pub fn new(chain: Chain<MESSENGER>) -> Self {
+impl<M: Messenger> ChainCallback<M> {
+    pub fn new(chain: Chain<M>) -> Self {
         Self { chain }
     }
-    pub fn new_ref(chain: Chain<MESSENGER>) -> ChainCallbackRef<MESSENGER> {
+    pub fn new_ref(chain: Chain<M>) -> ChainCallbackRef<M> {
         Arc::new(Self::new(chain))
     }
 }
-impl<MESSENGER: Messenger> Display for ChainCallback<MESSENGER> {
+impl<M: Messenger> Display for ChainCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ChainCallback<{}>", self.chain.len())
     }
 }
-impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for ChainCallback<MESSENGER> {
-    fn on_recv(&self, con_id: &ConId, msg: MESSENGER::RecvMsg) {
+impl<M: Messenger> CallbackSendRecv<M> for ChainCallback<M> {
+    fn on_recv(&self, con_id: &ConId, msg: M::RecvMsg) {
         for callback in self.chain.iter() {
             callback.on_recv(con_id, msg.clone());
         }
     }
-    fn on_send(&self, con_id: &ConId, msg: &MESSENGER::SendMsg) {
+    fn on_send(&self, con_id: &ConId, msg: &M::SendMsg) {
         for callback in self.chain.iter() {
             callback.on_send(con_id, msg);
         }
@@ -61,7 +61,7 @@ mod test {
         let callback = ChainCallback::new(chain);
 
         for _ in 0..10 {
-            let msg = CltMsg::Dbg(CltDebugMsg::new(b"hello".as_slice()));
+            let msg = CltMsg::Dbg(CltMsgDebug::new(b"hello".as_slice()));
             callback.on_send(&ConId::default(), &msg);
         }
     }

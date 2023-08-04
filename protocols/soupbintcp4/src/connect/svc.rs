@@ -43,7 +43,7 @@ mod test {
     #[tokio::test]
     async fn test_svc_clt_connection() {
         setup::log::configure();
-        let find_timeout = setup::net::default_find_timeout();
+        let find_timeout = setup::net::optional_find_timeout();
         let event_log = SBEvenLogCallbackRef::default();
         let callback = SBChainCallbackRef::new(ChainCallback::new(vec![
             SBLoggerCallbackRef::default(),
@@ -81,8 +81,8 @@ mod test {
         let found = event_log
             .find(
                 |entry| {
-                    let hit = match &entry.event {
-                        Event::Recv(msg) => msg == &msg_svc,
+                    let hit = match &entry.payload {
+                        Dir::Recv(msg) => msg == &msg_svc,
                         _ => false,
                     };
 

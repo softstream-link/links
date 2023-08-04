@@ -9,36 +9,36 @@ use tokio::task::yield_now;
 
 use crate::core::{ConId, Messenger};
 
-use super::{CallbackEvent, CallbackSendRecv, Event};
+use super::{CallbackEvent, CallbackSendRecv, Dir};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Entry<TARGET> {
+pub struct Entry<T> {
     pub con_id: ConId,
     pub instant: Instant,
-    pub event: Event<TARGET>,
+    pub payload: Dir<T>,
 }
 
-impl<TARGET> Display for Entry<TARGET>
+impl<T> Display for Entry<T>
 where
-    TARGET: Debug,
+    T: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}\t{:?}", self.con_id, self.event)
+        write!(f, "{}\t{:?}", self.con_id, self.payload)
     }
 }
 
-pub type EventStoreRef<TARGET> = Arc<EventStore<TARGET>>;
+pub type EventStoreRef<T> = Arc<EventStore<T>>;
 
 #[derive(Debug)]
-pub struct EventStore<TARGET>
+pub struct EventStore<T>
 where
-    TARGET: Debug + Clone + Send + Sync + 'static,
+    T: Debug + Clone + Send + Sync + 'static,
 {
-    store: Mutex<Vec<Entry<TARGET>>>,
+    store: Mutex<Vec<Entry<T>>>,
 }
-impl<TARGET> Default for EventStore<TARGET>
+impl<T> Default for EventStore<T>
 where
-    TARGET: Debug + Clone + Send + Sync + 'static,
+    T: Debug + Clone + Send + Sync + 'static,
 {
     fn default() -> Self {
         Self {
@@ -46,28 +46,24 @@ where
         }
     }
 }
-impl<TARGET> EventStore<TARGET>
+impl<T> EventStore<T>
 where
-    TARGET: Debug + Clone + Send + Sync + 'static,
+    T: Debug + Clone + Send + Sync + 'static,
 {
-    pub fn new_ref() -> EventStoreRef<TARGET> {
+    pub fn new_ref() -> EventStoreRef<T> {
         Arc::new(Self::default())
     }
-    fn lock(&self) -> MutexGuard<'_, Vec<Entry<TARGET>>> {
+    fn lock(&self) -> MutexGuard<'_, Vec<Entry<T>>> {
         let grd = self.store.lock().expect("Could Not Lock EventStore");
         grd
     }
-    pub fn push(&self, e: Entry<TARGET>) {
+    pub fn push(&self, e: Entry<T>) {
         let mut events = self.lock();
         events.push(e);
     }
-    pub async fn find<P>(
-        &self,
-        mut predicate: P,
-        timeout: Option<Duration>,
-    ) -> Option<Entry<TARGET>>
+    pub async fn find<P>(&self, mut predicate: P, timeout: Option<Duration>) -> Option<Entry<T>>
     where
-        P: FnMut(&Entry<TARGET>) -> bool,
+        P: FnMut(&Entry<T>) -> bool,
     {
         let now = Instant::now();
         let timeout = timeout.unwrap_or_else(|| Duration::from_secs(0));
@@ -88,20 +84,17 @@ where
         }
         None
     }
-    pub fn last(&self) -> Option<Entry<TARGET>> {
+    pub fn last(&self) -> Option<Entry<T>> {
         let events = self.lock();
         events.last().cloned()
     }
 }
-impl<TARGET> Display for EventStore<TARGET>
+impl<T> Display for EventStore<T>
 where
-    TARGET: Debug + Clone + Send + Sync + 'static,
+    T: Debug + Clone + Send + Sync + 'static,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = type_name::<TARGET>()
-            .split("::")
-            .last()
-            .unwrap_or("Unknown");
+        let name = type_name::<T>().split("::").last().unwrap_or("Unknown");
         let events = self.lock();
         writeln!(f, "EventStore<{}, {}>", name, events.len())?;
 
@@ -127,22 +120,20 @@ where
     }
 }
 
-pub type EventStoreCallbackRef<TARGET, MESSENGER> = Arc<EventStoreProxyCallback<TARGET, MESSENGER>>;
+pub type EventStoreCallbackRef<T, M> = Arc<EventStoreProxyCallback<T, M>>;
 #[derive(Debug)]
-pub struct EventStoreProxyCallback<TARGET, MESSENGER: Messenger>
+pub struct EventStoreProxyCallback<T, M: Messenger>
 where
-    TARGET:
-        From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    T: From<M::RecvMsg> + From<M::SendMsg> + Debug + Clone + Send + Sync + 'static,
 {
-    store: EventStoreRef<TARGET>,
-    phantom: std::marker::PhantomData<MESSENGER>,
+    store: EventStoreRef<T>,
+    phantom: std::marker::PhantomData<M>,
 }
 
-impl<TARGET, MESSENGER> Default for EventStoreProxyCallback<TARGET, MESSENGER>
+impl<T, M> Default for EventStoreProxyCallback<T, M>
 where
-    TARGET:
-        From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
-    MESSENGER: Messenger,
+    T: From<M::RecvMsg> + From<M::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    M: Messenger,
 {
     fn default() -> Self {
         Self {
@@ -151,60 +142,57 @@ where
         }
     }
 }
-impl<TARGET, MESSENGER> CallbackEvent<TARGET, MESSENGER> for EventStoreProxyCallback<TARGET, MESSENGER>
+impl<T, M> CallbackEvent<T, M> for EventStoreProxyCallback<T, M>
 where
-    TARGET:
-        From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
-    MESSENGER: Messenger,
+    T: From<M::RecvMsg> + From<M::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    M: Messenger,
 {
-    fn on_event(&self, cond_id: &crate::core::ConId, event: Event<TARGET>) {
+    fn on_event(&self, cond_id: &crate::core::ConId, event: Dir<T>) {
         self.store.push(Entry {
             con_id: cond_id.clone(),
             instant: Instant::now(),
-            event,
+            payload: event,
         })
     }
 }
-impl<TARGET, MESSENGER> Display for EventStoreProxyCallback<TARGET, MESSENGER>
+impl<T, M> Display for EventStoreProxyCallback<T, M>
 where
-    TARGET:
-        From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
-    MESSENGER: Messenger,
+    T: From<M::RecvMsg> + From<M::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    M: Messenger,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "EventStoreCallback->")?;
         Display::fmt(&self.store, f)
     }
 }
-impl<TARGET, MESSENGER> CallbackSendRecv<MESSENGER> for EventStoreProxyCallback<TARGET, MESSENGER>
+impl<T, M> CallbackSendRecv<M> for EventStoreProxyCallback<T, M>
 where
-    TARGET:
-        From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
-    MESSENGER: Messenger,
+    T: From<M::RecvMsg> + From<M::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    M: Messenger,
 {
-    fn on_recv(&self, con_id: &crate::core::ConId, msg: <MESSENGER as Messenger>::RecvMsg) {
+    fn on_recv(&self, con_id: &crate::core::ConId, msg: <M as Messenger>::RecvMsg) {
         let entry = msg.into();
-        self.on_event(con_id, Event::Recv(entry));
+        self.on_event(con_id, Dir::Recv(entry));
     }
-    fn on_send(&self, con_id: &crate::core::ConId, msg: &<MESSENGER as Messenger>::SendMsg) {
+    fn on_send(&self, con_id: &crate::core::ConId, msg: &<M as Messenger>::SendMsg) {
         let entry = msg.clone().into();
-        self.on_event(con_id, Event::Send(entry));
+        self.on_event(con_id, Dir::Send(entry));
     }
 }
 
-impl<TARGET, MESSENGER> EventStoreProxyCallback<TARGET, MESSENGER>
+impl<T, M> EventStoreProxyCallback<T, M>
 where
-    TARGET:
-        From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Clone + Send + Sync + 'static,
-    MESSENGER: Messenger,
+    T:
+        From<M::RecvMsg> + From<M::SendMsg> + Debug + Clone + Send + Sync + 'static,
+    M: Messenger,
 {
-    pub fn new(store: EventStoreRef<TARGET>) -> Self {
+    pub fn new(store: EventStoreRef<T>) -> Self {
         Self {
             store,
             phantom: std::marker::PhantomData,
         }
     }
-    pub fn new_ref(store: EventStoreRef<TARGET>) -> Arc<Self> {
+    pub fn new_ref(store: EventStoreRef<T>) -> Arc<Self> {
         Arc::new(Self {
             store,
             phantom: std::marker::PhantomData,
@@ -227,15 +215,16 @@ mod test {
     async fn test_event_store() {
         setup::log::configure();
         let event_store = EventStore::new_ref();
-        let event_clb = EventStoreProxyCallback::<Msg, CltMsgProtocol>::new(Arc::clone(&event_store));
+        let event_clb =
+            EventStoreProxyCallback::<Msg, CltMsgProtocol>::new(Arc::clone(&event_store));
 
         #[allow(unused_assignments)]
-        let mut clt_msg = CltMsg::Dbg(CltDebugMsg::new(format!("initialized").as_bytes()));
+        let mut clt_msg = CltMsg::Dbg(CltMsgDebug::new(format!("initialized").as_bytes()));
         for idx in 0..10 {
-            let svc_msg = SvcMsg::Dbg(SvcDebugMsg::new(format!("hello  svc #{}", idx).as_bytes()));
+            let svc_msg = SvcMsg::Dbg(SvcMsgDebug::new(format!("hello  svc #{}", idx).as_bytes()));
             event_clb.on_recv(&Default::default(), svc_msg.clone());
 
-            clt_msg = CltMsg::Dbg(CltDebugMsg::new(format!("hello  clt #{}", idx).as_bytes()));
+            clt_msg = CltMsg::Dbg(CltMsgDebug::new(format!("hello  clt #{}", idx).as_bytes()));
             event_clb.on_send(&Default::default(), &clt_msg);
         }
         info!("event_clb: {}", event_clb);
@@ -244,8 +233,8 @@ mod test {
         let last = event_store.last();
         info!("last: {:?}", last);
         assert_eq!(last, found);
-        match found.unwrap().event {
-            Event::Send(msg) => assert_eq!(msg, msg),
+        match found.unwrap().payload {
+            Dir::Send(msg) => assert_eq!(msg, msg),
             _ => panic!("unexpected event"),
         }
     }

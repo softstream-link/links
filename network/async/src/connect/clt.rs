@@ -17,29 +17,25 @@ use super::messaging::{into_split_messenger, MessageRecver, MessageSender};
 use tokio::{spawn, time::sleep};
 
 #[derive(Debug)]
-pub struct CltSender<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize>
+pub struct CltSender<M, CALLBACK, const MAX_MSG_SIZE: usize>
 where
-    MESSENGER: Messenger,
-    CALLBACK: CallbackSendRecv<MESSENGER>,
+    M: Messenger,
+    CALLBACK: CallbackSendRecv<M>,
 {
     con_id: ConId,
-    sender: CltSenderRef<MESSENGER, MAX_MSG_SIZE>,
+    sender: CltSenderRef<M, MAX_MSG_SIZE>,
     callback: Arc<CALLBACK>,
     recver_abort_handle: AbortHandle,
-    // callback: CallbackRef<MESSENGER>, // TODO can't be fixed for now.
-    // pub type CallbackRef<MESSENGER> = Arc<Mutex<impl Callback<MESSENGER>>>; // impl Trait` in type aliases is unstable see issue #63063 <https://github.com/rust-lang/rust/issues/63063>
+    // callback: CallbackRef<M>, // TODO can't be fixed for now.
+    // pub type CallbackRef<M> = Arc<Mutex<impl Callback<M>>>; // impl Trait` in type aliases is unstable see issue #63063 <https://github.com/rust-lang/rust/issues/63063>
 }
-impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> Display
-    for CltSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
+impl<M, CALLBACK, const MAX_MSG_SIZE: usize> Display for CltSender<M, CALLBACK, MAX_MSG_SIZE>
 where
-    MESSENGER: Messenger,
-    CALLBACK: CallbackSendRecv<MESSENGER>,
+    M: Messenger,
+    CALLBACK: CallbackSendRecv<M>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msg_name = type_name::<MESSENGER>()
-            .split("::")
-            .last()
-            .unwrap_or("Unknown");
+        let msg_name = type_name::<M>().split("::").last().unwrap_or("Unknown");
         let clb_name = type_name::<CALLBACK>()
             .split('<')
             .next()
@@ -54,11 +50,10 @@ where
         )
     }
 }
-impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> Drop
-    for CltSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
+impl<M, CALLBACK, const MAX_MSG_SIZE: usize> Drop for CltSender<M, CALLBACK, MAX_MSG_SIZE>
 where
-    MESSENGER: Messenger,
-    CALLBACK: CallbackSendRecv<MESSENGER>,
+    M: Messenger,
+    CALLBACK: CallbackSendRecv<M>,
 {
     fn drop(&mut self) {
         debug!("{} aborting receiver", self);
@@ -66,12 +61,12 @@ where
     }
 }
 
-impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> CltSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
+impl<M, CALLBACK, const MAX_MSG_SIZE: usize> CltSender<M, CALLBACK, MAX_MSG_SIZE>
 where
-    MESSENGER: Messenger,
-    CALLBACK: CallbackSendRecv<MESSENGER>,
+    M: Messenger,
+    CALLBACK: CallbackSendRecv<M>,
 {
-    pub async fn send(&self, msg: &MESSENGER::SendMsg) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn send(&self, msg: &M::SendMsg) -> Result<(), Box<dyn Error + Send + Sync>> {
         {
             self.callback.on_send(&self.con_id, msg);
         }
@@ -86,8 +81,8 @@ pub use types::*;
 #[rustfmt::skip]
 mod types{
     use super::*;
-    pub type CltRecverRef<MESSENGER, FRAMER> = Arc<Mutex<MessageRecver<MESSENGER, FRAMER>>>;
-    pub type CltSenderRef<MESSENGER, const MAX_MSG_SIZE: usize> = Arc<Mutex<MessageSender<MESSENGER, MAX_MSG_SIZE>>>;
+    pub type CltRecverRef<M, FRAMER> = Arc<Mutex<MessageRecver<M, FRAMER>>>;
+    pub type CltSenderRef<M, const MAX_MSG_SIZE: usize> = Arc<Mutex<MessageSender<M, MAX_MSG_SIZE>>>;
 }
 
 #[derive(Debug)]
@@ -124,6 +119,7 @@ where
         )
     }
 }
+
 impl<PROTOCOL, CALLBACK, const MAX_MSG_SIZE: usize> Drop for Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>
 where
     PROTOCOL: Protocol,
@@ -161,7 +157,7 @@ where
                     let mut con_id = con_id.clone();
                     con_id.set_local(stream.local_addr()?);
                     con_id.set_peer(stream.peer_addr()?);
-                    let clt = Self::from_stream(stream, callback, protocol, con_id).await;
+                    let clt = Self::from_stream(stream, callback, protocol, con_id).await?;
                     debug!("{} connected", clt);
                     return Ok(clt);
                 }
@@ -175,7 +171,11 @@ where
         callback: Arc<CALLBACK>,
         protocol: Option<PROTOCOL>,
         con_id: ConId,
-    ) -> CltSender<PROTOCOL, CALLBACK, MAX_MSG_SIZE> {
+    ) -> Result<CltSender<PROTOCOL, CALLBACK, MAX_MSG_SIZE>, Box<dyn Error + Send + Sync>> {
+        stream
+            .set_nodelay(true)
+            .expect("failed to set_nodelay=true");
+        stream.set_linger(None).expect("failed to set_linger=None");
         let (sender, recver) =
             into_split_messenger::<PROTOCOL, MAX_MSG_SIZE, PROTOCOL>(stream, con_id.clone());
 
@@ -188,11 +188,16 @@ where
             callback: Arc::clone(&callback),
         };
 
+        if let Some(ref protocol) = protocol {
+            protocol.init_sequence(&clt).await?;
+        }
+        // TODO add protocol handler logic and exit logic
+
         let recver_abort_handle = spawn({
             let con_id = con_id.clone();
             async move {
                 debug!("{} recv stream started", con_id);
-                let res = Self::service_loop(clt, protocol, con_id.clone()).await;
+                let res = Self::service_loop(clt, protocol).await;
                 match res {
                     Ok(()) => {
                         debug!("{} recv stream stopped", con_id);
@@ -206,34 +211,25 @@ where
         })
         .abort_handle();
 
-        CltSender {
+        Ok(CltSender {
             con_id,
             sender: Arc::clone(&send_ref),
             callback: Arc::clone(&callback),
             recver_abort_handle,
-        }
+        })
     }
 
     async fn service_loop(
         clt: Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>,
-        protocol: Option<PROTOCOL>,
-        con_id: ConId,
+        _protocol: Option<PROTOCOL>,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        if let Some(prot) = protocol {
-            // let res = protocol.init_sequence(clt.clone()).await;
-            let res = prot.init_sequence(&clt).await;
-        }
-        // TODO add protocol handler logic and exit logic
-
+        let mut reader = clt.recver.lock().await;
         loop {
-            let opt_recv = {
-                let mut clt_grd = clt.recver.lock().await;
-                clt_grd.recv().await?
-            };
-
-            match opt_recv {
-                Some(msg) => clt.callback.on_recv(&con_id, msg),
-                None => break, // clean exist
+            // let opt_recv = clt.recv().await?; // Don't call clt.recv because it needs to re-acquire the lock
+            let opt = reader.recv().await?;
+            match opt {
+                Some(msg) => clt.callback.on_recv(&clt.con_id, msg),
+                None => break, // clean exist // end of stream
             }
         }
         Ok(())
@@ -257,6 +253,9 @@ where
             self.callback.on_recv(&self.con_id, msg.clone());
         }
         res
+    }
+    pub fn con_id(&self) -> &ConId {
+        &self.con_id
     }
 }
 

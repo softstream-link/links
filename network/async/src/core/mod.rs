@@ -7,7 +7,7 @@ use std::{
 
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
-use log::{debug, warn};
+use log::info;
 
 use crate::prelude::{CallbackSendRecv, Clt};
 
@@ -116,15 +116,14 @@ pub trait Protocol: Messenger + Framer + Send + Sync + 'static {
     >(
         &'s self,
         _clt: &'s Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>,
-    ) -> impl Future<Output = ()> + Send + '_
-//  -> std::result::Result<(), Box<dyn Error + Send + Sync + 'static>>
+    ) -> impl Future<Output = std::result::Result<(), Box<dyn Error + Send + Sync>>> + Send + '_
     {
         async move {
-            debug!("default not implemented init_sequence: ");
+            info!("default not implemented init_sequence: ");
+            Ok(())
         }
     }
 }
-
 
 #[cfg(test)]
 mod test {

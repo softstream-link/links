@@ -2,16 +2,18 @@ pub mod setup {
 
     pub mod model {
         pub const TEXT_SIZE: usize = 20;
+        use crate::prelude::*;
+        use bytes::{Bytes, BytesMut};
         use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
         use byteserde_types::prelude::*;
 
         #[rustfmt::skip]
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug,)]
-        pub struct CltDebugMsg {
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        pub struct CltMsgDebug {
             ty: ConstCharAscii<b'1'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
-        impl CltDebugMsg {
+        impl CltMsgDebug {
             pub fn new(text: &[u8]) -> Self {
                 Self {
                     ty: Default::default(),
@@ -20,23 +22,25 @@ pub mod setup {
             }
         }
         #[rustfmt::skip]
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug,)]
-        pub struct CltLoginRequest {
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        pub struct CltMsgLoginReq {
             pub ty: ConstCharAscii<b'L'>,
+            text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
         #[rustfmt::skip]
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug,)]
-        pub struct SvcLoginAccept {
-            pub ty: ConstCharAscii<b'A'>,
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        pub struct SvcMsgLoginAcpt {
+            pub ty: ConstCharAscii<b'L'>,
+            text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
 
         #[rustfmt::skip]
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug,)]
-        pub struct SvcDebugMsg {
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        pub struct SvcMsgDebug {
             ty: ConstCharAscii<b'2'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
-        impl SvcDebugMsg {
+        impl SvcMsgDebug {
             pub fn new(text: &[u8]) -> Self {
                 Self {
                     ty: Default::default(),
@@ -45,26 +49,24 @@ pub mod setup {
             }
         }
 
-        #[derive(
-            ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug,
-        )]
+        #[rustfmt::skip]
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
         #[byteserde(peek(0, 1))]
         pub enum CltMsg {
             #[byteserde(eq(&[b'1']))]
-            Dbg(CltDebugMsg),
+            Dbg(CltMsgDebug),
             #[byteserde(eq(&[b'L']))]
-            Login(CltLoginRequest),
+            Login(CltMsgLoginReq),
         }
 
-        #[derive(
-            ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug,
-        )]
+        #[rustfmt::skip]
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, )]
         #[byteserde(peek(0, 1))]
         pub enum SvcMsg {
             #[byteserde(eq(&[b'2']))]
-            Dbg(SvcDebugMsg),
-            #[byteserde(eq(&[b'A']))]
-            Accept(SvcLoginAccept),
+            Dbg(SvcMsgDebug),
+            #[byteserde(eq(&[b'L']))]
+            Accept(SvcMsgLoginAcpt),
         }
 
         #[derive(PartialEq, Clone, Debug)]
@@ -82,10 +84,39 @@ pub mod setup {
                 Self::Svc(msg)
             }
         }
+
+        pub struct MsgFramer;
+        const FRAME_SIZE: usize = TEXT_SIZE + 1;
+        impl Framer for MsgFramer {
+            fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
+                if bytes.len() < FRAME_SIZE {
+                    return None;
+                } else {
+                    let frame = bytes.split_to(FRAME_SIZE);
+                    return Some(frame.freeze());
+                }
+            }
+        }
+        #[cfg(test)]
+        mod test {
+            use super::*;
+            use byteserde::size::ByteSerializedLenOf;
+            // for simplicity the framer assume each message to be of fixed size, this test just to avoid mistakes
+            #[test]
+            fn test_msg_len() {
+                assert_eq!(CltMsgDebug::default().byte_len(), FRAME_SIZE);
+                assert_eq!(CltMsgLoginReq::default().byte_len(), FRAME_SIZE);
+                assert_eq!(SvcMsgDebug::default().byte_len(), FRAME_SIZE);
+                assert_eq!(SvcMsgLoginAcpt::default().byte_len(), FRAME_SIZE);
+            }
+        }
     }
     pub mod protocol {
 
+        use std::error::Error;
+
         use bytes::{Bytes, BytesMut};
+        use log::info;
 
         use crate::prelude::*;
 
@@ -93,31 +124,7 @@ pub mod setup {
 
         #[derive(Debug, Clone, PartialEq)]
         pub struct CltMsgProtocol;
-        impl Protocol for CltMsgProtocol {
-            // async fn init_sequence<PROTOCOL, CALLBACK, const MAX_MSG_SIZE: usize>(
-            async fn init_sequence<
-                PROTOCOL: Protocol<SendMsg = Self::SendMsg, RecvMsg = Self::RecvMsg>,
-                CALLBACK: CallbackSendRecv<PROTOCOL>,
-                const MAX_MSG_SIZE: usize,
-            >(
-                &self,
-                clt: &Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>,
-            ) {
-                let msg = CltMsg::Login(CltLoginRequest {
-                    ty: Default::default(),
-                });
-                clt.send(&msg).await.expect(format!("send msg failed {:?}", msg).as_str());
-                use log::warn;
-                warn!("init_sequence clt {:?}", msg);
-                let auth = clt.recv().await.expect("recv auth failed");
-                warn!("init_sequence clt {:?}", auth);
 
-
-                
-
-                ()
-            }
-        }
         impl Messenger for CltMsgProtocol {
             type SendMsg = CltMsg;
             type RecvMsg = SvcMsg;
@@ -130,8 +137,7 @@ pub mod setup {
 
         #[derive(Debug, Clone, PartialEq)]
         pub struct SvcMsgProtocol;
-        impl Protocol for SvcMsgProtocol {
-            // async fn init_sequence(&self){}
+        impl Protocol for CltMsgProtocol {
             async fn init_sequence<
                 PROTOCOL: Protocol<SendMsg = Self::SendMsg, RecvMsg = Self::RecvMsg>,
                 CALLBACK: CallbackSendRecv<PROTOCOL>,
@@ -139,17 +145,37 @@ pub mod setup {
             >(
                 &self,
                 clt: &Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>,
-            ) {
-                use log::warn;
-                warn!("init_sequence svc in impl");
-                let auth = clt.recv().await.expect("recv auth failed");
-                warn!("init_sequence svc {:?}", auth);
-                let msg = SvcMsg::Accept(SvcLoginAccept {
-                    ty: Default::default(),
-                });
-                clt.send(&msg).await.expect(format!("send msg failed {:?}", msg).as_str());
-                warn!("init_sequence svc {:?}", msg);
-                ()
+            ) -> Result<(), Box<dyn Error + Send + Sync>> {
+                let login = CltMsg::Login(CltMsgLoginReq::default());
+                clt.send(&login).await?;
+
+                info!("{}->{:?}", clt.con_id(), login);
+                let msg = clt.recv().await?;
+
+                match msg {
+                    Some(SvcMsg::Accept(acpt)) => {
+                        info!("{}<-{:?}", clt.con_id(), acpt);
+                        Ok(())
+                    }
+                    _ => Err(format!("Not Expected {}<-{:?}", clt.con_id(), msg).into()),
+                }
+            }
+        }
+        impl Protocol for SvcMsgProtocol {
+            async fn init_sequence<
+                PROTOCOL: Protocol<SendMsg = Self::SendMsg, RecvMsg = Self::RecvMsg>,
+                CALLBACK: CallbackSendRecv<PROTOCOL>,
+                const MAX_MSG_SIZE: usize,
+            >(
+                &self,
+                clt: &Clt<PROTOCOL, CALLBACK, MAX_MSG_SIZE>,
+            ) -> Result<(), Box<dyn Error + Send + Sync>> {
+                let login = clt.recv().await?;
+                info!("{}<-{:?}", clt.con_id(), login);
+                let auth = SvcMsg::Accept(SvcMsgLoginAcpt::default());
+                clt.send(&auth).await?;
+                info!("{}->{:?}", clt.con_id(), auth);
+                Ok(())
             }
         }
         impl Messenger for SvcMsgProtocol {
@@ -159,19 +185,6 @@ pub mod setup {
         impl Framer for SvcMsgProtocol {
             fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
                 MsgFramer::get_frame(bytes)
-            }
-        }
-
-        pub struct MsgFramer;
-        impl Framer for MsgFramer {
-            fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-                let msg_size: usize = TEXT_SIZE + 1;
-                if bytes.len() < msg_size {
-                    return None;
-                } else {
-                    let frame = bytes.split_to(msg_size);
-                    return Some(frame.freeze());
-                }
             }
         }
     }

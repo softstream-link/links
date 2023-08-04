@@ -120,7 +120,7 @@ mod test {
         setup::log::configure();
         const CAP: usize = 128;
         let addr = setup::net::default_addr();
-        let inp_svc_msg = SvcDebugMsg::new(b"Hello Server Frame");
+        let inp_svc_msg = SvcMsgDebug::new(b"Hello Server Frame");
 
         let svc = {
             let addr = addr.clone();
@@ -133,11 +133,11 @@ mod test {
                     let (mut reader, mut writer) =
                         into_split_frame_manager::<SvcMsgProtocol>(stream, CAP);
                     info!("svc: writer: {}, reader: {}", writer, reader);
-                    let mut out_svc_msg: Option<CltDebugMsg> = None;
+                    let mut out_svc_msg: Option<CltMsgDebug> = None;
                     loop {
                         let frame = reader.read_frame().await.unwrap();
                         if let Some(frm) = frame {
-                            let msg: CltDebugMsg = from_slice(&frm[..]).unwrap();
+                            let msg: CltMsgDebug = from_slice(&frm[..]).unwrap();
                             out_svc_msg = Some(msg);
 
                             let (slice, size): ([u8; CAP], _) =
@@ -153,7 +153,7 @@ mod test {
                 }
             })
         };
-        let inp_clt_msg = CltDebugMsg::new(b"Hello Client Frame");
+        let inp_clt_msg = CltMsgDebug::new(b"Hello Client Frame");
         let clt = {
             let addr = addr.clone();
             tokio::spawn({
@@ -170,7 +170,7 @@ mod test {
                     writer.write_frame(slice).await.unwrap();
 
                     let frame = reader.read_frame().await.unwrap().unwrap();
-                    let out_clt_msg: SvcDebugMsg = from_slice(&frame[..]).unwrap();
+                    let out_clt_msg: SvcMsgDebug = from_slice(&frame[..]).unwrap();
                     out_clt_msg
                 }
             })

@@ -9,13 +9,13 @@ use crate::core::{ConId, Messenger};
 
 use super::CallbackSendRecv;
 
-pub type LoggerCallbackRef<MESSENGER> = Arc<LoggerCallback<MESSENGER>>;
+pub type LoggerCallbackRef<M> = Arc<LoggerCallback<M>>;
 #[derive(Debug)]
-pub struct LoggerCallback<MESSENGER: Messenger> {
+pub struct LoggerCallback<M: Messenger> {
     level: Level,
-    p1: std::marker::PhantomData<MESSENGER>,
+    p1: std::marker::PhantomData<M>,
 }
-impl<MESSENGER: Messenger> Default for LoggerCallback<MESSENGER> {
+impl<M: Messenger> Default for LoggerCallback<M> {
     fn default() -> Self {
         Self {
             level: Level::Info,
@@ -24,23 +24,26 @@ impl<MESSENGER: Messenger> Default for LoggerCallback<MESSENGER> {
     }
 }
 
-impl<MESSENGER: Messenger> LoggerCallback<MESSENGER> {
+impl<M: Messenger> LoggerCallback<M> {
     pub fn new(level: Level) -> Self {
         Self {
             level,
             p1: std::marker::PhantomData,
         }
     }
+    pub fn new_ref(level: Level) -> LoggerCallbackRef<M>{
+        Arc::new(Self::new(level))
+    }
 }
 
-impl<MESSENGER: Messenger> Display for LoggerCallback<MESSENGER> {
+impl<M: Messenger> Display for LoggerCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "LoggerCallback<{}>", self.level)
     }
 }
 
-impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for LoggerCallback<MESSENGER> {
-    fn on_recv(&self, con_id: &ConId, msg: MESSENGER::RecvMsg) {
+impl<M: Messenger> CallbackSendRecv<M> for LoggerCallback<M> {
+    fn on_recv(&self, con_id: &ConId, msg: M::RecvMsg) {
         if !log_enabled!(self.level) {
             return;
         }
@@ -53,7 +56,7 @@ impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for LoggerCallback<MESSEN
             Level::Trace => trace!("{}", text),
         }
     }
-    fn on_send(&self, con_id: &ConId, msg: &MESSENGER::SendMsg) {
+    fn on_send(&self, con_id: &ConId, msg: &M::SendMsg) {
         if !log_enabled!(self.level) {
             return;
         }
@@ -83,11 +86,11 @@ mod test {
         let log = LoggerCallback::<CltMsgProtocol>::default();
 
         for _ in 0..2 {
-            let msg = CltMsg::Dbg(CltDebugMsg::new(b"hello".as_slice()));
+            let msg = CltMsg::Dbg(CltMsgDebug::new(b"hello".as_slice()));
             log.on_send(&ConId::default(), &msg);
         }
         for _ in 0..2 {
-            let msg = SvcMsg::Dbg(SvcDebugMsg::new(b"hello".as_slice()));
+            let msg = SvcMsg::Dbg(SvcMsgDebug::new(b"hello".as_slice()));
             log.on_recv(&ConId::default(), msg);
         }
     }
