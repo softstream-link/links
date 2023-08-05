@@ -50,6 +50,21 @@ pub mod setup {
         }
 
         #[rustfmt::skip]
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        pub struct HBeatMsgDebug {
+            ty: ConstCharAscii<b'H'>,
+            text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
+        }
+        impl HBeatMsgDebug {
+            pub fn new(text: &[u8]) -> Self {
+                Self {
+                    ty: Default::default(),
+                    text: StringAsciiFixed::from(text),
+                }
+            }
+        }
+
+        #[rustfmt::skip]
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
         #[byteserde(peek(0, 1))]
         pub enum CltMsg {
@@ -57,6 +72,8 @@ pub mod setup {
             Dbg(CltMsgDebug),
             #[byteserde(eq(&[b'L']))]
             Login(CltMsgLoginReq),
+            #[byteserde(eq(&[b'H']))]
+            HBeat(HBeatMsgDebug),
         }
 
         #[rustfmt::skip]
@@ -67,6 +84,8 @@ pub mod setup {
             Dbg(SvcMsgDebug),
             #[byteserde(eq(&[b'L']))]
             Accept(SvcMsgLoginAcpt),
+            #[byteserde(eq(&[b'H']))]
+            HBeat(HBeatMsgDebug),
         }
 
         #[derive(PartialEq, Clone, Debug)]
@@ -108,12 +127,13 @@ pub mod setup {
                 assert_eq!(CltMsgLoginReq::default().byte_len(), FRAME_SIZE);
                 assert_eq!(SvcMsgDebug::default().byte_len(), FRAME_SIZE);
                 assert_eq!(SvcMsgLoginAcpt::default().byte_len(), FRAME_SIZE);
+                assert_eq!(HBeatMsgDebug::default().byte_len(), FRAME_SIZE);
             }
         }
     }
     pub mod protocol {
 
-        use std::error::Error;
+        use std::{error::Error, time::Duration};
 
         use bytes::{Bytes, BytesMut};
         use log::info;
@@ -145,7 +165,7 @@ pub mod setup {
                 MsgFramer::get_frame(bytes)
             }
         }
-        
+
         impl Protocol for SvcMsgProtocol {
             async fn handshake<
                 P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
@@ -162,8 +182,22 @@ pub mod setup {
                 info!("{}->{:?}", clt.con_id(), auth);
                 Ok(())
             }
+            async fn keep_alive_loop<
+                P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
+                C: CallbackSendRecv<P>,
+                const MMS: usize,
+            >(
+                &self,
+                clt: CltSender<P, C, MMS>,
+            ) -> Result<(), Box<dyn Error + Send + Sync>> {
+                loop {
+                    let mut msg = SvcMsg::HBeat(HBeatMsgDebug::new(b"svc ping"));
+                    clt.send(&mut msg).await?;
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                }
+            }
         }
-        
+
         impl Protocol for CltMsgProtocol {
             async fn handshake<
                 P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
@@ -185,6 +219,20 @@ pub mod setup {
                         Ok(())
                     }
                     _ => Err(format!("Not Expected {}<-{:?}", clt.con_id(), msg).into()),
+                }
+            }
+            async fn keep_alive_loop<
+                P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
+                C: CallbackSendRecv<P>,
+                const MMS: usize,
+            >(
+                &self,
+                clt: CltSender<P, C, MMS>,
+            ) -> Result<(), Box<dyn Error + Send + Sync>> {
+                loop {
+                    let mut msg = CltMsg::HBeat(HBeatMsgDebug::new(b"clt ping"));
+                    clt.send(&mut msg).await?;
+                    tokio::time::sleep(Duration::from_secs(1)).await;
                 }
             }
         }

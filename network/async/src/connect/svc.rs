@@ -50,7 +50,7 @@ where
     C: CallbackSendRecv<P>,
 {
     fn drop(&mut self) {
-        debug!("{} aborting receiver queue", self);
+        debug!("{} aborting acceptor queue", self);
         self.acceptor_abort_handle.abort();
     }
 }
@@ -210,7 +210,7 @@ mod test {
 
     #[tokio::test]
     async fn test_svc_clt_connection() {
-        setup::log::configure_at(log::LevelFilter::Info);
+        setup::log::configure_at(log::LevelFilter::Debug);
         let event_store = EventStore::<Msg>::new_ref();
         // let clt_callback = ChainCallback::new_ref(vec![
         //     LoggerCallback::new_ref(log::Level::Warn),
@@ -281,6 +281,7 @@ mod test {
         info!("Found out_clt_msg: {:?}", out_clt_msg);
         info!("clt: {}", clt);
         info!("svc: {}", svc);
+        // tokio::time::sleep(Duration::from_secs(60)).await;
         info!("event_store: {}", event_store);
     }
 }

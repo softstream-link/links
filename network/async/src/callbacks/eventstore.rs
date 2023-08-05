@@ -2,9 +2,10 @@ use std::{
     any::type_name,
     fmt::{Debug, Display},
     sync::{Arc, Mutex, MutexGuard},
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
 
+use chrono::{DateTime, Local};
 use tokio::task::yield_now;
 
 use crate::core::{ConId, Messenger};
@@ -15,6 +16,7 @@ use super::{CallbackEvent, CallbackSendRecv, Dir};
 pub struct Entry<T> {
     pub con_id: ConId,
     pub instant: Instant,
+    pub time: SystemTime,
     pub event: Dir<T>,
 }
 
@@ -96,27 +98,24 @@ where
     T: Debug + Clone + Send + Sync + 'static,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        #[rustfmt::skip]
+        fn writeln<T: Debug>(f: &mut std::fmt::Formatter<'_>, count: usize, delta_window: Duration, entry: &Entry<T>) -> std::fmt::Result {    
+            let dt: DateTime<Local> = entry.time.into();
+            let dt = &dt.format("%T.%f").to_string()[..15];
+            writeln!(f, "{:<04} Δ{: >15?} {} {}", count, delta_window, dt, entry)?;
+            Ok(())
+        }
         let name = type_name::<T>().split("::").last().unwrap_or("Unknown");
         let events = self.lock();
         writeln!(f, "EventStore<{}, {}>", name, events.len())?;
 
-        if events.len() == 1 {
+        if !events.is_empty() {
             let entry1 = events.first().expect("Could Not Get First Entry");
-            let idx = 0;
-            let delta = format!("{:?}", Duration::from_secs(0));
-            writeln!(f, "{:<04} Δ{: >15} {}", idx + 1, delta, entry1)?;
+            writeln(f,  1, Duration::from_secs(0), entry1)?;
         }
-        for (idx, pair) in events.windows(2).enumerate() {
-            let entry1 = &pair[0];
-            if idx == 0 {
-                let delta = format!("{:?}", Duration::from_secs(0));
-                writeln!(f, "{:<04} Δ{: >15} {}", idx + 1, delta, entry1)?;
-            }
 
-            let entry2 = &pair[1];
-            let delta = entry2.instant - entry1.instant;
-            let delta = format!("{:?}", delta);
-            writeln!(f, "{:<04} Δ{: >15} {}", idx + 2, delta, entry2)?;
+        for (idx, pair) in events.windows(2).enumerate() {
+            writeln(f, idx + 2, pair[1].instant - pair[0].instant, &pair[1])?;
         }
         Ok(())
     }
@@ -154,6 +153,7 @@ where
         self.store.push(Entry {
             con_id: cond_id.clone(),
             instant: Instant::now(),
+            time: SystemTime::now(),
             event,
         })
     }

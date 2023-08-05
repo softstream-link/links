@@ -23,7 +23,7 @@ pub struct CltSender<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
     sender: MsgSenderRef<P, MMS>,
     callback: Arc<C>,
     protocol: Option<Arc<P>>,
-    recv_loop_abort_handle: AbortHandle,
+    abort_handles: Vec<AbortHandle>,
     // callback: CallbackRef<M>, // TODO can't be fixed for now.
     // pub type CallbackRef<M> = Arc<Mutex<impl Callback<M>>>; // impl Trait` in type aliases is unstable see issue #63063 <https://github.com/rust-lang/rust/issues/63063>
 }
@@ -60,8 +60,11 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for CltSende
 }
 impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Drop for CltSender<P, C, MMS> {
     fn drop(&mut self) {
-        debug!("{} aborting receiver", self);
-        self.recv_loop_abort_handle.abort();
+        for (idx, handle) in self.abort_handles.iter().enumerate() {
+            debug!("{} {} change name aborting receiver", self, idx); // TODO change name of message
+            handle.abort();
+        }
+        // self.recv_loop_abort_handle.abort();
     }
 }
 
@@ -133,7 +136,8 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
             protocol.handshake(&clt).await?;
         }
 
-        let recv_loop_abort_handle = spawn({
+        // start receiver loop
+        let mut abort_handles = vec![spawn({
             let con_id = con_id.clone();
             async move {
                 debug!("{} recv stream started", con_id);
@@ -149,19 +153,45 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
                 }
             }
         })
-        .abort_handle();
+        .abort_handle()];
 
-        // TODO  add keep alive
-        // if let Some(ref protocol) = clt.protocol {
-        //     protocol.on_connected(&clt.con_id);
-        // }
+        // start protocol specific keep_alive loop
+        if let Some(ref protocol) = protocol {
+            abort_handles.push(
+                spawn({
+                    let con_id = con_id.clone();
+                    let protocol = Arc::clone(&protocol);
+                    let clt_sender = CltSender {
+                        con_id: con_id.clone(),
+                        sender: Arc::clone(&sender),
+                        callback: Arc::clone(&callback),
+                        protocol: Some(Arc::clone(&protocol)),
+                        abort_handles: vec![],
+                    };
+                    async move {
+                        debug!("{} keep_alive stream started", con_id);
+                        let res = protocol.keep_alive_loop(clt_sender).await;
+                        match res {
+                            Ok(()) => {
+                                debug!("{} keep_alive stream stopped", con_id);
+                            }
+                            Err(e) => {
+                                error!("{} keep_alive stream error: {:?}", con_id, e);
+                                // TODO CRITICAL shall add panic?
+                            }
+                        }
+                    }
+                })
+                .abort_handle(),
+            );
+        }
 
         Ok(CltSender {
             con_id,
             sender,
             callback,
             protocol,
-            recv_loop_abort_handle,
+            abort_handles,
         })
     }
 

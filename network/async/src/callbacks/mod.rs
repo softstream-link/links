@@ -1,11 +1,11 @@
-use std::{fmt::{Debug, Display}, sync::Arc};
+use std::fmt::{Debug, Display};
 
 use crate::core::{ConId, Messenger};
 
-pub mod devnull;
-pub mod logger;
-pub mod eventstore;
 pub mod chain;
+pub mod devnull;
+pub mod eventstore;
+pub mod logger;
 
 pub trait CallbackSendRecv<M: Messenger>: Debug + Display + Send + Sync + 'static {
     fn on_recv(&self, con_id: &ConId, msg: M::RecvT);

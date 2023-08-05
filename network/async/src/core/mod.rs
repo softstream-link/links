@@ -8,7 +8,7 @@ use std::{
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
 
-use crate::prelude::{CallbackSendRecv, Clt};
+use crate::prelude::{CallbackSendRecv, Clt, CltSender};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConId {
@@ -133,7 +133,7 @@ pub trait Protocol: Clone + Messenger + Framer + Send + Sync + 'static {
         const MMS: usize,
     >(
         &'s self,
-        clt: &'s Clt<P, C, MMS>,
+        clt: CltSender<P, C, MMS>,
     ) -> impl Future<Output = std::result::Result<(), Box<dyn Error + Send + Sync>>> + Send + '_
     {
         async { Ok(()) }
