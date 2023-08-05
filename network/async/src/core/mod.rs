@@ -123,7 +123,20 @@ pub trait Protocol: Clone + Messenger + Framer + Send + Sync + 'static {
         clt: &'s Clt<P, C, MMS>,
     ) -> impl Future<Output = std::result::Result<(), Box<dyn Error + Send + Sync>>> + Send + '_
     {
-        async move { Ok(()) }
+        async { Ok(()) }
+    }
+
+    fn keep_alive_loop<
+        's,
+        P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
+        C: CallbackSendRecv<P>,
+        const MMS: usize,
+    >(
+        &'s self,
+        clt: &'s Clt<P, C, MMS>,
+    ) -> impl Future<Output = std::result::Result<(), Box<dyn Error + Send + Sync>>> + Send + '_
+    {
+        async { Ok(()) }
     }
 
     fn on_recv(&self, con_id: &ConId, msg: &Self::RecvT) {

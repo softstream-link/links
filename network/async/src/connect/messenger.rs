@@ -1,30 +1,27 @@
 use std::{
     any::type_name,
     error::Error,
-    fmt::{Debug, Display},
+    fmt::{Debug, Display}, sync::Arc,
 };
 
 use crate::prelude::*;
 use byteserde::{prelude::from_slice, ser_stack::to_bytes_stack};
 use log::warn;
-use tokio::net::{
+use tokio::{net::{
     tcp::{OwnedReadHalf, OwnedWriteHalf},
     TcpStream,
-};
+}, sync::Mutex};
 
 use super::framing::{FrameReader, FrameWriter};
+
+pub type MsgRecverRef<P, F> = Arc<Mutex<MessageRecver<P, F>>>;
+pub type MsgSenderRef<P, const MMS: usize> = Arc<Mutex<MessageSender<P, MMS>>>;
 
 #[derive(Debug)]
 pub struct MessageSender<M: Messenger, const MMS: usize> {
     con_id: ConId,
     writer: FrameWriter,
     phantom: std::marker::PhantomData<M>,
-}
-impl<M: Messenger, const MMS: usize> Display for MessageSender<M, MMS> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
-        write!(f, "{:?} MessageSender<{}, {}>", self.con_id, name, MMS)
-    }
 }
 impl<M: Messenger, const MMS: usize> MessageSender<M, MMS> {
     pub fn new(writer: OwnedWriteHalf, con_id: ConId) -> Self {
@@ -38,6 +35,13 @@ impl<M: Messenger, const MMS: usize> MessageSender<M, MMS> {
         let (bytes, size) = to_bytes_stack::<MMS, M::SendT>(msg)?;
         self.writer.write_frame(&bytes[..size]).await?;
         Ok(())
+    }
+}
+
+impl<M: Messenger, const MMS: usize> Display for MessageSender<M, MMS> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
+        write!(f, "{:?} MessageSender<{}, {}>", self.con_id, name, MMS)
     }
 }
 

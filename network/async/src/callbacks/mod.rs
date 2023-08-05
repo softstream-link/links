@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display};
+use std::{fmt::{Debug, Display}, sync::Arc};
 
 use crate::core::{ConId, Messenger};
 

@@ -12,29 +12,22 @@ use crate::prelude::*;
 use log::{debug, error};
 use tokio::net::TcpStream;
 
-use super::messenger::{into_split_messenger, MessageRecver, MessageSender};
+use super::messenger::{into_split_messenger, MsgRecverRef, MsgSenderRef};
 
 use tokio::{spawn, time::sleep};
 
+// type CltSenderRef<P, C, const MMS: usize> = Arc<CltSender<P, C, MMS>>;
 #[derive(Debug)]
-pub struct CltSender<P, C, const MMS: usize>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
+pub struct CltSender<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
     con_id: ConId,
-    sender: CltSenderRef<P, MMS>,
+    sender: MsgSenderRef<P, MMS>,
     callback: Arc<C>,
     protocol: Option<Arc<P>>,
-    recver_abort_handle: AbortHandle,
+    recv_loop_abort_handle: AbortHandle,
     // callback: CallbackRef<M>, // TODO can't be fixed for now.
     // pub type CallbackRef<M> = Arc<Mutex<impl Callback<M>>>; // impl Trait` in type aliases is unstable see issue #63063 <https://github.com/rust-lang/rust/issues/63063>
 }
-impl<P, C, const MMS: usize> CltSender<P, C, MMS>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> CltSender<P, C, MMS> {
     pub async fn send(&self, msg: &mut P::SendT) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(protocol) = &self.protocol {
             protocol.on_send(&self.con_id, msg);
@@ -48,12 +41,7 @@ where
         }
     }
 }
-
-impl<P, C, const MMS: usize> Display for CltSender<P, C, MMS>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for CltSender<P, C, MMS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg_name = type_name::<P>().split("::").last().unwrap_or("Unknown");
         let clb_name = type_name::<C>()
@@ -70,63 +58,22 @@ where
         )
     }
 }
-impl<P, C, const MMS: usize> Drop for CltSender<P, C, MMS>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Drop for CltSender<P, C, MMS> {
     fn drop(&mut self) {
         debug!("{} aborting receiver", self);
-        self.recver_abort_handle.abort();
+        self.recv_loop_abort_handle.abort();
     }
 }
 
-pub type CltRecverRef<P, F> = Arc<Mutex<MessageRecver<P, F>>>;
-pub type CltSenderRef<P, const MMS: usize> = Arc<Mutex<MessageSender<P, MMS>>>;
-
 #[derive(Debug)]
-pub struct Clt<P, C, const MMS: usize>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
+pub struct Clt<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
     con_id: ConId,
-    recver: CltRecverRef<P, P>,
-    sender: CltSenderRef<P, MMS>, // TODO possibly inject a protocol handler which will automatically reply and or send heartbeat for now keep the warning
+    recver: MsgRecverRef<P, P>,
+    sender: MsgSenderRef<P, MMS>, // TODO possibly inject a protocol handler which will automatically reply and or send heartbeat for now keep the warning
     callback: Arc<C>,
     protocol: Option<Arc<P>>,
 }
-
-impl<P, C, const MMS: usize> Display for Clt<P, C, MMS>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let hdl_name = type_name::<P>().split("::").last().unwrap_or("Unknown");
-        let clb_name = type_name::<C>().split("::").last().unwrap_or("Unknown");
-        write!(
-            f,
-            "{} Clt<{}, {}, {}>",
-            self.con_id, hdl_name, clb_name, MMS
-        )
-    }
-}
-
-impl<P, C, const MMS: usize> Drop for Clt<P, C, MMS>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
-    fn drop(&mut self) {
-        debug!("{} receiver stopped", self);
-    }
-}
-impl<P, C, const MMS: usize> Clt<P, C, MMS>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
     pub async fn connect(
         addr: &str,
         timeout: Duration,
@@ -171,8 +118,8 @@ where
         stream.set_linger(None).expect("failed to set_linger=None");
         let (sender, recver) = into_split_messenger::<P, MMS, P>(stream, con_id.clone());
 
-        let recver = CltRecverRef::new(Mutex::new(recver));
-        let sender = CltSenderRef::new(Mutex::new(sender));
+        let recver = MsgRecverRef::new(Mutex::new(recver));
+        let sender = MsgSenderRef::new(Mutex::new(sender));
         let clt = Self {
             con_id: con_id.clone(),
             recver,
@@ -182,15 +129,15 @@ where
         };
 
         // run protocol specific handshake sequence
-        if let Some(ref protocol) = clt.protocol {
+        if let Some(ref protocol) = protocol {
             protocol.handshake(&clt).await?;
         }
 
-        let recver_abort_handle = spawn({
+        let recv_loop_abort_handle = spawn({
             let con_id = con_id.clone();
             async move {
                 debug!("{} recv stream started", con_id);
-                let res = Self::service_loop(clt).await;
+                let res = Self::recv_loop(clt).await;
                 match res {
                     Ok(()) => {
                         debug!("{} recv stream stopped", con_id);
@@ -204,16 +151,21 @@ where
         })
         .abort_handle();
 
+        // TODO  add keep alive
+        // if let Some(ref protocol) = clt.protocol {
+        //     protocol.on_connected(&clt.con_id);
+        // }
+
         Ok(CltSender {
             con_id,
             sender,
             callback,
             protocol,
-            recver_abort_handle,
+            recv_loop_abort_handle,
         })
     }
 
-    async fn service_loop(clt: Clt<P, C, MMS>) -> Result<(), Box<dyn Error + Sync + Send>> {
+    async fn recv_loop(clt: Clt<P, C, MMS>) -> Result<(), Box<dyn Error + Sync + Send>> {
         let mut reader = clt.recver.lock().await;
         loop {
             // let opt_recv = clt.recv().await?; // Don't call clt.recv because it needs to re-acquire the lock on each call vs just holding it for the duration of the loop
@@ -252,6 +204,22 @@ where
     }
     pub fn con_id(&self) -> &ConId {
         &self.con_id
+    }
+}
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for Clt<P, C, MMS> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let hdl_name = type_name::<P>().split("::").last().unwrap_or("Unknown");
+        let clb_name = type_name::<C>().split("::").last().unwrap_or("Unknown");
+        write!(
+            f,
+            "{} Clt<{}, {}, {}>",
+            self.con_id, hdl_name, clb_name, MMS
+        )
+    }
+}
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Drop for Clt<P, C, MMS> {
+    fn drop(&mut self) {
+        debug!("{} receiver stopped", self);
     }
 }
 
