@@ -30,8 +30,9 @@ pub mod setup {
             };
         }
 
-        pub fn default_addr() -> String {
-            format!("0.0.0.0:{}", *AVAILABLE_PORT)
+        pub fn default_addr() -> &'static str {
+            let addr = format!("0.0.0.0:{}", *AVAILABLE_PORT).into_boxed_str();
+            Box::leak(addr)
         }
 
         pub fn default_connect_timeout() -> Duration {

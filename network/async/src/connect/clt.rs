@@ -27,7 +27,7 @@ pub struct CltSender<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
     // pub type CallbackRef<M> = Arc<Mutex<impl Callback<M>>>; // impl Trait` in type aliases is unstable see issue #63063 <https://github.com/rust-lang/rust/issues/63063>
 }
 impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> CltSender<P, C, MMS> {
-    pub async fn send(&self, msg: &mut P::SendT) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn send(&self, msg: &mut P::SendT) -> Result<(), Box<dyn Error+Send+Sync>> {
         if let Some(protocol) = &self.protocol {
             protocol.on_send(&self.con_id, msg);
         }
@@ -84,7 +84,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
         protocol: Option<Arc<P>>,
         name: Option<&str>,
         // TODO shall add custom Error type to be able to detect timeout?
-    ) -> Result<CltSender<P, C, MMS>, Box<dyn Error + Send + Sync>> {
+    ) -> Result<CltSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
         assert!(timeout > retry_after);
         let now = Instant::now();
         let con_id = ConId::clt(name, None, addr);
@@ -114,7 +114,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
         callback: Arc<C>,
         protocol: Option<Arc<P>>,
         con_id: ConId,
-    ) -> Result<CltSender<P, C, MMS>, Box<dyn Error + Send + Sync>> {
+    ) -> Result<CltSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
         stream
             .set_nodelay(true)
             .expect("failed to set_nodelay=true");
@@ -144,7 +144,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
                 let res = Self::recv_loop(clt).await;
                 match res {
                     Ok(()) => {
-                        debug!("{} recv stream stopped", con_id);
+                        debug!("{} recv stream EOF", con_id);
                     }
                     Err(e) => {
                         error!("{} recv stream error: {:?}", con_id, e);
@@ -195,25 +195,33 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
         })
     }
 
-    async fn recv_loop(clt: Clt<P, C, MMS>) -> Result<(), Box<dyn Error + Sync + Send>> {
+    async fn recv_loop(clt: Clt<P, C, MMS>) -> Result<(), Box<dyn Error+Sync+Send>> {
         let mut reader = clt.recver.lock().await;
-        loop {
-            // let opt_recv = clt.recv().await?; // Don't call clt.recv because it needs to re-acquire the lock on each call vs just holding it for the duration of the loop
-            let opt = reader.recv().await?;
-            match opt {
-                Some(msg) => {
-                    if let Some(ref protocol) = clt.protocol {
-                        protocol.on_recv(&clt.con_id, &msg);
-                    }
-                    clt.callback.on_recv(&clt.con_id, msg)
-                }
-                None => break, // clean exist // end of stream
+        // let opt_recv = clt.recv().await?; // Don't call clt.recv because it needs to re-acquire the lock on each call vs just holding it for the duration of the loop
+        while let Some(msg) = reader.recv().await? {
+            if let Some(ref protocol) = clt.protocol {
+                protocol.on_recv(&clt.con_id, &msg);
             }
+            clt.callback.on_recv(&clt.con_id, msg)
         }
+        // TODO remove cleanup
+        // loop {
+        //     // let opt_recv = clt.recv().await?; // Don't call clt.recv because it needs to re-acquire the lock on each call vs just holding it for the duration of the loop
+        //     let opt = reader.recv().await?;
+        //     match opt {
+        //         Some(msg) => {
+        //             if let Some(ref protocol) = clt.protocol {
+        //                 protocol.on_recv(&clt.con_id, &msg);
+        //             }
+        //             clt.callback.on_recv(&clt.con_id, msg)
+        //         }
+        //         None => break, // clean exist // end of stream
+        //     }
+        // }
         Ok(())
     }
 
-    pub async fn send(&self, msg: &P::SendT) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn send(&self, msg: &P::SendT) -> Result<(), Box<dyn Error+Send+Sync>> {
         {
             self.callback.on_send(&self.con_id, msg);
         }
@@ -222,7 +230,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
             writer.send(msg).await
         }
     }
-    pub async fn recv(&self) -> Result<Option<P::RecvT>, Box<dyn Error + Send + Sync>> {
+    pub async fn recv(&self) -> Result<Option<P::RecvT>, Box<dyn Error+Send+Sync>> {
         let res = {
             let mut reader = self.recver.lock().await;
             reader.recv().await

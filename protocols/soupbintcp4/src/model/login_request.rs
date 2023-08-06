@@ -12,28 +12,28 @@ pub const LOGIN_REQUEST_BYTE_LEN: usize = LOGIN_REQUEST_PACKET_LENGTH as usize +
 pub struct LoginRequest {
     packet_length: u16,
     packet_type: PacketTypeLoginRequest,
-    usr: UserName,
-    pwd: Password,
-    requested_session_id: SessionId,
-    requested_sequence_number: SequenceNumber,
-    heartbeat_timeout_ms: TimeoutMs,
+    pub username: UserName,
+    pub password: Password,
+    pub session_id: SessionId,
+    pub sequence_number: SequenceNumber,
+    pub hbeat_timeout: TimeoutMs,
 }
 impl LoginRequest {
     pub fn new(
         username: UserName,
         password: Password,
-        requested_session_id: SessionId,
-        requested_sequence_number: SequenceNumber,
-        heartbeat_timeout_ms: TimeoutMs,
+        session_id: SessionId,
+        sequence_number: SequenceNumber,
+        hbeat_timeout: TimeoutMs,
     ) -> LoginRequest {
         LoginRequest {
             packet_length: LOGIN_REQUEST_PACKET_LENGTH,
             packet_type: Default::default(),
-            usr: username,
-            pwd: password,
-            requested_session_id,
-            requested_sequence_number,
-            heartbeat_timeout_ms,
+            username,
+            password,
+            session_id,
+            sequence_number,
+            hbeat_timeout,
         }
     }
 }
@@ -41,15 +41,16 @@ impl LoginRequest {
 // obfuscate password
 impl Debug for LoginRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let pass: Password = b"********".as_slice().into();
+        let mut obfs = self.clone();
+        obfs.password = b"********".as_slice().into();
         f.debug_struct("LoginRequest")
-            .field("packet_length", &self.packet_length)
-            .field("packet_type", &self.packet_type)
-            .field("usr", &self.usr)
-            .field("pwd", &pass)
-            .field("requested_session", &self.requested_session_id)
-            .field("requested_sequence_number", &self.requested_sequence_number)
-            .field("heartbeat_timeout_ms", &self.heartbeat_timeout_ms)
+            .field("packet_length", &obfs.packet_length)
+            .field("packet_type", &obfs.packet_type)
+            .field("username", &obfs.username)
+            .field("password", &obfs.password)
+            .field("session_id", &obfs.session_id)
+            .field("sequence_number", &obfs.sequence_number)
+            .field("hbeat_timeout", &obfs.hbeat_timeout)
             .finish()
     }
 }
@@ -70,10 +71,10 @@ impl Display for LoginRequest {
         write!(
             f,
             "Login Request, as username \"{}\" requested for session \"{}\", sequence \"{}\", heartbeat timeout {}ms",
-            self.usr,
-            self.requested_session_id,
-            self.requested_sequence_number,
-            self.heartbeat_timeout_ms,
+            self.username,
+            self.session_id,
+            self.sequence_number,
+            self.hbeat_timeout,
         
         )
     }

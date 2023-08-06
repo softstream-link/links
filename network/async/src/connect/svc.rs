@@ -24,7 +24,9 @@ where
     C: CallbackSendRecv<P>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // TODO include porotocl name with payload
         let msg_name = type_name::<P>().split("::").last().unwrap_or("Unknown");
+        let msg_name = type_name::<P>();
         let clb_name = type_name::<C>()
             .split('<')
             .next()
@@ -63,7 +65,7 @@ where
         let senders = self.senders.lock().await;
         !senders.is_empty()
     }
-    pub async fn send(&self, msg: &mut P::SendT) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn send(&self, msg: &mut P::SendT) -> Result<(), Box<dyn Error+Send+Sync>> {
         {
             let mut senders = self.senders.lock().await;
             for idx in 0..senders.len() {
@@ -113,7 +115,7 @@ where
         callback: Arc<C>,
         protocol: Option<Arc<P>>,
         name: Option<&str>,
-    ) -> Result<SvcSender<P, C, MMS>, Box<dyn Error + Send + Sync>> {
+    ) -> Result<SvcSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
         let con_id = ConId::svc(name, addr, None);
         let lis = TcpListener::bind(&addr).await?;
         debug!("{} bound successfully", con_id);
@@ -146,7 +148,7 @@ where
         protocol: Option<Arc<P>>,
         senders: SvcSendersRef<P, C, MMS>,
         con_id: ConId,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    ) -> Result<(), Box<dyn Error+Send+Sync>> {
         loop {
             let (stream, _) = lis.accept().await.unwrap();
             let mut con_id = con_id.clone();
@@ -188,7 +190,7 @@ mod test {
     use tokio::time::Duration;
 
     lazy_static! {
-        static ref ADDR: String = setup::net::default_addr();
+        static ref ADDR: &'static str = setup::net::default_addr();
         static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
         static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
     }
@@ -220,8 +222,10 @@ mod test {
         //     LoggerCallback::new_ref(log::Level::Warn),
         //     EventStoreProxyCallback::<Msg, SvcMsgProtocol>::new_ref(event_store.clone()),
         // ]);
-        let clt_callback = EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new_ref(event_store.clone());
-        let svc_callback = EventStoreCallback::<TestMsg, TestSvcMsgProtocol>::new_ref(event_store.clone());
+        let clt_callback =
+            EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new_ref(event_store.clone());
+        let svc_callback =
+            EventStoreCallback::<TestMsg, TestSvcMsgProtocol>::new_ref(event_store.clone());
 
         let svc = Svc::<_, _, MMS>::bind(
             &ADDR,
@@ -281,7 +285,8 @@ mod test {
         info!("Found out_clt_msg: {:?}", out_clt_msg);
         info!("clt: {}", clt);
         info!("svc: {}", svc);
-        // tokio::time::sleep(Duration::from_secs(60)).await;
         info!("event_store: {}", event_store);
+        drop(clt);
+        tokio::time::sleep(Duration::from_secs(1)).await;
     }
 }

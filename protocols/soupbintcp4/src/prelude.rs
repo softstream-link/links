@@ -30,7 +30,7 @@ pub use crate::model::types::*;
 pub use crate::connect::clt::SBClt;
 pub use crate::connect::framing::SoupBinFramer;
 pub use crate::connect::protocol::SBCltProtocol;
-pub use crate::connect::protocol::SBSvcProtocol;
+pub use crate::connect::protocol::SBSvcAdminAutoProtocol;
 pub use crate::connect::svc::SBSvc;
 
 // callbacks

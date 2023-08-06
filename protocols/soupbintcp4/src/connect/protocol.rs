@@ -57,21 +57,40 @@ pub mod clt {
 
 pub use svc::*;
 pub mod svc {
-    use std::error::Error;
+    use std::{any::type_name, error::Error, sync::Arc};
+
+    use log::info;
 
     use super::*;
 
     #[derive(Debug, Clone)]
-    pub struct SBSvcProtocol<PAYLOAD>
+    pub struct SBSvcAdminAutoProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
+        username: UserName,
+        password: Password,
+        session_id: SessionId,
+        sequence_number: Option<SequenceNumber>,
+        hbeat_timeout: Option<TimeoutMs>,
         phantom: std::marker::PhantomData<PAYLOAD>,
     }
 
-    impl<PAYLOAD> SBSvcProtocol<PAYLOAD> where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
-    {}
+    impl<PAYLOAD> SBSvcAdminAutoProtocol<PAYLOAD>
+    where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
+    {
+        pub fn new_ref(username: UserName, password: Password, session_id: SessionId) -> Arc<Self> {
+            Arc::new(Self {
+                username,
+                password,
+                session_id,
+                sequence_number: None,
+                hbeat_timeout: None,
+                phantom: std::marker::PhantomData,
+            })
+        }
+    }
 
-    impl<PAYLOAD> Framer for SBSvcProtocol<PAYLOAD>
+    impl<PAYLOAD> Framer for SBSvcAdminAutoProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         #[inline]
@@ -80,14 +99,14 @@ pub mod svc {
         }
     }
 
-    impl<PAYLOAD> Messenger for SBSvcProtocol<PAYLOAD>
+    impl<PAYLOAD> Messenger for SBSvcAdminAutoProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         type SendT = SBSvcMsg<PAYLOAD>;
         type RecvT = SBCltMsg<PAYLOAD>;
     }
 
-    impl<PAYLOAD> Protocol for SBSvcProtocol<PAYLOAD>
+    impl<PAYLOAD> Protocol for SBSvcAdminAutoProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         async fn handshake<
@@ -98,11 +117,22 @@ pub mod svc {
             &self,
             clt: &Clt<P, C, MMS>,
         ) -> Result<(), Box<dyn Error+Send+Sync>> {
-            // let login = clt.recv().await?;
-            // info!("{}<-{:?}", clt.con_id(), login);
-            // let auth = TestSvcMsg::Accept(TestSvcMsgLoginAcpt::default());
-            // clt.send(&auth).await?;
-            // info!("{}->{:?}", clt.con_id(), auth);
+            let msg = clt.recv().await?;
+            if let Some(SBCltMsg::Login(login_req)) = msg {
+                info!("{}<-{:?}", clt.con_id(), login_req);
+                if (login_req.username != self.username) || (login_req.password != self.password) {
+                    clt.send(&mut SBSvcMsg::login_rej_not_auth()).await?;
+                    return Err(format!("{} Not Authorized", clt.con_id()).into());
+                }
+                if login_req.session_id != self.session_id {
+                    clt.send(&mut SBSvcMsg::login_rej_ses_not_avail()).await?;
+                    return Err(format!("{} No Session Avail", clt.con_id()).into());
+                }
+                clt.send(&mut SBSvcMsg::login_acc(self.session_id, 1.into()))
+                    .await?;
+            } else {
+                #[rustfmt::skip] return Err(format!("{} Invalid Handshake unexpected msg: {:?}", clt.con_id(), msg).into());
+            }
             Ok(())
         }
     }

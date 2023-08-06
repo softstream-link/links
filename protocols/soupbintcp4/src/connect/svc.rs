@@ -2,7 +2,7 @@ use links_network_async::prelude::*;
 
 use crate::prelude::*;
 
-pub type SBSvc<PAYLOAD, CALLBACK, const MMS: usize> = Svc<SBSvcProtocol<PAYLOAD>, CALLBACK, MMS>;
+pub type SBSvc<PAYLOAD, CALLBACK, const MMS: usize> = Svc<SBSvcAdminAutoProtocol<PAYLOAD>, CALLBACK, MMS>;
 
 #[cfg(test)]
 mod test {
@@ -18,7 +18,7 @@ mod test {
     const MMS: usize = 128;
 
     lazy_static! {
-        static ref ADDR: String = setup::net::default_addr();
+        static ref ADDR: &'static str = setup::net::default_addr();
         static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
         static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
     }
@@ -28,7 +28,7 @@ mod test {
         setup::log::configure();
         let callback = SBSvcLoggerCallback::<SamplePayload>::new_ref(Level::Info);
         let svc = SBSvc::<_, _, MMS>::bind(
-            &setup::net::default_addr(),
+            setup::net::default_addr(),
             callback,
             None,
             Some("soupbin/unittest"),
@@ -42,7 +42,7 @@ mod test {
     #[tokio::test]
     async fn test_svc_clt_connection() {
         setup::log::configure();
-
+        
         let event_store = SBEventStore::new_ref();
         let svc_callback = SBSvcChainCallback::new_ref(vec![
             SBSvcLoggerCallback::new_ref(Level::Info),
@@ -54,14 +54,14 @@ mod test {
         ]);
 
         let svc =
-            SBSvc::<NoPayload, _, MMS>::bind(&ADDR, svc_callback, None, Some("soupbin/venue"))
+            SBSvc::<NoPayload, _, MMS>::bind(*ADDR, svc_callback, None, Some("soupbin/venue"))
                 .await
                 .unwrap();
 
         info!("{} started", svc);
 
         let clt = SBClt::<NoPayload, _, MMS>::connect(
-            &ADDR,
+            *ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,
             clt_callback,
