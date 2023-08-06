@@ -22,7 +22,7 @@ mod test {
     #[tokio::test]
     async fn test_clt() {
         setup::log::configure();
-        let callback = SBLoggerCallbackRef::<Ouch5Inb>::default();
+        let callback = SBLoggerCallback::<Ouch5Inb>::default();
         let clt = Ouch5Clt::connect(
             &ADDR,
             *CONNECT_TIMEOUT,

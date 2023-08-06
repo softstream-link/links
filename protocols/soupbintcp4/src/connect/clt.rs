@@ -1,9 +1,9 @@
 use links_network_async::prelude::*;
 
-use super::protocol::SoupBinProtocol;
+use super::protocol::SBProtocol;
 
 pub type SBClt<PAYLOAD, C, const MMS: usize> =
-    Clt<SoupBinProtocol<PAYLOAD>, C, MMS>;
+    Clt<SBProtocol<PAYLOAD>, C, MMS>;
 
 #[cfg(test)]
 mod test {
@@ -28,10 +28,10 @@ mod test {
     async fn test_clt() {
         setup::log::configure();
 
-        let callback = SBLoggerCallbackRef::<SamplePayload>::default();
-
+        let callback = SBLoggerCallback::<SamplePayload>::new_ref(log::Level::Info);
+        let protocol = SBProtocol::<SamplePayload>::new();
         let clt = SBClt::<SamplePayload, _, MMS>::connect(
-            &ADDR,
+            setup::net::default_addr(),
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,
             callback,

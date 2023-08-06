@@ -7,14 +7,15 @@ use crate::core::{ConId, Messenger};
 
 use super::CallbackSendRecv;
 
-pub type ChainCallbackRef<M> = Arc<ChainedCallback<M>>;
+pub type ChainCallbackRef<M> = Arc<ChainCallback<M>>;
 pub type Chain<M> = Vec<Arc<dyn CallbackSendRecv<M>>>;
+
 #[derive(Debug)]
-pub struct ChainedCallback<M: Messenger> {
+pub struct ChainCallback<M: Messenger> {
     chain: Chain<M>,
 }
 
-impl<M: Messenger> ChainedCallback<M> {
+impl<M: Messenger> ChainCallback<M> {
     pub fn new(chain: Chain<M>) -> Self {
         Self { chain }
     }
@@ -22,12 +23,12 @@ impl<M: Messenger> ChainedCallback<M> {
         Arc::new(Self::new(chain))
     }
 }
-impl<M: Messenger> Display for ChainedCallback<M> {
+impl<M: Messenger> Display for ChainCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ChainCallback<{}>", self.chain.len())
     }
 }
-impl<M: Messenger> CallbackSendRecv<M> for ChainedCallback<M> {
+impl<M: Messenger> CallbackSendRecv<M> for ChainCallback<M> {
     fn on_recv(&self, con_id: &ConId, msg: M::RecvT) {
         for callback in self.chain.iter() {
             callback.on_recv(con_id, msg.clone());
@@ -56,7 +57,7 @@ mod test {
         setup::log::configure();
         let store = EventStore::new_ref();
 
-        let callback = ChainedCallback::new(vec![
+        let callback = ChainCallback::new(vec![
             LoggerCallback::new_ref(Level::Info),
             EventStoreCallback::<Msg, CltMsgProtocol>::new_ref(store.clone()),
         ]);

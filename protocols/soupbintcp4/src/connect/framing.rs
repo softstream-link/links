@@ -55,28 +55,18 @@ mod test {
     use log::info;
 
     use crate::{
-        model::{payload::SamplePayload, soup_bin::SBMsg, unsequenced_data::UnsequencedData},
+        model::{payload::SamplePayload, soup_bin::SBCltMsg},
         prelude::*,
+        unittest::setup::model::{clt_msgs_default, svc_msgs_default},
     };
-    use links_testing::unittest::setup;
+    use links_testing::unittest::setup::log::configure;
 
     #[test]
-    fn test_soup_bin_admin() {
-        setup::log::configure();
+    fn test_soup_bin_clt() {
+        configure();
         const CAP: usize = 1024;
         let mut ser = ByteSerializerStack::<CAP>::default();
-        let msg_inp = vec![
-            SBMsg::CltHBeat(CltHeartbeat::default()),
-            SBMsg::SvcHBeat(SvcHeartbeat::default()),
-            SBMsg::Dbg(crate::prelude::Debug::default()),
-            SBMsg::End(EndOfSession::default()),
-            SBMsg::LoginReq(LoginRequest::default()),
-            SBMsg::LoginAcc(LoginAccepted::default()),
-            SBMsg::LoginRej(LoginRejected::not_authorized()),
-            SBMsg::LogoutReq(LogoutRequest::default()),
-            SBMsg::SData(SequencedData::new(SamplePayload::default())),
-            SBMsg::UData(UnsequencedData::new(SamplePayload::default())),
-        ];
+        let msg_inp = clt_msgs_default();
         for msg in msg_inp.iter() {
             info!("msg_inp {:?}", msg);
             let _ = ser.serialize(msg).unwrap();
@@ -86,13 +76,43 @@ mod test {
         let mut bytes = BytesMut::with_capacity(CAP);
         bytes.put_slice(ser.as_slice());
 
-        let mut msg_out: Vec<SBMsg<SamplePayload>> = vec![];
+        let mut msg_out: Vec<SBCltMsg<SamplePayload>> = vec![];
         loop {
             let frame = SoupBinFramer::get_frame(&mut bytes);
             match frame {
                 Some(frame) => {
                     let des = &mut ByteDeserializerSlice::new(&frame[..]);
-                    let msg = SBMsg::byte_deserialize(des).unwrap();
+                    let msg = SBCltMsg::byte_deserialize(des).unwrap();
+                    info!("msg_out {:?}", msg);
+                    msg_out.push(msg);
+                }
+                None => break,
+            }
+        }
+        assert_eq!(msg_inp, msg_out);
+    }
+    #[test]
+    fn test_soup_bin_svc() {
+        configure();
+        const CAP: usize = 1024;
+        let mut ser = ByteSerializerStack::<CAP>::default();
+        let msg_inp = svc_msgs_default();
+        for msg in msg_inp.iter() {
+            info!("msg_inp {:?}", msg);
+            let _ = ser.serialize(msg).unwrap();
+        }
+        info!("ser: {:#x}", ser);
+
+        let mut bytes = BytesMut::with_capacity(CAP);
+        bytes.put_slice(ser.as_slice());
+
+        let mut msg_out: Vec<SBSvcMsg<SamplePayload>> = vec![];
+        loop {
+            let frame = SoupBinFramer::get_frame(&mut bytes);
+            match frame {
+                Some(frame) => {
+                    let des = &mut ByteDeserializerSlice::new(&frame[..]);
+                    let msg = SBSvcMsg::byte_deserialize(des).unwrap();
                     info!("msg_out {:?}", msg);
                     msg_out.push(msg);
                 }

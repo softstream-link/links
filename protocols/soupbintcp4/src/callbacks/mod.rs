@@ -1,8 +1,9 @@
 
 use links_network_async::prelude::*;
 
-use crate::connect::protocol::SoupBinProtocol;
+use crate::prelude::*;
+// {connect::protocol::SoupBinProtocol, prelude::SBMsg};
 
-pub type SBLoggerCallbackRef<PAYLOAD> = LoggerCallbackRef<SoupBinProtocol<PAYLOAD>>;
-pub type SBEvenLogCallbackRef<PAYLOAD> = MessengerStoreCallbackRef<SoupBinProtocol<PAYLOAD>>;
-pub type SBChainCallbackRef<PAYLOAD> = ChainCallbackRef<SoupBinProtocol<PAYLOAD>>;
+pub type SBLoggerCallback<PAYLOAD> = LoggerCallback<SBProtocol<PAYLOAD>>;
+pub type SBEvenLogCallback<PAYLOAD> = EventStoreCallback<SBCltMsg<PAYLOAD>, SBProtocol<PAYLOAD>>;
+pub type SBChainCallbackRef<PAYLOAD> = ChainCallback<SBProtocol<PAYLOAD>>;

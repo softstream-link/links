@@ -12,7 +12,7 @@ pub use crate::callbacks::CallbackSendRecv;
 pub use crate::callbacks::logger::LoggerCallback;
 pub use crate::callbacks::logger::LoggerCallbackRef;
 
-pub use crate::callbacks::chain::ChainedCallback;
+pub use crate::callbacks::chain::ChainCallback;
 pub use crate::callbacks::chain::ChainCallbackRef;
 
 // consolidated msg type callbacks

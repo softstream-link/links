@@ -1,9 +1,9 @@
 use links_network_async::prelude::*;
 
-use super::protocol::SoupBinProtocol;
+use super::protocol::SBProtocol;
 
 pub type SBSvc<PAYLOAD, C, const MMS: usize> =
-    Svc<SoupBinProtocol<PAYLOAD>, C, MMS>;
+    Svc<SBProtocol<PAYLOAD>, C, MMS>;
 
 #[cfg(test)]
 mod test {
@@ -16,7 +16,7 @@ mod test {
     use links_testing::unittest::setup;
     use log::info;
 
-    type Msg = SBMsg<SamplePayload>;
+    type Msg = SBCltMsg<SamplePayload>;
 
     const MMS: usize = 128;
 
@@ -29,7 +29,7 @@ mod test {
     #[tokio::test]
     async fn test_svc() {
         setup::log::configure();
-        let callback = SBLoggerCallbackRef::<SamplePayload>::default();
+        let callback = SBLoggerCallback::<SamplePayload>::default();
         let svc = SBSvc::<_, _, MMS>::bind(
             &ADDR,
             Arc::clone(&callback),
@@ -44,9 +44,9 @@ mod test {
     async fn test_svc_clt_connection() {
         setup::log::configure();
         let find_timeout = setup::net::optional_find_timeout();
-        let event_log = SBEvenLogCallbackRef::default();
-        let callback = SBChainCallbackRef::new(ChainedCallback::new(vec![
-            SBLoggerCallbackRef::default(),
+        let event_log = SBEvenLogCallback::default();
+        let callback = SBChainCallbackRef::new(ChainCallback::new(vec![
+            SBLoggerCallback::default(),
             event_log.clone(),
         ]));
 

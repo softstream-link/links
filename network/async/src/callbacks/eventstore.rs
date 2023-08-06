@@ -131,7 +131,24 @@ where
     store: EventStoreRef<T>,
     phantom: std::marker::PhantomData<M>,
 }
-
+impl<T, M> EventStoreCallback<T, M>
+where
+    T: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
+    M: Messenger,
+{
+    pub fn new(store: EventStoreRef<T>) -> Self {
+        Self {
+            store,
+            phantom: std::marker::PhantomData,
+        }
+    }
+    pub fn new_ref(store: EventStoreRef<T>) -> Arc<Self> {
+        Arc::new(Self {
+            store,
+            phantom: std::marker::PhantomData,
+        })
+    }
+}
 impl<T, M> Default for EventStoreCallback<T, M>
 where
     T: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
@@ -183,24 +200,7 @@ where
     }
 }
 
-impl<T, M> EventStoreCallback<T, M>
-where
-    T: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
-    M: Messenger,
-{
-    pub fn new(store: EventStoreRef<T>) -> Self {
-        Self {
-            store,
-            phantom: std::marker::PhantomData,
-        }
-    }
-    pub fn new_ref(store: EventStoreRef<T>) -> Arc<Self> {
-        Arc::new(Self {
-            store,
-            phantom: std::marker::PhantomData,
-        })
-    }
-}
+
 
 #[cfg(test)]
 mod test {
