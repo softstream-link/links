@@ -19,6 +19,20 @@ pub struct Entry<T> {
     pub time: SystemTime,
     pub event: Dir<T>,
 }
+impl<T> Entry<T>{
+    pub fn unwrap_recv_event(self) -> T {
+        match self.event {
+            Dir::Recv(t) => t,
+            Dir::Send(_) => panic!("Entry::try_into_recv: Not a Dir::Recv variant"),
+        }
+    }
+    pub fn unwrap_send_event(self) -> T {
+        match self.event {
+            Dir::Recv(_) => panic!("Entry::try_into_send: Not a Dir::Send variant"),
+            Dir::Send(t) => t,
+        }
+    }
+}
 
 impl<T> Display for Entry<T>
 where

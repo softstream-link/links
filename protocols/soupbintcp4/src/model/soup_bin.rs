@@ -68,7 +68,7 @@ impl<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + Par
 }
 
 #[rustfmt::skip]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SBMsg<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug>{
     Clt(SBCltMsg<T>),
     Svc(SBSvcMsg<T>),

@@ -15,8 +15,6 @@ mod test {
     use links_testing::unittest::setup;
     use log::{info, Level};
 
-    type Msg = SBCltMsg<SamplePayload>;
-
     const MMS: usize = 128;
 
     lazy_static! {
@@ -44,7 +42,7 @@ mod test {
     #[tokio::test]
     async fn test_svc_clt_connection() {
         setup::log::configure();
-        // let find_timeout = setup::net::optional_find_timeout();
+
         let event_store = SBEventStore::new_ref();
         let svc_callback = SBSvcChainCallback::new_ref(vec![
             SBSvcLoggerCallback::new_ref(Level::Info),
@@ -55,18 +53,14 @@ mod test {
             SBCltEvenStoreCallback::new_ref(Arc::clone(&event_store)),
         ]);
 
-        let svc = SBSvc::<SamplePayload, _, MMS>::bind(
-            &ADDR,
-            svc_callback,
-            None,
-            Some("soupbin/venue"),
-        )
-        .await
-        .unwrap();
+        let svc =
+            SBSvc::<NoPayload, _, MMS>::bind(&ADDR, svc_callback, None, Some("soupbin/venue"))
+                .await
+                .unwrap();
 
         info!("{} started", svc);
 
-        let clt = SBClt::<SamplePayload, _, MMS>::connect(
+        let clt = SBClt::<NoPayload, _, MMS>::connect(
             &ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,
@@ -80,32 +74,35 @@ mod test {
 
         while !svc.is_accepted().await {}
 
-        // let msg_clt = Msg::dbg(b"hello from client");
-        // let msg_svc = Msg::dbg(b"hello from server");
-        // clt.send(&msg_clt).await.unwrap();
-        // svc.send(&msg_svc).await.unwrap();
+        let mut msg_clt_inp = SBCltMsg::dbg(b"hello from client");
+        let mut msg_svc_inp = SBSvcMsg::dbg(b"hello from server");
+        clt.send(&mut msg_clt_inp).await.unwrap();
+        svc.send(&mut msg_svc_inp).await.unwrap();
 
-        // let found = event_log
-        //     .find(
-        //         |entry| {
-        //             let hit = match &entry.payload {
-        //                 Dir::Recv(msg) => msg == &msg_svc,
-        //                 _ => false,
-        //             };
-
-        //             let src = match &entry.con_id {
-        //                 ConId::Clt { name, .. } | ConId::Svc { name, .. } => {
-        //                     name == "soupbin/broker"
-        //                 }
-        //             };
-        //             hit && src
-        //         },
-        //         find_timeout.into(),
-        //     )
-        //     .await;
-        // info!("event_log: {}", *event_log);
-        // info!("found: {:?}", found);
-        // assert!(found.is_some());
-        // assert_eq!(&msg_svc, found.unwrap().try_into_recv().unwrap());
+        let msg_clt_out = event_store
+            .find(
+                |entry| match &entry.event {
+                    Dir::Recv(SBMsg::Svc(msg)) => msg == &msg_svc_inp,
+                    _ => false,
+                },
+                setup::net::optional_find_timeout(),
+            )
+            .await
+            .unwrap()
+            .unwrap_recv_event();
+        let msg_svc_out = event_store
+            .find(
+                |entry| match &entry.event {
+                    Dir::Recv(SBMsg::Clt(msg)) => msg == &msg_clt_inp,
+                    _ => false,
+                },
+                setup::net::optional_find_timeout(),
+            )
+            .await
+            .unwrap()
+            .unwrap_recv_event();
+        info!("event_store: {}", *event_store);
+        info!("msg_svc_out: {:?}", msg_svc_out);
+        info!("msg_clt_out: {:?}", msg_clt_out);
     }
 }
