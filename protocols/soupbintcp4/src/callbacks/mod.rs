@@ -2,8 +2,20 @@
 use links_network_async::prelude::*;
 
 use crate::prelude::*;
-// {connect::protocol::SoupBinProtocol, prelude::SBMsg};
 
-pub type SBLoggerCallback<PAYLOAD> = LoggerCallback<SBProtocol<PAYLOAD>>;
-pub type SBEvenLogCallback<PAYLOAD> = EventStoreCallback<SBCltMsg<PAYLOAD>, SBProtocol<PAYLOAD>>;
-pub type SBChainCallbackRef<PAYLOAD> = ChainCallback<SBProtocol<PAYLOAD>>;
+
+// loggers
+pub type SBCltLoggerCallback<PAYLOAD> = LoggerCallback<SBCltProtocol<PAYLOAD>>;
+pub type SBSvcLoggerCallback<PAYLOAD> = LoggerCallback<SBSvcProtocol<PAYLOAD>>;
+
+// dev null
+// TODO
+
+// event store
+pub type SBEventStore<PAYLOAD> = EventStoreRef<SBMsg<PAYLOAD>>;
+pub type SBCltEvenStoreCallback<PAYLOAD> = EventStoreCallback<SBMsg<PAYLOAD>, SBCltProtocol<PAYLOAD>>;
+pub type SBSvcEvenStoreCallback<PAYLOAD> = EventStoreCallback<SBMsg<PAYLOAD>, SBSvcProtocol<PAYLOAD>>;
+
+// chain
+pub type SBCltChainCallbackRef<PAYLOAD> = ChainCallback<SBCltProtocol<PAYLOAD>>;
+pub type SBSvcChainCallbackRef<PAYLOAD> = ChainCallback<SBSvcProtocol<PAYLOAD>>;

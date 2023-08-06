@@ -67,6 +67,24 @@ impl<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + Par
     pub fn udata(payload: T) -> Self { Self::UData(UnsequencedData::new(payload)) }
 }
 
+#[rustfmt::skip]
+pub enum SBMsg<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug>{
+    Clt(SBCltMsg<T>),
+    Svc(SBSvcMsg<T>),
+}
+#[rustfmt::skip]
+impl<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug> From<SBCltMsg<T>> for SBMsg<T>{
+    fn from(value: SBCltMsg<T>) -> Self {
+        SBMsg::Clt(value)
+    }
+}
+#[rustfmt::skip]
+impl<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug> From<SBSvcMsg<T>> for SBMsg<T>{
+    fn from(value: SBSvcMsg<T>) -> Self {
+        SBMsg::Svc(value)
+    }
+}
+
 #[cfg(test)]
 mod test {
 

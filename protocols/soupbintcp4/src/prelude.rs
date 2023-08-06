@@ -20,6 +20,7 @@ pub use crate::model::payload::NoPayload;
 pub use crate::model::payload::VecPayload;
 pub use crate::model::soup_bin::SBCltMsg;
 pub use crate::model::soup_bin::SBSvcMsg;
+pub use crate::model::soup_bin::SBMsg;
 pub use crate::model::soup_bin::MAX_FRAME_SIZE_SOUPBIN_NO_PAYLOAD;
 
 // msg field types
@@ -28,12 +29,14 @@ pub use crate::model::types::*;
 
 // connect
 pub use crate::connect::framing::SoupBinFramer;
-pub use crate::connect::protocol::SBProtocol;
-// pub use crate::connect::clt::SBClt;
+pub use crate::connect::protocol::SBCltProtocol;
+pub use crate::connect::protocol::SBSvcProtocol;
+pub use crate::connect::clt::SBClt;
 // pub use crate::connect::svc::SBSvc;
 
 
 // callbacks
-pub use crate::callbacks::SBChainCallbackRef;
-pub use crate::callbacks::SBEvenLogCallback;
-pub use crate::callbacks::SBLoggerCallback;
+pub use crate::callbacks::SBCltChainCallbackRef;
+pub use crate::callbacks::SBCltEvenStoreCallback;
+pub use crate::callbacks::SBCltLoggerCallback;
+pub use crate::callbacks::SBSvcLoggerCallback;
