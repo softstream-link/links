@@ -113,7 +113,7 @@ mod test {
         let addr = setup::net::default_addr();
 
         const MMS: usize = 1024;
-        let inp_svc_msg = SvcMsg::Dbg(SvcMsgDebug::new(b"Hello Frm Server Msg"));
+        let inp_svc_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
         let svc = {
             let addr = addr.clone();
             tokio::spawn({
@@ -123,12 +123,12 @@ mod test {
 
                     let (stream, _) = listener.accept().await.unwrap();
                     let (mut sender, mut recver) =
-                        into_split_messenger::<SvcMsgProtocol, MMS, SvcMsgProtocol>(
+                        into_split_messenger::<TestSvcMsgProtocol, MMS, TestSvcMsgProtocol>(
                             stream,
                             ConId::svc(Some("unittest"), &addr, None),
                         );
                     info!("{} connected", sender);
-                    let mut out_svc_msg: Option<CltMsg> = None;
+                    let mut out_svc_msg: Option<TestCltMsg> = None;
                     loop {
                         let opt = recver.recv().await.unwrap();
                         match opt {
@@ -146,7 +146,7 @@ mod test {
                 }
             })
         };
-        let inp_clt_msg = CltMsg::Dbg(CltMsgDebug::new(b"Hello Frm Client Msg"));
+        let inp_clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
         let clt = {
             let addr = addr.clone();
             tokio::spawn({
@@ -154,7 +154,7 @@ mod test {
                 async move {
                     let stream = TcpStream::connect(addr.clone()).await.unwrap();
                     let (mut sender, mut recver) =
-                        into_split_messenger::<CltMsgProtocol, MMS, CltMsgProtocol>(
+                        into_split_messenger::<TestCltMsgProtocol, MMS, TestCltMsgProtocol>(
                             stream,
                             ConId::clt(Some("unittest"), None, &addr),
                         );

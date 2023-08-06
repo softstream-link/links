@@ -6,7 +6,7 @@ use std::fmt;
 
 use super::unsequenced_data::UnsequencedData;
 
-pub const MAX_FRAME_SIZE_SOUPBIN_NO_PAYLOAD: usize = 54;
+pub const MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG: usize = 54;
 
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug)]
@@ -68,6 +68,7 @@ impl<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + Par
 }
 
 #[rustfmt::skip]
+#[derive(Debug, Clone)]
 pub enum SBMsg<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug>{
     Clt(SBCltMsg<T>),
     Svc(SBSvcMsg<T>),
@@ -161,6 +162,6 @@ mod test {
             msg_inp_svc.iter().map(|(len, _)| *len).max().unwrap(),
         );
         info!("max_frame_size_no_payload: {}", max_frame_size_no_payload);
-        assert_eq!(max_frame_size_no_payload, MAX_FRAME_SIZE_SOUPBIN_NO_PAYLOAD)
+        assert_eq!(max_frame_size_no_payload, MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG)
     }
 }

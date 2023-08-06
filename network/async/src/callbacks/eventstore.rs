@@ -121,7 +121,6 @@ where
     }
 }
 
-pub type EventStoreCallbackRef<T, M> = Arc<EventStoreCallback<T, M>>;
 #[derive(Debug)]
 pub struct EventStoreCallback<T, M>
 where
@@ -217,15 +216,15 @@ mod test {
     async fn test_event_store() {
         setup::log::configure();
         let event_store = EventStore::new_ref();
-        let event_clb = EventStoreCallback::<Msg, CltMsgProtocol>::new(Arc::clone(&event_store));
+        let event_clb = EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new(Arc::clone(&event_store));
 
         #[allow(unused_assignments)]
-        let mut clt_msg = CltMsg::Dbg(CltMsgDebug::new(format!("initialized").as_bytes()));
+        let mut clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(format!("initialized").as_bytes()));
         for idx in 0..10 {
-            let svc_msg = SvcMsg::Dbg(SvcMsgDebug::new(format!("hello  svc #{}", idx).as_bytes()));
+            let svc_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(format!("hello  svc #{}", idx).as_bytes()));
             event_clb.on_recv(&Default::default(), svc_msg.clone());
 
-            clt_msg = CltMsg::Dbg(CltMsgDebug::new(format!("hello  clt #{}", idx).as_bytes()));
+            clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(format!("hello  clt #{}", idx).as_bytes()));
             event_clb.on_send(&Default::default(), &clt_msg);
         }
         info!("event_clb: {}", event_clb);

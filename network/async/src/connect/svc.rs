@@ -200,7 +200,7 @@ mod test {
         let svc = Svc::<_, _, MMS>::bind(
             &ADDR,
             Arc::clone(&logger),
-            Some(SvcMsgProtocol.into()),
+            Some(TestSvcMsgProtocol.into()),
             Some("unittest"),
         )
         .await
@@ -211,7 +211,7 @@ mod test {
     #[tokio::test]
     async fn test_svc_clt_connection() {
         setup::log::configure_at(log::LevelFilter::Debug);
-        let event_store = EventStore::<Msg>::new_ref();
+        let event_store = EventStore::<TestMsg>::new_ref();
         // let clt_callback = ChainCallback::new_ref(vec![
         //     LoggerCallback::new_ref(log::Level::Warn),
         //     EventStoreProxyCallback::<Msg, CltMsgProtocol>::new_ref(event_store.clone()),
@@ -220,13 +220,13 @@ mod test {
         //     LoggerCallback::new_ref(log::Level::Warn),
         //     EventStoreProxyCallback::<Msg, SvcMsgProtocol>::new_ref(event_store.clone()),
         // ]);
-        let clt_callback = EventStoreCallback::<Msg, CltMsgProtocol>::new_ref(event_store.clone());
-        let svc_callback = EventStoreCallback::<Msg, SvcMsgProtocol>::new_ref(event_store.clone());
+        let clt_callback = EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new_ref(event_store.clone());
+        let svc_callback = EventStoreCallback::<TestMsg, TestSvcMsgProtocol>::new_ref(event_store.clone());
 
         let svc = Svc::<_, _, MMS>::bind(
             &ADDR,
             svc_callback,
-            Some(SvcMsgProtocol.into()),
+            Some(TestSvcMsgProtocol.into()),
             Some("venue"),
         )
         .await
@@ -239,7 +239,7 @@ mod test {
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,
             clt_callback,
-            Some(CltMsgProtocol.into()),
+            Some(TestCltMsgProtocol.into()),
             Some("broker"),
         )
         .await
@@ -248,15 +248,15 @@ mod test {
 
         while !svc.is_accepted().await {}
 
-        let mut inp_clt_msg = CltMsg::Dbg(CltMsgDebug::new(b"Hello Frm Client Msg"));
-        let mut inp_svc_msg = SvcMsg::Dbg(SvcMsgDebug::new(b"Hello Frm Server Msg"));
+        let mut inp_clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+        let mut inp_svc_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
         clt.send(&mut inp_clt_msg).await.unwrap();
         svc.send(&mut inp_svc_msg).await.unwrap();
 
         let out_svc_msg = event_store
             .find(
                 |entry| match &entry.event {
-                    Dir::Recv(Msg::Clt(msg)) => msg == &inp_clt_msg,
+                    Dir::Recv(TestMsg::Clt(msg)) => msg == &inp_clt_msg,
                     _ => false,
                 },
                 setup::net::optional_find_timeout(),
@@ -268,7 +268,7 @@ mod test {
         let out_clt_msg = event_store
             .find(
                 |entry| match &entry.event {
-                    Dir::Recv(Msg::Svc(msg)) => msg == &inp_svc_msg,
+                    Dir::Recv(TestMsg::Svc(msg)) => msg == &inp_svc_msg,
                     _ => false,
                 },
                 setup::net::optional_find_timeout(),

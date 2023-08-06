@@ -7,7 +7,6 @@ use crate::core::{ConId, Messenger};
 
 use super::CallbackSendRecv;
 
-pub type ChainCallbackRef<M> = Arc<ChainCallback<M>>;
 pub type Chain<M> = Vec<Arc<dyn CallbackSendRecv<M>>>;
 
 #[derive(Debug)]
@@ -19,7 +18,7 @@ impl<M: Messenger> ChainCallback<M> {
     pub fn new(chain: Chain<M>) -> Self {
         Self { chain }
     }
-    pub fn new_ref(chain: Chain<M>) -> ChainCallbackRef<M> {
+    pub fn new_ref(chain: Chain<M>) -> Arc<Self> {
         Arc::new(Self::new(chain))
     }
 }
@@ -59,11 +58,11 @@ mod test {
 
         let callback = ChainCallback::new(vec![
             LoggerCallback::new_ref(Level::Info),
-            EventStoreCallback::<Msg, CltMsgProtocol>::new_ref(store.clone()),
+            EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new_ref(store.clone()),
         ]);
 
         for _ in 0..2 {
-            let msg = CltMsg::Dbg(CltMsgDebug::new(b"hello".as_slice()));
+            let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
             callback.on_send(&ConId::default(), &msg);
         }
         info!("store: {}", store);

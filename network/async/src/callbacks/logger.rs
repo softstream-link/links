@@ -9,7 +9,6 @@ use crate::core::{ConId, Messenger};
 
 use super::CallbackSendRecv;
 
-pub type LoggerCallbackRef<M> = Arc<LoggerCallback<M>>;
 #[derive(Debug)]
 pub struct LoggerCallback<M: Messenger> {
     level: Level,
@@ -31,7 +30,7 @@ impl<M: Messenger> LoggerCallback<M> {
             p1: std::marker::PhantomData,
         }
     }
-    pub fn new_ref(level: Level) -> LoggerCallbackRef<M> {
+    pub fn new_ref(level: Level) -> Arc<Self> {
         Arc::new(Self::new(level))
     }
 }
@@ -83,14 +82,14 @@ mod test {
     #[test]
     fn test_event_log() {
         setup::log::configure_at(log::LevelFilter::Trace);
-        let log: LoggerCallbackRef<CltMsgProtocol> = LoggerCallback::new(Level::Trace).into();
+        let log = LoggerCallback::<TestCltMsgProtocol>::new_ref(Level::Trace);
 
         for _ in 0..2 {
-            let msg = CltMsg::Dbg(CltMsgDebug::new(b"hello".as_slice()));
+            let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
             log.on_send(&ConId::default(), &msg);
         }
         for _ in 0..2 {
-            let msg = SvcMsg::Dbg(SvcMsgDebug::new(b"hello".as_slice()));
+            let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"hello".as_slice()));
             log.on_recv(&ConId::default(), msg);
         }
     }

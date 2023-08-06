@@ -7,7 +7,6 @@ use crate::core::{ConId, Messenger};
 
 use super::CallbackSendRecv;
 
-pub type DevNullCallbackRef<M> = Arc<DevNullCallback<M>>;
 #[derive(Debug)]
 pub struct DevNullCallback<M: Messenger> {
     p1: std::marker::PhantomData<M>,
@@ -21,7 +20,7 @@ impl<M: Messenger> Default for DevNullCallback<M> {
 }
 
 impl<M: Messenger> DevNullCallback<M> {
-    pub fn new_ref() -> DevNullCallbackRef<M> {
+    pub fn new_ref() -> Arc<Self> {
         Arc::new(Self::default())
     }
 }
@@ -49,14 +48,14 @@ mod test {
     #[test]
     fn test_event_log() {
         setup::log::configure();
-        let log = DevNullCallback::<CltMsgProtocol>::default();
+        let log = DevNullCallback::<TestCltMsgProtocol>::default();
 
         for _ in 0..2 {
-            let msg = CltMsg::Dbg(CltMsgDebug::new(b"hello".as_slice()));
+            let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
             log.on_send(&ConId::default(), &msg);
         }
         for _ in 0..2 {
-            let msg = SvcMsg::Dbg(SvcMsgDebug::new(b"hello".as_slice()));
+            let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"hello".as_slice()));
             log.on_recv(&ConId::default(), msg);
         }
     }

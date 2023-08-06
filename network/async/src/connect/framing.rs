@@ -119,7 +119,7 @@ mod test {
         setup::log::configure();
         const CAP: usize = 128;
         let addr = setup::net::default_addr();
-        let inp_svc_msg = SvcMsgDebug::new(b"Hello Server Frame");
+        let inp_svc_msg = TestSvcMsgDebug::new(b"Hello Server Frame");
 
         let svc = {
             let addr = addr.clone();
@@ -130,13 +130,13 @@ mod test {
                     let (stream, _) = listener.accept().await.unwrap();
 
                     let (mut reader, mut writer) =
-                        into_split_frame_manager::<SvcMsgProtocol>(stream, CAP);
+                        into_split_frame_manager::<TestSvcMsgProtocol>(stream, CAP);
                     info!("svc: writer: {}, reader: {}", writer, reader);
-                    let mut out_svc_msg: Option<CltMsgDebug> = None;
+                    let mut out_svc_msg: Option<TestCltMsgDebug> = None;
                     loop {
                         let frame = reader.read_frame().await.unwrap();
                         if let Some(frm) = frame {
-                            let msg: CltMsgDebug = from_slice(&frm[..]).unwrap();
+                            let msg: TestCltMsgDebug = from_slice(&frm[..]).unwrap();
                             out_svc_msg = Some(msg);
 
                             let (slice, size): ([u8; CAP], _) =
@@ -152,7 +152,7 @@ mod test {
                 }
             })
         };
-        let inp_clt_msg = CltMsgDebug::new(b"Hello Client Frame");
+        let inp_clt_msg = TestCltMsgDebug::new(b"Hello Client Frame");
         let clt = {
             let addr = addr.clone();
             tokio::spawn({
@@ -160,7 +160,7 @@ mod test {
                 async move {
                     let stream = TcpStream::connect(addr).await.unwrap();
                     let (mut reader, mut writer) =
-                        into_split_frame_manager::<CltMsgProtocol>(stream, CAP);
+                        into_split_frame_manager::<TestCltMsgProtocol>(stream, CAP);
 
                     info!("clt: writer: {}, reader: {}", writer, reader);
                     let (slice, size): ([u8; CAP], _) = to_bytes_stack(&inp_clt_msg).unwrap();
@@ -169,7 +169,7 @@ mod test {
                     writer.write_frame(slice).await.unwrap();
 
                     let frame = reader.read_frame().await.unwrap().unwrap();
-                    let out_clt_msg: SvcMsgDebug = from_slice(&frame[..]).unwrap();
+                    let out_clt_msg: TestSvcMsgDebug = from_slice(&frame[..]).unwrap();
                     out_clt_msg
                 }
             })

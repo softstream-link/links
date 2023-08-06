@@ -1,5 +1,5 @@
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
-use links_soupbintcp4::prelude::MAX_FRAME_SIZE_SOUPBIN_NO_PAYLOAD;
+use links_soupbintcp4::prelude::MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
 
 use crate::prelude::*;
 
@@ -22,10 +22,10 @@ pub enum Ouch5Inb {
 }
 
 pub const MAX_FRAME_SIZE_OUCH5_OUB: usize = 72; // TODO revise Options fields and remeasure
-pub const MAX_FRAME_SIZE_SOUPBIN_OUCH5_OUB: usize = MAX_FRAME_SIZE_OUCH5_OUB + MAX_FRAME_SIZE_SOUPBIN_NO_PAYLOAD;
+pub const MAX_FRAME_SIZE_SOUPBIN_OUCH5_OUB: usize = MAX_FRAME_SIZE_OUCH5_OUB + MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
 
 pub const MAX_FRAME_SIZE_OUCH5_INB: usize = 51; // TODO revise Options fields and remeasure
-pub const MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB: usize = MAX_FRAME_SIZE_OUCH5_INB + MAX_FRAME_SIZE_SOUPBIN_NO_PAYLOAD;
+pub const MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB: usize = MAX_FRAME_SIZE_OUCH5_INB + MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
 /// Both [ReplaceOrder] & [OrderReplaced] are serialized as b'U' hence it is impossible to distinguish deserialization type unless they are in two different enums.
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]

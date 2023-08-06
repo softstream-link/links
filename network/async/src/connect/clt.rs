@@ -16,7 +16,6 @@ use super::messenger::{into_split_messenger, MsgRecverRef, MsgSenderRef};
 
 use tokio::{spawn, time::sleep};
 
-// type CltSenderRef<P, C, const MMS: usize> = Arc<CltSender<P, C, MMS>>;
 #[derive(Debug)]
 pub struct CltSender<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
     con_id: ConId,
@@ -72,7 +71,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Drop for CltSender<P
 pub struct Clt<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
     con_id: ConId,
     recver: MsgRecverRef<P, P>,
-    sender: MsgSenderRef<P, MMS>, // TODO possibly inject a protocol handler which will automatically reply and or send heartbeat for now keep the warning
+    sender: MsgSenderRef<P, MMS>,
     callback: Arc<C>,
     protocol: Option<Arc<P>>,
 }
@@ -84,6 +83,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
         callback: Arc<C>,
         protocol: Option<Arc<P>>,
         name: Option<&str>,
+        // TODO shall add custom Error type to be able to detect timeout?
     ) -> Result<CltSender<P, C, MMS>, Box<dyn Error + Send + Sync>> {
         assert!(timeout > retry_after);
         let now = Instant::now();
@@ -272,7 +272,7 @@ mod test {
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
             logger,
-            Some(CltMsgProtocol.into()),
+            Some(TestCltMsgProtocol.into()),
             None,
         )
         .await;
