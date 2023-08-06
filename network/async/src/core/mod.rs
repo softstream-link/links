@@ -121,7 +121,7 @@ pub trait Protocol: Clone + Messenger + Framer + Send + Sync + 'static {
     >(
         &'s self,
         clt: &'s Clt<P, C, MMS>,
-    ) -> impl Future<Output = std::result::Result<(), Box<dyn Error + Send + Sync>>> + Send + '_
+    ) -> impl Future<Output = Result<(), Box<dyn Error + Send + Sync>>> + Send + '_
     {
         async { Ok(()) }
     }
@@ -134,7 +134,7 @@ pub trait Protocol: Clone + Messenger + Framer + Send + Sync + 'static {
     >(
         &'s self,
         clt: CltSender<P, C, MMS>,
-    ) -> impl Future<Output = std::result::Result<(), Box<dyn Error + Send + Sync>>> + Send + '_
+    ) -> impl Future<Output = Result<(), Box<dyn Error + Send + Sync>>> + Send + '_
     {
         async { Ok(()) }
     }

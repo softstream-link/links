@@ -1,6 +1,4 @@
-#![feature(async_fn_in_trait)] // TODO remove once stabilized
-// #![feature(associated_type_bounds)]
-// #![feature(return_type_notation)]
+#![feature(async_fn_in_trait)] // TODO remove once async stabilized
 #![feature(return_position_impl_trait_in_trait)]
 
 pub mod connect;

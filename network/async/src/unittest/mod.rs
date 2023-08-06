@@ -168,13 +168,13 @@ pub mod setup {
 
         impl Protocol for TestSvcMsgProtocol {
             async fn handshake<
-                P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
+                P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
                 C: CallbackSendRecv<P>,
                 const MMS: usize,
             >(
                 &self,
                 clt: &Clt<P, C, MMS>,
-            ) -> Result<(), Box<dyn Error + Send + Sync>> {
+            ) -> Result<(), Box<dyn Error+Send+Sync>> {
                 let login = clt.recv().await?;
                 info!("{}<-{:?}", clt.con_id(), login);
                 let auth = TestSvcMsg::Accept(TestSvcMsgLoginAcpt::default());
@@ -183,13 +183,13 @@ pub mod setup {
                 Ok(())
             }
             async fn keep_alive_loop<
-                P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
+                P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
                 C: CallbackSendRecv<P>,
                 const MMS: usize,
             >(
                 &self,
                 clt: CltSender<P, C, MMS>,
-            ) -> Result<(), Box<dyn Error + Send + Sync>> {
+            ) -> Result<(), Box<dyn Error+Send+Sync>> {
                 loop {
                     let mut msg = TestSvcMsg::HBeat(TestHBeatMsgDebug::new(b"svc ping"));
                     clt.send(&mut msg).await?;
@@ -200,13 +200,13 @@ pub mod setup {
 
         impl Protocol for TestCltMsgProtocol {
             async fn handshake<
-                P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
+                P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
                 C: CallbackSendRecv<P>,
                 const MMS: usize,
             >(
                 &self,
                 clt: &Clt<P, C, MMS>,
-            ) -> Result<(), Box<dyn Error + Send + Sync>> {
+            ) -> Result<(), Box<dyn Error+Send+Sync>> {
                 let login = TestCltMsg::Login(TestCltMsgLoginReq::default());
                 clt.send(&login).await?;
 
@@ -222,13 +222,13 @@ pub mod setup {
                 }
             }
             async fn keep_alive_loop<
-                P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
+                P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
                 C: CallbackSendRecv<P>,
                 const MMS: usize,
             >(
                 &self,
                 clt: CltSender<P, C, MMS>,
-            ) -> Result<(), Box<dyn Error + Send + Sync>> {
+            ) -> Result<(), Box<dyn Error+Send+Sync>> {
                 loop {
                     let mut msg = TestCltMsg::HBeat(TestHBeatMsgDebug::new(b"clt ping"));
                     clt.send(&mut msg).await?;

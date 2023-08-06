@@ -57,28 +57,22 @@ pub mod clt {
 
 pub use svc::*;
 pub mod svc {
+    use std::error::Error;
+
     use super::*;
-    #[rustfmt::skip]
+
     #[derive(Debug, Clone)]
     pub struct SBSvcProtocol<PAYLOAD>
-    where 
-        PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
-    { 
-        phantom: std::marker::PhantomData<PAYLOAD> 
-    }
-
-    #[rustfmt::skip]
-    impl<PAYLOAD> SBSvcProtocol<PAYLOAD>
-    where 
-        PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
+    where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
-
+        phantom: std::marker::PhantomData<PAYLOAD>,
     }
 
-    #[rustfmt::skip]
+    impl<PAYLOAD> SBSvcProtocol<PAYLOAD> where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
+    {}
+
     impl<PAYLOAD> Framer for SBSvcProtocol<PAYLOAD>
-    where 
-        PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
+    where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         #[inline]
         fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
@@ -86,20 +80,30 @@ pub mod svc {
         }
     }
 
-    #[rustfmt::skip]
     impl<PAYLOAD> Messenger for SBSvcProtocol<PAYLOAD>
-    where 
-        PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
+    where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         type SendT = SBSvcMsg<PAYLOAD>;
         type RecvT = SBCltMsg<PAYLOAD>;
     }
 
-    #[rustfmt::skip]
     impl<PAYLOAD> Protocol for SBSvcProtocol<PAYLOAD>
-    where 
-        PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
+    where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
-        
+        async fn handshake<
+            P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
+            C: CallbackSendRecv<P>,
+            const MMS: usize,
+        >(
+            &self,
+            clt: &Clt<P, C, MMS>,
+        ) -> Result<(), Box<dyn Error+Send+Sync>> {
+            // let login = clt.recv().await?;
+            // info!("{}<-{:?}", clt.con_id(), login);
+            // let auth = TestSvcMsg::Accept(TestSvcMsgLoginAcpt::default());
+            // clt.send(&auth).await?;
+            // info!("{}->{:?}", clt.con_id(), auth);
+            Ok(())
+        }
     }
 }
