@@ -27,6 +27,7 @@ jobs:
           rustc --version
       - name: Test
         run: |
+          cd links
           cargo nextest run --success-output final
           # cargo test --examples
       # - name: Benchmark
