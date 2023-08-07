@@ -1,25 +1,22 @@
-use links_network_async::{prelude::*, callbacks::devnull::DevNullCallback};
+use links_network_async::{callbacks::devnull::DevNullCallback, prelude::*};
 
 use crate::prelude::*;
 
 // event store
 pub type SBEventStore<PAYLOAD> = EventStore<SBMsg<PAYLOAD>>;
 
-pub type SBCltEvenStoreCallback<PAYLOAD> =
-    EventStoreCallback<SBMsg<PAYLOAD>, SBCltAdminAutoProtocol<PAYLOAD>>;
+pub type SBCltEvenStoreCallback<PAYLOAD, PROTOCOL> = EventStoreCallback<SBMsg<PAYLOAD>, PROTOCOL>;
 
-pub type SBSvcEvenStoreCallback<PAYLOAD> =
-    EventStoreCallback<SBMsg<PAYLOAD>, SBSvcAdminAutoProtocol<PAYLOAD>>;
+pub type SBSvcEvenStoreCallback<PAYLOAD, PROTOCOL> = EventStoreCallback<SBMsg<PAYLOAD>, PROTOCOL>;
 
 // loggers
-// pub type SBCltLoggerCallback<PAYLOAD> = LoggerCallback<SBCltAdminAutoProtocol<PAYLOAD>>;
-pub type SBCltLoggerCallback<M> = LoggerCallback<M>;
-pub type SBSvcLoggerCallback<PAYLOAD> = LoggerCallback<SBSvcAdminAutoProtocol<PAYLOAD>>;
+pub type SBCltLoggerCallback<PROTOCOL> = LoggerCallback<PROTOCOL>;
+pub type SBSvcLoggerCallback<PROTOCOL> = LoggerCallback<PROTOCOL>;
 
 // chain
-pub type SBCltChainCallback<PAYLOAD> = ChainCallback<SBCltAdminAutoProtocol<PAYLOAD>>;
-pub type SBSvcChainCallback<PAYLOAD> = ChainCallback<SBSvcAdminAutoProtocol<PAYLOAD>>;
+pub type SBCltChainCallback<PROTOCOL> = ChainCallback<PROTOCOL>;
+pub type SBSvcChainCallback<PROTOCOL> = ChainCallback<PROTOCOL>;
 
 // dev null
-pub type SBCltDevNullCallback<PAYLOAD> = DevNullCallback<SBCltAdminAutoProtocol<PAYLOAD>>;
-pub type SBSvcDevNullCallback<PAYLOAD> = DevNullCallback<SBSvcAdminAutoProtocol<PAYLOAD>>;
+pub type SBCltDevNullCallback<PROTOCOL> = DevNullCallback<PROTOCOL>;
+pub type SBSvcDevNullCallback<PROTOCOL> = DevNullCallback<PROTOCOL>;

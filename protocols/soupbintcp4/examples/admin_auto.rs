@@ -25,22 +25,22 @@ lazy_static! {
 async fn test_clt_svc() {
     setup::log::configure_at(log::LevelFilter::Info);
     let svc_callback = SBSvcLoggerCallback::new_ref(Level::Error);
-    let svc_admin_protocol = SBSvcAdminAutoProtocol::new_ref(
+    let svc_admin_protocol = SBSvcAdminProtocol::<NoPayload>::new_ref(
         b"abcdef".into(),
         b"1234567890".into(),
         Default::default(),
     );
-    let svc = SBSvcAdminAuto::<NoPayload, _, 128>::bind(
+    let svc = SBSvc::<_, _, 128>::bind(
         *ADDR,
         svc_callback,
-        Some(svc_admin_protocol),
+        svc_admin_protocol,
         Some("venue"),
     )
     .await.unwrap();
     info!("{} started", svc);
 
     let clt_callback = SBCltLoggerCallback::new_ref(Level::Warn);
-    let clt_admin_protocol = SBCltAdminAutoProtocol::<NoPayload>::new_ref(
+    let clt_admin_protocol = SBCltAdminProtocol::<NoPayload>::new_ref(
         b"abcdef".into(),
         b"1234567890".into(),
         Default::default(),

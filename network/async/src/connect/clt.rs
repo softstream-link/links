@@ -86,7 +86,16 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
     ) -> Result<CltSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
         Self::connect_opt_protocol(addr, timeout, retry_after, callback, Some(protocol), name).await
     }
-    pub async fn connect_opt_protocol(
+    pub async fn connect_no_protocol(
+        addr: &str,
+        timeout: Duration,
+        retry_after: Duration,
+        callback: Arc<C>,
+        name: Option<&str>,
+    ) -> Result<CltSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
+        Self::connect_opt_protocol(addr, timeout, retry_after, callback, None, name).await
+    }
+    async fn connect_opt_protocol(
         addr: &str,
         timeout: Duration,
         retry_after: Duration,

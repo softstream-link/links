@@ -106,6 +106,21 @@ where
     pub async fn bind(
         addr: &str,
         callback: Arc<C>,
+        protocol: Arc<P>,
+        name: Option<&str>,
+    ) -> Result<SvcSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
+        Self::bind_opt_protocol(addr, callback, Some(protocol), name).await
+    }
+    pub async fn bind_no_protocol(
+        addr: &str,
+        callback: Arc<C>,
+        name: Option<&str>,
+    ) -> Result<SvcSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
+        Self::bind_opt_protocol(addr, callback, None, name).await
+    }
+    async fn bind_opt_protocol(
+        addr: &str,
+        callback: Arc<C>,
         protocol: Option<Arc<P>>,
         name: Option<&str>,
     ) -> Result<SvcSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
@@ -192,7 +207,7 @@ mod test {
     async fn test_svc_not_connected() {
         setup::log::configure();
         let logger = LoggerCallback::new_ref(Level::Debug);
-        let svc = Svc::<_, _, MMS>::bind(
+        let svc = Svc::<_, _, MMS>::bind_opt_protocol(
             &ADDR,
             Arc::clone(&logger),
             Some(TestSvcMsgProtocol.into()),
@@ -220,7 +235,7 @@ mod test {
         let svc_callback =
             EventStoreCallback::<TestMsg, TestSvcMsgProtocol>::new_ref(event_store.clone());
 
-        let svc = Svc::<_, _, MMS>::bind(
+        let svc = Svc::<_, _, MMS>::bind_opt_protocol(
             &ADDR,
             svc_callback,
             Some(TestSvcMsgProtocol.into()),

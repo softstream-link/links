@@ -1,8 +1,6 @@
 use links_network_async::prelude::*;
 
-use crate::prelude::*;
-
-pub type SBSvcAdminAuto<PAYLOAD, CALLBACK, const MMS: usize> = Svc<SBSvcAdminAutoProtocol<PAYLOAD>, CALLBACK, MMS>;
+pub type SBSvc<PROTOCOL, CALLBACK, const MMS: usize> = Svc<PROTOCOL, CALLBACK, MMS>;
 
 #[cfg(test)]
 mod test {
@@ -26,11 +24,10 @@ mod test {
     #[tokio::test]
     async fn test_svc() {
         setup::log::configure();
-        let callback = SBSvcLoggerCallback::<SamplePayload>::new_ref(Level::Info);
-        let svc = SBSvcAdminAuto::<_, _, MMS>::bind(
+        
+        let svc = SBSvc::<_, _, MMS>::bind_no_protocol(
             setup::net::default_addr(),
-            callback,
-            None,
+            SBSvcLoggerCallback::<SBSvcAdminProtocol<NoPayload>>::new_ref(Level::Info),
             Some("soupbin/unittest"),
         )
         .await
@@ -42,30 +39,28 @@ mod test {
     #[tokio::test]
     async fn test_svc_clt_connection() {
         setup::log::configure();
-        
+
         let event_store = SBEventStore::new_ref();
-        let svc_callback = SBSvcChainCallback::new_ref(vec![
+        let svc_callback = SBSvcChainCallback::<SBSvcAdminProtocol<NoPayload>>::new_ref(vec![
             SBSvcLoggerCallback::new_ref(Level::Info),
             SBSvcEvenStoreCallback::new_ref(Arc::clone(&event_store)),
         ]);
-        let clt_callback = SBCltChainCallback::new_ref(vec![
+        let clt_callback = SBCltChainCallback::<SBCltAdminProtocol<NoPayload>>::new_ref(vec![
             SBCltLoggerCallback::new_ref(Level::Info),
             SBCltEvenStoreCallback::new_ref(Arc::clone(&event_store)),
         ]);
 
-        let svc =
-            SBSvcAdminAuto::<NoPayload, _, MMS>::bind(*ADDR, svc_callback, None, Some("soupbin/venue"))
-                .await
-                .unwrap();
+        let svc = SBSvc::<_, _, MMS>::bind_no_protocol(*ADDR, svc_callback, Some("soupbin/venue"))
+            .await
+            .unwrap();
 
         info!("{} started", svc);
 
-        let clt = SBClt::<SBCltAdminAutoProtocol<NoPayload>, _, MMS>::connect_opt_protocol(
+        let clt = SBClt::<_, _, MMS>::connect_no_protocol(
             *ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,
             clt_callback,
-            None,
             Some("soupbin/broker"),
         )
         .await

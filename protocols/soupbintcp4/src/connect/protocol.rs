@@ -11,7 +11,7 @@ pub mod clt {
     use super::*;
 
     #[derive(Debug, Clone)]
-    pub struct SBCltAdminAutoProtocol<PAYLOAD>
+    pub struct SBCltAdminProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         username: UserName,
@@ -22,7 +22,7 @@ pub mod clt {
         phantom: std::marker::PhantomData<PAYLOAD>,
     }
 
-    impl<PAYLOAD> SBCltAdminAutoProtocol<PAYLOAD>
+    impl<PAYLOAD> SBCltAdminProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         #[rustfmt::skip]
@@ -31,7 +31,7 @@ pub mod clt {
         }
     }
 
-    impl<PAYLOAD> Framer for SBCltAdminAutoProtocol<PAYLOAD>
+    impl<PAYLOAD> Framer for SBCltAdminProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         #[inline]
@@ -40,14 +40,14 @@ pub mod clt {
         }
     }
 
-    impl<PAYLOAD> Messenger for SBCltAdminAutoProtocol<PAYLOAD>
+    impl<PAYLOAD> Messenger for SBCltAdminProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         type SendT = SBCltMsg<PAYLOAD>;
         type RecvT = SBSvcMsg<PAYLOAD>;
     }
 
-    impl<PAYLOAD> Protocol for SBCltAdminAutoProtocol<PAYLOAD>
+    impl<PAYLOAD> Protocol for SBCltAdminProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         async fn handshake<
@@ -78,7 +78,7 @@ pub mod svc {
     use super::*;
 
     #[derive(Debug, Clone)]
-    pub struct SBSvcAdminAutoProtocol<PAYLOAD>
+    pub struct SBSvcAdminProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         username: UserName,
@@ -87,7 +87,7 @@ pub mod svc {
         phantom: std::marker::PhantomData<PAYLOAD>,
     }
 
-    impl<PAYLOAD> SBSvcAdminAutoProtocol<PAYLOAD>
+    impl<PAYLOAD> SBSvcAdminProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         #[rustfmt::skip]
@@ -96,7 +96,7 @@ pub mod svc {
         }
     }
 
-    impl<PAYLOAD> Framer for SBSvcAdminAutoProtocol<PAYLOAD>
+    impl<PAYLOAD> Framer for SBSvcAdminProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         #[inline]
@@ -105,14 +105,14 @@ pub mod svc {
         }
     }
 
-    impl<PAYLOAD> Messenger for SBSvcAdminAutoProtocol<PAYLOAD>
+    impl<PAYLOAD> Messenger for SBSvcAdminProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         type SendT = SBSvcMsg<PAYLOAD>;
         type RecvT = SBCltMsg<PAYLOAD>;
     }
 
-    impl<PAYLOAD> Protocol for SBSvcAdminAutoProtocol<PAYLOAD>
+    impl<PAYLOAD> Protocol for SBSvcAdminProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         async fn handshake<
