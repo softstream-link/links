@@ -9,13 +9,13 @@ jobs:
   push:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: taiki-e/install-action@nextest
       - uses: actions/checkout@v3 # TODO remove this line after byteserde release
         with:
           repository: 'softstream-link/byteserde'
           ref: 'v4'
+      - uses: actions/checkout@v3 # this will checkout current project
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@nextest
       - name: Toolchain Info
         run: |
           cargo --version --verbose
