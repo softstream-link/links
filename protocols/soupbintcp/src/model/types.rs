@@ -47,9 +47,30 @@ pub mod field_types{
 
     string_ascii_fixed!(TimeoutMs, 5, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     impl From<u16> for TimeoutMs{ fn from(v: u16) -> Self { v.to_string().as_bytes().into() } }
+    impl From<TimeoutMs> for u64 {
+        fn from(v: TimeoutMs) -> Self {
+            let s = std::str::from_utf8(v.as_slice()).expect(&format!("Failed to convert {:?} to u64", v)).trim();
+            s.parse::<u64>().expect(&format!("Failed to convert {:?} to u64", v))
+        } 
+    }
     impl Default for TimeoutMs{
         fn default() -> Self {
             1000u16.into()
+        }
+    }
+    #[cfg(test)]
+    mod test{
+        use log::info;
+        use links_testing::unittest::setup;
+        use super::TimeoutMs;
+
+        #[test]
+        fn test_sequence_number(){
+            setup::log::configure();
+            let t = TimeoutMs::default();
+            let millis: u64 = t.into();
+            info!("millis: {}", millis);
+            assert_eq!(millis, 1000);
         }
     }
     string_ascii_fixed!(UserName, 6, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);

@@ -204,7 +204,7 @@ mod test {
     #[tokio::test]
     async fn test_svc_not_connected() {
         setup::log::configure();
-        let logger = LoggerCallback::new_ref(Level::Debug);
+        let logger = LoggerCallback::new_ref(Level::Debug, Level::Debug);
         let svc = Svc::<_, _, MMS>::bind(
             &ADDR,
             Arc::clone(&logger),

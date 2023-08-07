@@ -5,7 +5,7 @@ pub type SBClt<PROTOCOL, CALLBACK, const MMS: usize> = Clt<PROTOCOL, CALLBACK, M
 #[cfg(test)]
 mod test {
 
-    use log::info;
+    use log::{info, Level};
 
     use crate::prelude::*;
     use links_testing::unittest::setup;
@@ -18,7 +18,7 @@ mod test {
             &setup::net::default_addr(),
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
-            SBCltLoggerCallback::<SBCltAdminProtocol<SamplePayload>>::new_ref(log::Level::Info),
+            SBCltLoggerCallback::<SBCltAdminProtocol<SamplePayload>>::new_ref(Level::Info, Level::Info),
             Some("soupbin/unittest"),
         )
         .await;

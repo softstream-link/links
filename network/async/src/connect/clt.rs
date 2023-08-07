@@ -299,7 +299,7 @@ mod test {
     async fn test_clt_not_connected() {
         setup::log::configure();
 
-        let logger = LoggerCallback::new(Level::Debug).into();
+        let logger = LoggerCallback::new(Level::Debug, Level::Debug).into();
         let clt = Clt::<_, _, 128>::connect(
             setup::net::default_addr(),
             setup::net::default_connect_timeout(),

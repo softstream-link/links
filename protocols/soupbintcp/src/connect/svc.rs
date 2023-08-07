@@ -27,7 +27,7 @@ mod test {
         
         let svc = SBSvc::<_, _, MMS>::bind_no_protocol(
             setup::net::default_addr(),
-            SBSvcLoggerCallback::<SBSvcAdminProtocol<NoPayload>>::new_ref(Level::Info),
+            SBSvcLoggerCallback::<SBSvcAdminProtocol<NoPayload>>::new_ref(Level::Info, Level::Info),
             Some("soupbin/unittest"),
         )
         .await
@@ -42,11 +42,11 @@ mod test {
 
         let event_store = SBEventStore::new_ref();
         let svc_callback = SBSvcChainCallback::<SBSvcAdminProtocol<NoPayload>>::new_ref(vec![
-            SBSvcLoggerCallback::new_ref(Level::Info),
+            SBSvcLoggerCallback::new_ref(Level::Info, Level::Info),
             SBSvcEvenStoreCallback::new_ref(Arc::clone(&event_store)),
         ]);
         let clt_callback = SBCltChainCallback::<SBCltAdminProtocol<NoPayload>>::new_ref(vec![
-            SBCltLoggerCallback::new_ref(Level::Info),
+            SBCltLoggerCallback::new_ref(Level::Info, Level::Info),
             SBCltEvenStoreCallback::new_ref(Arc::clone(&event_store)),
         ]);
 

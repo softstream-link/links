@@ -11,43 +11,50 @@ use super::CallbackSendRecv;
 
 #[derive(Debug)]
 pub struct LoggerCallback<M: Messenger> {
-    level: Level,
+    level_recv: Level,
+    level_send: Level,
     p1: std::marker::PhantomData<M>,
 }
 impl<M: Messenger> Default for LoggerCallback<M> {
     fn default() -> Self {
         Self {
-            level: Level::Info,
+            level_recv: Level::Info,
+            level_send: Level::Info,
             p1: std::marker::PhantomData,
         }
     }
 }
 
 impl<M: Messenger> LoggerCallback<M> {
-    pub fn new(level: Level) -> Self {
+    pub fn new(level_recv: Level, level_send: Level) -> Self {
         Self {
-            level,
+            level_recv: level_recv,
+            level_send: level_send,
             p1: std::marker::PhantomData,
         }
     }
-    pub fn new_ref(level: Level) -> Arc<Self> {
-        Arc::new(Self::new(level))
+    pub fn new_ref(level_recv: Level, level_send: Level) -> Arc<Self> {
+        Arc::new(Self::new(level_recv, level_send))
     }
 }
 
 impl<M: Messenger> Display for LoggerCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "LoggerCallback<{}>", self.level)
+        write!(
+            f,
+            "LoggerCallback<recv: {}, send: {}>",
+            self.level_recv, self.level_send
+        )
     }
 }
 
 impl<M: Messenger> CallbackSendRecv<M> for LoggerCallback<M> {
     fn on_recv(&self, con_id: &ConId, msg: M::RecvT) {
-        if !log_enabled!(self.level) {
+        if !log_enabled!(self.level_recv) {
             return;
         }
         let text = format!("LoggerCallback::on_recv {} {:?}", con_id, msg);
-        match self.level {
+        match self.level_recv {
             Level::Error => error!("{}", text),
             Level::Warn => warn!("{}", text),
             Level::Info => info!("{}", text),
@@ -56,11 +63,11 @@ impl<M: Messenger> CallbackSendRecv<M> for LoggerCallback<M> {
         }
     }
     fn on_send(&self, con_id: &ConId, msg: &M::SendT) {
-        if !log_enabled!(self.level) {
+        if !log_enabled!(self.level_send) {
             return;
         }
         let text = format!("LoggerCallback::on_send {} {:?}", con_id, msg);
-        match self.level {
+        match self.level_send {
             Level::Error => error!("{}", text),
             Level::Warn => warn!("{}", text),
             Level::Info => info!("{}", text),
@@ -82,7 +89,7 @@ mod test {
     #[test]
     fn test_event_log() {
         setup::log::configure_at(log::LevelFilter::Trace);
-        let log = LoggerCallback::<TestCltMsgProtocol>::new_ref(Level::Trace);
+        let log = LoggerCallback::<TestCltMsgProtocol>::new_ref(Level::Trace, Level::Trace);
 
         for _ in 0..2 {
             let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
