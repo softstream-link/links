@@ -14,7 +14,7 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - uses: actions/checkout@v3 # TODO remove this line after byteserde release
         with:
-          repository: 'https://github.com/softstream-link/byteserde.git'
+          repository: 'softstream-link/byteserde'
           ref: 'v4'
       - name: Toolchain Info
         run: |
