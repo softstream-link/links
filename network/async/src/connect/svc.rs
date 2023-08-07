@@ -199,18 +199,16 @@ mod test {
 
     lazy_static! {
         static ref ADDR: &'static str = setup::net::default_addr();
-        static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
-        static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
     }
     const MMS: usize = 128;
     #[tokio::test]
     async fn test_svc_not_connected() {
         setup::log::configure();
         let logger = LoggerCallback::new_ref(Level::Debug);
-        let svc = Svc::<_, _, MMS>::bind_opt_protocol(
+        let svc = Svc::<_, _, MMS>::bind(
             &ADDR,
             Arc::clone(&logger),
-            Some(TestSvcMsgProtocol.into()),
+            TestSvcMsgProtocol.into(),
             Some("unittest"),
         )
         .await
@@ -235,10 +233,10 @@ mod test {
         let svc_callback =
             EventStoreCallback::<TestMsg, TestSvcMsgProtocol>::new_ref(event_store.clone());
 
-        let svc = Svc::<_, _, MMS>::bind_opt_protocol(
+        let svc = Svc::<_, _, MMS>::bind(
             &ADDR,
             svc_callback,
-            Some(TestSvcMsgProtocol.into()),
+            TestSvcMsgProtocol.into(),
             Some("venue"),
         )
         .await
@@ -246,12 +244,12 @@ mod test {
 
         info!("{} sender ready", svc);
 
-        let clt = Clt::<_, _, MMS>::connect_opt_protocol(
+        let clt = Clt::<_, _, MMS>::connect(
             &ADDR,
-            *CONNECT_TIMEOUT,
-            *RETRY_AFTER,
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
             clt_callback,
-            Some(TestCltMsgProtocol.into()),
+            TestCltMsgProtocol.into(),
             Some("broker"),
         )
         .await

@@ -9,7 +9,7 @@ byteserde_derive = { workspace = true }
 byteserde_types = { workspace = true }
 
 # bytes = { workspace = true }
-links_soupbintcp4 = { workspace = true }
+links_soupbintcp = { workspace = true }
 
 chrono = { workspace = true }
 tokio = { workspace = true }

@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "protocols/soupbintcp4",
+    "protocols/soupbintcp",
     "protocols/ouch5",
     "network/async",
     "testing",
@@ -23,4 +23,4 @@ tokio-test = "0.4.2"
 lazy_static = "1.4.0"
 
 links_testing = { path = "./testing", features = ["unittest"] }
-links_soupbintcp4 = { path = "./protocols/soupbintcp4" }
+links_soupbintcp = { path = "./protocols/soupbintcp" }

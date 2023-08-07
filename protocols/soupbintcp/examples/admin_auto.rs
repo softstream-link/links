@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use lazy_static::lazy_static;
-use links_soupbintcp4::prelude::*;
+use links_soupbintcp::prelude::*;
 use links_testing::unittest::setup;
 use log::{info, error, Level};
 
@@ -35,8 +35,9 @@ async fn test_clt_svc() {
     info!("{} started", svc);
 
     
-    info!("**********************************  PASS  **********************************");
     let clt_cb = SBCltLoggerCallback::new_ref(Level::Info);
+
+    info!("\n**********************************  AUTH OK  **********************************\n");
     let clt_pr = SBCltAdminProtocol::<NoPayload>::new_ref(
         b"abcdef".into(),
         b"++++++++++".into(),
@@ -53,7 +54,7 @@ async fn test_clt_svc() {
     drop(clt);
     
     
-    info!("**********************************  AUTH ERROR  **********************************");
+    info!("\n**********************************  AUTH ERROR  **********************************\n");
     let clt_pr = SBCltAdminProtocol::<NoPayload>::new_ref(
         b"abcdef".into(),
         b"----------".into(),

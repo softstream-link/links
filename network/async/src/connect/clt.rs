@@ -284,23 +284,28 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Drop for Clt<P, C, M
 #[cfg(test)]
 mod test {
 
+    use lazy_static::lazy_static;
     use log::{info, Level};
 
     use super::*;
     use crate::unittest::setup::protocol::*;
     use links_testing::unittest::setup;
 
+    lazy_static! {
+        static ref ADDR: &'static str = setup::net::default_addr();
+    }
     #[tokio::test]
+    // #[ignore] // TODO fails because it managers to connect to another test
     async fn test_clt_not_connected() {
         setup::log::configure();
 
         let logger = LoggerCallback::new(Level::Debug).into();
-        let clt = Clt::<_, _, 128>::connect_opt_protocol(
-            &setup::net::default_addr(),
+        let clt = Clt::<_, _, 128>::connect(
+            setup::net::default_addr(),
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
             logger,
-            Some(TestCltMsgProtocol.into()),
+            TestCltMsgProtocol.into(),
             None,
         )
         .await;
