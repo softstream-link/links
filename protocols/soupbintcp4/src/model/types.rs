@@ -25,7 +25,7 @@ pub mod packet_types{
 #[rustfmt::skip]
 pub mod field_types{
     use super::*;
-    use byteserde_types::string_ascii_fixed;
+    use byteserde_types::{string_ascii_fixed, char_ascii};
 
     string_ascii_fixed!(SessionId, 10, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     impl Default for SessionId{
@@ -54,5 +54,6 @@ pub mod field_types{
     }
     string_ascii_fixed!(UserName, 6, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     string_ascii_fixed!(Password, 10, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
-
+    
+    char_ascii!(RejectReason, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
 }

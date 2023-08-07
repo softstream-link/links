@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::prelude::*;
-use log::{debug, error};
+use log::{debug, error, info};
 use tokio::net::TcpStream;
 
 use super::messenger::{into_split_messenger, MsgRecverRef, MsgSenderRef};
@@ -150,9 +150,9 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
             protocol: protocol.clone(),
         };
 
-        // run protocol specific handshake sequence
         // TODO run in a task with time out per spec
         if let Some(ref protocol) = protocol {
+            // run protocol specific handshake sequence
             protocol.handshake(&clt).await?;
         }
 
@@ -160,11 +160,11 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
         let mut abort_handles = vec![spawn({
             let con_id = con_id.clone();
             async move {
-                debug!("{} recv stream started", con_id);
+                info!("{} recv stream started", con_id);
                 let res = Self::recv_loop(clt).await;
                 match res {
                     Ok(()) => {
-                        debug!("{} recv stream EOF", con_id);
+                        info!("{} recv stream EOF", con_id);
                     }
                     Err(e) => {
                         error!("{} recv stream error: {:?}", con_id, e);

@@ -1,10 +1,9 @@
-use std::{time::Duration, };
+use std::time::Duration;
 
 use lazy_static::lazy_static;
-use links_network_async::prelude::Clt;
 use links_soupbintcp4::prelude::*;
 use links_testing::unittest::setup;
-use log::{info, Level};
+use log::{info, error, Level};
 
 #[tokio::test]
 async fn test() {
@@ -18,51 +17,53 @@ async fn main() {
 
 lazy_static! {
     static ref ADDR: &'static str = setup::net::default_addr();
-    static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
-    static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
+    static ref TMOUT: Duration = setup::net::default_connect_timeout();
+    static ref RETRY: Duration = setup::net::default_connect_retry_after();
 }
-
+const MMS: usize = MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
 async fn test_clt_svc() {
     setup::log::configure_at(log::LevelFilter::Info);
-    let svc_callback = SBSvcLoggerCallback::new_ref(Level::Error);
+    let svc_callback = SBSvcLoggerCallback::new_ref(Level::Info);
     let svc_admin_protocol = SBSvcAdminProtocol::<NoPayload>::new_ref(
         b"abcdef".into(),
-        b"1234567890".into(),
+        b"++++++++++".into(),
         Default::default(),
     );
-    let svc = SBSvc::<_, _, 128>::bind(
-        *ADDR,
-        svc_callback,
-        svc_admin_protocol,
-        Some("venue"),
-    )
-    .await.unwrap();
+    let svc = SBSvc::<_, _, MMS>::bind(*ADDR, svc_callback, svc_admin_protocol, Some("venue"))
+        .await
+        .unwrap();
     info!("{} started", svc);
 
-    let clt_callback = SBCltLoggerCallback::new_ref(Level::Warn);
-    let clt_admin_protocol = SBCltAdminProtocol::<NoPayload>::new_ref(
+    
+    info!("**********************************  PASS  **********************************");
+    let clt_cb = SBCltLoggerCallback::new_ref(Level::Info);
+    let clt_pr = SBCltAdminProtocol::<NoPayload>::new_ref(
         b"abcdef".into(),
-        b"1234567890".into(),
+        b"++++++++++".into(),
         Default::default(),
         Default::default(),
         Default::default(),
     );
-    let clt = Clt::<_, _, 128>::connect(
-        *ADDR,
-        *CONNECT_TIMEOUT,
-        *RETRY_AFTER,
-        clt_callback,
-        clt_admin_protocol,
-        Some("broker"),
-    ).await.unwrap();
-    // let clt = SBCltAdminAuto::<NoPayload, _, 128>::connect_opt_protocol(
-    //     *ADDR,
-    //     *CONNECT_TIMEOUT,
-    //     *RETRY_AFTER,
-    //     clt_callback,
-    //     Some(clt_admin_protocol),
-    //     Some("broker"),
-    // ).await.unwrap();
+    let clt =
+        SBClt::<_, _, MMS>::connect(*ADDR, *TMOUT, *RETRY, clt_cb.clone(), clt_pr, Some("clt-pass")).await;
+
+    assert!(clt.is_ok());
+    let clt = clt.unwrap();
     info!("{} started", clt);
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    drop(clt);
+    
+    
+    info!("**********************************  AUTH ERROR  **********************************");
+    let clt_pr = SBCltAdminProtocol::<NoPayload>::new_ref(
+        b"abcdef".into(),
+        b"----------".into(),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+    );
+    let clt =
+        SBClt::<_, _, MMS>::connect(*ADDR, *TMOUT, *RETRY, clt_cb.clone(), clt_pr, Some("clt-fail")).await;
+    assert!(clt.is_err());
+    error!("{} failed", clt.unwrap_err());
+
 }

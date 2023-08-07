@@ -63,10 +63,10 @@ pub mod clt {
             let msg = clt.recv().await?;
             match msg {
                 Some(SBSvcMsg::LoginAcc(_)) => return Ok(()),
-                Some(SBSvcMsg::LoginRej(rej)) => {
-                    return Err(format!("{} Login Rejected: {:?}", clt.con_id(), rej).into())
+                Some(SBSvcMsg::LoginRej(msg)) => {
+                    return Err(format!("{} msg: {:?}", clt.con_id(), msg).into())
                 }
-                _ => return Err(format!("{} Unexpected message: {:?}", clt.con_id(), msg).into()),
+                _ => return Err(format!("{} Unexpected msg: {:?}", clt.con_id(), msg).into()),
             }
         }
     }
