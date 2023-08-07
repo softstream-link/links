@@ -2,7 +2,7 @@ use links_network_async::prelude::*;
 
 use crate::prelude::*;
 
-pub type SBSvc<PAYLOAD, CALLBACK, const MMS: usize> = Svc<SBSvcAdminAutoProtocol<PAYLOAD>, CALLBACK, MMS>;
+pub type SBSvcAdminAuto<PAYLOAD, CALLBACK, const MMS: usize> = Svc<SBSvcAdminAutoProtocol<PAYLOAD>, CALLBACK, MMS>;
 
 #[cfg(test)]
 mod test {
@@ -27,7 +27,7 @@ mod test {
     async fn test_svc() {
         setup::log::configure();
         let callback = SBSvcLoggerCallback::<SamplePayload>::new_ref(Level::Info);
-        let svc = SBSvc::<_, _, MMS>::bind(
+        let svc = SBSvcAdminAuto::<_, _, MMS>::bind(
             setup::net::default_addr(),
             callback,
             None,
@@ -54,13 +54,13 @@ mod test {
         ]);
 
         let svc =
-            SBSvc::<NoPayload, _, MMS>::bind(*ADDR, svc_callback, None, Some("soupbin/venue"))
+            SBSvcAdminAuto::<NoPayload, _, MMS>::bind(*ADDR, svc_callback, None, Some("soupbin/venue"))
                 .await
                 .unwrap();
 
         info!("{} started", svc);
 
-        let clt = SBClt::<NoPayload, _, MMS>::connect(
+        let clt = SBClt::<SBCltAdminAutoProtocol<NoPayload>, _, MMS>::connect_opt_protocol(
             *ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,

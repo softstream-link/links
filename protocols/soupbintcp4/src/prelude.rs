@@ -29,9 +29,9 @@ pub use crate::model::types::*;
 // connect
 pub use crate::connect::clt::SBClt;
 pub use crate::connect::framing::SoupBinFramer;
-pub use crate::connect::protocol::SBCltProtocol;
+pub use crate::connect::protocol::SBCltAdminAutoProtocol;
 pub use crate::connect::protocol::SBSvcAdminAutoProtocol;
-pub use crate::connect::svc::SBSvc;
+pub use crate::connect::svc::SBSvcAdminAuto;
 
 // callbacks
 // // store

@@ -33,14 +33,14 @@ where
 {
     header: SequencedDataHeader,
     #[byteserde(deplete ( header.packet_length as usize - 1 ))]
-    body: T,
+    payload: T,
 }
 #[rustfmt::skip]
 impl<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + Debug> SequencedData<T>
 {
     pub fn new(body: T) -> SequencedData<T> {
         let header = SequencedDataHeader::new((body.byte_len() + 1) as u16);
-        SequencedData { header, body }
+        SequencedData { header, payload: body }
     }
 }
 

@@ -3,8 +3,7 @@ pub use packet_types::*;
 
 use byteserde::prelude::*;
 use byteserde_derive::{
-    ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf,
-    ByteSerializedSizeOf,
+    ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf, ByteSerializedSizeOf,
 };
 
 #[rustfmt::skip]
@@ -31,16 +30,18 @@ pub mod field_types{
     string_ascii_fixed!(SessionId, 10, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     impl Default for SessionId{
         fn default() -> Self {
-            b"#1".as_slice().into()
+            // all banks to log into the currently active session
+            b"          ".into()
         }
     }
 
+    // TODO add docs https://stackoverflow.com/questions/33999341/generating-documentation-in-macros
     string_ascii_fixed!(SequenceNumber, 20, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     impl From<u64> for SequenceNumber{ fn from(v: u64) -> Self { v.to_string().as_bytes().into()} }
-    impl From<i32> for SequenceNumber{ fn from(v: i32) -> Self { if v <=0 { panic!("sequence number must be positive")} v.to_string().as_bytes().into() } }
     impl Default for SequenceNumber{
         fn default() -> Self {
-            b"0".as_slice().into() // TODO check if 0 is acceptable
+            // 0 to start receiving the most recently generated message
+            b"0".as_slice().into()
         }
     }
 

@@ -24,25 +24,18 @@ where
     C: CallbackSendRecv<P>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO include porotocl name with payload
-        let msg_name = type_name::<P>().split("::").last().unwrap_or("Unknown");
-        let msg_name = type_name::<P>();
-        let clb_name = type_name::<C>()
-            .split('<')
-            .next()
-            .unwrap_or("Unknown")
-            .split("::")
-            .last()
-            .unwrap_or("Unknown");
-        let con_name = match &self.con_id {
-            ConId::Svc { name, local, .. } => format!("Svc({}@{})", name, local),
-            _ => panic!("SvcSender has Invalid ConId: {:?}", self.con_id),
+        #[rustfmt::skip]
+        let name = {
+            let mut protocol_full_name = type_name::<P>().split(['<','>']);
+            format!("{} SvcSender<{}<{}>, {}, {}>", 
+                match &self.con_id {ConId::Svc { name, local, .. } => format!("Svc({}@{})", name, local), _ => panic!("SvcSender has Invalid ConId: {:?}", self.con_id),},
+                protocol_full_name.next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"), 
+                protocol_full_name.next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"),
+                type_name::<C>().split('<').next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"),
+                MMS,
+            )
         };
-        write!(
-            f,
-            "{} SvcSender<{}, {}, {}>",
-            con_name, msg_name, clb_name, MMS
-        )
+        write!(f, "{}", name)
     }
 }
 
@@ -238,7 +231,7 @@ mod test {
 
         info!("{} sender ready", svc);
 
-        let clt = Clt::<_, _, MMS>::connect(
+        let clt = Clt::<_, _, MMS>::connect_opt_protocol(
             &ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,

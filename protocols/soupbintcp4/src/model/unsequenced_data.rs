@@ -31,7 +31,7 @@ where
 {
     header: UnsequencedDataHeader,
     #[byteserde(deplete ( header.packet_length as usize - 1 ))]
-    body: T,
+    payload: T,
 }
 #[rustfmt::skip]
 impl<T> UnsequencedData<T>
@@ -40,7 +40,7 @@ where
 {
     pub fn new(body: T) -> UnsequencedData<T> {
         let header = UnsequencedDataHeader::new((body.byte_len() + 1) as u16);
-        UnsequencedData { header, body }
+        UnsequencedData { header, payload: body }
     }
 }
 

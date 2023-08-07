@@ -23,7 +23,7 @@ mod test {
     async fn test_clt() {
         setup::log::configure();
         let callback = SBCltLoggerCallback::<Ouch5Inb>::default();
-        let clt = Ouch5Clt::connect(
+        let clt = Ouch5Clt::connect_opt_protocol(
             &ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,

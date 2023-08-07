@@ -81,6 +81,16 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
         timeout: Duration,
         retry_after: Duration,
         callback: Arc<C>,
+        protocol: Arc<P>,
+        name: Option<&str>,
+    ) -> Result<CltSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
+        Self::connect_opt_protocol(addr, timeout, retry_after, callback, Some(protocol), name).await
+    }
+    pub async fn connect_opt_protocol(
+        addr: &str,
+        timeout: Duration,
+        retry_after: Duration,
+        callback: Arc<C>,
         protocol: Option<Arc<P>>,
         name: Option<&str>,
         // TODO shall add custom Error type to be able to detect timeout?
@@ -132,6 +142,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
         };
 
         // run protocol specific handshake sequence
+        // TODO run in a task with time out per spec
         if let Some(ref protocol) = protocol {
             protocol.handshake(&clt).await?;
         }
@@ -275,7 +286,7 @@ mod test {
         setup::log::configure();
 
         let logger = LoggerCallback::new(Level::Debug).into();
-        let clt = Clt::<_, _, 128>::connect(
+        let clt = Clt::<_, _, 128>::connect_opt_protocol(
             &setup::net::default_addr(),
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),

@@ -1,35 +1,38 @@
-use std::fmt::Debug;
-
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
 use links_network_async::prelude::*;
+use std::fmt::Debug;
+use std::{error::Error, sync::Arc};
 
 use crate::prelude::*;
 
 pub use clt::*;
 pub mod clt {
     use super::*;
-    #[rustfmt::skip]
+
     #[derive(Debug, Clone)]
-    pub struct SBCltProtocol<PAYLOAD>
-    where 
-        PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
-    { 
-        phantom: std::marker::PhantomData<PAYLOAD> 
-    }
-
-    #[rustfmt::skip]
-    impl<PAYLOAD> SBCltProtocol<PAYLOAD>
-    where 
-        PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
+    pub struct SBCltAdminAutoProtocol<PAYLOAD>
+    where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
-
+        username: UserName,
+        password: Password,
+        session_id: SessionId,
+        sequence_number: SequenceNumber,
+        hbeat_timeout: TimeoutMs,
+        phantom: std::marker::PhantomData<PAYLOAD>,
     }
 
-    #[rustfmt::skip]
-    impl<PAYLOAD> Framer for SBCltProtocol<PAYLOAD>
-    where 
-        PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
+    impl<PAYLOAD> SBCltAdminAutoProtocol<PAYLOAD>
+    where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
+    {
+        #[rustfmt::skip]
+        pub fn new_ref(username: UserName, password: Password, session_id: SessionId, sequence_number: SequenceNumber, hbeat_timeout: TimeoutMs) -> Arc<Self> {
+            Arc::new(Self {username, password, session_id, sequence_number, hbeat_timeout, phantom: std::marker::PhantomData,})
+        }
+    }
+
+    impl<PAYLOAD> Framer for SBCltAdminAutoProtocol<PAYLOAD>
+    where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         #[inline]
         fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
@@ -37,29 +40,40 @@ pub mod clt {
         }
     }
 
-    #[rustfmt::skip]
-    impl<PAYLOAD> Messenger for SBCltProtocol<PAYLOAD>
-    where 
-        PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
+    impl<PAYLOAD> Messenger for SBCltAdminAutoProtocol<PAYLOAD>
+    where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
         type SendT = SBCltMsg<PAYLOAD>;
         type RecvT = SBSvcMsg<PAYLOAD>;
     }
 
-    #[rustfmt::skip]
-    impl<PAYLOAD> Protocol for SBCltProtocol<PAYLOAD>
-    where 
-        PAYLOAD: ByteDeserializeSlice<PAYLOAD> + ByteSerializeStack + ByteSerializedLenOf + PartialEq + Debug + Clone + Send + Sync + 'static,
+    impl<PAYLOAD> Protocol for SBCltAdminAutoProtocol<PAYLOAD>
+    where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
-        
+        async fn handshake<
+            P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
+            C: CallbackSendRecv<P>,
+            const MMS: usize,
+        >(
+            &self,
+            clt: &Clt<P, C, MMS>,
+        ) -> Result<(), Box<dyn Error+Send+Sync>> {
+            #[rustfmt::skip]
+            clt.send(&mut SBCltMsg::login(self.username, self.password, self.session_id, self.sequence_number,self.hbeat_timeout,)).await?;
+            let msg = clt.recv().await?;
+            match msg {
+                Some(SBSvcMsg::LoginAcc(_)) => return Ok(()),
+                Some(SBSvcMsg::LoginRej(rej)) => {
+                    return Err(format!("{} Login Rejected: {:?}", clt.con_id(), rej).into())
+                }
+                _ => return Err(format!("{} Unexpected message: {:?}", clt.con_id(), msg).into()),
+            }
+        }
     }
 }
 
 pub use svc::*;
 pub mod svc {
-    use std::{any::type_name, error::Error, sync::Arc};
-
-    use log::info;
 
     use super::*;
 
@@ -70,23 +84,15 @@ pub mod svc {
         username: UserName,
         password: Password,
         session_id: SessionId,
-        sequence_number: Option<SequenceNumber>,
-        hbeat_timeout: Option<TimeoutMs>,
         phantom: std::marker::PhantomData<PAYLOAD>,
     }
 
     impl<PAYLOAD> SBSvcAdminAutoProtocol<PAYLOAD>
     where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
     {
+        #[rustfmt::skip]
         pub fn new_ref(username: UserName, password: Password, session_id: SessionId) -> Arc<Self> {
-            Arc::new(Self {
-                username,
-                password,
-                session_id,
-                sequence_number: None,
-                hbeat_timeout: None,
-                phantom: std::marker::PhantomData,
-            })
+            Arc::new(Self { username, password, session_id, phantom: std::marker::PhantomData,})
         }
     }
 
@@ -118,17 +124,18 @@ pub mod svc {
             clt: &Clt<P, C, MMS>,
         ) -> Result<(), Box<dyn Error+Send+Sync>> {
             let msg = clt.recv().await?;
-            if let Some(SBCltMsg::Login(login_req)) = msg {
-                info!("{}<-{:?}", clt.con_id(), login_req);
-                if (login_req.username != self.username) || (login_req.password != self.password) {
+            if let Some(SBCltMsg::Login(req)) = msg {
+                // info!("{}<-{:?}", clt.con_id(), req);
+                if (req.username != self.username) || (req.password != self.password) {
                     clt.send(&mut SBSvcMsg::login_rej_not_auth()).await?;
                     return Err(format!("{} Not Authorized", clt.con_id()).into());
                 }
-                if login_req.session_id != self.session_id {
+                if req.session_id != self.session_id {
                     clt.send(&mut SBSvcMsg::login_rej_ses_not_avail()).await?;
-                    return Err(format!("{} No Session Avail", clt.con_id()).into());
+                    #[rustfmt::skip]  return Err(format!("{} '{}' No Session Avail", clt.con_id(),req.session_id).into());
                 }
-                clt.send(&mut SBSvcMsg::login_acc(self.session_id, 1.into()))
+                // TODO what is correct sequence number to send ?
+                clt.send(&mut SBSvcMsg::login_acc(self.session_id, 0.into()))
                     .await?;
             } else {
                 #[rustfmt::skip] return Err(format!("{} Invalid Handshake unexpected msg: {:?}", clt.con_id(), msg).into());

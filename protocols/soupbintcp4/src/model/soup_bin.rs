@@ -27,8 +27,8 @@ pub enum SBCltMsg<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializ
 }
 #[rustfmt::skip]
 impl<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug> SBCltMsg<T> {
-    pub fn login(username: UserName, password: Password, id: Option<SessionId>, num: Option<SequenceNumber>, tmout: Option<TimeoutMs>) -> Self { 
-        Self::Login( LoginRequest::new(username, password, id.unwrap_or_default(), num.unwrap_or_default(),tmout.unwrap_or_default())) 
+    pub fn login(username: UserName, password: Password, session_id: SessionId, sequence_number: SequenceNumber, hbeat_timeout: TimeoutMs) -> Self { 
+        Self::Login( LoginRequest::new(username, password, session_id, sequence_number,hbeat_timeout)) 
     }
     pub fn logout() -> Self { SBCltMsg::Logout(LogoutRequest::default()) }
     pub fn hbeat() -> Self { SBCltMsg::HBeat(CltHeartbeat::default()) }
@@ -58,7 +58,7 @@ pub enum SBSvcMsg<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializ
 #[rustfmt::skip]
 impl<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug> SBSvcMsg<T> {
     pub fn end() -> Self { Self::End(EndOfSession::default()) }
-    pub fn login_acc(id: SessionId, num: SequenceNumber) -> Self { Self::LoginAcc(LoginAccepted::new(id, num)) }
+    pub fn login_acc(session_id: SessionId, sequence_number: SequenceNumber) -> Self { Self::LoginAcc(LoginAccepted::new(session_id, sequence_number)) }
     pub fn login_rej_not_auth() -> Self { Self::LoginRej(LoginRejected::not_authorized()) }
     pub fn login_rej_ses_not_avail() -> Self { Self::LoginRej(LoginRejected::session_not_available()) }
     pub fn hbeat() -> Self { Self::HBeat(SvcHeartbeat::default()) }
@@ -162,6 +162,9 @@ mod test {
             msg_inp_svc.iter().map(|(len, _)| *len).max().unwrap(),
         );
         info!("max_frame_size_no_payload: {}", max_frame_size_no_payload);
-        assert_eq!(max_frame_size_no_payload, MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG)
+        assert_eq!(
+            max_frame_size_no_payload,
+            MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG
+        )
     }
 }
