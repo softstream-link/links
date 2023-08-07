@@ -1,5 +1,5 @@
 [package]
-name = "links_ouch5"
+name = "links_ouch5_async"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,7 +9,7 @@ byteserde_derive = { workspace = true }
 byteserde_types = { workspace = true }
 
 # bytes = { workspace = true }
-links_soupbintcp = { workspace = true }
+links_soupbintcp_async = { workspace = true }
 
 chrono = { workspace = true }
 tokio = { workspace = true }

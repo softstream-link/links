@@ -1,6 +1,6 @@
-use links_soupbintcp4::prelude::*;
+use links_soupbintcp_async::prelude::*;
 
-use crate::prelude::{Ouch5Inb, Ouch5Oub};
+use crate::prelude::{Ouch5CltMsg, Ouch5SvcMsg};
 
-pub type Ouch5InbProtocolHandler = SBCltAdminProtocol<Ouch5Inb>;
-pub type Ouch5OubProtocolHandler = SBCltAdminProtocol<Ouch5Oub>;
+pub type Ouch5InbProtocolHandler = SBCltAdminProtocol<Ouch5CltMsg>;
+pub type Ouch5OubProtocolHandler = SBCltAdminProtocol<Ouch5SvcMsg>;

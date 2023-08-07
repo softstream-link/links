@@ -19,22 +19,19 @@ pub use crate::model::outbound::broken_trade::BrokenTrade;
 pub use crate::model::outbound::order_rejected::OrderRejected;
 pub use crate::model::outbound::cancel_pending::CancelPending;
 pub use crate::model::outbound::cancel_reject::CancelReject;
-pub use crate::model::outbound::priorty_update::PriorityUpdate;
+pub use crate::model::outbound::priority_update::PriorityUpdate;
 pub use crate::model::outbound::order_modified::OrderModified;
 pub use crate::model::outbound::order_restated::OrderRestated;
 pub use crate::model::outbound::account_query_res::AccountQueryResponse;
 
 // message types enums
-pub use crate::model::ouch5::Ouch5Inb;
-pub use crate::model::ouch5::Ouch5Oub;
+pub use crate::model::ouch5::Ouch5CltMsg;
+pub use crate::model::ouch5::Ouch5SvcMsg;
 pub use crate::model::ouch5::Ouch5;
 
 // message frame size
-pub use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_OUB;
-pub use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_INB;
-
-pub use crate::model::ouch5::MAX_FRAME_SIZE_SOUPBIN_OUCH5_OUB;
-pub use crate::model::ouch5::MAX_FRAME_SIZE_SOUPBIN_OUCH5_INB;
+pub use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_SVC_MSG;
+pub use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_CLT_MSG;
 
 // connect
 pub use crate::connect::clt::Ouch5Clt;

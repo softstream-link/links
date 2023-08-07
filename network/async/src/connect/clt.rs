@@ -295,7 +295,7 @@ mod test {
         static ref ADDR: &'static str = setup::net::default_addr();
     }
     #[tokio::test]
-    // #[ignore] // TODO fails because it managers to connect to another test
+    #[ignore] // TODO fails because it managers to connect to another test
     async fn test_clt_not_connected() {
         setup::log::configure();
 
