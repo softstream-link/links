@@ -14,12 +14,15 @@ jobs:
         with:
           path: links
       - name: Check out byteserde v4
-        uses: actions/checkout@v3 # TODO remove this line after byteserde release
+        uses: actions/checkout@v3 # TODO release byteserde v4 before merging this into master
         with:
           repository: 'softstream-link/byteserde'
           ref: 'v4'
           path: byteserde
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain
+        with:
+          toolchain: nightly
+          components: clippy
       - uses: taiki-e/install-action@nextest
       - name: Toolchain Info
         run: |
