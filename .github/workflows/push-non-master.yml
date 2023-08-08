@@ -19,7 +19,8 @@ jobs:
           repository: 'softstream-link/byteserde'
           ref: 'v4'
           path: byteserde
-      - uses: dtolnay/rust-toolchain
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain
         with:
           toolchain: nightly
           components: clippy
