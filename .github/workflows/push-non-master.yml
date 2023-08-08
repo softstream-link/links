@@ -19,7 +19,7 @@ jobs:
           repository: 'softstream-link/byteserde'
           ref: 'v4'
           path: byteserde
-      - uses: dtolnay/rust-toolchain@nightly-2023-06-27
+      - uses: dtolnay/rust-toolchain@nightly
       - uses: taiki-e/install-action@nextest
       - name: Toolchain Info
         run: |

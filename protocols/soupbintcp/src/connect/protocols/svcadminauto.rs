@@ -48,12 +48,13 @@ impl<PAYLOAD> Protocol for SBSvcAdminProtocol<PAYLOAD>
 where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
 {
     async fn handshake<
+        's,
         P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
         C: CallbackSendRecv<P>,
         const MMS: usize,
     >(
-        &self,
-        clt: &Clt<P, C, MMS>,
+        &'s self,
+        clt: &'s Clt<P, C, MMS>,
     ) -> Result<(), Box<dyn Error+Send+Sync>> {
         let msg = clt.recv().await?;
         if let Some(SBCltMsg::Login(req)) = msg {

@@ -115,11 +115,10 @@ mod test {
         const MMS: usize = 1024;
         let inp_svc_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
         let svc = {
-            let addr = addr.clone();
             tokio::spawn({
                 let inp_svc_msg = inp_svc_msg.clone();
                 async move {
-                    let listener = TcpListener::bind(addr.clone()).await.unwrap();
+                    let listener = TcpListener::bind(addr).await.unwrap();
 
                     let (stream, _) = listener.accept().await.unwrap();
                     let (mut sender, mut recver) =
@@ -148,11 +147,10 @@ mod test {
         };
         let inp_clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
         let clt = {
-            let addr = addr.clone();
             tokio::spawn({
                 let inp_clt_msg = inp_clt_msg.clone();
                 async move {
-                    let stream = TcpStream::connect(addr.clone()).await.unwrap();
+                    let stream = TcpStream::connect(addr).await.unwrap();
                     let (mut sender, mut recver) =
                         into_split_messenger::<TestCltMsgProtocol, MMS, TestCltMsgProtocol>(
                             stream,

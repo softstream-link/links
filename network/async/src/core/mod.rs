@@ -127,12 +127,11 @@ pub trait Protocol: Clone + Messenger + Framer + Send + Sync + 'static {
     }
 
     fn keep_alive_loop<
-        's,
         P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
         C: CallbackSendRecv<P>,
         const MMS: usize,
     >(
-        &'s self,
+        &self,
         clt: CltSender<P, C, MMS>,
     ) -> impl Future<Output = Result<(), Box<dyn Error + Send + Sync>>> + Send + '_
     {

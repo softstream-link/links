@@ -122,7 +122,6 @@ mod test {
         let inp_svc_msg = TestSvcMsgDebug::new(b"Hello Server Frame");
 
         let svc = {
-            let addr = addr.clone();
             tokio::spawn({
                 let inp_svc_msg = inp_svc_msg.clone();
                 async move {
@@ -154,7 +153,6 @@ mod test {
         };
         let inp_clt_msg = TestCltMsgDebug::new(b"Hello Client Frame");
         let clt = {
-            let addr = addr.clone();
             tokio::spawn({
                 let inp_clt_msg = inp_clt_msg.clone();
                 async move {

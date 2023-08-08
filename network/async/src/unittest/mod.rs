@@ -168,12 +168,13 @@ pub mod setup {
 
         impl Protocol for TestSvcMsgProtocol {
             async fn handshake<
+                's,
                 P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
                 C: CallbackSendRecv<P>,
                 const MMS: usize,
             >(
-                &self,
-                clt: &Clt<P, C, MMS>,
+                &'s self,
+                clt: &'s Clt<P, C, MMS>,
             ) -> Result<(), Box<dyn Error+Send+Sync>> {
                 let login = clt.recv().await?;
                 info!("{}<-{:?}", clt.con_id(), login);
@@ -200,12 +201,13 @@ pub mod setup {
 
         impl Protocol for TestCltMsgProtocol {
             async fn handshake<
+                's,
                 P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
                 C: CallbackSendRecv<P>,
                 const MMS: usize,
             >(
-                &self,
-                clt: &Clt<P, C, MMS>,
+                &'s self,
+                clt: &'s Clt<P, C, MMS>,
             ) -> Result<(), Box<dyn Error+Send+Sync>> {
                 let login = TestCltMsg::Login(TestCltMsgLoginReq::default());
                 clt.send(&login).await?;

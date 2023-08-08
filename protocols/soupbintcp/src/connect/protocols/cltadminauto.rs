@@ -48,15 +48,16 @@ impl<PAYLOAD> Protocol for SBCltAdminProtocol<PAYLOAD>
 where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
 {
     async fn handshake<
+        's,
         P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
         C: CallbackSendRecv<P>,
         const MMS: usize,
     >(
-        &self,
-        clt: &Clt<P, C, MMS>,
+        &'s self,
+        clt: &'s Clt<P, C, MMS>,
     ) -> Result<(), Box<dyn Error+Send+Sync>> {
-        #[rustfmt::skip]
-            clt.send(&mut SBCltMsg::login(self.username, self.password, self.session_id, self.sequence_number,self.hbeat_timeout,)).await?;
+        #[rustfmt::skip] 
+        clt.send(&mut SBCltMsg::login(self.username, self.password, self.session_id, self.sequence_number,self.hbeat_timeout,)).await?;
         let msg = clt.recv().await?;
         match msg {
             Some(SBSvcMsg::LoginAcc(_)) => return Ok(()),
