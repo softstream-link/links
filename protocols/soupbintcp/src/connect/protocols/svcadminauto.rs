@@ -60,17 +60,17 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
         if let Some(SBCltMsg::Login(req)) = msg {
             // info!("{}<-{:?}", clt.con_id(), req);
             if (req.username != self.username) || (req.password != self.password) {
-                clt.send(&mut SBSvcMsg::login_rej_not_auth()).await?;
+                clt.send(&SBSvcMsg::login_rej_not_auth()).await?;
                 return Err(format!("{} Not Authorized", clt.con_id()).into());
             }
             if req.session_id != self.session_id {
-                clt.send(&mut SBSvcMsg::login_rej_ses_not_avail()).await?;
+                clt.send(&SBSvcMsg::login_rej_ses_not_avail()).await?;
                 #[rustfmt::skip]  return Err(format!("{} '{}' No Session Avail", clt.con_id(),req.session_id).into());
             }
             let mut hbeat_timeout = self.hbeat_timeout.lock().await;
             *hbeat_timeout = Some(req.hbeat_timeout);
             // TODO what is correct sequence number to send ?
-            clt.send(&mut SBSvcMsg::login_acc(self.session_id, 0.into()))
+            clt.send(&SBSvcMsg::login_acc(self.session_id, 0.into()))
                 .await?;
         } else {
             #[rustfmt::skip] return Err(format!("{} Invalid Handshake unexpected msg: {:?}", clt.con_id(), msg).into());

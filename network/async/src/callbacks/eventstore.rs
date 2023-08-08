@@ -106,6 +106,9 @@ where
     pub fn len(&self) -> usize {
         self.lock().len()
     }
+    pub fn is_empty(&self) -> bool {
+        self.lock().is_empty()
+    }
 }
 impl<T> Display for EventStore<T>
 where

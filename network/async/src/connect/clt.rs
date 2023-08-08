@@ -180,7 +180,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
             abort_handles.push(
                 spawn({
                     let con_id = con_id.clone();
-                    let protocol = Arc::clone(&protocol);
+                    let protocol = Arc::clone(protocol);
                     let clt_sender = CltSender {
                         con_id: con_id.clone(),
                         sender: Arc::clone(&sender),

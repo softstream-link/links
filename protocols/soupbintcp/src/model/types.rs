@@ -49,8 +49,9 @@ pub mod field_types{
     impl From<u16> for TimeoutMs{ fn from(v: u16) -> Self { v.to_string().as_bytes().into() } }
     impl From<TimeoutMs> for u64 {
         fn from(v: TimeoutMs) -> Self {
-            let s = std::str::from_utf8(v.as_slice()).expect(&format!("Failed to convert {:?} to u64", v)).trim();
-            s.parse::<u64>().expect(&format!("Failed to convert {:?} to u64", v))
+            // let s = std::str::from_utf8(v.as_slice()).expect(&format!("Failed to convert {:?} to u64", v)).trim();
+            let s = std::str::from_utf8(v.as_slice()).unwrap_or_else(|_| panic!("Failed to convert {:?} to u64", v)).trim();
+            s.parse::<u64>().unwrap_or_else(|_| panic!("Failed to convert {:?} to u64", v))
         } 
     }
     impl Default for TimeoutMs{

@@ -28,8 +28,8 @@ impl<M: Messenger> Default for LoggerCallback<M> {
 impl<M: Messenger> LoggerCallback<M> {
     pub fn new(level_recv: Level, level_send: Level) -> Self {
         Self {
-            level_recv: level_recv,
-            level_send: level_send,
+            level_recv,
+            level_send,
             p1: std::marker::PhantomData,
         }
     }

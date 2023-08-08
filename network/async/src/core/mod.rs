@@ -107,7 +107,7 @@ pub trait Messenger: Debug + Send + Sync + 'static
 /// needs to have own protocol instance.
 ///  
 #[allow(unused_variables)]
-pub trait Protocol: Clone + Messenger + Framer + Send + Sync + 'static {
+pub trait Protocol: Clone+Messenger+Framer+Send+Sync+'static {
     /// Provides a protocol specific implementation of the connection status by analyzing packets going
     /// through the connection
     fn is_connected(&self) -> bool {
@@ -115,35 +115,29 @@ pub trait Protocol: Clone + Messenger + Framer + Send + Sync + 'static {
     }
     fn handshake<
         's,
-        P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
+        P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
         C: CallbackSendRecv<P>,
         const MMS: usize,
     >(
         &'s self,
         clt: &'s Clt<P, C, MMS>,
-    ) -> impl Future<Output = Result<(), Box<dyn Error + Send + Sync>>> + Send + '_
-    {
+    ) -> impl Future<Output=Result<(), Box<dyn Error+Send+Sync>>>+Send+'_ {
         async { Ok(()) }
     }
 
     fn keep_alive_loop<
-        P: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>,
+        P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
         C: CallbackSendRecv<P>,
         const MMS: usize,
     >(
         &self,
         clt: CltSender<P, C, MMS>,
-    ) -> impl Future<Output = Result<(), Box<dyn Error + Send + Sync>>> + Send + '_
-    {
+    ) -> impl Future<Output=Result<(), Box<dyn Error+Send+Sync>>>+Send+'_ {
         async { Ok(()) }
     }
 
-    fn on_recv(&self, con_id: &ConId, msg: &Self::RecvT) {
-        ()
-    }
-    fn on_send(&self, con_id: &ConId, msg: &mut Self::SendT) {
-        ()
-    }
+    fn on_recv(&self, con_id: &ConId, msg: &Self::RecvT) {}
+    fn on_send(&self, con_id: &ConId, msg: &mut Self::SendT) {}
 }
 
 #[cfg(test)]

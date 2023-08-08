@@ -57,14 +57,14 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
         clt: &'s Clt<P, C, MMS>,
     ) -> Result<(), Box<dyn Error+Send+Sync>> {
         #[rustfmt::skip] 
-        clt.send(&mut SBCltMsg::login(self.username, self.password, self.session_id, self.sequence_number,self.hbeat_timeout,)).await?;
+        clt.send(&SBCltMsg::login(self.username, self.password, self.session_id, self.sequence_number,self.hbeat_timeout,)).await?;
         let msg = clt.recv().await?;
         match msg {
-            Some(SBSvcMsg::LoginAcc(_)) => return Ok(()),
+            Some(SBSvcMsg::LoginAcc(_)) => Ok(()),
             Some(SBSvcMsg::LoginRej(msg)) => {
-                return Err(format!("{} msg: {:?}", clt.con_id(), msg).into())
+                Err(format!("{} msg: {:?}", clt.con_id(), msg).into())
             }
-            _ => return Err(format!("{} Unexpected msg: {:?}", clt.con_id(), msg).into()),
+            _ => Err(format!("{} Unexpected msg: {:?}", clt.con_id(), msg).into()),
         }
     }
 
