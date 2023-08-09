@@ -1,4 +1,4 @@
-use std::{any::type_name, collections::VecDeque, error::Error, fmt::Display, sync::Arc};
+use std::{any::type_name, collections::VecDeque, error::Error, fmt::Display, sync::Arc, time::Duration};
 
 use crate::prelude::*;
 use log::{debug, error, warn};
@@ -82,6 +82,16 @@ where
 
             Err(format!("Not Connected senders len: {}", senders.len()).into()) // TODO better error type
         }
+    }
+    
+    pub async fn is_connected(&self, timeout: Option<Duration>) -> bool{
+        let senders = self.senders.lock().await;
+        for sender in senders.iter() {
+            if sender.is_connected(None).await {
+                return true;
+            }
+        }
+        return false
     }
     pub fn con_id(&self) -> &ConId {
         &self.con_id

@@ -1,6 +1,7 @@
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
 use links_network_async::prelude::*;
+use tokio::task::yield_now;
 use tokio::time::Instant;
 use std::fmt::Debug;
 use std::time::Duration;
@@ -16,7 +17,7 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
     username: UserName,
     password: Password,
     session_id: SessionId,
-    hbeat_timeout_ms: Arc<Mutex<Option<u16>>>,
+    hbeat_timeout: Arc<Mutex<Option<Duration>>>,
     last_recv_inst: Arc<Mutex<Instant>>,
     phantom: std::marker::PhantomData<PAYLOAD>,
 }
@@ -26,7 +27,7 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
 {
     #[rustfmt::skip]
     pub fn new_ref(username: UserName, password: Password, session_id: SessionId) -> Arc<Self> {
-            Arc::new(Self { username, password, session_id, hbeat_timeout_ms: Arc::new(Mutex::new(None)), 
+            Arc::new(Self { username, password, session_id, hbeat_timeout: Arc::new(Mutex::new(None)), 
                 last_recv_inst: Arc::new(Mutex::new(Instant::now() - Duration::from_secs(60*60*24))), // 1 day ago
                 phantom: std::marker::PhantomData,})
         }
@@ -62,17 +63,20 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
     ) -> Result<(), Box<dyn Error+Send+Sync>> {
         let msg = clt.recv().await?;
         if let Some(SBCltMsg::Login(req)) = msg {
-            // info!("{}<-{:?}", clt.con_id(), req);
+            // validate usr/pwd
             if (req.username != self.username) || (req.password != self.password) {
                 clt.send(&mut SBSvcMsg::login_rej_not_auth()).await?;
                 return Err(format!("{} Not Authorized", clt.con_id()).into());
             }
+            // validate session
             if req.session_id != self.session_id {
                 clt.send(&mut SBSvcMsg::login_rej_ses_not_avail()).await?;
-                #[rustfmt::skip]  return Err(format!("{} '{}' No Session Avail", clt.con_id(),req.session_id).into());
+                #[rustfmt::skip] return Err(format!("{} '{}' No Session Avail", clt.con_id(),req.session_id).into());
             }
-            let mut hbeat_timeout_ms = self.hbeat_timeout_ms.lock().await;
-            *hbeat_timeout_ms = Some(req.hbeat_timeout_ms.into());
+            // save hbeat
+            { // drop lock
+                *self.hbeat_timeout.lock().await = Some(Duration::from_millis(req.hbeat_timeout_ms.into()));
+            }
             // TODO what is correct sequence number to send ?
             clt.send(&mut SBSvcMsg::login_acc(self.session_id, 0.into()))
                 .await?;
@@ -90,23 +94,44 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
         &self,
         clt: CltSender<P, C, MMS>,
     ) -> Result<(), Box<dyn Error+Send+Sync>> {
-        let hbeat_timeout: u64 = { // drops the lock
-            let hbeat_timeout = *self.hbeat_timeout_ms.lock().await;
-            hbeat_timeout.unwrap().into()  // TODO better then unwrap
+        let hbeat_timeout = { // drops the lock
+            let hbeat_timeout = *self.hbeat_timeout.lock().await;
+            hbeat_timeout.unwrap_or_else(||panic!("self.hbeat_timeout is None, must be set to Some duration handshake"))
         };
         let mut msg = SBSvcMsg::HBeat(SvcHeartbeat::default());
         loop {
             clt.send(&mut msg).await?;
-            tokio::time::sleep(Duration::from_millis(hbeat_timeout)).await;
+            tokio::time::sleep(hbeat_timeout).await;
         }
     }
 
-    // async fn is_connected(&self) -> bool {
-    //     let last_recv_time = { *self.last_recv_inst.lock().await };
-    //     let now = Instant::now();
-    //     now.duration_since(last_recv_time).as_millis() < self.hbeat_timeout
-    // }
-    // async fn on_recv<'s>(&'s self, _con_id: &'s ConId, _msg: &'s Self::RecvT)  {
-    //     *self.last_recv_inst.lock().await = Instant::now();
-    // }
+    async fn is_connected(&self, timeout: Option<Duration>) -> bool {
+        // get hbeat_time out from established connection
+        let hbeat_timeout = {
+            match *self.hbeat_timeout.lock().await{
+                Some(hbeat_timeout) => hbeat_timeout,
+                None => return false, // None default and only Some after connection is established
+            }
+        };
+
+        let (now, timeout )= (Instant::now(), match timeout{
+            Some(timeout) => timeout,
+            None => Duration::from_secs(0),
+        });
+        
+        loop {
+            let since_last_recv = { *self.last_recv_inst.lock().await }.elapsed();
+            if since_last_recv < hbeat_timeout{
+                return true;
+            }
+            if now.elapsed() > timeout{
+                return false;
+            }else{
+                yield_now().await;
+            }
+        }
+    }
+    async fn on_recv<'s>(&'s self, _con_id: &'s ConId, _msg: &'s Self::RecvT)  {
+        *self.last_recv_inst.lock().await = Instant::now();
+    }
 }

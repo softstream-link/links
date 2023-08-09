@@ -32,7 +32,8 @@ async fn test_clt_svc() {
     let svc = SBSvc::<_, _, MMS>::bind(*ADDR, svc_callback, svc_admin_protocol, Some("venue"))
         .await
         .unwrap();
-    info!("{} started", svc);
+    info!("{} Status connected: {}", svc, svc.is_connected(None).await);
+    assert!(!svc.is_connected(None).await);
 
     let clt_cb = SBCltLoggerCallback::new_ref(Level::Info, Level::Debug);
     info!("\n**********************************  AUTH ERROR  **********************************\n");
@@ -45,8 +46,8 @@ async fn test_clt_svc() {
     );
     let clt = SBClt::<_, _, MMS>::connect(
         *ADDR,
-        *TMOUT,
-        *RETRY,
+        setup::net::default_connect_timeout(),
+        setup::net::default_connect_retry_after(),
         clt_cb.clone(),
         clt_pr,
         Some("clt-fail"),
@@ -54,6 +55,9 @@ async fn test_clt_svc() {
     .await;
     assert!(clt.is_err());
     error!("{} failed", clt.unwrap_err());
+    
+    info!("{} Status connected: {}", svc, svc.is_connected(None).await);
+    assert!(!svc.is_connected(None).await);
 
     info!("\n**********************************  AUTH OK  **********************************\n");
     let clt_pr = SBCltAdminProtocol::<NoPayload>::new_ref(
@@ -65,8 +69,8 @@ async fn test_clt_svc() {
     );
     let clt = SBClt::<_, _, MMS>::connect(
         *ADDR,
-        *TMOUT,
-        *RETRY,
+        setup::net::default_connect_timeout(),
+        setup::net::default_connect_retry_after(),
         clt_cb.clone(),
         clt_pr,
         Some("clt-pass"),
@@ -78,5 +82,7 @@ async fn test_clt_svc() {
     let connected = clt.is_connected(Duration::from_millis(500).into()).await;
     info!("{} Status connected: {}", clt, connected);
     assert!(connected);
+    info!("{} Status connected: {}", svc, svc.is_connected(None).await);
+    assert!(svc.is_connected(None).await);
     drop(clt);
 }
