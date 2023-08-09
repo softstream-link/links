@@ -1,6 +1,7 @@
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
 use links_network_async::prelude::*;
+use tokio::time::Instant;
 use std::fmt::Debug;
 use std::time::Duration;
 use std::{error::Error, sync::Arc};
@@ -15,7 +16,8 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
     username: UserName,
     password: Password,
     session_id: SessionId,
-    hbeat_timeout: Arc<Mutex<Option<TimeoutMs>>>,
+    hbeat_timeout_ms: Arc<Mutex<Option<u16>>>,
+    last_recv_inst: Arc<Mutex<Instant>>,
     phantom: std::marker::PhantomData<PAYLOAD>,
 }
 
@@ -24,7 +26,9 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
 {
     #[rustfmt::skip]
     pub fn new_ref(username: UserName, password: Password, session_id: SessionId) -> Arc<Self> {
-            Arc::new(Self { username, password, session_id, hbeat_timeout: Arc::new(Mutex::new(None)), phantom: std::marker::PhantomData,})
+            Arc::new(Self { username, password, session_id, hbeat_timeout_ms: Arc::new(Mutex::new(None)), 
+                last_recv_inst: Arc::new(Mutex::new(Instant::now() - Duration::from_secs(60*60*24))), // 1 day ago
+                phantom: std::marker::PhantomData,})
         }
 }
 
@@ -60,17 +64,17 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
         if let Some(SBCltMsg::Login(req)) = msg {
             // info!("{}<-{:?}", clt.con_id(), req);
             if (req.username != self.username) || (req.password != self.password) {
-                clt.send(&SBSvcMsg::login_rej_not_auth()).await?;
+                clt.send(&mut SBSvcMsg::login_rej_not_auth()).await?;
                 return Err(format!("{} Not Authorized", clt.con_id()).into());
             }
             if req.session_id != self.session_id {
-                clt.send(&SBSvcMsg::login_rej_ses_not_avail()).await?;
+                clt.send(&mut SBSvcMsg::login_rej_ses_not_avail()).await?;
                 #[rustfmt::skip]  return Err(format!("{} '{}' No Session Avail", clt.con_id(),req.session_id).into());
             }
-            let mut hbeat_timeout = self.hbeat_timeout.lock().await;
-            *hbeat_timeout = Some(req.hbeat_timeout);
+            let mut hbeat_timeout_ms = self.hbeat_timeout_ms.lock().await;
+            *hbeat_timeout_ms = Some(req.hbeat_timeout_ms.into());
             // TODO what is correct sequence number to send ?
-            clt.send(&SBSvcMsg::login_acc(self.session_id, 0.into()))
+            clt.send(&mut SBSvcMsg::login_acc(self.session_id, 0.into()))
                 .await?;
         } else {
             #[rustfmt::skip] return Err(format!("{} Invalid Handshake unexpected msg: {:?}", clt.con_id(), msg).into());
@@ -87,7 +91,7 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
         clt: CltSender<P, C, MMS>,
     ) -> Result<(), Box<dyn Error+Send+Sync>> {
         let hbeat_timeout: u64 = { // drops the lock
-            let hbeat_timeout = *self.hbeat_timeout.lock().await;
+            let hbeat_timeout = *self.hbeat_timeout_ms.lock().await;
             hbeat_timeout.unwrap().into()  // TODO better then unwrap
         };
         let mut msg = SBSvcMsg::HBeat(SvcHeartbeat::default());
@@ -96,4 +100,13 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
             tokio::time::sleep(Duration::from_millis(hbeat_timeout)).await;
         }
     }
+
+    // async fn is_connected(&self) -> bool {
+    //     let last_recv_time = { *self.last_recv_inst.lock().await };
+    //     let now = Instant::now();
+    //     now.duration_since(last_recv_time).as_millis() < self.hbeat_timeout
+    // }
+    // async fn on_recv<'s>(&'s self, _con_id: &'s ConId, _msg: &'s Self::RecvT)  {
+    //     *self.last_recv_inst.lock().await = Instant::now();
+    // }
 }

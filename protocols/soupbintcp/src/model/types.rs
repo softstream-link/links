@@ -47,9 +47,14 @@ pub mod field_types{
 
     string_ascii_fixed!(TimeoutMs, 5, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);
     impl From<u16> for TimeoutMs{ fn from(v: u16) -> Self { v.to_string().as_bytes().into() } }
+    impl From<TimeoutMs> for u16 {
+        fn from(v: TimeoutMs) -> Self {
+            let s = std::str::from_utf8(v.as_slice()).unwrap_or_else(|_| panic!("Failed to convert {:?} to u16", v)).trim();
+            s.parse::<u16>().unwrap_or_else(|_| panic!("Failed to convert {:?} to u16", v))
+        } 
+    }
     impl From<TimeoutMs> for u64 {
         fn from(v: TimeoutMs) -> Self {
-            // let s = std::str::from_utf8(v.as_slice()).expect(&format!("Failed to convert {:?} to u64", v)).trim();
             let s = std::str::from_utf8(v.as_slice()).unwrap_or_else(|_| panic!("Failed to convert {:?} to u64", v)).trim();
             s.parse::<u64>().unwrap_or_else(|_| panic!("Failed to convert {:?} to u64", v))
         } 
@@ -69,9 +74,12 @@ pub mod field_types{
         fn test_sequence_number(){
             setup::log::configure();
             let t = TimeoutMs::default();
-            let millis: u64 = t.into();
-            info!("millis: {}", millis);
-            assert_eq!(millis, 1000);
+            let millis_u64: u64 = t.into();
+            info!("millis_u64: {}", millis_u64);
+            assert_eq!(millis_u64, 1000);
+            let millis_u16: u16 = t.into();
+            info!("millis_u16: {}", millis_u16);
+            assert_eq!(millis_u16, 1000);
         }
     }
     string_ascii_fixed!(UserName, 6, b' ', true, ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy);

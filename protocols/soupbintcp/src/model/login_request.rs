@@ -16,7 +16,7 @@ pub struct LoginRequest {
     pub password: Password,
     pub session_id: SessionId,
     pub sequence_number: SequenceNumber,
-    pub hbeat_timeout: TimeoutMs,
+    pub hbeat_timeout_ms: TimeoutMs,
 }
 impl LoginRequest {
     pub fn new(
@@ -24,7 +24,7 @@ impl LoginRequest {
         password: Password,
         session_id: SessionId,
         sequence_number: SequenceNumber,
-        hbeat_timeout: TimeoutMs,
+        hbeat_timeout_ms: TimeoutMs,
     ) -> LoginRequest {
         LoginRequest {
             packet_length: LOGIN_REQUEST_PACKET_LENGTH,
@@ -33,7 +33,7 @@ impl LoginRequest {
             password,
             session_id,
             sequence_number,
-            hbeat_timeout,
+            hbeat_timeout_ms,
         }
     }
 }
@@ -50,7 +50,7 @@ impl Debug for LoginRequest {
             .field("password", &obfs.password)
             .field("session_id", &obfs.session_id)
             .field("sequence_number", &obfs.sequence_number)
-            .field("hbeat_timeout", &obfs.hbeat_timeout)
+            .field("hbeat_timeout", &obfs.hbeat_timeout_ms)
             .finish()
     }
 }
@@ -74,7 +74,7 @@ impl Display for LoginRequest {
             self.username,
             self.session_id,
             self.sequence_number,
-            self.hbeat_timeout,
+            self.hbeat_timeout_ms,
         
         )
     }

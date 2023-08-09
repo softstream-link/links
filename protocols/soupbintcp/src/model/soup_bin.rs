@@ -27,8 +27,8 @@ pub enum SBCltMsg<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializ
 }
 #[rustfmt::skip]
 impl<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug> SBCltMsg<T> {
-    pub fn login(username: UserName, password: Password, session_id: SessionId, sequence_number: SequenceNumber, hbeat_timeout: TimeoutMs) -> Self { 
-        Self::Login( LoginRequest::new(username, password, session_id, sequence_number,hbeat_timeout)) 
+    pub fn login(username: UserName, password: Password, session_id: SessionId, sequence_number: SequenceNumber, hbeat_timeout_ms: TimeoutMs) -> Self { 
+        Self::Login( LoginRequest::new(username, password, session_id, sequence_number, hbeat_timeout_ms)) 
     }
     pub fn logout() -> Self { SBCltMsg::Logout(LogoutRequest::default()) }
     pub fn hbeat() -> Self { SBCltMsg::HBeat(CltHeartbeat::default()) }

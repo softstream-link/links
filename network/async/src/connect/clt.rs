@@ -39,6 +39,12 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> CltSender<P, C, MMS>
             writer.send(msg).await
         }
     }
+    pub async fn is_connected(&self, timeout: Option<Duration>) -> bool {
+        match &self.protocol {
+            Some(protocol) => protocol.is_connected(timeout).await,
+            None => false,
+        }
+    }
 }
 impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for CltSender<P, C, MMS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -216,35 +222,28 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
     }
 
     async fn recv_loop(clt: Clt<P, C, MMS>) -> Result<(), Box<dyn Error+Sync+Send>> {
+        // Don't call clt.recv instead of lock clt.recver and use it in exclusive mode to avoid relocking on each msg
+        // let opt_recv = clt.recv().await?;
         let mut reader = clt.recver.lock().await;
-        // let opt_recv = clt.recv().await?; // Don't call clt.recv because it needs to re-acquire the lock on each call vs just holding it for the duration of the loop
         while let Some(msg) = reader.recv().await? {
             if let Some(ref protocol) = clt.protocol {
-                protocol.on_recv(&clt.con_id, &msg);
+                protocol.on_recv(&clt.con_id, &msg).await;
             }
             clt.callback.on_recv(&clt.con_id, msg)
         }
-        // TODO remove cleanup
-        // loop {
-        //     // let opt_recv = clt.recv().await?; // Don't call clt.recv because it needs to re-acquire the lock on each call vs just holding it for the duration of the loop
-        //     let opt = reader.recv().await?;
-        //     match opt {
-        //         Some(msg) => {
-        //             if let Some(ref protocol) = clt.protocol {
-        //                 protocol.on_recv(&clt.con_id, &msg);
-        //             }
-        //             clt.callback.on_recv(&clt.con_id, msg)
-        //         }
-        //         None => break, // clean exist // end of stream
-        //     }
-        // }
         Ok(())
     }
 
-    pub async fn send(&self, msg: &P::SendT) -> Result<(), Box<dyn Error+Send+Sync>> {
+    pub async fn send(&self, msg: &mut P::SendT) -> Result<(), Box<dyn Error+Send+Sync>> {
+        // let protocol intercept
+        if let Some(ref protocol) = self.protocol {
+            protocol.on_send(&self.con_id, msg);
+        }
+        // now let callback intercept to allow client space to see what will actually be sent.
         {
             self.callback.on_send(&self.con_id, msg);
         }
+        // finally send
         {
             let mut writer = self.sender.lock().await;
             writer.send(msg).await

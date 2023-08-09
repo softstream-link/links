@@ -2,7 +2,7 @@ use std::{
     error::Error,
     fmt::{Debug, Display},
     future::Future,
-    net::SocketAddr,
+    net::SocketAddr, time::Duration,
 };
 
 use bytes::{Bytes, BytesMut};
@@ -110,8 +110,8 @@ pub trait Messenger: Debug + Send + Sync + 'static
 pub trait Protocol: Clone+Messenger+Framer+Send+Sync+'static {
     /// Provides a protocol specific implementation of the connection status by analyzing packets going
     /// through the connection
-    fn is_connected(&self) -> bool {
-        false
+    fn is_connected(&self, timeout: Option<Duration>) -> impl Future<Output=bool>+'_ {
+        async { false }
     }
     fn handshake<
         's,
@@ -136,8 +136,10 @@ pub trait Protocol: Clone+Messenger+Framer+Send+Sync+'static {
         async { Ok(()) }
     }
 
-    fn on_recv(&self, con_id: &ConId, msg: &Self::RecvT) {}
-    fn on_send(&self, con_id: &ConId, msg: &mut Self::SendT) {}
+    fn on_recv<'s>(&'s self, con_id: &'s ConId, msg: &'s Self::RecvT) -> impl Future<Output=()>+Send+'_ {
+        async { () }
+    }
+    fn on_send<'s>(&'s self, con_id: &'s ConId, msg: &'s mut Self::SendT) {}
 }
 
 #[cfg(test)]

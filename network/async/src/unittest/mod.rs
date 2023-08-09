@@ -178,8 +178,8 @@ pub mod setup {
             ) -> Result<(), Box<dyn Error+Send+Sync>> {
                 let login = clt.recv().await?;
                 info!("{}<-{:?}", clt.con_id(), login);
-                let auth = TestSvcMsg::Accept(TestSvcMsgLoginAcpt::default());
-                clt.send(&auth).await?;
+                let mut auth = TestSvcMsg::Accept(TestSvcMsgLoginAcpt::default());
+                clt.send(&mut auth).await?;
                 info!("{}->{:?}", clt.con_id(), auth);
                 Ok(())
             }
@@ -209,8 +209,8 @@ pub mod setup {
                 &'s self,
                 clt: &'s Clt<P, C, MMS>,
             ) -> Result<(), Box<dyn Error+Send+Sync>> {
-                let login = TestCltMsg::Login(TestCltMsgLoginReq::default());
-                clt.send(&login).await?;
+                let mut login = TestCltMsg::Login(TestCltMsgLoginReq::default());
+                clt.send(&mut login).await?;
 
                 info!("{}->{:?}", clt.con_id(), login);
                 let msg = clt.recv().await?;

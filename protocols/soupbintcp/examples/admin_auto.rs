@@ -61,7 +61,7 @@ async fn test_clt_svc() {
         b"++++++++++".into(),
         Default::default(),
         Default::default(),
-        250.into(),
+        Duration::from_millis(250),
     );
     let clt = SBClt::<_, _, MMS>::connect(
         *ADDR,
@@ -75,7 +75,8 @@ async fn test_clt_svc() {
 
     assert!(clt.is_ok());
     let clt = clt.unwrap();
-    info!("{} started", clt);
-    tokio::time::sleep(Duration::from_millis(1)).await;
+    let connected = clt.is_connected(Duration::from_millis(500).into()).await;
+    info!("{} Status connected: {}", clt, connected);
+    assert!(connected);
     drop(clt);
 }
