@@ -87,7 +87,7 @@ where
     pub async fn is_connected(&self, timeout: Option<Duration>) -> bool{
         let senders = self.senders.lock().await;
         for sender in senders.iter() {
-            if sender.is_connected(None).await {
+            if sender.is_connected(timeout).await {
                 return true;
             }
         }

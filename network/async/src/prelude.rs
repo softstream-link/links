@@ -24,3 +24,6 @@ pub use crate::callbacks::logger::LoggerCallback;
 pub use crate::callbacks::chain::ChainCallback;
 // // dev null
 pub use crate::callbacks::devnull::DevNullCallback;
+
+// counters
+pub use crate::core::counters::EventIntervalTracker;

@@ -1,6 +1,7 @@
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
 use links_network_async::prelude::*;
+use log::warn;
 use tokio::task::yield_now;
 use tokio::time::Instant;
 use std::fmt::Debug;
@@ -18,7 +19,8 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
     password: Password,
     session_id: SessionId,
     hbeat_timeout: Arc<Mutex<Option<Duration>>>,
-    last_recv_inst: Arc<Mutex<Instant>>,
+    hbeat_miss_factor: f64,
+    recv_tracker: Arc<Mutex<Option<EventIntervalTracker>>>,
     phantom: std::marker::PhantomData<PAYLOAD>,
 }
 
@@ -26,9 +28,11 @@ impl<PAYLOAD> SBSvcAdminProtocol<PAYLOAD>
 where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
 {
     #[rustfmt::skip]
-    pub fn new_ref(username: UserName, password: Password, session_id: SessionId) -> Arc<Self> {
-            Arc::new(Self { username, password, session_id, hbeat_timeout: Arc::new(Mutex::new(None)), 
-                last_recv_inst: Arc::new(Mutex::new(Instant::now() - Duration::from_secs(60*60*24))), // 1 day ago
+    pub fn new_ref(username: UserName, password: Password, session_id: SessionId, hbeat_miss_factor: f64) -> Arc<Self> {
+            Arc::new(Self { username, password, session_id, 
+                hbeat_timeout: Arc::new(Mutex::new(None)),
+                hbeat_miss_factor, 
+                recv_tracker: Arc::new(Mutex::new(None)), // 1 day ago
                 phantom: std::marker::PhantomData,})
         }
 }
@@ -73,9 +77,11 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
                 clt.send(&mut SBSvcMsg::login_rej_ses_not_avail()).await?;
                 #[rustfmt::skip] return Err(format!("{} '{}' No Session Avail", clt.con_id(),req.session_id).into());
             }
-            // save hbeat
+            // save hbeat from clt login req
             { // drop lock
-                *self.hbeat_timeout.lock().await = Some(Duration::from_millis(req.hbeat_timeout_ms.into()));
+                let hbeat_timeout = Duration::from_millis(req.hbeat_timeout_ms.into());
+                *self.hbeat_timeout.lock().await = Some(hbeat_timeout);
+                *self.recv_tracker.lock().await = Some(EventIntervalTracker::new(clt.con_id().clone(), hbeat_timeout, self.hbeat_miss_factor));
             }
             // TODO what is correct sequence number to send ?
             clt.send(&mut SBSvcMsg::login_acc(self.session_id, 0.into()))
@@ -106,32 +112,39 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
     }
 
     async fn is_connected(&self, timeout: Option<Duration>) -> bool {
-        // get hbeat_time out from established connection
-        let hbeat_timeout = {
-            match *self.hbeat_timeout.lock().await{
-                Some(hbeat_timeout) => hbeat_timeout,
-                None => return false, // None default and only Some after connection is established
-            }
-        };
-
         let (now, timeout )= (Instant::now(), match timeout{
             Some(timeout) => timeout,
             None => Duration::from_secs(0),
         });
         
         loop {
-            let since_last_recv = { *self.last_recv_inst.lock().await }.elapsed();
-            if since_last_recv < hbeat_timeout{
+            let recv_tracker = (*self.recv_tracker.lock().await).clone();
+            let is_heart_beating = {
+                match recv_tracker{
+                    Some(ref recv_tracker) => recv_tracker.is_within_tolerance_factor(),
+                    None => panic!("self.recv_tracker is None, must be set to Some EventIntervalTracker during handshake"),
+                }   
+            };
+            if is_heart_beating {
                 return true;
-            }
-            if now.elapsed() > timeout{
-                return false;
             }else{
-                yield_now().await;
+                if now.elapsed() > timeout{
+                    let is_connected = match recv_tracker {
+                        Some(ref recv_tracker) => format!("{}", recv_tracker),
+                        None => "None".to_owned(),
+                    };
+                    warn!("{} timeout: {:?}", is_connected, timeout);
+                    return false;
+                }else{
+                    yield_now().await;
+                }
             }
         }
     }
     async fn on_recv<'s>(&'s self, _con_id: &'s ConId, _msg: &'s Self::RecvT)  {
-        *self.last_recv_inst.lock().await = Instant::now();
+        match *self.recv_tracker.lock().await{
+            Some(ref mut recv_tracker) => recv_tracker.occurred(),
+            None => panic!("self.recv_tracker is None, must be set to Some EventIntervalTracker during handshake"),
+        }        
     }
 }

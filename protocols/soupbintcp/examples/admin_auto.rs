@@ -28,12 +28,14 @@ async fn test_clt_svc() {
         b"abcdef".into(),
         b"++++++++++".into(),
         Default::default(),
+        1.,
     );
     let svc = SBSvc::<_, _, MMS>::bind(*ADDR, svc_callback, svc_admin_protocol, Some("venue"))
         .await
         .unwrap();
-    info!("{} Status connected: {}", svc, svc.is_connected(None).await);
-    assert!(!svc.is_connected(None).await);
+    let svc_connected = svc.is_connected(None).await;
+    info!("{} Status connected: {}", svc, svc_connected);
+    assert!(!svc_connected);
 
     let clt_cb = SBCltLoggerCallback::new_ref(Level::Info, Level::Debug);
     info!("\n**********************************  AUTH ERROR  **********************************\n");
@@ -43,6 +45,7 @@ async fn test_clt_svc() {
         Default::default(),
         Default::default(),
         Default::default(),
+        1.,
     );
     let clt = SBClt::<_, _, MMS>::connect(
         *ADDR,
@@ -56,8 +59,9 @@ async fn test_clt_svc() {
     assert!(clt.is_err());
     error!("{} failed", clt.unwrap_err());
     
-    info!("{} Status connected: {}", svc, svc.is_connected(None).await);
-    assert!(!svc.is_connected(None).await);
+    let svc_connected = svc.is_connected(None).await;
+    info!("{} Status connected: {}", svc, svc_connected);
+    assert!(!svc_connected);
 
     info!("\n**********************************  AUTH OK  **********************************\n");
     let clt_pr = SBCltAdminProtocol::<NoPayload>::new_ref(
@@ -66,6 +70,7 @@ async fn test_clt_svc() {
         Default::default(),
         Default::default(),
         Duration::from_millis(250),
+        1.,
     );
     let clt = SBClt::<_, _, MMS>::connect(
         *ADDR,
@@ -79,10 +84,13 @@ async fn test_clt_svc() {
 
     assert!(clt.is_ok());
     let clt = clt.unwrap();
-    let connected = clt.is_connected(Duration::from_millis(500).into()).await;
-    info!("{} Status connected: {}", clt, connected);
-    assert!(connected);
-    info!("{} Status connected: {}", svc, svc.is_connected(None).await);
-    assert!(svc.is_connected(None).await);
+    let clt_connected = clt.is_connected(Duration::from_millis(500).into()).await;
+    info!("{} Status connected: {}", clt, clt_connected);
+    assert!(clt_connected);
+    
+    let svc_connected = svc.is_connected(Duration::from_millis(500).into()).await;
+    info!("{} Status connected: {}", svc, svc_connected);
+    assert!(svc_connected);
+    
     drop(clt);
 }

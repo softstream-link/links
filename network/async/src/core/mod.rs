@@ -1,8 +1,11 @@
+pub mod counters;
+
 use std::{
     error::Error,
     fmt::{Debug, Display},
     future::Future,
-    net::SocketAddr, time::Duration,
+    net::SocketAddr,
+    time::Duration,
 };
 
 use bytes::{Bytes, BytesMut};
@@ -136,7 +139,11 @@ pub trait Protocol: Clone+Messenger+Framer+Send+Sync+'static {
         async { Ok(()) }
     }
 
-    fn on_recv<'s>(&'s self, con_id: &'s ConId, msg: &'s Self::RecvT) -> impl Future<Output=()>+Send+'_ {
+    fn on_recv<'s>(
+        &'s self,
+        con_id: &'s ConId,
+        msg: &'s Self::RecvT,
+    ) -> impl Future<Output=()>+Send+'_ {
         async { () }
     }
     fn on_send<'s>(&'s self, con_id: &'s ConId, msg: &'s mut Self::SendT) {}
