@@ -10,7 +10,7 @@ byteserde = { workspace = true }
 byteserde_derive = { workspace = true }
 byteserde_types = { workspace = true }
 
-links_network_async = { path = "../../network/async" }
+links_network_async = { workspace = true }
 
 bytes = { workspace = true }
 log = { workspace = true }

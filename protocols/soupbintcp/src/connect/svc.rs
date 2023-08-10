@@ -37,7 +37,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_svc_clt_connection() {
+    async fn test_svc_clt_connected() {
         setup::log::configure();
 
         let event_store = SBEventStore::new_ref();

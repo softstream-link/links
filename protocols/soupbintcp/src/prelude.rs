@@ -9,9 +9,9 @@ pub use crate::model::logout_request::LogoutRequest;
 pub use crate::model::svc_heartbeat::SvcHeartbeat;
 
 // with payload
-pub use crate::model::sequenced_data::SequencedData;
+pub use crate::model::sequenced_data::SData;
 pub use crate::model::sequenced_data::SequencedDataHeader;
-pub use crate::model::unsequenced_data::UnsequencedData;
+pub use crate::model::unsequenced_data::UData;
 pub use crate::model::unsequenced_data::UnsequencedDataHeader;
 
 // default payloads

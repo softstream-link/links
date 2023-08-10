@@ -27,7 +27,7 @@ impl SequencedDataHeader {
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(endian = "be")]
-pub struct SequencedData<T>
+pub struct SData<T>
 where 
     T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + Debug
 {
@@ -36,11 +36,11 @@ where
     payload: T,
 }
 #[rustfmt::skip]
-impl<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + Debug> SequencedData<T>
+impl<T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + Debug> SData<T>
 {
-    pub fn new(body: T) -> SequencedData<T> {
+    pub fn new(body: T) -> SData<T> {
         let header = SequencedDataHeader::new((body.byte_len() + 1) as u16);
-        SequencedData { header, payload: body }
+        SData { header, payload: body }
     }
 }
 
@@ -70,7 +70,7 @@ mod test {
     fn test_sequenced_data() {
         setup::log::configure();
         let expected_len = SEQUENCED_DATA_HEADER_BYTE_LEN + SamplePayload::default().byte_len();
-        let msg_inp = SequencedData::new(SamplePayload::default());
+        let msg_inp = SData::new(SamplePayload::default());
         info!("msg_inp:? {:?}", msg_inp);
 
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
@@ -78,7 +78,7 @@ mod test {
         assert_eq!(expected_len, ser.len());
         assert_eq!(expected_len, msg_inp.byte_len());
 
-        let msg_out: SequencedData<SamplePayload> = from_slice(ser.as_slice()).unwrap();
+        let msg_out: SData<SamplePayload> = from_slice(ser.as_slice()).unwrap();
         info!("msg_out:? {:?}", msg_out);
         assert_eq!(msg_out, msg_inp);
     }

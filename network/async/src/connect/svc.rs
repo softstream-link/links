@@ -227,7 +227,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_svc_clt_connection() {
+    async fn test_svc_clt_connected() {
         setup::log::configure_at(log::LevelFilter::Debug);
         let event_store = EventStore::<TestMsg>::new_ref();
         // let clt_callback = ChainCallback::new_ref(vec![

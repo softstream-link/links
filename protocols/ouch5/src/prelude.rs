@@ -25,9 +25,9 @@ pub use crate::model::outbound::priority_update::PriorityUpdate;
 pub use crate::model::outbound::system_event::SystemEvent;
 
 // message types enums
-pub use crate::model::ouch5::Ouch5CltMsg;
+pub use crate::model::ouch5::Ouch5CltPld;
 pub use crate::model::ouch5::Ouch5Msg;
-pub use crate::model::ouch5::Ouch5SvcMsg;
+pub use crate::model::ouch5::Ouch5SvcPld;
 
 // message frame size
 pub use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_CLT_MSG;

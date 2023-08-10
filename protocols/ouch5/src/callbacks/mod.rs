@@ -1,12 +1,13 @@
 use links_soupbintcp_async::prelude::*;
+use links_network_async::prelude::*;
 
 use crate::prelude::*;
 
 // event store
-pub type Ouch5EventStore = SBEventStore<Ouch5Msg>;
+pub type Ouch5EventStore = EventStore<Ouch5Msg>;
 
-pub type Ouch5CltEvenStoreCallback = SBCltEvenStoreCallback<Ouch5CltMsg, Ouch5CltProtocol>;
-pub type Ouch5SvcEvenStoreCallback = SBCltEvenStoreCallback<Ouch5SvcMsg, Ouch5SvcProtocol>;
+pub type Ouch5CltEvenStoreCallback = EventStoreCallback<Ouch5Msg, Ouch5CltProtocol>;
+pub type Ouch5SvcEvenStoreCallback = EventStoreCallback<Ouch5Msg, Ouch5SvcProtocol>;
 
 // loggers
 pub type Ouch5CltLoggerCallback = SBCltLoggerCallback<Ouch5CltProtocol>;

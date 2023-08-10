@@ -14,8 +14,8 @@ pub mod setup {
                 SBSvcMsg::LoginAcc(LoginAccepted::default()),
                 SBSvcMsg::LoginRej(LoginRejected::not_authorized()),
                 SBSvcMsg::End(EndOfSession::default()),
-                SBSvcMsg::SData(SequencedData::new(T::default())),
-                SBSvcMsg::UData(UnsequencedData::new(T::default())),
+                SBSvcMsg::Seq(SData::new(T::default())),
+                SBSvcMsg::Useq(UData::new(T::default())),
             ]
         }
 
@@ -29,8 +29,8 @@ pub mod setup {
                 SBCltMsg::Dbg(Debug::default()),
                 SBCltMsg::Login(LoginRequest::default()),
                 SBCltMsg::Logout(LogoutRequest::default()),
-                SBCltMsg::SData(SequencedData::new(T::default())),
-                SBCltMsg::UData(UnsequencedData::new(T::default())),
+                SBCltMsg::SData(SData::new(T::default())),
+                SBCltMsg::UData(UData::new(T::default())),
             ]
         }
         

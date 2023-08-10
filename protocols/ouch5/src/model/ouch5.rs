@@ -1,5 +1,7 @@
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
-use links_soupbintcp_async::prelude::MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
+use links_soupbintcp_async::prelude::{
+    SBCltMsg, SBSvcMsg, MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG,
+};
 
 use crate::prelude::*;
 
@@ -8,7 +10,7 @@ use super::outbound::order_aiq_canceled::OrderAiqCanceled;
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(peek(0, 1))]
-pub enum Ouch5CltMsg {
+pub enum Ouch5CltPld {
     #[byteserde(eq(PacketTypeEnterOrder::as_slice()))]
     Enter(EnterOrder),
     #[byteserde(eq(PacketTypeReplaceOrder::as_slice()))]
@@ -21,18 +23,18 @@ pub enum Ouch5CltMsg {
     AccQry(AccountQueryRequest),
 }
 
-const MAX_FRAME_SIZE_SVC_MSG: usize = 72; // TODO revise Options fields and remeasure
+const MAX_FRAME_SIZE_OUCH5_SVC_PLD: usize = 72; // TODO revise Options fields and remeasure
 pub const MAX_FRAME_SIZE_OUCH5_SVC_MSG: usize =
-    MAX_FRAME_SIZE_SVC_MSG + MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
+    MAX_FRAME_SIZE_OUCH5_SVC_PLD + MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
 
-const MAX_FRAME_SIZE_CLT_MSG: usize = 51; // TODO revise Options fields and remeasure
+const MAX_FRAME_SIZE_OUCH5_CLT_PLD: usize = 51; // TODO revise Options fields and remeasure
 pub const MAX_FRAME_SIZE_OUCH5_CLT_MSG: usize =
-    MAX_FRAME_SIZE_CLT_MSG + MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
+    MAX_FRAME_SIZE_OUCH5_CLT_PLD + MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
 /// Both [ReplaceOrder] & [OrderReplaced] are serialized as b'U' hence it is impossible to distinguish deserialization type unless they are in two different enums.
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(peek(0, 1))]
-pub enum Ouch5SvcMsg {
+pub enum Ouch5SvcPld {
     #[byteserde(eq(PacketTypeOrderAccepted::as_slice()))]
     Accepted(OrderAccepted),
     #[byteserde(eq(PacketTypeOrderExecuted::as_slice()))]
@@ -65,20 +67,29 @@ pub enum Ouch5SvcMsg {
     SysEvt(SystemEvent),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Ouch5Msg {
-    Clt(Ouch5CltMsg),
-    Svc(Ouch5SvcMsg),
+    Clt(SBCltMsg<Ouch5CltPld>),
+    Svc(SBSvcMsg<Ouch5SvcPld>),
+}
+impl Ouch5Msg {
+    pub fn clt(payload: Ouch5CltPld) -> Self {
+        Self::Clt(SBCltMsg::udata(payload))
+    }
+    pub fn svc(payload: Ouch5SvcPld) -> Self {
+        Self::Svc(SBSvcMsg::udata(payload))
+    }
 }
 
 #[cfg(test)]
 mod test {
 
     use crate::{
-        model::ouch5::{MAX_FRAME_SIZE_CLT_MSG, MAX_FRAME_SIZE_SVC_MSG},
+        model::ouch5::{MAX_FRAME_SIZE_OUCH5_CLT_PLD, MAX_FRAME_SIZE_OUCH5_SVC_PLD},
         prelude::*,
     };
     use byteserde::prelude::*;
+    use links_soupbintcp_async::prelude::{SBCltMsg, SBSvcMsg};
     use links_testing::unittest::setup;
     use log::info;
 
@@ -105,26 +116,25 @@ mod test {
         let ord_rstd = OrderRestated::from((&enter_ord, RestatedReason::refresh_of_display()));
 
         let msg_inp = vec![
-            Ouch5Msg::Clt(Ouch5CltMsg::Enter(enter_ord)),
-            Ouch5Msg::Clt(Ouch5CltMsg::Replace(replace_ord)),
-            Ouch5Msg::Clt(Ouch5CltMsg::Cancel(cancel_ord)),
-            Ouch5Msg::Clt(Ouch5CltMsg::Modify(ModifyOrder::default())),
-            Ouch5Msg::Clt(Ouch5CltMsg::AccQry(AccountQueryRequest::default())),
-            
-            Ouch5Msg::Svc(Ouch5SvcMsg::SysEvt(SystemEvent::default())),
-            Ouch5Msg::Svc(Ouch5SvcMsg::Accepted(ord_accepted)),
-            Ouch5Msg::Svc(Ouch5SvcMsg::Replaced(ord_replaced)),
-            Ouch5Msg::Svc(Ouch5SvcMsg::Canceled(ord_canceled)),
-            Ouch5Msg::Svc(Ouch5SvcMsg::AiqCanceled(ord_aqi_canceled)),
-            Ouch5Msg::Svc(Ouch5SvcMsg::Executed(ord_executed)),
-            Ouch5Msg::Svc(Ouch5SvcMsg::BrokenTrade(brkn_trade)),
-            Ouch5Msg::Svc(Ouch5SvcMsg::Rejected(ord_rejected)),
-            Ouch5Msg::Svc(Ouch5SvcMsg::CanPending(can_pending)),
-            Ouch5Msg::Svc(Ouch5SvcMsg::CanReject(can_reject)),
-            Ouch5Msg::Svc(Ouch5SvcMsg::PrioUpdate(prio_update)),
-            Ouch5Msg::Svc(Ouch5SvcMsg::Modified(ord_modified)),
-            Ouch5Msg::Svc(Ouch5SvcMsg::Restated(ord_rstd)),
-            Ouch5Msg::Svc(Ouch5SvcMsg::AccQryRes(AccountQueryResponse::default())),
+            Ouch5Msg::clt(Ouch5CltPld::Enter(enter_ord)),
+            Ouch5Msg::clt(Ouch5CltPld::Replace(replace_ord)),
+            Ouch5Msg::clt(Ouch5CltPld::Cancel(cancel_ord)),
+            Ouch5Msg::clt(Ouch5CltPld::Modify(ModifyOrder::default())),
+            Ouch5Msg::clt(Ouch5CltPld::AccQry(AccountQueryRequest::default())),
+            Ouch5Msg::svc(Ouch5SvcPld::SysEvt(SystemEvent::default())),
+            Ouch5Msg::svc(Ouch5SvcPld::Accepted(ord_accepted)),
+            Ouch5Msg::svc(Ouch5SvcPld::Replaced(ord_replaced)),
+            Ouch5Msg::svc(Ouch5SvcPld::Canceled(ord_canceled)),
+            Ouch5Msg::svc(Ouch5SvcPld::AiqCanceled(ord_aqi_canceled)),
+            Ouch5Msg::svc(Ouch5SvcPld::Executed(ord_executed)),
+            Ouch5Msg::svc(Ouch5SvcPld::BrokenTrade(brkn_trade)),
+            Ouch5Msg::svc(Ouch5SvcPld::Rejected(ord_rejected)),
+            Ouch5Msg::svc(Ouch5SvcPld::CanPending(can_pending)),
+            Ouch5Msg::svc(Ouch5SvcPld::CanReject(can_reject)),
+            Ouch5Msg::svc(Ouch5SvcPld::PrioUpdate(prio_update)),
+            Ouch5Msg::svc(Ouch5SvcPld::Modified(ord_modified)),
+            Ouch5Msg::svc(Ouch5SvcPld::Restated(ord_rstd)),
+            Ouch5Msg::svc(Ouch5SvcPld::AccQryRes(AccountQueryResponse::default())),
         ];
         let mut ser = ByteSerializerStack::<1024>::default();
         for ouch5 in msg_inp.iter() {
@@ -144,12 +154,12 @@ mod test {
         for ouch5 in msg_inp.iter() {
             match ouch5 {
                 Ouch5Msg::Clt(msg_inp_inb) => {
-                    let msg_out_inb = des.deserialize::<Ouch5CltMsg>().unwrap();
+                    let msg_out_inb = des.deserialize::<SBCltMsg<Ouch5CltPld>>().unwrap();
                     info!("msg_out_inb: {:?}", msg_out_inb);
                     assert_eq!(msg_inp_inb, &msg_out_inb);
                 }
                 Ouch5Msg::Svc(msg_inp_oub) => {
-                    let msg_out_oub = des.deserialize::<Ouch5SvcMsg>().unwrap();
+                    let msg_out_oub = des.deserialize::<SBSvcMsg<Ouch5SvcPld>>().unwrap();
                     info!("msg_out_oub: {:?}", msg_out_oub);
                     assert_eq!(msg_inp_oub, &msg_out_oub);
                 }
@@ -179,27 +189,27 @@ mod test {
         let ord_modified = OrderModified::from((&enter_ord, Side::buy()));
         let ord_rstd = OrderRestated::from((&enter_ord, RestatedReason::refresh_of_display()));
         let inb = vec![
-            Ouch5CltMsg::Enter(enter_ord),
-            Ouch5CltMsg::Replace(replace_ord),
-            Ouch5CltMsg::Cancel(cancel_ord),
-            Ouch5CltMsg::Modify(ModifyOrder::default()),
-            Ouch5CltMsg::AccQry(AccountQueryRequest::default()),
+            Ouch5CltPld::Enter(enter_ord),
+            Ouch5CltPld::Replace(replace_ord),
+            Ouch5CltPld::Cancel(cancel_ord),
+            Ouch5CltPld::Modify(ModifyOrder::default()),
+            Ouch5CltPld::AccQry(AccountQueryRequest::default()),
         ];
         let oub = vec![
-            Ouch5SvcMsg::SysEvt(SystemEvent::default()),
-            Ouch5SvcMsg::Accepted(ord_accepted),
-            Ouch5SvcMsg::Replaced(ord_replaced),
-            Ouch5SvcMsg::Canceled(ord_canceled),
-            Ouch5SvcMsg::AiqCanceled(ord_aqi_canceled),
-            Ouch5SvcMsg::Executed(ord_executed),
-            Ouch5SvcMsg::BrokenTrade(brkn_trade),
-            Ouch5SvcMsg::Rejected(ord_rejected),
-            Ouch5SvcMsg::CanPending(can_pending),
-            Ouch5SvcMsg::CanReject(can_reject),
-            Ouch5SvcMsg::PrioUpdate(prio_update),
-            Ouch5SvcMsg::Modified(ord_modified),
-            Ouch5SvcMsg::Restated(ord_rstd),
-            Ouch5SvcMsg::AccQryRes(AccountQueryResponse::default()),
+            Ouch5SvcPld::SysEvt(SystemEvent::default()),
+            Ouch5SvcPld::Accepted(ord_accepted),
+            Ouch5SvcPld::Replaced(ord_replaced),
+            Ouch5SvcPld::Canceled(ord_canceled),
+            Ouch5SvcPld::AiqCanceled(ord_aqi_canceled),
+            Ouch5SvcPld::Executed(ord_executed),
+            Ouch5SvcPld::BrokenTrade(brkn_trade),
+            Ouch5SvcPld::Rejected(ord_rejected),
+            Ouch5SvcPld::CanPending(can_pending),
+            Ouch5SvcPld::CanReject(can_reject),
+            Ouch5SvcPld::PrioUpdate(prio_update),
+            Ouch5SvcPld::Modified(ord_modified),
+            Ouch5SvcPld::Restated(ord_rstd),
+            Ouch5SvcPld::AccQryRes(AccountQueryResponse::default()),
         ];
 
         let inb = inb
@@ -211,7 +221,7 @@ mod test {
         // }
         let max_frame_size_clt = inb.iter().map(|(len, _)| *len).max().unwrap();
         info!("max_frame_size_clt: {}", max_frame_size_clt);
-        assert_eq!(max_frame_size_clt, MAX_FRAME_SIZE_CLT_MSG);
+        assert_eq!(max_frame_size_clt, MAX_FRAME_SIZE_OUCH5_CLT_PLD);
 
         let oub = oub
             .into_iter()
@@ -222,6 +232,6 @@ mod test {
         // }
         let max_frame_size_svc = oub.iter().map(|(len, _)| *len).max().unwrap();
         info!("max_frame_size_svc: {}", max_frame_size_svc);
-        assert_eq!(max_frame_size_svc, MAX_FRAME_SIZE_SVC_MSG);
+        assert_eq!(max_frame_size_svc, MAX_FRAME_SIZE_OUCH5_SVC_PLD);
     }
 }

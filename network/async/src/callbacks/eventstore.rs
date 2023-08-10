@@ -139,35 +139,35 @@ where
 }
 
 #[derive(Debug)]
-pub struct EventStoreCallback<T, M>
+pub struct EventStoreCallback<INTO, M>
 where
-    T: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
+    INTO: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
     M: Messenger,
 {
-    store: EventStoreRef<T>,
+    store: EventStoreRef<INTO>,
     phantom: std::marker::PhantomData<M>,
 }
-impl<T, M> EventStoreCallback<T, M>
+impl<INTO, M> EventStoreCallback<INTO, M>
 where
-    T: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
+    INTO: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
     M: Messenger,
 {
-    pub fn new(store: EventStoreRef<T>) -> Self {
+    pub fn new(store: EventStoreRef<INTO>) -> Self {
         Self {
             store,
             phantom: std::marker::PhantomData,
         }
     }
-    pub fn new_ref(store: EventStoreRef<T>) -> Arc<Self> {
+    pub fn new_ref(store: EventStoreRef<INTO>) -> Arc<Self> {
         Arc::new(Self {
             store,
             phantom: std::marker::PhantomData,
         })
     }
 }
-impl<T, M> Default for EventStoreCallback<T, M>
+impl<INTO, M> Default for EventStoreCallback<INTO, M>
 where
-    T: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
+    INTO: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
     M: Messenger,
 {
     fn default() -> Self {
@@ -177,12 +177,12 @@ where
         }
     }
 }
-impl<T, M> CallbackEvent<T, M> for EventStoreCallback<T, M>
+impl<INTO, M> CallbackEvent<INTO, M> for EventStoreCallback<INTO, M>
 where
-    T: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
+    INTO: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
     M: Messenger,
 {
-    fn on_event(&self, cond_id: &crate::core::conid::ConId, event: Dir<T>) {
+    fn on_event(&self, cond_id: &ConId, event: Dir<INTO>) {
         self.store.push(Entry {
             con_id: cond_id.clone(),
             instant: Instant::now(),
@@ -191,9 +191,9 @@ where
         })
     }
 }
-impl<T, M> Display for EventStoreCallback<T, M>
+impl<INTO, M> Display for EventStoreCallback<INTO, M>
 where
-    T: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
+    INTO: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
     M: Messenger,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -201,9 +201,9 @@ where
         Display::fmt(&self.store, f)
     }
 }
-impl<T, M> CallbackSendRecv<M> for EventStoreCallback<T, M>
+impl<INTO, M> CallbackSendRecv<M> for EventStoreCallback<INTO, M>
 where
-    T: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
+    INTO: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
     M: Messenger,
 {
     fn on_recv(&self, con_id: &ConId, msg: <M as Messenger>::RecvT) {
