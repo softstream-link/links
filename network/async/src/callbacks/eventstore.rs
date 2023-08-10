@@ -8,7 +8,7 @@ use std::{
 use chrono::{DateTime, Local};
 use tokio::task::yield_now;
 
-use crate::core::{ConId, Messenger};
+use crate::core::{conid::ConId, Messenger};
 
 use super::{CallbackEvent, CallbackSendRecv, Dir};
 
@@ -182,7 +182,7 @@ where
     T: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
     M: Messenger,
 {
-    fn on_event(&self, cond_id: &crate::core::ConId, event: Dir<T>) {
+    fn on_event(&self, cond_id: &crate::core::conid::ConId, event: Dir<T>) {
         self.store.push(Entry {
             con_id: cond_id.clone(),
             instant: Instant::now(),
@@ -206,11 +206,11 @@ where
     T: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
     M: Messenger,
 {
-    fn on_recv(&self, con_id: &crate::core::ConId, msg: <M as Messenger>::RecvT) {
+    fn on_recv(&self, con_id: &ConId, msg: <M as Messenger>::RecvT) {
         let entry = msg.into();
         self.on_event(con_id, Dir::Recv(entry));
     }
-    fn on_send(&self, con_id: &crate::core::ConId, msg: &<M as Messenger>::SendT) {
+    fn on_send(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {
         let entry = msg.clone().into();
         self.on_event(con_id, Dir::Send(entry));
     }

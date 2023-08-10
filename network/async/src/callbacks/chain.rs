@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::core::{ConId, Messenger};
+use crate::core::{conid::ConId, Messenger};
 
 use super::CallbackSendRecv;
 

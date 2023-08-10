@@ -1,4 +1,4 @@
-use links_network_async::{callbacks::devnull::DevNullCallback, prelude::*};
+use links_network_async::prelude::*;
 
 use crate::prelude::*;
 

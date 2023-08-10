@@ -5,7 +5,7 @@ use std::{
 
 use tokio::time::Instant;
 
-use super::ConId;
+use super::conid::ConId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EventIntervalTracker {

@@ -84,11 +84,11 @@ async fn test_clt_svc() {
 
     assert!(clt.is_ok());
     let clt = clt.unwrap();
-    let clt_connected = clt.is_connected(Duration::from_millis(500).into()).await;
+    let clt_connected = clt.is_connected(Duration::from_millis(100).into()).await;
     info!("{} Status connected: {}", clt, clt_connected);
     assert!(clt_connected);
     
-    let svc_connected = svc.is_connected(Duration::from_millis(500).into()).await;
+    let svc_connected = svc.is_connected(Duration::from_millis(100).into()).await;
     info!("{} Status connected: {}", svc, svc_connected);
     assert!(svc_connected);
     

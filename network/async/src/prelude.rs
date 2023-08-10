@@ -6,7 +6,7 @@ pub use crate::connect::svc::Svc;
 pub use crate::connect::svc::SvcSender;
 
 // core
-pub use crate::core::ConId;
+pub use crate::core::conid::ConId;
 pub use crate::core::Framer;
 pub use crate::core::Messenger;
 pub use crate::core::Protocol;

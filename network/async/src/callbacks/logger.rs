@@ -5,7 +5,7 @@ use std::{
 
 use log::{debug, error, info, log_enabled, trace, warn, Level};
 
-use crate::core::{ConId, Messenger};
+use crate::core::{conid::ConId, Messenger};
 
 use super::CallbackSendRecv;
 

@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-use crate::core::{ConId, Messenger};
+use crate::core::{conid::ConId, Messenger};
 
 pub mod chain;
 pub mod devnull;

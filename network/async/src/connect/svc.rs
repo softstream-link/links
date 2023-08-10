@@ -28,7 +28,7 @@ where
         let name = {
             let mut protocol_full_name = type_name::<P>().split(['<','>']);
             format!("{} SvcSender<{}<{}>, {}, {}>", 
-                match &self.con_id {ConId::Svc { name, local, .. } => format!("Svc({}@{})", name, local), _ => panic!("SvcSender has Invalid ConId: {:?}", self.con_id),},
+                self.con_id,
                 protocol_full_name.next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"), 
                 protocol_full_name.next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"),
                 type_name::<C>().split('<').next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"),
