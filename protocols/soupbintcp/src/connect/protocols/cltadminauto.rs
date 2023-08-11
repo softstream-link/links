@@ -109,18 +109,17 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
             };
             if is_heart_beating {
                 return true;
+            }else if now.elapsed() > timeout{
+                let is_connected = match recv_tracker {
+                    Some(ref recv_tracker) => format!("{}", recv_tracker),
+                    None => "None".to_owned(),
+                };
+                warn!("{} timeout: {:?}", is_connected, timeout);
+                return false;
             }else{
-                if now.elapsed() > timeout{
-                    let is_connected = match recv_tracker {
-                        Some(ref recv_tracker) => format!("{}", recv_tracker),
-                        None => "None".to_owned(),
-                    };
-                    warn!("{} timeout: {:?}", is_connected, timeout);
-                    return false;
-                }else{
-                    yield_now().await;
-                }
+                yield_now().await;
             }
+            
         }
     }
     async fn on_recv<'s>(&'s self, _con_id: &'s ConId, _msg: &'s Self::RecvT)  {

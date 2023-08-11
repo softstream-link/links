@@ -29,12 +29,12 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
 {
     #[rustfmt::skip]
     pub fn new_ref(username: UserName, password: Password, session_id: SessionId, hbeat_tolerance_factor: f64) -> Arc<Self> {
-            Arc::new(Self { username, password, session_id, 
-                hbeat_interval: Arc::new(Mutex::new(None)),
-                hbeat_tolerance_factor, 
-                recv_tracker: Arc::new(Mutex::new(None)), // 1 day ago
-                phantom: std::marker::PhantomData,})
-        }
+        Arc::new(Self { username, password, session_id, 
+            hbeat_interval: Arc::new(Mutex::new(None)),
+            hbeat_tolerance_factor, 
+            recv_tracker: Arc::new(Mutex::new(None)), 
+            phantom: std::marker::PhantomData,})
+    }
 }
 
 impl<PAYLOAD> Framer for SBSvcAdminProtocol<PAYLOAD>
@@ -75,7 +75,8 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
             // validate session
             if req.session_id != self.session_id {
                 clt.send(&mut SBSvcMsg::login_rej_ses_not_avail()).await?;
-                #[rustfmt::skip] return Err(format!("{} '{}' No Session Avail", clt.con_id(),req.session_id).into());
+                #[rustfmt::skip]
+                return Err(format!("{} '{}' No Session Avail", clt.con_id(),req.session_id).into());
             }
             // save hbeat from clt login req
             { // drop lock
@@ -87,7 +88,8 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
             clt.send(&mut SBSvcMsg::login_acc(self.session_id, 0.into()))
                 .await?;
         } else {
-            #[rustfmt::skip] return Err(format!("{} Invalid Handshake unexpected msg: {:?}", clt.con_id(), msg).into());
+            #[rustfmt::skip]
+            return Err(format!("{} Invalid Handshake unexpected msg: {:?}", clt.con_id(), msg).into());
         }
         Ok(())
     }
@@ -127,18 +129,17 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
             };
             if is_heart_beating {
                 return true;
+            }else if now.elapsed() > timeout{
+                let is_connected = match recv_tracker {
+                    Some(ref recv_tracker) => format!("{}", recv_tracker),
+                    None => "None".to_owned(),
+                };
+                warn!("{} timeout: {:?}", is_connected, timeout);
+                return false;
             }else{
-                if now.elapsed() > timeout{
-                    let is_connected = match recv_tracker {
-                        Some(ref recv_tracker) => format!("{}", recv_tracker),
-                        None => "None".to_owned(),
-                    };
-                    warn!("{} timeout: {:?}", is_connected, timeout);
-                    return false;
-                }else{
-                    yield_now().await;
-                }
+                yield_now().await;
             }
+            
         }
     }
     async fn on_recv<'s>(&'s self, _con_id: &'s ConId, _msg: &'s Self::RecvT)  {

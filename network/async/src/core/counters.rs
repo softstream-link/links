@@ -31,7 +31,7 @@ impl EventIntervalTracker {
     }
     pub fn is_within_tolerance_factor(&self) -> bool {
         match self.last_occurrence {
-            None => return false,
+            None => false,
             Some(last_occurrence) => {
                 let elapsed = Instant::now() - last_occurrence;
                 elapsed.as_secs_f64()

@@ -17,14 +17,7 @@ impl ConId {
     pub fn clt(name: Option<&str>, local: Option<&str>, peer: &str) -> Self {
         ConId::Clt {
             name: name.unwrap_or("unknown").to_owned(),
-            local: match local {
-                None => None,
-                Some(local) => Some(
-                    local
-                        .parse()
-                        .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", local)),
-                ),
-            },
+            local: local.map(|addr| addr.parse().unwrap_or_else(|_| panic!("unable to parse addr: {:?}", addr))),
             peer: peer
                 .parse()
                 .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", peer)),
@@ -49,13 +42,7 @@ impl ConId {
             local: local
                 .parse()
                 .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", local)),
-            peer: match peer {
-                None => None,
-                Some(peer) => Some(
-                    peer.parse()
-                        .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", peer)),
-                ),
-            },
+            peer: peer.map(|addr| addr.parse().unwrap_or_else(|_| panic!("unable to parse addr: {:?}", addr))),
         }
     }
 }
@@ -105,8 +92,11 @@ mod test {
         let con_id = ConId::clt(Some("unittest"), None, "0.0.0.0:1");
         info!("con_id: {:?}", con_id);
         info!("con_id: {}", con_id);
+        assert_eq!(con_id.to_string(), "Clt(unittest@none->0.0.0.0:1)");
+        
         let con_id = ConId::svc(Some("unittest"), "0.0.0.0:1", None);
         info!("con_id: {:?}", con_id);
         info!("con_id: {}", con_id);
+        assert_eq!(con_id.to_string(), "Svc(unittest@0.0.0.0:1<-none)");
     }
 }

@@ -91,7 +91,7 @@ where
                 return true;
             }
         }
-        return false
+        false
     }
     pub fn con_id(&self) -> &ConId {
         &self.con_id
