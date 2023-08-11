@@ -26,18 +26,16 @@ pub use crate::model::svc::system_event::SystemEvent;
 
 // message types enums
 pub use crate::model::ouch::OuchCltMsg;
-pub use crate::model::ouch::OuchCltMsgEnv;
 pub use crate::model::ouch::OuchCltPld;
 
 pub use crate::model::ouch::OuchSvcMsg;
-pub use crate::model::ouch::OuchSvcMsgEnv;
 pub use crate::model::ouch::OuchSvcPld;
 
 pub use crate::model::ouch::OuchMsg;
 
 // message frame size
-pub use crate::model::ouch::MAX_FRAME_SIZE_OUCH_CLT_PLD;
 pub use crate::model::ouch::MAX_FRAME_SIZE_OUCH_CLT_MSG;
+pub use crate::model::ouch::MAX_FRAME_SIZE_OUCH_CLT_PLD;
 pub use crate::model::ouch::MAX_FRAME_SIZE_OUCH_SVC_MSG;
 pub use crate::model::ouch::MAX_FRAME_SIZE_OUCH_SVC_PLD;
 

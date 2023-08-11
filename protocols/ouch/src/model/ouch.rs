@@ -70,99 +70,130 @@ pub enum OuchSvcPld {
 pub type OuchCltMsg = SBCltMsg<OuchCltPld>;
 pub type OuchSvcMsg = SBSvcMsg<OuchSvcPld>;
 
-pub type OuchMsg = SBMsg<OuchCltPld, OuchSvcPld>; // TODO shoud this be this?
+pub type OuchMsg = SBMsg<OuchCltPld, OuchSvcPld>;
 
-pub struct OuchCltMsgEnv;
-impl OuchCltMsgEnv {
-    #[inline]
-    pub fn clt(payload: OuchCltPld) -> OuchMsg {
-        OuchMsg::Clt(SBCltMsg::udata(payload))
+pub use from_clt_pld::*;
+mod from_clt_pld {
+    use super::*;
+    impl From<EnterOrder> for OuchMsg {
+        #[inline]
+        fn from(payload: EnterOrder) -> Self {
+            OuchMsg::Clt(OuchCltMsg::udata(OuchCltPld::Enter(payload)))
+        }
     }
-    #[inline]
-    pub fn ent(payload: EnterOrder) -> OuchMsg {
-        Self::clt(OuchCltPld::Enter(payload))
+    impl From<ReplaceOrder> for OuchMsg {
+        #[inline]
+        fn from(payload: ReplaceOrder) -> Self {
+            OuchMsg::Clt(OuchCltMsg::udata(OuchCltPld::Replace(payload)))
+        }
     }
-    #[inline]
-    pub fn rep(payload: ReplaceOrder) -> OuchMsg {
-        Self::clt(OuchCltPld::Replace(payload))
+    impl From<CancelOrder> for OuchMsg {
+        #[inline]
+        fn from(payload: CancelOrder) -> Self {
+            OuchMsg::Clt(OuchCltMsg::udata(OuchCltPld::Cancel(payload)))
+        }
     }
-    #[inline]
-    pub fn can(payload: CancelOrder) -> OuchMsg {
-        Self::clt(OuchCltPld::Cancel(payload))
+    impl From<ModifyOrder> for OuchMsg {
+        #[inline]
+        fn from(payload: ModifyOrder) -> Self {
+            OuchMsg::Clt(OuchCltMsg::udata(OuchCltPld::Modify(payload)))
+        }
     }
-    #[inline]
-    pub fn mof(payload: ModifyOrder) -> OuchMsg {
-        Self::clt(OuchCltPld::Modify(payload))
-    }
-    #[inline]
-    pub fn accqry(payload: AccountQueryRequest) -> OuchMsg {
-        Self::clt(OuchCltPld::AccQry(payload))
+    impl From<AccountQueryRequest> for OuchMsg {
+        #[inline]
+        fn from(payload: AccountQueryRequest) -> Self {
+            OuchMsg::Clt(OuchCltMsg::udata(OuchCltPld::AccQry(payload)))
+        }
     }
 }
 
-pub struct OuchSvcMsgEnv;
-impl OuchSvcMsgEnv {
-    #[inline]
-    pub fn svc(payload: OuchSvcPld) -> OuchMsg {
-        OuchMsg::Svc(SBSvcMsg::udata(payload))
+pub use from_svc_pld::*;
+mod from_svc_pld {
+    use super::*;
+    impl From<OrderAccepted> for OuchMsg {
+        #[inline]
+        fn from(payload: OrderAccepted) -> Self {
+            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::Accepted(payload)))
+        }
     }
-    #[inline]
-    pub fn acced(payload: OrderAccepted) -> OuchMsg {
-        Self::svc(OuchSvcPld::Accepted(payload))
+    impl From<OrderExecuted> for OuchMsg {
+        #[inline]
+        fn from(payload: OrderExecuted) -> Self {
+            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::Executed(payload)))
+        }
     }
-    #[inline]
-    pub fn exeed(payload: OrderExecuted) -> OuchMsg {
-        Self::svc(OuchSvcPld::Executed(payload))
+    impl From<OrderReplaced> for OuchMsg {
+        #[inline]
+        fn from(payload: OrderReplaced) -> Self {
+            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::Replaced(payload)))
+        }
     }
-    #[inline]
-    pub fn reped(payload: OrderReplaced) -> OuchMsg {
-        Self::svc(OuchSvcPld::Replaced(payload))
+    impl From<OrderCanceled> for OuchMsg {
+        #[inline]
+        fn from(payload: OrderCanceled) -> Self {
+            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::Canceled(payload)))
+        }
     }
-    #[inline]
-    pub fn caned(payload: OrderCanceled) -> OuchMsg {
-        Self::svc(OuchSvcPld::Canceled(payload))
+    impl From<OrderRejected> for OuchMsg {
+        #[inline]
+        fn from(payload: OrderRejected) -> Self {
+            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::Rejected(payload)))
+        }
     }
-    #[inline]
-    pub fn rejed(payload: OrderRejected) -> OuchMsg {
-        Self::svc(OuchSvcPld::Rejected(payload))
+    impl From<OrderModified> for OuchMsg {
+        #[inline]
+        fn from(payload: OrderModified) -> Self {
+            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::Modified(payload)))
+        }
     }
-    #[inline]
-    pub fn mofed(payload: OrderModified) -> OuchMsg {
-        Self::svc(OuchSvcPld::Modified(payload))
+    impl From<OrderRestated> for OuchMsg {
+        #[inline]
+        fn from(payload: OrderRestated) -> Self {
+            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::Restated(payload)))
+        }
     }
-    #[inline]
-    pub fn resed(payload: OrderRestated) -> OuchMsg {
-        Self::svc(OuchSvcPld::Restated(payload))
+    impl From<CancelPending> for OuchMsg {
+        #[inline]
+        fn from(payload: CancelPending) -> Self {
+            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::CanPending(payload)))
+        }
     }
-    #[inline]
-    pub fn caning(payload: CancelPending) -> OuchMsg {
-        Self::svc(OuchSvcPld::CanPending(payload))
+    impl From<CancelReject> for OuchMsg {
+        #[inline]
+        fn from(payload: CancelReject) -> Self {
+            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::CanReject(payload)))
+        }
     }
-    #[inline]
-    pub fn canrej(payload: CancelReject) -> OuchMsg {
-        Self::svc(OuchSvcPld::CanReject(payload))
+    impl From<OrderAiqCanceled> for OuchMsg {
+        #[inline]
+        fn from(payload: OrderAiqCanceled) -> Self {
+            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::AiqCanceled(payload)))
+        }
     }
-    #[inline]
-    pub fn aiqcaned(payload: OrderAiqCanceled) -> OuchMsg {
-        Self::svc(OuchSvcPld::AiqCanceled(payload))
+    impl From<BrokenTrade> for OuchMsg {
+        #[inline]
+        fn from(payload: BrokenTrade) -> Self {
+            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::BrokenTrade(payload)))
+        }
     }
-    #[inline]
-    pub fn bkntrd(payload: BrokenTrade) -> OuchMsg {
-        Self::svc(OuchSvcPld::BrokenTrade(payload))
+    impl From<PriorityUpdate> for OuchMsg {
+        #[inline]
+        fn from(payload: PriorityUpdate) -> Self {
+            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::PrioUpdate(payload)))
+        }
     }
-    #[inline]
-    pub fn priupd(payload: PriorityUpdate) -> OuchMsg {
-        Self::svc(OuchSvcPld::PrioUpdate(payload))
+    impl From<AccountQueryResponse> for OuchMsg {
+        #[inline]
+        fn from(payload: AccountQueryResponse) -> Self {
+            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::AccQryRes(payload)))
+        }
     }
-    #[inline]
-    pub fn accqry(payload: AccountQueryResponse) -> OuchMsg {
-        Self::svc(OuchSvcPld::AccQryRes(payload))
+    impl From<SystemEvent> for OuchMsg {
+        #[inline]
+        fn from(payload: SystemEvent) -> Self {
+            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::SysEvt(payload)))
+        }
     }
-    #[inline]
-    pub fn sysevt(payload: SystemEvent) -> OuchMsg {
-        Self::svc(OuchSvcPld::SysEvt(payload))
-    }
-
 }
 
 #[cfg(test)]
@@ -173,7 +204,6 @@ mod test {
         prelude::*,
     };
     use byteserde::prelude::*;
-    use links_soupbintcp_async::prelude::SBMsg;
     use links_testing::unittest::setup;
     use log::info;
 
@@ -200,35 +230,34 @@ mod test {
         let ord_rstd = OrderRestated::from((&enter_ord, RestatedReason::refresh_of_display()));
 
         let msg_inp = vec![
-            OuchCltMsgEnv::ent(enter_ord),
-            OuchCltMsgEnv::rep(replace_ord),
-            OuchCltMsgEnv::can(cancel_ord),
-            OuchCltMsgEnv::mof(ModifyOrder::default()),
-            OuchCltMsgEnv::accqry(AccountQueryRequest::default()),
-
-            OuchSvcMsgEnv::acced(ord_accepted),
-            OuchSvcMsgEnv::exeed(ord_executed),
-            OuchSvcMsgEnv::reped(ord_replaced),
-            OuchSvcMsgEnv::caned(ord_canceled),
-            OuchSvcMsgEnv::rejed(ord_rejected),
-            OuchSvcMsgEnv::mofed(ord_modified),
-            OuchSvcMsgEnv::resed(ord_rstd),
-            OuchSvcMsgEnv::caning(can_pending),
-            OuchSvcMsgEnv::canrej(can_reject),
-            OuchSvcMsgEnv::aiqcaned(ord_aqi_canceled),
-            OuchSvcMsgEnv::bkntrd(brkn_trade),
-            OuchSvcMsgEnv::priupd(prio_update),
-            OuchSvcMsgEnv::accqry(AccountQueryResponse::default()),
-            OuchSvcMsgEnv::sysevt(SystemEvent::default()),
+            enter_ord.into(),
+            replace_ord.into(),
+            cancel_ord.into(),
+            ModifyOrder::default().into(),
+            AccountQueryRequest::default().into(),
+            ord_accepted.into(),
+            ord_executed.into(),
+            ord_replaced.into(),
+            ord_canceled.into(),
+            ord_rejected.into(),
+            ord_modified.into(),
+            ord_rstd.into(),
+            can_pending.into(),
+            can_reject.into(),
+            ord_aqi_canceled.into(),
+            brkn_trade.into(),
+            prio_update.into(),
+            AccountQueryResponse::default().into(),
+            SystemEvent::default().into(),
         ];
         let mut ser = ByteSerializerStack::<1024>::default();
         for msg in msg_inp.iter() {
             match msg {
-                SBMsg::Clt(msg_inp_inb) => {
+                OuchMsg::Clt(msg_inp_inb) => {
                     info!("msg_inp_inb: {:?}", msg_inp_inb);
                     let _ = ser.serialize(msg_inp_inb).unwrap();
                 }
-                SBMsg::Svc(msg_inp_oub) => {
+                OuchMsg::Svc(msg_inp_oub) => {
                     info!("msg_inp_oub: {:?}", msg_inp_oub);
                     let _ = ser.serialize(msg_inp_oub).unwrap();
                 }
@@ -238,12 +267,12 @@ mod test {
 
         for ouch in msg_inp.iter() {
             match ouch {
-                SBMsg::Clt(msg_inp_inb) => {
+                OuchMsg::Clt(msg_inp_inb) => {
                     let msg_out_inb = des.deserialize::<OuchCltMsg>().unwrap();
                     info!("msg_out_inb: {:?}", msg_out_inb);
                     assert_eq!(msg_inp_inb, &msg_out_inb);
                 }
-                SBMsg::Svc(msg_inp_oub) => {
+                OuchMsg::Svc(msg_inp_oub) => {
                     let msg_out_oub = des.deserialize::<OuchSvcMsg>().unwrap();
                     info!("msg_out_oub: {:?}", msg_out_oub);
                     assert_eq!(msg_inp_oub, &msg_out_oub);
