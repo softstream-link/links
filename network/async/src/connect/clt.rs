@@ -166,11 +166,11 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
         let mut abort_handles = vec![spawn({
             let con_id = con_id.clone();
             async move {
-                info!("{} recv stream started", con_id);
+                debug!("{} recv stream started", con_id);
                 let res = Self::recv_loop(clt).await;
                 match res {
                     Ok(()) => {
-                        info!("{} recv stream EOF", con_id);
+                        debug!("{} recv stream EOF", con_id);
                     }
                     Err(e) => {
                         error!("{} recv stream error: {:?}", con_id, e);
