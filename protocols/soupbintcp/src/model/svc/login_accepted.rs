@@ -1,7 +1,7 @@
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 use std::fmt::{Debug, Display};
 
-use super::types::{PacketTypeLoginAccepted, SequenceNumber, SessionId};
+use crate::model::types::{PacketTypeLoginAccepted, SequenceNumber, SessionId};
 
 pub const LOGIN_ACCEPTED_PACKET_LENGTH: u16 = 31; // packet_type/1 + session/10 + sequence_number/20
 pub const LOGIN_ACCEPTED_BYTE_LEN: usize = LOGIN_ACCEPTED_PACKET_LENGTH as usize + 2;

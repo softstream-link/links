@@ -1,7 +1,7 @@
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 use std::fmt::Display;
 
-use super::types::PacketTypeSvcHeartbeat;
+use crate::model::types::PacketTypeSvcHeartbeat;
 
 pub const SERVER_HEARTBEAT_PACKET_LENGTH: u16 = 1;
 pub const SERVER_HEARTBEAT_BYTE_LEN: usize = SERVER_HEARTBEAT_PACKET_LENGTH as usize + 2;

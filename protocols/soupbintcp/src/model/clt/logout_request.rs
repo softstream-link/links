@@ -1,7 +1,7 @@
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 use std::fmt::{Debug, Display};
 
-use super::types::PacketTypeLogoutRequest;
+use crate::model::types::PacketTypeLogoutRequest;
 
 pub const LOGOUT_REQUEST_PACKET_LENGTH: u16 = 1;
 pub const LOGOUT_REQUEST_BYTE_LEN: usize = LOGOUT_REQUEST_PACKET_LENGTH as usize + 2;

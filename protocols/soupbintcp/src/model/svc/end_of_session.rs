@@ -1,7 +1,7 @@
 use std::fmt::Display;
 use byteserde_derive::{ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf};
 
-use super::types::PacketTypeEndOfSession;
+use crate::model::types::PacketTypeEndOfSession;
 
 pub const END_OF_SESSION_PACKET_LENGTH: u16 = 1;
 pub const END_OF_SESSION_BYTE_LEN: usize = END_OF_SESSION_PACKET_LENGTH as usize + 2;

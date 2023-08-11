@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display};
 use byteserde_derive::{ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf};
 
-use super::types::{PacketTypeLoginRequest, UserName, Password, SessionId, SequenceNumber, TimeoutMs};
+use crate::model::types::{PacketTypeLoginRequest, UserName, Password, SessionId, SequenceNumber, TimeoutMs};
 
 // packet_type/1 + usr/6 + pwd/10 + requested_session/10 + requested_sequence_number/20 + heartbeat_timeout_ms/5
 pub const LOGIN_REQUEST_PACKET_LENGTH: u16 = 52; 
