@@ -16,7 +16,7 @@ mod test {
     const MMS: usize = 128;
 
     lazy_static! {
-        static ref ADDR: &'static str = setup::net::default_addr();
+        static ref ADDR: &'static str = &setup::net::default_addr();
         static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
         static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
     }

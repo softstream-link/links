@@ -3,9 +3,9 @@ pub mod setup {
         use std::sync::Once;
         static SETUP: Once = Once::new();
         pub fn configure() {
-            configure_at(log::LevelFilter::Trace)
+            configure_level(log::LevelFilter::Trace)
         }
-        pub fn configure_at(level: log::LevelFilter) {
+        pub fn configure_level(level: log::LevelFilter) {
             SETUP.call_once(|| {
                 let _ = env_logger::builder()
                     .format_timestamp_micros()

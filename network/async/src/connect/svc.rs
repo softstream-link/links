@@ -208,7 +208,7 @@ mod test {
     use tokio::time::Duration;
 
     lazy_static! {
-        static ref ADDR: &'static str = setup::net::default_addr();
+        static ref ADDR: &'static str = &setup::net::default_addr();
     }
     const MMS: usize = 128;
     #[tokio::test]
@@ -228,7 +228,7 @@ mod test {
 
     #[tokio::test]
     async fn test_svc_clt_connected() {
-        setup::log::configure_at(log::LevelFilter::Debug);
+        setup::log::configure_level(log::LevelFilter::Debug);
         let event_store = EventStore::<TestMsg>::new_ref();
         // let clt_callback = ChainCallback::new_ref(vec![
         //     LoggerCallback::new_ref(log::Level::Warn),

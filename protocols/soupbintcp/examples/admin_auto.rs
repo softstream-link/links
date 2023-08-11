@@ -16,13 +16,13 @@ async fn main() {
 }
 
 lazy_static! {
-    static ref ADDR: &'static str = setup::net::default_addr();
+    static ref ADDR: &'static str = &setup::net::default_addr();
     static ref TMOUT: Duration = setup::net::default_connect_timeout();
     static ref RETRY: Duration = setup::net::default_connect_retry_after();
 }
 const MMS: usize = MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
 async fn test_clt_svc() {
-    setup::log::configure_at(log::LevelFilter::Info);
+    setup::log::configure_level(log::LevelFilter::Info);
     let svc_callback = SBSvcLoggerCallback::new_ref(Level::Info, Level::Debug);
     let svc_admin_protocol = SBSvcAdminProtocol::<NoPayload>::new_ref(
         b"abcdef".into(),

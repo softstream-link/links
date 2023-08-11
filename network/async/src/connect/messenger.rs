@@ -109,7 +109,7 @@ mod test {
 
 
     lazy_static! {
-        static ref ADDR: &'static str = setup::net::default_addr();
+        static ref ADDR: &'static str = &setup::net::default_addr();
     }
     #[tokio::test]
     async fn test_connection() {

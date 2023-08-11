@@ -14,7 +14,7 @@ mod test {
     use log::{info, Level};
 
     lazy_static! {
-        static ref ADDR: &'static str = setup::net::default_addr();
+        static ref ADDR: &'static str = &setup::net::default_addr();
     }
     use crate::prelude::*;
 
@@ -38,7 +38,7 @@ mod test {
 
     #[tokio::test]
     async fn test_svc_clt_connected() {
-        setup::log::configure_at(log::LevelFilter::Info);
+        setup::log::configure_level(log::LevelFilter::Info);
         let svc_prcl = Ouch5SvcProtocol::new_ref(
             b"abcdef".into(),
             b"++++++++++".into(),

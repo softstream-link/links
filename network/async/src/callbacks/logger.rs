@@ -88,7 +88,7 @@ mod test {
 
     #[test]
     fn test_event_log() {
-        setup::log::configure_at(log::LevelFilter::Trace);
+        setup::log::configure_level(log::LevelFilter::Trace);
         let log = LoggerCallback::<TestCltMsgProtocol>::new_ref(Level::Trace, Level::Trace);
 
         for _ in 0..2 {

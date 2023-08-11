@@ -5,7 +5,7 @@ use links_soupbintcp_async::prelude::{
 
 use crate::prelude::*;
 
-use super::outbound::order_aiq_canceled::OrderAiqCanceled;
+use super::svc::order_aiq_canceled::OrderAiqCanceled;
 
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
