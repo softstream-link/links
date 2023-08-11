@@ -23,7 +23,7 @@ mod test {
             *ADDR,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
-            SBCltLoggerCallback::<SBCltAdminProtocol<SamplePayload>>::new_ref(Level::Info, Level::Info),
+            SBCltLoggerCallback::<SBCltAdminProtocol<Nil, Nil>>::new_ref(Level::Info, Level::Info),
             Some("soupbin/unittest"),
         )
         .await;

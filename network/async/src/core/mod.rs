@@ -83,5 +83,5 @@ pub trait Protocol: Clone+Messenger+Framer+Send+Sync+'static {
     ) -> impl Future<Output=()>+Send+'_ {
         async {  }
     }
-    fn on_send<'s>(&'s self, con_id: &'s ConId, msg: &'s mut Self::SendT) {}
+    fn on_send<'s>(&'s self, con_id: &'s ConId, msg: &'s mut Self::SendT) {} // TODO CRITICAL async not finished
 }

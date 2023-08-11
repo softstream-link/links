@@ -12,8 +12,10 @@ use tokio::sync::Mutex;
 use crate::prelude::*;
 
 #[derive(Debug, Clone)]
-pub struct SBSvcAdminProtocol<PAYLOAD>
-where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
+pub struct SBSvcAdminProtocol<SendPayLoad, RecvPayload>
+where 
+    SendPayLoad: ByteDeserializeSlice<SendPayLoad>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
+    RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
     username: UserName,
     password: Password,
@@ -21,11 +23,13 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
     hbeat_interval: Arc<Mutex<Option<Duration>>>,
     hbeat_tolerance_factor: f64,
     recv_tracker: Arc<Mutex<Option<EventIntervalTracker>>>,
-    phantom: std::marker::PhantomData<PAYLOAD>,
+    phantom: std::marker::PhantomData<(SendPayLoad, RecvPayload)>,
 }
 
-impl<PAYLOAD> SBSvcAdminProtocol<PAYLOAD>
-where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
+impl<SendPayLoad, RecvPayload> SBSvcAdminProtocol<SendPayLoad, RecvPayload>
+where 
+    SendPayLoad: ByteDeserializeSlice<SendPayLoad>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
+    RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
     #[rustfmt::skip]
     pub fn new_ref(username: UserName, password: Password, session_id: SessionId, hbeat_tolerance_factor: f64) -> Arc<Self> {
@@ -37,8 +41,10 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
     }
 }
 
-impl<PAYLOAD> Framer for SBSvcAdminProtocol<PAYLOAD>
-where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
+impl<SendPayLoad, RecvPayload> Framer for SBSvcAdminProtocol<SendPayLoad, RecvPayload>
+where 
+    SendPayLoad: ByteDeserializeSlice<SendPayLoad>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
+    RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
     #[inline]
     fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
@@ -46,15 +52,19 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
     }
 }
 
-impl<PAYLOAD> Messenger for SBSvcAdminProtocol<PAYLOAD>
-where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
+impl<SendPayLoad, RecvPayload> Messenger for SBSvcAdminProtocol<SendPayLoad, RecvPayload>
+where 
+    SendPayLoad: ByteDeserializeSlice<SendPayLoad>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
+    RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
-    type SendT = SBSvcMsg<PAYLOAD>;
-    type RecvT = SBCltMsg<PAYLOAD>;
+    type SendT = SBSvcMsg<SendPayLoad>;
+    type RecvT = SBCltMsg<RecvPayload>;
 }
 
-impl<PAYLOAD> Protocol for SBSvcAdminProtocol<PAYLOAD>
-where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
+impl<SendPayLoad, RecvPayload> Protocol for SBSvcAdminProtocol<SendPayLoad, RecvPayload>
+where 
+    SendPayLoad: ByteDeserializeSlice<SendPayLoad>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
+    RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
     async fn handshake<
         's,

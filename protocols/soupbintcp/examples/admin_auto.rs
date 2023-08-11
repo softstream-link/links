@@ -24,7 +24,7 @@ const MMS: usize = MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
 async fn test_clt_svc() {
     setup::log::configure_level(log::LevelFilter::Info);
     let svc_callback = SBSvcLoggerCallback::new_ref(Level::Info, Level::Debug);
-    let svc_admin_protocol = SBSvcAdminProtocol::<Nil>::new_ref(
+    let svc_admin_protocol = SBSvcAdminProtocol::<Nil, Nil>::new_ref(
         b"abcdef".into(),
         b"++++++++++".into(),
         Default::default(),
@@ -39,7 +39,7 @@ async fn test_clt_svc() {
 
     let clt_cb = SBCltLoggerCallback::new_ref(Level::Info, Level::Debug);
     info!("\n**********************************  AUTH ERROR  **********************************\n");
-    let clt_pr = SBCltAdminProtocol::<Nil>::new_ref(
+    let clt_pr = SBCltAdminProtocol::<Nil, Nil>::new_ref(
         b"abcdef".into(),
         b"----------".into(),
         Default::default(),
@@ -64,7 +64,7 @@ async fn test_clt_svc() {
     assert!(!svc_connected);
 
     info!("\n**********************************  AUTH OK  **********************************\n");
-    let clt_pr = SBCltAdminProtocol::<Nil>::new_ref(
+    let clt_pr = SBCltAdminProtocol::<Nil, Nil>::new_ref(
         b"abcdef".into(),
         b"++++++++++".into(),
         Default::default(),

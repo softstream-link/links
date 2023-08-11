@@ -6,14 +6,17 @@ use tokio::sync::Mutex;
 use tokio::task::yield_now;
 use tokio::time::Instant;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 use std::time::Duration;
 use std::{error::Error, sync::Arc};
 
 use crate::prelude::*;
 
 #[derive(Debug, Clone)]
-pub struct SBCltAdminProtocol<PAYLOAD>
-where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
+pub struct SBCltAdminProtocol<SendPayload,RecvPayload>
+where 
+    SendPayload: ByteDeserializeSlice<SendPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
+    RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
     username: UserName,
     password: Password,
@@ -22,22 +25,28 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
     hbeat_interval: Duration,
     hbeat_tolerance_factor: f64,
     recv_tracker: Arc<Mutex<Option<EventIntervalTracker>>>,
-    phantom: std::marker::PhantomData<PAYLOAD>,
+    phantom: PhantomData<(SendPayload, RecvPayload)>,
 }
 
-impl<PAYLOAD> SBCltAdminProtocol<PAYLOAD>
-where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
+impl<SendPayload, RecvPayload> SBCltAdminProtocol<SendPayload, RecvPayload>
+where 
+    SendPayload: ByteDeserializeSlice<SendPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
+    RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
+    
     #[rustfmt::skip]
     pub fn new_ref(username: UserName, password: Password, session_id: SessionId, sequence_number: SequenceNumber, hbeat_interval: Duration, hbeat_tolerance_factor: f64) -> Arc<Self> {
-            Arc::new(Self {username, password, session_id, sequence_number, hbeat_interval, hbeat_tolerance_factor,
-                recv_tracker: Arc::new(Mutex::new(None)), 
-                phantom: std::marker::PhantomData,})
-        }
+        Arc::new(Self {username, password, session_id, sequence_number, hbeat_interval, hbeat_tolerance_factor,
+            recv_tracker: Arc::new(Mutex::new(None)), 
+            phantom: PhantomData,
+        })
+    }
 }
 
-impl<PAYLOAD> Framer for SBCltAdminProtocol<PAYLOAD>
-where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
+impl<SendPayload, RecvPayload> Framer for SBCltAdminProtocol<SendPayload, RecvPayload>
+where 
+    SendPayload: ByteDeserializeSlice<SendPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
+    RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
     #[inline]
     fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
@@ -45,15 +54,19 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
     }
 }
 
-impl<PAYLOAD> Messenger for SBCltAdminProtocol<PAYLOAD>
-where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
+impl<SendPayload, RecvPayload> Messenger for SBCltAdminProtocol<SendPayload, RecvPayload>
+where 
+    SendPayload: ByteDeserializeSlice<SendPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
+    RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
-    type SendT = SBCltMsg<PAYLOAD>;
-    type RecvT = SBSvcMsg<PAYLOAD>;
+    type SendT = SBCltMsg<SendPayload>;
+    type RecvT = SBSvcMsg<RecvPayload>;
 }
 
-impl<PAYLOAD> Protocol for SBCltAdminProtocol<PAYLOAD>
-where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
+impl<SendPayload, RecvPayload> Protocol for SBCltAdminProtocol<SendPayload, RecvPayload>
+where 
+    SendPayload: ByteDeserializeSlice<SendPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
+    RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
     async fn handshake<
         's,
@@ -64,7 +77,6 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
         &'s self,
         clt: &'s Clt<P, C, MMS>,
     ) -> Result<(), Box<dyn Error+Send+Sync>> {
-        #[rustfmt::skip] 
         clt.send(&mut SBCltMsg::login(self.username, self.password, self.session_id, self.sequence_number, (self.hbeat_interval.as_millis() as u16).into(),)).await?;
         let msg = clt.recv().await?;
         match msg {
