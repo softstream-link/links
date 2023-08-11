@@ -1,6 +1,6 @@
 [package]
-name = "links_ouch5_async"
-version = "0.1.0"
+name = "links_ouch_async"
+version = "5.0.0"
 edition = "2021"
 
 [dependencies]
@@ -8,7 +8,6 @@ byteserde = { workspace = true }
 byteserde_derive = { workspace = true }
 byteserde_types = { workspace = true }
 
-# bytes = { workspace = true }
 links_soupbintcp_async = { workspace = true }
 links_network_async = { workspace = true }
 

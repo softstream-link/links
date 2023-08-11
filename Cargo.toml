@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "protocols/soupbintcp",
-    "protocols/ouch5",
+    "protocols/ouch",
     "network/async",
     "testing",
 ]
