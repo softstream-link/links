@@ -29,8 +29,8 @@ impl<PAYLOAD> SBCltAdminProtocol<PAYLOAD>
 where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
 {
     #[rustfmt::skip]
-    pub fn new_ref(username: UserName, password: Password, session_id: SessionId, sequence_number: SequenceNumber, hbeat_timeout: Duration, hbeat_miss_factor: f64) -> Arc<Self> {
-            Arc::new(Self {username, password, session_id, sequence_number, hbeat_interval: hbeat_timeout, hbeat_tolerance_factor: hbeat_miss_factor,
+    pub fn new_ref(username: UserName, password: Password, session_id: SessionId, sequence_number: SequenceNumber, hbeat_interval: Duration, hbeat_tolerance_factor: f64) -> Arc<Self> {
+            Arc::new(Self {username, password, session_id, sequence_number, hbeat_interval, hbeat_tolerance_factor,
                 recv_tracker: Arc::new(Mutex::new(None)), 
                 phantom: std::marker::PhantomData,})
         }

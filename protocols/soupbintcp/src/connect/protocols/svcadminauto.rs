@@ -18,8 +18,8 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
     username: UserName,
     password: Password,
     session_id: SessionId,
-    hbeat_timeout: Arc<Mutex<Option<Duration>>>,
-    hbeat_miss_factor: f64,
+    hbeat_interval: Arc<Mutex<Option<Duration>>>,
+    hbeat_tolerance_factor: f64,
     recv_tracker: Arc<Mutex<Option<EventIntervalTracker>>>,
     phantom: std::marker::PhantomData<PAYLOAD>,
 }
@@ -28,10 +28,10 @@ impl<PAYLOAD> SBSvcAdminProtocol<PAYLOAD>
 where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static
 {
     #[rustfmt::skip]
-    pub fn new_ref(username: UserName, password: Password, session_id: SessionId, hbeat_miss_factor: f64) -> Arc<Self> {
+    pub fn new_ref(username: UserName, password: Password, session_id: SessionId, hbeat_tolerance_factor: f64) -> Arc<Self> {
             Arc::new(Self { username, password, session_id, 
-                hbeat_timeout: Arc::new(Mutex::new(None)),
-                hbeat_miss_factor, 
+                hbeat_interval: Arc::new(Mutex::new(None)),
+                hbeat_tolerance_factor, 
                 recv_tracker: Arc::new(Mutex::new(None)), // 1 day ago
                 phantom: std::marker::PhantomData,})
         }
@@ -80,8 +80,8 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
             // save hbeat from clt login req
             { // drop lock
                 let hbeat_timeout = Duration::from_millis(req.hbeat_timeout_ms.into());
-                *self.hbeat_timeout.lock().await = Some(hbeat_timeout);
-                *self.recv_tracker.lock().await = Some(EventIntervalTracker::new(clt.con_id().clone(), hbeat_timeout, self.hbeat_miss_factor));
+                *self.hbeat_interval.lock().await = Some(hbeat_timeout);
+                *self.recv_tracker.lock().await = Some(EventIntervalTracker::new(clt.con_id().clone(), hbeat_timeout, self.hbeat_tolerance_factor));
             }
             // TODO what is correct sequence number to send ?
             clt.send(&mut SBSvcMsg::login_acc(self.session_id, 0.into()))
@@ -101,7 +101,7 @@ where PAYLOAD: ByteDeserializeSlice<PAYLOAD>+ByteSerializeStack+ByteSerializedLe
         clt: CltSender<P, C, MMS>,
     ) -> Result<(), Box<dyn Error+Send+Sync>> {
         let hbeat_timeout = { // drops the lock
-            let hbeat_timeout = *self.hbeat_timeout.lock().await;
+            let hbeat_timeout = *self.hbeat_interval.lock().await;
             hbeat_timeout.unwrap_or_else(||panic!("self.hbeat_timeout is None, must be set to Some duration handshake"))
         };
         let mut msg = SBSvcMsg::HBeat(SvcHeartbeat::default());
