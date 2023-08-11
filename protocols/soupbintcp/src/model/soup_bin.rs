@@ -4,7 +4,7 @@ use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedL
 use crate::prelude::*;
 use std::fmt;
 
-use super::unsequenced_data::UData;
+use super::unsequenced_data::UPayload;
 
 pub const MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG: usize = 54;
 
@@ -21,9 +21,9 @@ pub enum SBCltMsg<CltPayload: ByteSerializeStack + ByteDeserializeSlice<CltPaylo
     #[byteserde(eq(PacketTypeLogoutRequest::as_slice()))]
     Logout(LogoutRequest),
     #[byteserde(eq(PacketTypeSequencedData::as_slice()))]
-    SData(SData::<CltPayload>),
+    S(SPayload::<CltPayload>),
     #[byteserde(eq(PacketTypeUnsequencedData::as_slice()))]
-    UData(UData::<CltPayload>),
+    U(UPayload::<CltPayload>),
 }
 #[rustfmt::skip]
 impl<CltPayload: ByteSerializeStack + ByteDeserializeSlice<CltPayload> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug> SBCltMsg<CltPayload> {
@@ -33,8 +33,8 @@ impl<CltPayload: ByteSerializeStack + ByteDeserializeSlice<CltPayload> + ByteSer
     pub fn logout() -> Self { SBCltMsg::Logout(LogoutRequest::default()) }
     pub fn hbeat() -> Self { SBCltMsg::HBeat(CltHeartbeat::default()) }
     pub fn dbg(text: &[u8]) -> Self { SBCltMsg::Dbg(Debug::new(text)) }
-    pub fn sdata(payload: CltPayload) -> Self { SBCltMsg::SData(SData::new(payload)) }
-    pub fn udata(payload: CltPayload) -> Self { SBCltMsg::UData(UData::new(payload)) }
+    pub fn sdata(payload: CltPayload) -> Self { SBCltMsg::S(SPayload::new(payload)) }
+    pub fn udata(payload: CltPayload) -> Self { SBCltMsg::U(UPayload::new(payload)) }
 }
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug)]
@@ -51,9 +51,9 @@ pub enum SBSvcMsg<SvcPayload: ByteSerializeStack + ByteDeserializeSlice<SvcPaylo
     #[byteserde(eq(PacketTypeLoginRejected::as_slice()))]
     LoginRej(LoginRejected),
     #[byteserde(eq(PacketTypeSequencedData::as_slice()))]
-    Seq(SData::<SvcPayload>),
+    S(SPayload::<SvcPayload>),
     #[byteserde(eq(PacketTypeUnsequencedData::as_slice()))]
-    Useq(UData::<SvcPayload>),
+    U(UPayload::<SvcPayload>),
 }
 #[rustfmt::skip]
 impl<SvcPayload: ByteSerializeStack + ByteDeserializeSlice<SvcPayload> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug> SBSvcMsg<SvcPayload> {
@@ -63,8 +63,8 @@ impl<SvcPayload: ByteSerializeStack + ByteDeserializeSlice<SvcPayload> + ByteSer
     pub fn login_rej_ses_not_avail() -> Self { Self::LoginRej(LoginRejected::session_not_available()) }
     pub fn hbeat() -> Self { Self::HBeat(SvcHeartbeat::default()) }
     pub fn dbg(text: &[u8]) -> Self { Self::Dbg(Debug::new(text)) }
-    pub fn sdata(payload: SvcPayload) -> Self { Self::Seq(SData::new(payload)) }
-    pub fn udata(payload: SvcPayload) -> Self { Self::Useq(UData::new(payload)) }
+    pub fn sdata(payload: SvcPayload) -> Self { Self::S(SPayload::new(payload)) }
+    pub fn udata(payload: SvcPayload) -> Self { Self::U(UPayload::new(payload)) }
 }
 
 #[derive(Debug, Clone, PartialEq)]

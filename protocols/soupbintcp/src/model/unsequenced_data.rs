@@ -10,13 +10,13 @@ pub const UNSEQUENCED_DATA_BYTE_LEN: usize = 3;
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug)]
 #[byteserde(endian = "be")]
-pub struct UnsequencedDataHeader {
+pub struct UPayloadHeader {
     packet_length: u16,
     packet_type: PacketTypeUnsequencedData,
 }
-impl UnsequencedDataHeader {
+impl UPayloadHeader {
     pub fn new(packet_length: u16) -> Self {
-        UnsequencedDataHeader {
+        UPayloadHeader {
             packet_length,
             packet_type: PacketTypeUnsequencedData::default(),
         }
@@ -25,28 +25,28 @@ impl UnsequencedDataHeader {
 
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
-pub struct UData<T>
+pub struct UPayload<Payload>
 where
-    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug,
+    Payload: ByteSerializeStack + ByteDeserializeSlice<Payload> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug,
 {
-    header: UnsequencedDataHeader,
+    header: UPayloadHeader,
     #[byteserde(deplete ( header.packet_length as usize - 1 ))]
-    payload: T,
+    payload: Payload,
 }
 #[rustfmt::skip]
-impl<T> UData<T>
+impl<Payload> UPayload<Payload>
 where
-    T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug,
+    Payload: ByteSerializeStack + ByteDeserializeSlice<Payload> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug,
 {
-    pub fn new(body: T) -> UData<T> {
-        let header = UnsequencedDataHeader::new((body.byte_len() + 1) as u16);
-        UData { header, payload: body }
+    pub fn new(body: Payload) -> UPayload<Payload> {
+        let header = UPayloadHeader::new((body.byte_len() + 1) as u16);
+        UPayload { header, payload: body }
     }
 }
 
-impl Default for UData<SamplePayload> {
+impl Default for UPayload<SamplePayload> {
     fn default() -> Self {
-        UData::new(SamplePayload::default())
+        UPayload::new(SamplePayload::default())
     }
 }
 
@@ -61,7 +61,7 @@ mod test {
     fn test_unsequenced_data_header() {
         setup::log::configure();
 
-        let msg_inp = UnsequencedDataHeader::new(10);
+        let msg_inp = UPayloadHeader::new(10);
         info!("msg_inp:? {:?}", msg_inp);
 
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
@@ -69,7 +69,7 @@ mod test {
         assert_eq!(UNSEQUENCED_DATA_BYTE_LEN, ser.len());
         assert_eq!(UNSEQUENCED_DATA_BYTE_LEN, msg_inp.byte_len());
 
-        let msg_out: UnsequencedDataHeader = from_serializer_stack(&ser).unwrap();
+        let msg_out: UPayloadHeader = from_serializer_stack(&ser).unwrap();
         info!("msg_out:? {:?}", msg_out);
         assert_eq!(msg_out, msg_inp);
     }
@@ -78,7 +78,7 @@ mod test {
     fn test_unsequenced_data() {
         setup::log::configure();
         let expected_len = UNSEQUENCED_DATA_BYTE_LEN + SamplePayload::default().byte_len();
-        let msg_inp = UData::default();
+        let msg_inp = UPayload::default();
         info!("msg_inp:? {:?}", msg_inp);
 
         let ser: ByteSerializerStack<128> = to_serializer_stack(&msg_inp).unwrap();
@@ -86,7 +86,7 @@ mod test {
         assert_eq!(expected_len, ser.len());
         assert_eq!(expected_len, msg_inp.byte_len());
 
-        let msg_out: UData<SamplePayload> = from_slice(ser.as_slice()).unwrap();
+        let msg_out: UPayload<SamplePayload> = from_slice(ser.as_slice()).unwrap();
         info!("msg_out:? {:?}", msg_out);
         assert_eq!(msg_out, msg_inp);
     }

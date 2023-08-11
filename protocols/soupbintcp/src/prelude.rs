@@ -9,10 +9,10 @@ pub use crate::model::svc::login_accepted::LoginAccepted;
 pub use crate::model::svc::login_rejected::LoginRejected;
 
 // with payload
-pub use crate::model::sequenced_data::SData;
-pub use crate::model::sequenced_data::SequencedDataHeader;
-pub use crate::model::unsequenced_data::UData;
-pub use crate::model::unsequenced_data::UnsequencedDataHeader;
+pub use crate::model::sequenced_data::SPayload;
+pub use crate::model::sequenced_data::SPayloadHeader;
+pub use crate::model::unsequenced_data::UPayload;
+pub use crate::model::unsequenced_data::UPayloadHeader;
 
 // default payloads
 pub use crate::model::payload::Nil;

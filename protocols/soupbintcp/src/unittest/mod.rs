@@ -4,9 +4,9 @@ pub mod setup {
         use byteserde::prelude::*;
 
         #[rustfmt::skip]
-        pub fn svc_msgs_default<T>() -> Vec<SBSvcMsg<T>>
+        pub fn svc_msgs_default<SvcPayload>() -> Vec<SBSvcMsg<SvcPayload>>
         where
-            T: ByteSerializeStack + ByteDeserializeSlice<T> + ByteSerializedLenOf + PartialEq + Clone + Default + std::fmt::Debug,
+            SvcPayload: ByteSerializeStack + ByteDeserializeSlice<SvcPayload> + ByteSerializedLenOf + PartialEq + Clone + Default + std::fmt::Debug,
         {
             vec![
                 SBSvcMsg::HBeat(SvcHeartbeat::default()),
@@ -14,8 +14,8 @@ pub mod setup {
                 SBSvcMsg::LoginAcc(LoginAccepted::default()),
                 SBSvcMsg::LoginRej(LoginRejected::not_authorized()),
                 SBSvcMsg::End(EndOfSession::default()),
-                SBSvcMsg::Seq(SData::new(T::default())),
-                SBSvcMsg::Useq(UData::new(T::default())),
+                SBSvcMsg::S(SPayload::new(SvcPayload::default())),
+                SBSvcMsg::U(UPayload::new(SvcPayload::default())),
             ]
         }
 
@@ -29,8 +29,8 @@ pub mod setup {
                 SBCltMsg::Dbg(Debug::default()),
                 SBCltMsg::Login(LoginRequest::default()),
                 SBCltMsg::Logout(LogoutRequest::default()),
-                SBCltMsg::SData(SData::new(T::default())),
-                SBCltMsg::UData(UData::new(T::default())),
+                SBCltMsg::S(SPayload::new(T::default())),
+                SBCltMsg::U(UPayload::new(T::default())),
             ]
         }
         

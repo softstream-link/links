@@ -76,8 +76,21 @@ impl Ouch5Msg {
     pub fn clt(payload: Ouch5CltPld) -> Self {
         Self::Clt(SBCltMsg::udata(payload))
     }
+    pub fn enter_order(payload: EnterOrder) -> Self {
+        Self::Clt(SBCltMsg::udata(Ouch5CltPld::Enter(payload)))
+    }
     pub fn svc(payload: Ouch5SvcPld) -> Self {
         Self::Svc(SBSvcMsg::udata(payload))
+    }
+}
+impl From<SBCltMsg<Ouch5CltPld>> for Ouch5Msg {
+    fn from(msg: SBCltMsg<Ouch5CltPld>) -> Self {
+        Self::Clt(msg)
+    }
+}
+impl From<SBSvcMsg<Ouch5SvcPld>> for Ouch5Msg {
+    fn from(msg: SBSvcMsg<Ouch5SvcPld>) -> Self {
+        Self::Svc(msg)
     }
 }
 
@@ -93,6 +106,16 @@ mod test {
     use links_testing::unittest::setup;
     use log::info;
 
+    #[test]
+    fn test_from() {
+        setup::log::configure();
+        // let enter_order = Ouch5Msg::enter_order(EnterOrder::default());
+        let enter_order = SBCltMsg::udata(Ouch5CltPld::Enter(EnterOrder::default()));
+        info!("enter_order: {:?}", enter_order);
+        let ouch_msg = Ouch5Msg::from(enter_order);
+        info!("ouch_msg: {:?}", ouch_msg);
+
+    }
     // TODO max message length needed to optimize stack serialization assume 512 bytes for now
     #[test]
     fn test_ouch5() {
