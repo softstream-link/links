@@ -50,7 +50,7 @@ mod test {
             b"++++++++++".into(),
             Default::default(),
             Default::default(),
-            Duration::from_millis(1000),
+            Duration::from_millis(200),
             1.,
         );
         // let svc_clbk = Ouch5SvcLoggerCallback::new_ref(Level::Info, Level::Debug);
@@ -77,11 +77,14 @@ mod test {
         .unwrap();
         info!("STARTED {}", clt);
 
-        let clt_is_connected = clt.is_connected(Some(Duration::from_millis(500))).await;
         let svc_is_connected = svc.is_connected(Some(Duration::from_secs(500))).await;
+        let clt_is_connected = clt.is_connected(None).await;
         assert!(clt_is_connected);
         assert!(svc_is_connected);
         info!("event_store: {}", event_store);
-        //   // tokio::time::sleep(Duration::from_secs(10)).await;
+        drop(clt);
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let svc_is_connected = svc.is_connected(None).await;
+        assert!(!svc_is_connected);
     }
 }

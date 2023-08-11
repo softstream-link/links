@@ -6,17 +6,17 @@ use crate::prelude::*;
 // event store
 pub type Ouch5EventStore = EventStore<SBMsg<OuchCltPld, OuchSvcPld>>;
 
-pub type OuchCltEvenStoreCallback = SBCltEvenStoreCallback<OuchCltPld, OuchSvcPld, OuchCltAdminProtocol>;
-pub type OuchSvcEvenStoreCallback = SBSvcEvenStoreCallback<OuchSvcPld, OuchCltPld, OuchSvcAdminProtocol>;
+pub type OuchCltEvenStoreCallback<Protocol> = SBCltEvenStoreCallback<OuchCltPld, OuchSvcPld, Protocol>;
+pub type OuchSvcEvenStoreCallback<Protocol> = SBSvcEvenStoreCallback<OuchCltPld, OuchSvcPld, Protocol>;
 
 // loggers
-pub type OuchCltLoggerCallback = SBCltLoggerCallback<OuchCltAdminProtocol>;
-pub type OuchSvcLoggerCallback = SBSvcLoggerCallback<OuchSvcAdminProtocol>;
+pub type OuchCltLoggerCallback<Protocol> = SBCltLoggerCallback<Protocol>;
+pub type OuchSvcLoggerCallback<Protocol> = SBSvcLoggerCallback<Protocol>;
 
 // // chain
-pub type OuchCltChainCallback = SBCltChainCallback<OuchCltAdminProtocol>;
-pub type OuchSvcChainCallback = SBSvcChainCallback<OuchSvcAdminProtocol>;
+pub type OuchCltChainCallback<Protocol> = SBCltChainCallback<Protocol>;
+pub type OuchSvcChainCallback<Protocol> = SBSvcChainCallback<Protocol>;
 
 // dev null
-pub type OuchCltDevNullCallback = SBCltDevNullCallback<OuchCltAdminProtocol>;
-pub type OuchSvcDevNullCallback = SBSvcDevNullCallback<OuchSvcAdminProtocol>;
+pub type OuchCltDevNullCallback<Protocol> = SBCltDevNullCallback<Protocol>;
+pub type OuchSvcDevNullCallback<Protocol> = SBSvcDevNullCallback<Protocol>;
