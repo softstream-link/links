@@ -16,7 +16,7 @@ mod test {
     lazy_static! {
         static ref ADDR: &'static str = &setup::net::default_addr();
     }
-    use crate::{prelude::*, model::clt::enter_order};
+    use crate::prelude::*;
 
     #[tokio::test]
     async fn test_svc_not_connected() {
@@ -92,7 +92,7 @@ mod test {
 
         let accepted = OrderAccepted::from(&enter_order);
         svc.send(&mut accepted.into()).await.unwrap();
-        
+
         tokio::time::sleep(Duration::from_millis(300)).await;
 
         // REVIEW EVENTS
