@@ -78,6 +78,6 @@ mod test {
         let svc_is_connected = svc.is_connected(Some(Duration::from_secs(500))).await;
         assert!(clt_is_connected);
         assert!(svc_is_connected);
-        tokio::time::sleep(Duration::from_secs(10)).await;
+        // tokio::time::sleep(Duration::from_secs(10)).await;
     }
 }

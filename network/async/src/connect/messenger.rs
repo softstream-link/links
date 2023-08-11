@@ -100,17 +100,20 @@ pub fn into_split_messenger<M: Messenger, const MMS: usize, F: Framer>(
 
 #[cfg(test)]
 mod test {
-
     use super::*;
     use crate::unittest::setup::{model::*, protocol::*};
+    use lazy_static::lazy_static;
     use links_testing::unittest::setup;
     use log::info;
     use tokio::net::TcpListener;
 
+
+    lazy_static! {
+        static ref ADDR: &'static str = setup::net::default_addr();
+    }
     #[tokio::test]
     async fn test_connection() {
         setup::log::configure();
-        let addr = setup::net::default_addr();
 
         const MMS: usize = 1024;
         let inp_svc_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
@@ -118,13 +121,13 @@ mod test {
             tokio::spawn({
                 let inp_svc_msg = inp_svc_msg.clone();
                 async move {
-                    let listener = TcpListener::bind(addr).await.unwrap();
+                    let listener = TcpListener::bind(*ADDR).await.unwrap();
 
                     let (stream, _) = listener.accept().await.unwrap();
                     let (mut sender, mut recver) =
                         into_split_messenger::<TestSvcMsgProtocol, MMS, TestSvcMsgProtocol>(
                             stream,
-                            ConId::svc(Some("unittest"), &addr, None),
+                            ConId::svc(Some("unittest"), *ADDR, None),
                         );
                     info!("{} connected", sender);
                     let mut out_svc_msg: Option<TestCltMsg> = None;
@@ -150,11 +153,11 @@ mod test {
             tokio::spawn({
                 let inp_clt_msg = inp_clt_msg.clone();
                 async move {
-                    let stream = TcpStream::connect(addr).await.unwrap();
+                    let stream = TcpStream::connect(*ADDR).await.unwrap();
                     let (mut sender, mut recver) =
                         into_split_messenger::<TestCltMsgProtocol, MMS, TestCltMsgProtocol>(
                             stream,
-                            ConId::clt(Some("unittest"), None, &addr),
+                            ConId::clt(Some("unittest"), None, *ADDR),
                         );
                     info!("{} connected", sender);
                     sender.send(&inp_clt_msg).await.unwrap();
@@ -173,64 +176,4 @@ mod test {
         assert_eq!(inp_svc_msg, out_clt_msg);
     }
 
-    // TODO move to soupbin
-    // #[tokio::test]
-    // async fn test_connection() {
-    //     setup::log::configure();
-    //     let addr = setup::net::default_addr();
-
-    //     const MMS: usize = 1024;
-    //     let svc = {
-    //         let addr = addr.clone();
-    //         tokio::spawn(async move {
-    //             let listener = TcpListener::bind(addr.clone()).await.unwrap();
-
-    //             let (stream, _) = listener.accept().await.unwrap();
-    //             let (mut sender, mut recver) =
-    //                 into_split_messenger::<
-    //                     SoupBinProtocolHandler<NoPayload>,
-    //                     MMS,
-    //                     SoupBinFramer,
-    //                 >(stream, ConId::svc(None, &addr, None));
-
-    //             info!("{} started", recver);
-
-    //             loop {
-    //                 let msg = recver.recv().await.unwrap();
-    //                 info!("{} RECV msg: {:?}", recver, msg);
-    //                 match msg {
-    //                     Some(_) => {
-    //                         let msg =
-    //                             &mut SoupBinMsg::<NoPayload>::dbg(b"hello world from server!");
-    //                         sender.send(msg).await.unwrap();
-    //                     }
-    //                     None => {
-    //                         info!("{} Connection Closed by Client", recver);
-    //                         break;
-    //                     }
-    //                 }
-    //             }
-    //         })
-    //     };
-    //     let clt = {
-    //         let addr = addr.clone();
-    //         tokio::spawn(async move {
-    //             let stream = TcpStream::connect(addr.clone()).await.unwrap();
-    //             let (mut sender, mut recver) =
-    //                 into_split_messenger::<
-    //                     SoupBinProtocolHandler<NoPayload>,
-    //                     MMS,
-    //                     SoupBinFramer,
-    //                 >(stream, ConId::clt(None, None, &addr));
-
-    //             info!("{} connected", sender);
-    //             let msg = &mut SoupBinMsg::<NoPayload>::dbg(b"hello world from client!");
-    //             sender.send(msg).await.unwrap();
-    //             let msg = recver.recv().await.unwrap();
-    //             info!("{} RECV msg: {:?}", recver, msg);
-    //         })
-    //     };
-    //     clt.await.unwrap();
-    //     svc.await.unwrap();
-    // }
 }

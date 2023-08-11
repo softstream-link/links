@@ -26,7 +26,7 @@ mod test {
         setup::log::configure();
         
         let svc = SBSvc::<_, _, MMS>::bind_no_protocol(
-            setup::net::default_addr(),
+            *ADDR,
             SBSvcLoggerCallback::<SBSvcAdminProtocol<NoPayload>>::new_ref(Level::Info, Level::Info),
             Some("soupbin/unittest"),
         )

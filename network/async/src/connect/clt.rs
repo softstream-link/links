@@ -294,13 +294,12 @@ mod test {
         static ref ADDR: &'static str = setup::net::default_addr();
     }
     #[tokio::test]
-    #[ignore] // TODO fails because it managers to connect to another test
     async fn test_clt_not_connected() {
         setup::log::configure();
 
         let logger = LoggerCallback::new(Level::Debug, Level::Debug).into();
         let clt = Clt::<_, _, 128>::connect(
-            setup::net::default_addr(),
+            *ADDR,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
             logger,
@@ -312,30 +311,4 @@ mod test {
         info!("{:?}", clt);
         assert!(clt.is_err())
     }
-    // TODO move to soupbin
-    // type SoupBinProtocol = SoupBinProtocolHandler<NoPayload>;
-    // type SoupBinLoggerRef = LoggerCallbackRef<SoupBinProtocol>;
-    // const MMS: usize = 128;
-    // lazy_static! {
-    //     static ref ADDR: String = setup::net::default_addr();
-    //     static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
-    //     static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
-    // }
-
-    // #[tokio::test]
-    // async fn test_clt_not_connected() {
-    //     setup::log::configure();
-    //     let logger: SoupBinLoggerRef = SoupBinLoggerRef::default();
-    //     let clt = Clt::<SoupBinProtocol, _, MMS>::new(
-    //         &ADDR,
-    //         *CONNECT_TIMEOUT,
-    //         *RETRY_AFTER,
-    //         Arc::clone(&logger),
-    //         None,
-    //     )
-    //     .await;
-
-    //     info!("{:?}", clt);
-    //     assert!(clt.is_err())
-    // }
 }

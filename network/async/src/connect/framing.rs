@@ -110,22 +110,26 @@ mod test {
     use crate::unittest::setup::model::*;
     use crate::unittest::setup::protocol::*;
     use byteserde::{prelude::*, utils::hex::to_hex_pretty};
+    use lazy_static::lazy_static;
     use links_testing::unittest::setup;
     use log::info;
     use tokio::net::TcpListener;
+
+    lazy_static! {
+        static ref ADDR: &'static str = setup::net::default_addr();
+    }
 
     #[tokio::test]
     async fn test_connection() {
         setup::log::configure();
         const CAP: usize = 128;
-        let addr = setup::net::default_addr();
         let inp_svc_msg = TestSvcMsgDebug::new(b"Hello Server Frame");
 
         let svc = {
             tokio::spawn({
                 let inp_svc_msg = inp_svc_msg.clone();
                 async move {
-                    let listener = TcpListener::bind(addr).await.unwrap();
+                    let listener = TcpListener::bind(*ADDR).await.unwrap();
                     let (stream, _) = listener.accept().await.unwrap();
 
                     let (mut reader, mut writer) =
@@ -156,7 +160,7 @@ mod test {
             tokio::spawn({
                 let inp_clt_msg = inp_clt_msg.clone();
                 async move {
-                    let stream = TcpStream::connect(addr).await.unwrap();
+                    let stream = TcpStream::connect(*ADDR).await.unwrap();
                     let (mut reader, mut writer) =
                         into_split_frame_manager::<TestCltMsgProtocol>(stream, CAP);
 
@@ -181,60 +185,5 @@ mod test {
         assert_eq!(inp_clt_msg, out_svc_msg);
         assert_eq!(inp_svc_msg, out_clt_msg);
     }
-    // TODO move to soupbintcp4 and create from local msg
-    // #[tokio::test]
-    // async fn test_connection() {
-    //     setup::log::configure();
-    //     const CAP: usize = 1024;
-    //     let addr = setup::net::default_addr();
-    //     type SoupBinX = SoupBinMsg<NoPayload>;
-    //     let svc = {
-    //         let addr = addr.clone();
-    //         tokio::spawn(async move {
-    //             let listener = TcpListener::bind(addr).await.unwrap();
-    //             let (stream, _) = listener.accept().await.unwrap();
-
-    //             let (mut reader, mut writer) =
-    //                 into_split_frame_manager::<SoupBinFramer>(stream, CAP);
-    //             info!("svc: writer: {}, reader: {}", writer, reader);
-    //             loop {
-    //                 let frame = reader.read_frame().await.unwrap();
-    //                 if let Some(frm) = frame {
-    //                     info!("svc: read_frame: \n{}", to_hex_pretty(&frm[..]));
-    //                     let msg: SoupBinX = from_slice(&frm[..]).unwrap();
-    //                     info!("svc: from_slice: {:?}", msg);
-
-    //                     let msg = SoupBinX::dbg(b"Hello From Server");
-    //                     let (slice, size): ([u8; CAP], _) = to_bytes_stack(&msg).unwrap();
-    //                     writer.write_frame(&slice[..size]).await.unwrap();
-    //                     info!("svc: write_frame: \n{}", to_hex_pretty(&slice[..size]))
-    //                 } else {
-    //                     info!("svc: msg: None - Client closed connection");
-    //                     break;
-    //                 }
-    //             }
-    //         })
-    //     };
-    //     let clt = {
-    //         let addr = addr.clone();
-    //         tokio::spawn(async move {
-    //             let stream = TcpStream::connect(addr).await.unwrap();
-    //             let (mut reader, mut writer) =
-    //                 into_split_frame_manager::<SoupBinFramer>(stream, CAP);
-    //             info!("clt: writer: {}, reader: {}", writer, reader);
-    //             let msg = SoupBinX::dbg(b"Hello From Client");
-    //             let (slice, size): ([u8; CAP], _) = to_bytes_stack(&msg).unwrap();
-    //             let slice = &slice[..size];
-    //             writer.write_frame(slice).await.unwrap();
-    //             info!("clt: write_frame: \n{}", to_hex_pretty(slice));
-    //             let frame = reader.read_frame().await.unwrap().unwrap();
-
-    //             info!("clt: read_frame: \n{}", to_hex_pretty(&frame[..]));
-    //             let msg: SoupBinX = from_slice(&frame[..]).unwrap();
-    //             info!("clt: from_slice: {:?}", msg);
-    //         })
-    //     };
-    //     clt.await.unwrap();
-    //     svc.await.unwrap();
-    // }
+    
 }
