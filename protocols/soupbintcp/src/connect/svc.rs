@@ -1,6 +1,6 @@
 use links_network_async::prelude::*;
 
-pub type SBSvc<PROTOCOL, CALLBACK, const MMS: usize> = Svc<PROTOCOL, CALLBACK, MMS>;
+pub type SBSvc<Protocol, Callback, const MMS: usize> = Svc<Protocol, Callback, MMS>;
 
 #[cfg(test)]
 mod test {

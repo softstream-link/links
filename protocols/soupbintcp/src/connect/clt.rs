@@ -1,6 +1,6 @@
 use links_network_async::prelude::*;
 
-pub type SBClt<PROTOCOL, CALLBACK, const MMS: usize> = Clt<PROTOCOL, CALLBACK, MMS>;
+pub type SBClt<Protocol, Callback, const MMS: usize> = Clt<Protocol, Callback, MMS>;
 
 #[cfg(test)]
 mod test {

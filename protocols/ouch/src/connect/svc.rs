@@ -2,7 +2,7 @@ use links_soupbintcp_async::prelude::*;
 
 use crate::model::ouch::MAX_FRAME_SIZE_OUCH_SVC_MSG;
 
-pub type OuchSvc<PROTOCOL, CALLBACK> = SBSvc<PROTOCOL, CALLBACK, MAX_FRAME_SIZE_OUCH_SVC_MSG>;
+pub type OuchSvc<Protocol, Callback> = SBSvc<Protocol, Callback, MAX_FRAME_SIZE_OUCH_SVC_MSG>;
 
 #[cfg(test)]
 mod test {
@@ -16,7 +16,7 @@ mod test {
     lazy_static! {
         static ref ADDR: &'static str = &setup::net::default_addr();
     }
-    use crate::prelude::*;
+    use crate::{prelude::*, model::clt::enter_order};
 
     #[tokio::test]
     async fn test_svc_not_connected() {
@@ -39,6 +39,8 @@ mod test {
     #[tokio::test]
     async fn test_svc_clt_connected() {
         setup::log::configure_level(log::LevelFilter::Info);
+
+        // CONFIGURE
         let svc_prcl = OuchSvcAdminProtocol::new_ref(
             b"abcdef".into(),
             b"++++++++++".into(),
@@ -60,6 +62,7 @@ mod test {
         let svc_clbk = OuchSvcEvenStoreCallback::new_ref(Arc::clone(&event_store));
         let clt_clbk = OuchCltEvenStoreCallback::new_ref(Arc::clone(&event_store));
 
+        // START
         let svc = OuchSvc::bind(*ADDR, svc_clbk, svc_prcl, Some("ouch5/venue"))
             .await
             .unwrap();
@@ -77,11 +80,25 @@ mod test {
         .unwrap();
         info!("STARTED {}", clt);
 
+        // MAKE SURE CONNECTED
         let svc_is_connected = svc.is_connected(Some(Duration::from_secs(500))).await;
         let clt_is_connected = clt.is_connected(None).await;
         assert!(clt_is_connected);
         assert!(svc_is_connected);
+
+        // SEND A FEW THINGS
+        let enter_order = EnterOrder::default();
+        clt.send(&mut enter_order.clone().into()).await.unwrap();
+
+        let accepted = OrderAccepted::from(&enter_order);
+        svc.send(&mut accepted.into()).await.unwrap();
+        
+        tokio::time::sleep(Duration::from_millis(300)).await;
+
+        // REVIEW EVENTS
         info!("event_store: {}", event_store);
+
+        // STOP
         drop(clt);
         tokio::time::sleep(Duration::from_millis(300)).await;
         let svc_is_connected = svc.is_connected(None).await;

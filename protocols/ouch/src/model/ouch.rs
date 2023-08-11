@@ -75,34 +75,64 @@ pub type OuchMsg = SBMsg<OuchCltPld, OuchSvcPld>;
 pub use from_clt_pld::*;
 mod from_clt_pld {
     use super::*;
+    impl From<EnterOrder> for OuchCltMsg {
+        #[inline]
+        fn from(payload: EnterOrder) -> Self {
+            OuchCltMsg::udata(OuchCltPld::Enter(payload))
+        }
+    }
     impl From<EnterOrder> for OuchMsg {
         #[inline]
         fn from(payload: EnterOrder) -> Self {
-            OuchMsg::Clt(OuchCltMsg::udata(OuchCltPld::Enter(payload)))
+            OuchMsg::Clt(payload.into())
+        }
+    }
+    impl From<ReplaceOrder> for OuchCltMsg {
+        #[inline]
+        fn from(payload: ReplaceOrder) -> Self {
+            OuchCltMsg::udata(OuchCltPld::Replace(payload))
         }
     }
     impl From<ReplaceOrder> for OuchMsg {
         #[inline]
         fn from(payload: ReplaceOrder) -> Self {
-            OuchMsg::Clt(OuchCltMsg::udata(OuchCltPld::Replace(payload)))
+            OuchMsg::Clt(payload.into())
+        }
+    }
+    impl From<CancelOrder> for OuchCltMsg {
+        #[inline]
+        fn from(payload: CancelOrder) -> Self {
+            OuchCltMsg::udata(OuchCltPld::Cancel(payload))
         }
     }
     impl From<CancelOrder> for OuchMsg {
         #[inline]
         fn from(payload: CancelOrder) -> Self {
-            OuchMsg::Clt(OuchCltMsg::udata(OuchCltPld::Cancel(payload)))
+            OuchMsg::Clt(payload.into())
+        }
+    }
+    impl From<ModifyOrder> for OuchCltMsg {
+        #[inline]
+        fn from(payload: ModifyOrder) -> Self {
+            OuchCltMsg::udata(OuchCltPld::Modify(payload))
         }
     }
     impl From<ModifyOrder> for OuchMsg {
         #[inline]
         fn from(payload: ModifyOrder) -> Self {
-            OuchMsg::Clt(OuchCltMsg::udata(OuchCltPld::Modify(payload)))
+            OuchMsg::Clt(payload.into())
+        }
+    }
+    impl From<AccountQueryRequest> for OuchCltMsg {
+        #[inline]
+        fn from(payload: AccountQueryRequest) -> Self {
+            OuchCltMsg::udata(OuchCltPld::AccQry(payload))
         }
     }
     impl From<AccountQueryRequest> for OuchMsg {
         #[inline]
         fn from(payload: AccountQueryRequest) -> Self {
-            OuchMsg::Clt(OuchCltMsg::udata(OuchCltPld::AccQry(payload)))
+            OuchMsg::Clt(payload.into())
         }
     }
 }
@@ -110,90 +140,175 @@ mod from_clt_pld {
 pub use from_svc_pld::*;
 mod from_svc_pld {
     use super::*;
+    impl From<OrderAccepted> for OuchSvcMsg {
+        #[inline]
+        fn from(payload: OrderAccepted) -> Self {
+            OuchSvcMsg::udata(OuchSvcPld::Accepted(payload))
+        }
+    }
     impl From<OrderAccepted> for OuchMsg {
         #[inline]
         fn from(payload: OrderAccepted) -> Self {
-            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::Accepted(payload)))
+            OuchMsg::Svc(payload.into())
+        }
+    }
+    impl From<OrderExecuted> for OuchSvcMsg {
+        #[inline]
+        fn from(payload: OrderExecuted) -> Self {
+            OuchSvcMsg::udata(OuchSvcPld::Executed(payload))
         }
     }
     impl From<OrderExecuted> for OuchMsg {
         #[inline]
         fn from(payload: OrderExecuted) -> Self {
-            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::Executed(payload)))
+            OuchMsg::Svc(payload.into())
+        }
+    }
+    impl From<OrderReplaced> for OuchSvcMsg {
+        #[inline]
+        fn from(payload: OrderReplaced) -> Self {
+            OuchSvcMsg::udata(OuchSvcPld::Replaced(payload))
         }
     }
     impl From<OrderReplaced> for OuchMsg {
         #[inline]
         fn from(payload: OrderReplaced) -> Self {
-            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::Replaced(payload)))
+            OuchMsg::Svc(payload.into())
+        }
+    }
+    impl From<OrderCanceled> for OuchSvcMsg {
+        #[inline]
+        fn from(payload: OrderCanceled) -> Self {
+            OuchSvcMsg::udata(OuchSvcPld::Canceled(payload))
         }
     }
     impl From<OrderCanceled> for OuchMsg {
         #[inline]
         fn from(payload: OrderCanceled) -> Self {
-            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::Canceled(payload)))
+            OuchMsg::Svc(payload.into())
+        }
+    }
+    impl From<OrderRejected> for OuchSvcMsg {
+        #[inline]
+        fn from(payload: OrderRejected) -> Self {
+            OuchSvcMsg::udata(OuchSvcPld::Rejected(payload))
         }
     }
     impl From<OrderRejected> for OuchMsg {
         #[inline]
         fn from(payload: OrderRejected) -> Self {
-            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::Rejected(payload)))
+            OuchMsg::Svc(payload.into())
+        }
+    }
+    impl From<OrderModified> for OuchSvcMsg {
+        #[inline]
+        fn from(payload: OrderModified) -> Self {
+            OuchSvcMsg::udata(OuchSvcPld::Modified(payload))
         }
     }
     impl From<OrderModified> for OuchMsg {
         #[inline]
         fn from(payload: OrderModified) -> Self {
-            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::Modified(payload)))
+            OuchMsg::Svc(payload.into())
+        }
+    }
+    impl From<OrderRestated> for OuchSvcMsg {
+        #[inline]
+        fn from(payload: OrderRestated) -> Self {
+            OuchSvcMsg::udata(OuchSvcPld::Restated(payload))
         }
     }
     impl From<OrderRestated> for OuchMsg {
         #[inline]
         fn from(payload: OrderRestated) -> Self {
-            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::Restated(payload)))
+            OuchMsg::Svc(payload.into())
+        }
+    }
+    impl From<CancelPending> for OuchSvcMsg {
+        #[inline]
+        fn from(payload: CancelPending) -> Self {
+            OuchSvcMsg::udata(OuchSvcPld::CanPending(payload))
         }
     }
     impl From<CancelPending> for OuchMsg {
         #[inline]
         fn from(payload: CancelPending) -> Self {
-            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::CanPending(payload)))
+            OuchMsg::Svc(payload.into())
+        }
+    }
+    impl From<CancelReject> for OuchSvcMsg {
+        #[inline]
+        fn from(payload: CancelReject) -> Self {
+            OuchSvcMsg::udata(OuchSvcPld::CanReject(payload))
         }
     }
     impl From<CancelReject> for OuchMsg {
         #[inline]
         fn from(payload: CancelReject) -> Self {
-            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::CanReject(payload)))
+            OuchMsg::Svc(payload.into())
+        }
+    }
+    impl From<OrderAiqCanceled> for OuchSvcMsg {
+        #[inline]
+        fn from(payload: OrderAiqCanceled) -> Self {
+            OuchSvcMsg::udata(OuchSvcPld::AiqCanceled(payload))
         }
     }
     impl From<OrderAiqCanceled> for OuchMsg {
         #[inline]
         fn from(payload: OrderAiqCanceled) -> Self {
-            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::AiqCanceled(payload)))
+            OuchMsg::Svc(payload.into())
+        }
+    }
+    impl From<BrokenTrade> for OuchSvcMsg {
+        #[inline]
+        fn from(payload: BrokenTrade) -> Self {
+            OuchSvcMsg::udata(OuchSvcPld::BrokenTrade(payload))
         }
     }
     impl From<BrokenTrade> for OuchMsg {
         #[inline]
         fn from(payload: BrokenTrade) -> Self {
-            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::BrokenTrade(payload)))
+            OuchMsg::Svc(payload.into())
+        }
+    }
+    impl From<PriorityUpdate> for OuchSvcMsg {
+        #[inline]
+        fn from(payload: PriorityUpdate) -> Self {
+            OuchSvcMsg::udata(OuchSvcPld::PrioUpdate(payload))
         }
     }
     impl From<PriorityUpdate> for OuchMsg {
         #[inline]
         fn from(payload: PriorityUpdate) -> Self {
-            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::PrioUpdate(payload)))
+            OuchMsg::Svc(payload.into())
+        }
+    }
+    impl From<AccountQueryResponse> for OuchSvcMsg {
+        #[inline]
+        fn from(payload: AccountQueryResponse) -> Self {
+            OuchSvcMsg::udata(OuchSvcPld::AccQryRes(payload))
         }
     }
     impl From<AccountQueryResponse> for OuchMsg {
         #[inline]
         fn from(payload: AccountQueryResponse) -> Self {
-            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::AccQryRes(payload)))
+            OuchMsg::Svc(payload.into())
+        }
+    }
+    impl From<SystemEvent> for OuchSvcMsg {
+        #[inline]
+        fn from(payload: SystemEvent) -> Self {
+            OuchSvcMsg::udata(OuchSvcPld::SysEvt(payload))
         }
     }
     impl From<SystemEvent> for OuchMsg {
         #[inline]
         fn from(payload: SystemEvent) -> Self {
-            OuchMsg::Svc(OuchSvcMsg::udata(OuchSvcPld::SysEvt(payload)))
+            OuchMsg::Svc(payload.into())
         }
     }
+    
 }
 
 #[cfg(test)]

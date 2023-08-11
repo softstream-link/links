@@ -1,9 +1,8 @@
 use links_soupbintcp_async::prelude::*;
 
-use crate::prelude::{OuchCltAdminProtocol, MAX_FRAME_SIZE_OUCH_CLT_MSG};
+use crate::prelude::MAX_FRAME_SIZE_OUCH_CLT_MSG;
 
-
-pub type OuchClt<C> = SBClt<OuchCltAdminProtocol, C, MAX_FRAME_SIZE_OUCH_CLT_MSG>;
+pub type OuchClt<Protocol, Callback> = SBClt<Protocol, Callback, MAX_FRAME_SIZE_OUCH_CLT_MSG>;
 
 #[cfg(test)]
 mod test {
