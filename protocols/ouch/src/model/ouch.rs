@@ -10,7 +10,7 @@ use super::svc::order_aiq_canceled::OrderAiqCanceled;
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(peek(0, 1))]
-pub enum Ouch5CltPld {
+pub enum OuchCltPld {
     #[byteserde(eq(PacketTypeEnterOrder::as_slice()))]
     Enter(EnterOrder),
     #[byteserde(eq(PacketTypeReplaceOrder::as_slice()))]
@@ -24,17 +24,17 @@ pub enum Ouch5CltPld {
 }
 
 const MAX_FRAME_SIZE_OUCH5_SVC_PLD: usize = 72; // TODO revise Options fields and remeasure
-pub const MAX_FRAME_SIZE_OUCH5_SVC_MSG: usize =
+pub const MAX_FRAME_SIZE_OUCH_SVC_MSG: usize =
     MAX_FRAME_SIZE_OUCH5_SVC_PLD + MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
 
 const MAX_FRAME_SIZE_OUCH5_CLT_PLD: usize = 51; // TODO revise Options fields and remeasure
-pub const MAX_FRAME_SIZE_OUCH5_CLT_MSG: usize =
+pub const MAX_FRAME_SIZE_OUCH_CLT_MSG: usize =
     MAX_FRAME_SIZE_OUCH5_CLT_PLD + MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
 /// Both [ReplaceOrder] & [OrderReplaced] are serialized as b'U' hence it is impossible to distinguish deserialization type unless they are in two different enums.
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(peek(0, 1))]
-pub enum Ouch5SvcPld {
+pub enum OuchSvcPld {
     #[byteserde(eq(PacketTypeOrderAccepted::as_slice()))]
     Accepted(OrderAccepted),
     #[byteserde(eq(PacketTypeOrderExecuted::as_slice()))]
@@ -68,28 +68,28 @@ pub enum Ouch5SvcPld {
 }
 
 #[derive(Debug, Clone)]
-pub enum Ouch5Msg {
-    Clt(SBCltMsg<Ouch5CltPld>),
-    Svc(SBSvcMsg<Ouch5SvcPld>),
+pub enum OuchMsg {
+    Clt(SBCltMsg<OuchCltPld>),
+    Svc(SBSvcMsg<OuchSvcPld>),
 }
-impl Ouch5Msg {
-    pub fn clt(payload: Ouch5CltPld) -> Self {
+impl OuchMsg {
+    pub fn clt(payload: OuchCltPld) -> Self {
         Self::Clt(SBCltMsg::udata(payload))
     }
     pub fn enter_order(payload: EnterOrder) -> Self {
-        Self::Clt(SBCltMsg::udata(Ouch5CltPld::Enter(payload)))
+        Self::Clt(SBCltMsg::udata(OuchCltPld::Enter(payload)))
     }
-    pub fn svc(payload: Ouch5SvcPld) -> Self {
+    pub fn svc(payload: OuchSvcPld) -> Self {
         Self::Svc(SBSvcMsg::udata(payload))
     }
 }
-impl From<SBCltMsg<Ouch5CltPld>> for Ouch5Msg {
-    fn from(msg: SBCltMsg<Ouch5CltPld>) -> Self {
+impl From<SBCltMsg<OuchCltPld>> for OuchMsg {
+    fn from(msg: SBCltMsg<OuchCltPld>) -> Self {
         Self::Clt(msg)
     }
 }
-impl From<SBSvcMsg<Ouch5SvcPld>> for Ouch5Msg {
-    fn from(msg: SBSvcMsg<Ouch5SvcPld>) -> Self {
+impl From<SBSvcMsg<OuchSvcPld>> for OuchMsg {
+    fn from(msg: SBSvcMsg<OuchSvcPld>) -> Self {
         Self::Svc(msg)
     }
 }
@@ -98,7 +98,7 @@ impl From<SBSvcMsg<Ouch5SvcPld>> for Ouch5Msg {
 mod test {
 
     use crate::{
-        model::ouch5::{MAX_FRAME_SIZE_OUCH5_CLT_PLD, MAX_FRAME_SIZE_OUCH5_SVC_PLD},
+        model::ouch::{MAX_FRAME_SIZE_OUCH5_CLT_PLD, MAX_FRAME_SIZE_OUCH5_SVC_PLD},
         prelude::*,
     };
     use byteserde::prelude::*;
@@ -110,9 +110,9 @@ mod test {
     fn test_from() {
         setup::log::configure();
         // let enter_order = Ouch5Msg::enter_order(EnterOrder::default());
-        let enter_order = SBCltMsg::udata(Ouch5CltPld::Enter(EnterOrder::default()));
+        let enter_order = SBCltMsg::udata(OuchCltPld::Enter(EnterOrder::default()));
         info!("enter_order: {:?}", enter_order);
-        let ouch_msg = Ouch5Msg::from(enter_order);
+        let ouch_msg = OuchMsg::from(enter_order);
         info!("ouch_msg: {:?}", ouch_msg);
 
     }
@@ -139,34 +139,34 @@ mod test {
         let ord_rstd = OrderRestated::from((&enter_ord, RestatedReason::refresh_of_display()));
 
         let msg_inp = vec![
-            Ouch5Msg::clt(Ouch5CltPld::Enter(enter_ord)),
-            Ouch5Msg::clt(Ouch5CltPld::Replace(replace_ord)),
-            Ouch5Msg::clt(Ouch5CltPld::Cancel(cancel_ord)),
-            Ouch5Msg::clt(Ouch5CltPld::Modify(ModifyOrder::default())),
-            Ouch5Msg::clt(Ouch5CltPld::AccQry(AccountQueryRequest::default())),
-            Ouch5Msg::svc(Ouch5SvcPld::SysEvt(SystemEvent::default())),
-            Ouch5Msg::svc(Ouch5SvcPld::Accepted(ord_accepted)),
-            Ouch5Msg::svc(Ouch5SvcPld::Replaced(ord_replaced)),
-            Ouch5Msg::svc(Ouch5SvcPld::Canceled(ord_canceled)),
-            Ouch5Msg::svc(Ouch5SvcPld::AiqCanceled(ord_aqi_canceled)),
-            Ouch5Msg::svc(Ouch5SvcPld::Executed(ord_executed)),
-            Ouch5Msg::svc(Ouch5SvcPld::BrokenTrade(brkn_trade)),
-            Ouch5Msg::svc(Ouch5SvcPld::Rejected(ord_rejected)),
-            Ouch5Msg::svc(Ouch5SvcPld::CanPending(can_pending)),
-            Ouch5Msg::svc(Ouch5SvcPld::CanReject(can_reject)),
-            Ouch5Msg::svc(Ouch5SvcPld::PrioUpdate(prio_update)),
-            Ouch5Msg::svc(Ouch5SvcPld::Modified(ord_modified)),
-            Ouch5Msg::svc(Ouch5SvcPld::Restated(ord_rstd)),
-            Ouch5Msg::svc(Ouch5SvcPld::AccQryRes(AccountQueryResponse::default())),
+            OuchMsg::clt(OuchCltPld::Enter(enter_ord)),
+            OuchMsg::clt(OuchCltPld::Replace(replace_ord)),
+            OuchMsg::clt(OuchCltPld::Cancel(cancel_ord)),
+            OuchMsg::clt(OuchCltPld::Modify(ModifyOrder::default())),
+            OuchMsg::clt(OuchCltPld::AccQry(AccountQueryRequest::default())),
+            OuchMsg::svc(OuchSvcPld::SysEvt(SystemEvent::default())),
+            OuchMsg::svc(OuchSvcPld::Accepted(ord_accepted)),
+            OuchMsg::svc(OuchSvcPld::Replaced(ord_replaced)),
+            OuchMsg::svc(OuchSvcPld::Canceled(ord_canceled)),
+            OuchMsg::svc(OuchSvcPld::AiqCanceled(ord_aqi_canceled)),
+            OuchMsg::svc(OuchSvcPld::Executed(ord_executed)),
+            OuchMsg::svc(OuchSvcPld::BrokenTrade(brkn_trade)),
+            OuchMsg::svc(OuchSvcPld::Rejected(ord_rejected)),
+            OuchMsg::svc(OuchSvcPld::CanPending(can_pending)),
+            OuchMsg::svc(OuchSvcPld::CanReject(can_reject)),
+            OuchMsg::svc(OuchSvcPld::PrioUpdate(prio_update)),
+            OuchMsg::svc(OuchSvcPld::Modified(ord_modified)),
+            OuchMsg::svc(OuchSvcPld::Restated(ord_rstd)),
+            OuchMsg::svc(OuchSvcPld::AccQryRes(AccountQueryResponse::default())),
         ];
         let mut ser = ByteSerializerStack::<1024>::default();
         for ouch5 in msg_inp.iter() {
             match ouch5 {
-                Ouch5Msg::Clt(msg_inp_inb) => {
+                OuchMsg::Clt(msg_inp_inb) => {
                     info!("msg_inp_inb: {:?}", msg_inp_inb);
                     let _ = ser.serialize(msg_inp_inb).unwrap();
                 }
-                Ouch5Msg::Svc(msg_inp_oub) => {
+                OuchMsg::Svc(msg_inp_oub) => {
                     info!("msg_inp_oub: {:?}", msg_inp_oub);
                     let _ = ser.serialize(msg_inp_oub).unwrap();
                 }
@@ -176,13 +176,13 @@ mod test {
 
         for ouch5 in msg_inp.iter() {
             match ouch5 {
-                Ouch5Msg::Clt(msg_inp_inb) => {
-                    let msg_out_inb = des.deserialize::<SBCltMsg<Ouch5CltPld>>().unwrap();
+                OuchMsg::Clt(msg_inp_inb) => {
+                    let msg_out_inb = des.deserialize::<SBCltMsg<OuchCltPld>>().unwrap();
                     info!("msg_out_inb: {:?}", msg_out_inb);
                     assert_eq!(msg_inp_inb, &msg_out_inb);
                 }
-                Ouch5Msg::Svc(msg_inp_oub) => {
-                    let msg_out_oub = des.deserialize::<SBSvcMsg<Ouch5SvcPld>>().unwrap();
+                OuchMsg::Svc(msg_inp_oub) => {
+                    let msg_out_oub = des.deserialize::<SBSvcMsg<OuchSvcPld>>().unwrap();
                     info!("msg_out_oub: {:?}", msg_out_oub);
                     assert_eq!(msg_inp_oub, &msg_out_oub);
                 }
@@ -212,27 +212,27 @@ mod test {
         let ord_modified = OrderModified::from((&enter_ord, Side::buy()));
         let ord_rstd = OrderRestated::from((&enter_ord, RestatedReason::refresh_of_display()));
         let inb = vec![
-            Ouch5CltPld::Enter(enter_ord),
-            Ouch5CltPld::Replace(replace_ord),
-            Ouch5CltPld::Cancel(cancel_ord),
-            Ouch5CltPld::Modify(ModifyOrder::default()),
-            Ouch5CltPld::AccQry(AccountQueryRequest::default()),
+            OuchCltPld::Enter(enter_ord),
+            OuchCltPld::Replace(replace_ord),
+            OuchCltPld::Cancel(cancel_ord),
+            OuchCltPld::Modify(ModifyOrder::default()),
+            OuchCltPld::AccQry(AccountQueryRequest::default()),
         ];
         let oub = vec![
-            Ouch5SvcPld::SysEvt(SystemEvent::default()),
-            Ouch5SvcPld::Accepted(ord_accepted),
-            Ouch5SvcPld::Replaced(ord_replaced),
-            Ouch5SvcPld::Canceled(ord_canceled),
-            Ouch5SvcPld::AiqCanceled(ord_aqi_canceled),
-            Ouch5SvcPld::Executed(ord_executed),
-            Ouch5SvcPld::BrokenTrade(brkn_trade),
-            Ouch5SvcPld::Rejected(ord_rejected),
-            Ouch5SvcPld::CanPending(can_pending),
-            Ouch5SvcPld::CanReject(can_reject),
-            Ouch5SvcPld::PrioUpdate(prio_update),
-            Ouch5SvcPld::Modified(ord_modified),
-            Ouch5SvcPld::Restated(ord_rstd),
-            Ouch5SvcPld::AccQryRes(AccountQueryResponse::default()),
+            OuchSvcPld::SysEvt(SystemEvent::default()),
+            OuchSvcPld::Accepted(ord_accepted),
+            OuchSvcPld::Replaced(ord_replaced),
+            OuchSvcPld::Canceled(ord_canceled),
+            OuchSvcPld::AiqCanceled(ord_aqi_canceled),
+            OuchSvcPld::Executed(ord_executed),
+            OuchSvcPld::BrokenTrade(brkn_trade),
+            OuchSvcPld::Rejected(ord_rejected),
+            OuchSvcPld::CanPending(can_pending),
+            OuchSvcPld::CanReject(can_reject),
+            OuchSvcPld::PrioUpdate(prio_update),
+            OuchSvcPld::Modified(ord_modified),
+            OuchSvcPld::Restated(ord_rstd),
+            OuchSvcPld::AccQryRes(AccountQueryResponse::default()),
         ];
 
         let inb = inb

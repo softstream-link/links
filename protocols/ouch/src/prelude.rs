@@ -25,35 +25,35 @@ pub use crate::model::svc::priority_update::PriorityUpdate;
 pub use crate::model::svc::system_event::SystemEvent;
 
 // message types enums
-pub use crate::model::ouch5::Ouch5CltPld;
-pub use crate::model::ouch5::Ouch5SvcPld;
-pub use crate::model::ouch5::Ouch5Msg;
+pub use crate::model::ouch::OuchCltPld;
+pub use crate::model::ouch::OuchSvcPld;
+pub use crate::model::ouch::OuchMsg;
 
 // message frame size
-pub use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_CLT_MSG;
-pub use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_SVC_MSG;
+pub use crate::model::ouch::MAX_FRAME_SIZE_OUCH_CLT_MSG;
+pub use crate::model::ouch::MAX_FRAME_SIZE_OUCH_SVC_MSG;
 
 // connect
-pub use crate::connect::clt::Ouch5Clt;
-pub use crate::connect::messaging::Ouch5CltAdminProtocol;
-pub use crate::connect::messaging::Ouch5SvcAdminProtocol;
-pub use crate::connect::svc::Ouch5Svc;
+pub use crate::connect::clt::OuchClt;
+pub use crate::connect::messaging::OuchCltAdminProtocol;
+pub use crate::connect::svc::OuchSvc;
+pub use crate::connect::messaging::OuchSvcAdminProtocol;
 
 // callbacks
 // event store
 pub use crate::callbacks::Ouch5EventStore;
 
-pub use crate::callbacks::Ouch5CltEvenStoreCallback;
-pub use crate::callbacks::Ouch5SvcEvenStoreCallback;
+pub use crate::callbacks::OuchCltEvenStoreCallback;
+pub use crate::callbacks::OuchSvcEvenStoreCallback;
 
 // // logger
-pub use crate::callbacks::Ouch5CltLoggerCallback;
-pub use crate::callbacks::Ouch5SvcLoggerCallback;
+pub use crate::callbacks::OuchCltLoggerCallback;
+pub use crate::callbacks::OuchSvcLoggerCallback;
 
 // // chain
-pub use crate::callbacks::Ouch5CltChainCallback;
-pub use crate::callbacks::Ouch5SvcChainCallback;
+pub use crate::callbacks::OuchCltChainCallback;
+pub use crate::callbacks::OuchSvcChainCallback;
 
 // // dev null
-pub use crate::callbacks::Ouch5CltDevNullCallback;
-pub use crate::callbacks::Ouch5SvcDevNullCallback;
+pub use crate::callbacks::OuchCltDevNullCallback;
+pub use crate::callbacks::OuchSvcDevNullCallback;

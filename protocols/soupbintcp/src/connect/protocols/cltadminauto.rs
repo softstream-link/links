@@ -134,6 +134,7 @@ where
             
         }
     }
+    #[inline(always)]
     async fn on_recv<'s>(&'s self, _con_id: &'s ConId, _msg: &'s Self::RecvT)  {
         match *self.recv_tracker.lock().await{
             Some(ref mut recv_tracker) => recv_tracker.occurred(),

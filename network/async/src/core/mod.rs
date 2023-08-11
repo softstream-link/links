@@ -76,6 +76,7 @@ pub trait Protocol: Clone+Messenger+Framer+Send+Sync+'static {
         async { Ok(()) }
     }
 
+    #[inline(always)]
     fn on_recv<'s>(
         &'s self,
         con_id: &'s ConId,
@@ -83,5 +84,8 @@ pub trait Protocol: Clone+Messenger+Framer+Send+Sync+'static {
     ) -> impl Future<Output=()>+Send+'_ {
         async {  }
     }
-    fn on_send<'s>(&'s self, con_id: &'s ConId, msg: &'s mut Self::SendT) {} // TODO CRITICAL async not finished
+    #[inline(always)]
+    fn on_send<'s>(&'s self, con_id: &'s ConId, msg: &'s mut Self::SendT) -> impl Future<Output=()>+Send+'_ {
+        async {  }
+    } 
 }

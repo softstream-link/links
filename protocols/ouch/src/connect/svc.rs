@@ -1,8 +1,8 @@
 use links_soupbintcp_async::prelude::*;
 
-use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_SVC_MSG;
+use crate::model::ouch::MAX_FRAME_SIZE_OUCH_SVC_MSG;
 
-pub type Ouch5Svc<PROTOCOL, CALLBACK> = SBSvc<PROTOCOL, CALLBACK, MAX_FRAME_SIZE_OUCH5_SVC_MSG>;
+pub type OuchSvc<PROTOCOL, CALLBACK> = SBSvc<PROTOCOL, CALLBACK, MAX_FRAME_SIZE_OUCH_SVC_MSG>;
 
 #[cfg(test)]
 mod test {
@@ -21,14 +21,14 @@ mod test {
     #[tokio::test]
     async fn test_svc_not_connected() {
         setup::log::configure();
-        let protocol = Ouch5SvcAdminProtocol::new_ref(
+        let protocol = OuchSvcAdminProtocol::new_ref(
             b"abcdef".into(),
             b"++++++++++".into(),
             Default::default(),
             Default::default(),
         );
-        let callback = Ouch5SvcLoggerCallback::new_ref(Level::Info, Level::Info);
-        let svc = Ouch5Svc::bind(&ADDR, callback, protocol, Some("ouch5/venue"))
+        let callback = OuchSvcLoggerCallback::new_ref(Level::Info, Level::Info);
+        let svc = OuchSvc::bind(&ADDR, callback, protocol, Some("ouch5/venue"))
             .await
             .unwrap();
         info!("{}", svc);
@@ -39,13 +39,13 @@ mod test {
     #[tokio::test]
     async fn test_svc_clt_connected() {
         setup::log::configure_level(log::LevelFilter::Info);
-        let svc_prcl = Ouch5SvcAdminProtocol::new_ref(
+        let svc_prcl = OuchSvcAdminProtocol::new_ref(
             b"abcdef".into(),
             b"++++++++++".into(),
             Default::default(),
             1.,
         );
-        let clt_prcl = Ouch5CltAdminProtocol::new_ref(
+        let clt_prcl = OuchCltAdminProtocol::new_ref(
             b"abcdef".into(),
             b"++++++++++".into(),
             Default::default(),
@@ -57,15 +57,15 @@ mod test {
         // let clt_clbk = Ouch5CltLoggerCallback::new_ref(Level::Info, Level::Debug);
 
         let event_store = Ouch5EventStore::new_ref();
-        let svc_clbk = Ouch5SvcEvenStoreCallback::new_ref(Arc::clone(&event_store));
-        let clt_clbk = Ouch5CltEvenStoreCallback::new_ref(Arc::clone(&event_store));
+        let svc_clbk = OuchSvcEvenStoreCallback::new_ref(Arc::clone(&event_store));
+        let clt_clbk = OuchCltEvenStoreCallback::new_ref(Arc::clone(&event_store));
 
-        let svc = Ouch5Svc::bind(*ADDR, svc_clbk, svc_prcl, Some("ouch5/venue"))
+        let svc = OuchSvc::bind(*ADDR, svc_clbk, svc_prcl, Some("ouch5/venue"))
             .await
             .unwrap();
 
         info!("STARTED {}", svc);
-        let clt = Ouch5Clt::connect(
+        let clt = OuchClt::connect(
             *ADDR,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
