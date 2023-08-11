@@ -94,12 +94,11 @@ mod test {
     use crate::{prelude::*, unittest::setup::model::*};
     use byteserde::prelude::*;
 
-    use links_testing::unittest::setup::log::configure;
+    use links_testing::unittest::setup;
 
-    use crate::unittest::setup;
     #[test]
     fn test_soup_bin_clt() {
-        configure();
+        setup::log::configure();
         let mut ser = ByteSerializerStack::<1024>::default();
         let msg_inp = clt_msgs_default();
 
@@ -120,7 +119,7 @@ mod test {
     }
     #[test]
     fn test_soup_bin_svc() {
-        configure();
+        setup::log::configure();
         let mut ser = ByteSerializerStack::<1024>::default();
         let msg_inp = svc_msgs_default();
 
@@ -142,12 +141,12 @@ mod test {
 
     #[test]
     fn test_soup_max_frame_size() {
-        configure();
-        let msg_inp_clt = setup::model::clt_msgs_default::<NoPayload>()
+        setup::log::configure();
+        let msg_inp_clt = clt_msgs_default::<NoPayload>()
             .into_iter()
             .map(|msg| (msg.byte_len(), msg))
             .collect::<Vec<_>>();
-        let msg_inp_svc = setup::model::svc_msgs_default::<NoPayload>()
+        let msg_inp_svc = svc_msgs_default::<NoPayload>()
             .into_iter()
             .map(|msg| (msg.byte_len(), msg))
             .collect::<Vec<_>>();

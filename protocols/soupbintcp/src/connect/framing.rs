@@ -59,11 +59,11 @@ mod test {
         prelude::*,
         unittest::setup::model::{clt_msgs_default, svc_msgs_default},
     };
-    use links_testing::unittest::setup::log::configure;
+    use links_testing::unittest::setup;
 
     #[test]
     fn test_soup_bin_clt() {
-        configure();
+        setup::log::configure();
         const CAP: usize = 1024;
         let mut ser = ByteSerializerStack::<CAP>::default();
         let msg_inp = clt_msgs_default();
@@ -93,7 +93,7 @@ mod test {
     }
     #[test]
     fn test_soup_bin_svc() {
-        configure();
+        setup::log::configure();
         const CAP: usize = 1024;
         let mut ser = ByteSerializerStack::<CAP>::default();
         let msg_inp = svc_msgs_default();
