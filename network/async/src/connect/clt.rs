@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::prelude::*;
-use log::{debug, error, info};
+use log::{debug, error};
 use tokio::net::TcpStream;
 
 use super::messenger::{into_split_messenger, MsgRecverRef, MsgSenderRef};
