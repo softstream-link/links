@@ -16,7 +16,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_clt() {
+    async fn test_clt_not_connected() {
         setup::log::configure();
 
         let clt = SBClt::<_, _, 128>::connect_no_protocol(

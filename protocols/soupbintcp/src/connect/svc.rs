@@ -22,12 +22,12 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_svc() {
+    async fn test_svc_not_connected() {
         setup::log::configure();
         
         let svc = SBSvc::<_, _, MMS>::bind_no_protocol(
             *ADDR,
-            SBSvcLoggerCallback::<SBSvcAdminProtocol<NoPayload>>::new_ref(Level::Info, Level::Info),
+            SBSvcLoggerCallback::<SBSvcAdminProtocol<Nil>>::new_ref(Level::Info, Level::Info),
             Some("soupbin/unittest"),
         )
         .await
@@ -41,11 +41,11 @@ mod test {
         setup::log::configure();
 
         let event_store = SBEventStore::new_ref();
-        let svc_callback = SBSvcChainCallback::<SBSvcAdminProtocol<NoPayload>>::new_ref(vec![
+        let svc_callback = SBSvcChainCallback::<SBSvcAdminProtocol<Nil>>::new_ref(vec![
             SBSvcLoggerCallback::new_ref(Level::Info, Level::Info),
             SBSvcEvenStoreCallback::new_ref(Arc::clone(&event_store)),
         ]);
-        let clt_callback = SBCltChainCallback::<SBCltAdminProtocol<NoPayload>>::new_ref(vec![
+        let clt_callback = SBCltChainCallback::<SBCltAdminProtocol<Nil>>::new_ref(vec![
             SBCltLoggerCallback::new_ref(Level::Info, Level::Info),
             SBCltEvenStoreCallback::new_ref(Arc::clone(&event_store)),
         ]);

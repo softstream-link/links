@@ -1,8 +1,8 @@
 use links_soupbintcp_async::prelude::*;
 
-use crate::{model::ouch5::MAX_FRAME_SIZE_OUCH5_SVC_MSG, prelude::Ouch5SvcPld};
+use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_SVC_MSG;
 
-pub type Ouch5Svc<C> = SBSvc<SBSvcAdminProtocol<Ouch5SvcPld>, C, MAX_FRAME_SIZE_OUCH5_SVC_MSG>;
+pub type Ouch5Svc<PROTOCOL, CALLBACK> = SBSvc<PROTOCOL, CALLBACK, MAX_FRAME_SIZE_OUCH5_SVC_MSG>;
 
 #[cfg(test)]
 mod test {
@@ -21,7 +21,7 @@ mod test {
     #[tokio::test]
     async fn test_svc_not_connected() {
         setup::log::configure();
-        let protocol = Ouch5SvcProtocol::new_ref(
+        let protocol = Ouch5SvcAdminProtocol::new_ref(
             b"abcdef".into(),
             b"++++++++++".into(),
             Default::default(),
@@ -39,13 +39,13 @@ mod test {
     #[tokio::test]
     async fn test_svc_clt_connected() {
         setup::log::configure_level(log::LevelFilter::Info);
-        let svc_prcl = Ouch5SvcProtocol::new_ref(
+        let svc_prcl = Ouch5SvcAdminProtocol::new_ref(
             b"abcdef".into(),
             b"++++++++++".into(),
             Default::default(),
             1.,
         );
-        let clt_prcl = Ouch5CltProtocol::new_ref(
+        let clt_prcl = Ouch5CltAdminProtocol::new_ref(
             b"abcdef".into(),
             b"++++++++++".into(),
             Default::default(),
@@ -71,9 +71,11 @@ mod test {
             clt_clbk,
             clt_prcl,
             Some("ouch5/broker"),
-        ).await.unwrap();
+        )
+        .await
+        .unwrap();
         info!("STARTED {}", clt);
-        
+
         let clt_is_connected = clt.is_connected(Some(Duration::from_millis(500))).await;
         let svc_is_connected = svc.is_connected(Some(Duration::from_secs(500))).await;
         assert!(clt_is_connected);

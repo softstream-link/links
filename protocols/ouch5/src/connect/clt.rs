@@ -1,9 +1,9 @@
 use links_soupbintcp_async::prelude::*;
 
-use crate::prelude::{Ouch5CltProtocol, MAX_FRAME_SIZE_OUCH5_CLT_MSG};
+use crate::prelude::{Ouch5CltAdminProtocol, MAX_FRAME_SIZE_OUCH5_CLT_MSG};
 
 
-pub type Ouch5Clt<C> = SBClt<Ouch5CltProtocol, C, MAX_FRAME_SIZE_OUCH5_CLT_MSG>;
+pub type Ouch5Clt<C> = SBClt<Ouch5CltAdminProtocol, C, MAX_FRAME_SIZE_OUCH5_CLT_MSG>;
 
 #[cfg(test)]
 mod test {
@@ -20,7 +20,7 @@ mod test {
     #[tokio::test]
     async fn test_clt() {
         setup::log::configure();
-        let protocol = Ouch5CltProtocol::new_ref(
+        let protocol = Ouch5CltAdminProtocol::new_ref(
             b"abcdef".into(),
             b"++++++++++".into(),
             Default::default(),

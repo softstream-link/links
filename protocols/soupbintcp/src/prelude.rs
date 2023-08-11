@@ -15,7 +15,7 @@ pub use crate::model::unsequenced_data::UData;
 pub use crate::model::unsequenced_data::UnsequencedDataHeader;
 
 // default payloads
-pub use crate::model::payload::NoPayload;
+pub use crate::model::payload::Nil;
 pub use crate::model::payload::SamplePayload;
 pub use crate::model::payload::VecPayload;
 pub use crate::model::soup_bin::SBCltMsg;

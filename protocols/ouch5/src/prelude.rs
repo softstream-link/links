@@ -26,8 +26,8 @@ pub use crate::model::svc::system_event::SystemEvent;
 
 // message types enums
 pub use crate::model::ouch5::Ouch5CltPld;
-pub use crate::model::ouch5::Ouch5Msg;
 pub use crate::model::ouch5::Ouch5SvcPld;
+pub use crate::model::ouch5::Ouch5Msg;
 
 // message frame size
 pub use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_CLT_MSG;
@@ -35,9 +35,9 @@ pub use crate::model::ouch5::MAX_FRAME_SIZE_OUCH5_SVC_MSG;
 
 // connect
 pub use crate::connect::clt::Ouch5Clt;
+pub use crate::connect::messaging::Ouch5CltAdminProtocol;
+pub use crate::connect::messaging::Ouch5SvcAdminProtocol;
 pub use crate::connect::svc::Ouch5Svc;
-pub use crate::connect::messaging::Ouch5CltProtocol;
-pub use crate::connect::messaging::Ouch5SvcProtocol;
 
 // callbacks
 // event store

@@ -3,20 +3,22 @@ use links_network_async::prelude::*;
 use crate::prelude::*;
 
 // event store
-pub type SBEventStore<PAYLOAD> = EventStore<SBMsg<PAYLOAD>>;
+pub type SBEventStore<CltPayload, SvcPayload> = EventStore<SBMsg<CltPayload, SvcPayload>>;
 
-pub type SBCltEvenStoreCallback<PAYLOAD, PROTOCOL> = EventStoreCallback<SBMsg<PAYLOAD>, PROTOCOL>;
+pub type SBCltEvenStoreCallback<CltPayload, SvcPayload, Messenger> =
+    EventStoreCallback<SBMsg<CltPayload, SvcPayload>, Messenger>;
 
-pub type SBSvcEvenStoreCallback<PAYLOAD, PROTOCOL> = EventStoreCallback<SBMsg<PAYLOAD>, PROTOCOL>;
+pub type SBSvcEvenStoreCallback<CltPayload, SvcPayload, Messenger> =
+    EventStoreCallback<SBMsg<CltPayload, SvcPayload>, Messenger>;
 
 // loggers
-pub type SBCltLoggerCallback<PROTOCOL> = LoggerCallback<PROTOCOL>;
-pub type SBSvcLoggerCallback<PROTOCOL> = LoggerCallback<PROTOCOL>;
+pub type SBCltLoggerCallback<Messenger> = LoggerCallback<Messenger>;
+pub type SBSvcLoggerCallback<Messenger> = LoggerCallback<Messenger>;
 
 // chain
-pub type SBCltChainCallback<PROTOCOL> = ChainCallback<PROTOCOL>;
-pub type SBSvcChainCallback<PROTOCOL> = ChainCallback<PROTOCOL>;
+pub type SBCltChainCallback<Messenger> = ChainCallback<Messenger>;
+pub type SBSvcChainCallback<Messenger> = ChainCallback<Messenger>;
 
 // dev null
-pub type SBCltDevNullCallback<PROTOCOL> = DevNullCallback<PROTOCOL>;
-pub type SBSvcDevNullCallback<PROTOCOL> = DevNullCallback<PROTOCOL>;
+pub type SBCltDevNullCallback<Messenger> = DevNullCallback<Messenger>;
+pub type SBSvcDevNullCallback<Messenger> = DevNullCallback<Messenger>;
