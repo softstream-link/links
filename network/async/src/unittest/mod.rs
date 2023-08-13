@@ -11,7 +11,7 @@ pub mod setup {
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
         pub struct TestCltMsgDebug {
             ty: ConstCharAscii<b'1'>,
-            text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
+            pub text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
         impl TestCltMsgDebug {
             pub fn new(text: &[u8]) -> Self {
@@ -38,7 +38,7 @@ pub mod setup {
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
         pub struct TestSvcMsgDebug {
             ty: ConstCharAscii<b'2'>,
-            text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
+            pub text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
         impl TestSvcMsgDebug {
             pub fn new(text: &[u8]) -> Self {

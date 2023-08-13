@@ -31,7 +31,7 @@ where
 {
     header: UPayloadHeader,
     #[byteserde(deplete ( header.packet_length as usize - 1 ))]
-    payload: Payload,
+    pub payload: Payload,
 }
 #[rustfmt::skip]
 impl<Payload> UPayload<Payload>

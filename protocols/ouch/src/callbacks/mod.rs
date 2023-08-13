@@ -4,10 +4,15 @@ use links_network_async::prelude::*;
 use crate::prelude::*;
 
 // event store
-pub type Ouch5EventStore = EventStore<SBMsg<OuchCltPld, OuchSvcPld>>;
+// pub type Ouch5EventStore = EventStore<SBMsg<OuchCltPld, OuchSvcPld>>;
+pub type Ouch5EventStore = EventStore<OuchMsg>;
 
-pub type OuchCltEvenStoreCallback<Messenger> = SBCltEvenStoreCallback<OuchCltPld, OuchSvcPld, Messenger>;
-pub type OuchSvcEvenStoreCallback<Messenger> = SBSvcEvenStoreCallback<OuchCltPld, OuchSvcPld, Messenger>;
+// pub type OuchCltEvenStoreCallback<Messenger> = SBCltEvenStoreCallback<OuchCltPld, OuchSvcPld, Messenger>;
+pub type OuchCltEvenStoreCallback<Messenger> = EventStoreCallback<OuchMsg, Messenger>;
+
+// pub type OuchSvcEvenStoreCallback<Messenger> = SBSvcEvenStoreCallback<OuchCltPld, OuchSvcPld, Messenger>;
+pub type OuchSvcEvenStoreCallback<Messenger> = EventStoreCallback<OuchMsg, Messenger>;
+
 
 // loggers
 pub type OuchCltLoggerCallback<Messenger> = SBCltLoggerCallback<Messenger>;

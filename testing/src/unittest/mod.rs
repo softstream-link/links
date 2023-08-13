@@ -36,14 +36,14 @@ pub mod setup {
         }
 
         pub fn default_connect_timeout() -> Duration {
-            Duration::from_secs_f32(0.5)
+            Duration::from_millis(500)
         }
         pub fn default_connect_retry_after() -> Duration {
             default_connect_timeout() / 5
         }
 
         pub fn optional_find_timeout() -> Option<Duration> {
-            Some(Duration::from_secs_f32(1.))
+            Some(Duration::from_millis(100))
         }
     }
 }

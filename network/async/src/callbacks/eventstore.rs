@@ -88,7 +88,7 @@ where
                 let events = self.lock();
                 let opt = events.iter().rev().find(|entry| predicate(*entry));
                 if opt.is_some() {
-                    return opt.cloned();
+                    return opt.cloned(); // because the resutl is behind a mutex must clone in order to return
                 }
             }
 
@@ -98,6 +98,44 @@ where
             yield_now().await;
         }
         None
+    }
+    pub async fn find_recv<P>(&self, mut predicate: P, timeout: Option<Duration>) -> Option<T>
+    where
+        P: FnMut(&T) -> bool,
+    {
+        
+        let entry = self.find(|entry| match entry.event {
+            Dir::Recv(ref t) => {
+                match predicate(t) {
+                    true => true,
+                    false => false,
+                }
+            },
+            _ => false,
+        }, timeout).await;
+        match entry {
+            Some(Entry{event: Dir::Recv(t ), ..} ) => Some(t),
+            _ => None,
+        }
+    }
+    pub async fn find_send<P>(&self, mut predicate: P, timeout: Option<Duration>) -> Option<T>
+    where
+        P: FnMut(&T) -> bool,
+    {
+        
+        let entry = self.find(|entry| match entry.event {
+            Dir::Send(ref t) => {
+                match predicate(t) {
+                    true => true,
+                    false => false,
+                }
+            },
+            _ => false,
+        }, timeout).await;
+        match entry {
+            Some(Entry{event: Dir::Send(t ), ..} ) => Some(t),
+            _ => None,
+        }
     }
     pub fn last(&self) -> Option<Entry<T>> {
         self.lock().last().cloned()
@@ -233,26 +271,46 @@ mod test {
     async fn test_event_store() {
         setup::log::configure();
         let event_store = EventStore::new_ref();
-        let event_clb = EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new(Arc::clone(&event_store));
+        let event_clb = EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new(event_store.clone());
 
-        #[allow(unused_assignments)]
-        let mut clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(format!("initialized").as_bytes()));
         for idx in 0..10 {
             let svc_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(format!("hello  svc #{}", idx).as_bytes()));
             event_clb.on_recv(&Default::default(), svc_msg.clone());
 
-            clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(format!("hello  clt #{}", idx).as_bytes()));
+            let clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(format!("hello  clt #{}", idx).as_bytes()));
             event_clb.on_send(&Default::default(), &clt_msg);
         }
         info!("event_clb: {}", event_clb);
-        let found = event_store.find(|_| true, None).await;
-        info!("found: {:?}", found);
+        
+        
+        // entry search
+        let find = event_store.find(|_| true, None).await;
+        info!("find: {:?}", find);
         let last = event_store.last();
         info!("last: {:?}", last);
-        assert_eq!(last, found);
-        match found.unwrap().event {
+        assert_eq!(last, find);
+        match find.unwrap().event {
             Dir::Send(msg) => assert_eq!(msg, msg),
             _ => panic!("unexpected event"),
         }
+
+        // svc_recv search
+        let svc_recv = event_store.find_recv(
+            |msg| matches!(msg, TestMsg::Svc(TestSvcMsg::Dbg(TestSvcMsgDebug{text, ..})) if text == &b"       hello  svc #9".into() ),
+            None
+        ).await;
+        info!("svc_recv: {:?}", svc_recv);
+        assert!(svc_recv.is_some());
+        
+        // clt_send search
+        let clt_send = event_store.find_send(
+            |msg| matches!(msg, TestMsg::Clt(TestCltMsg::Dbg(TestCltMsgDebug{text, ..})) if text == &b"       hello  clt #9".into() ),
+            None
+        ).await;
+        info!("clt_send: {:?}", clt_send);
+        assert!(clt_send.is_some());
+
+        
+
     }
 }

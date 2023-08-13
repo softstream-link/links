@@ -45,6 +45,12 @@ impl ConId {
             peer: peer.map(|addr| addr.parse().unwrap_or_else(|_| panic!("unable to parse addr: {:?}", addr))),
         }
     }
+    pub fn name(&self) -> &str {
+        match self {
+            ConId::Clt { name, .. } => name,
+            ConId::Svc { name, .. } => name,
+        }
+    }
 }
 impl Default for ConId {
     fn default() -> Self {

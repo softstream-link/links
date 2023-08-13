@@ -7,11 +7,11 @@ pub type OuchSvc<Protocol, Callback> = SBSvc<Protocol, Callback, MAX_FRAME_SIZE_
 #[cfg(test)]
 mod test {
 
-    use std::{sync::Arc, time::Duration};
-
     use lazy_static::lazy_static;
+    use links_soupbintcp_async::prelude::UPayload;
     use links_testing::unittest::setup;
-    use log::{info, Level};
+    use log::{info, warn, Level};
+    use std::{sync::Arc, time::Duration};
 
     lazy_static! {
         static ref ADDR: &'static str = &setup::net::default_addr();
@@ -86,10 +86,18 @@ mod test {
         assert!(clt_is_connected);
         assert!(svc_is_connected);
 
-        // SEND A FEW THINGS
+        // SEND A NEW ORDER
         let enter_order = EnterOrder::default();
         clt.send(&mut enter_order.clone().into()).await.unwrap();
 
+        // FIND THIS ORDER RECVED IN BY THE SVC VIA EVENT_STORE
+        let search = event_store.find_recv(
+            |msg| matches!(msg, OuchMsg::Clt(OuchCltMsg::U(UPayload{payload: OuchCltPld::Enter(ord), ..})) if ord == &enter_order),
+            setup::net::optional_find_timeout()).await;
+
+        warn!("{:?}", search.unwrap());
+
+        //
         let accepted = OrderAccepted::from(&enter_order);
         svc.send(&mut accepted.into()).await.unwrap();
 
