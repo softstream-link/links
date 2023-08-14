@@ -45,6 +45,9 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> CltSender<P, C, MMS>
             None => false,
         }
     }
+    pub fn con_id(&self) -> &ConId {
+        &self.con_id
+    }
 }
 impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for CltSender<P, C, MMS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

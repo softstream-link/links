@@ -9,7 +9,6 @@ mod test {
 
     use crate::prelude::*;
     use lazy_static::lazy_static;
-    use links_network_async::prelude::*;
     use links_testing::unittest::setup;
     use log::{info, Level};
 
@@ -24,7 +23,7 @@ mod test {
     #[tokio::test]
     async fn test_svc_not_connected() {
         setup::log::configure();
-        
+
         let svc = SBSvc::<_, _, MMS>::bind_no_protocol(
             *ADDR,
             SBSvcLoggerCallback::<SBSvcAdminProtocol<Nil, Nil>>::new_ref(Level::Info, Level::Info),
@@ -75,27 +74,22 @@ mod test {
         svc.send(&mut msg_svc_inp).await.unwrap();
 
         let msg_clt_out = event_store
-            .find(
-                |entry| match &entry.event {
-                    Dir::Recv(SBMsg::Svc(msg)) => msg == &msg_svc_inp,
-                    _ => false,
-                },
+            .find_recv(
+                clt.con_id().name(),
+                |into| matches!(into, SBMsg::Svc(msg) if msg == &msg_svc_inp),
                 setup::net::optional_find_timeout(),
             )
             .await
-            .unwrap()
-            .unwrap_recv_event();
+            .unwrap();
         let msg_svc_out = event_store
-            .find(
-                |entry| match &entry.event {
-                    Dir::Recv(SBMsg::Clt(msg)) => msg == &msg_clt_inp,
-                    _ => false,
-                },
+            .find_recv(
+                svc.con_id().name(),
+                |entry| matches!(entry ,SBMsg::Clt(msg) if msg == &msg_clt_inp),
                 setup::net::optional_find_timeout(),
             )
             .await
-            .unwrap()
-            .unwrap_recv_event();
+            .unwrap();
+
         info!("event_store: {}", *event_store);
         info!("msg_svc_out: {:?}", msg_svc_out);
         info!("msg_clt_out: {:?}", msg_clt_out);

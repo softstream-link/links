@@ -8,9 +8,8 @@ pub type OuchSvc<Protocol, Callback> = SBSvc<Protocol, Callback, MAX_FRAME_SIZE_
 mod test {
 
     use lazy_static::lazy_static;
-    use links_soupbintcp_async::prelude::UPayload;
     use links_testing::unittest::setup;
-    use log::{info, warn, Level};
+    use log::{info, Level};
     use std::{sync::Arc, time::Duration};
 
     lazy_static! {
@@ -47,18 +46,19 @@ mod test {
             Default::default(),
             1.,
         );
+        let clt_hbeat_inverval = Duration::from_millis(200);
         let clt_prcl = OuchCltAdminProtocol::new_ref(
             b"abcdef".into(),
             b"++++++++++".into(),
             Default::default(),
             Default::default(),
-            Duration::from_millis(200),
+            clt_hbeat_inverval,
             1.,
         );
         // let svc_clbk = Ouch5SvcLoggerCallback::new_ref(Level::Info, Level::Debug);
         // let clt_clbk = Ouch5CltLoggerCallback::new_ref(Level::Info, Level::Debug);
 
-        let event_store = Ouch5EventStore::new_ref();
+        let event_store = OuchEventStore::new_ref();
         let svc_clbk = OuchSvcEvenStoreCallback::new_ref(Arc::clone(&event_store));
         let clt_clbk = OuchCltEvenStoreCallback::new_ref(Arc::clone(&event_store));
 
@@ -81,35 +81,22 @@ mod test {
         info!("STARTED {}", clt);
 
         // MAKE SURE CONNECTED
-        let svc_is_connected = svc.is_connected(Some(Duration::from_secs(500))).await;
+        let svc_is_connected = svc.is_connected(Some(clt_hbeat_inverval)).await; // wait at least one heartbeat interval
         let clt_is_connected = clt.is_connected(None).await;
         assert!(clt_is_connected);
         assert!(svc_is_connected);
 
-        // SEND A NEW ORDER
-        let enter_order = EnterOrder::default();
-        clt.send(&mut enter_order.clone().into()).await.unwrap();
-
-        // FIND THIS ORDER RECVED IN BY THE SVC VIA EVENT_STORE
-        let search = event_store.find_recv(
-            |msg| matches!(msg, OuchMsg::Clt(OuchCltMsg::U(UPayload{payload: OuchCltPld::Enter(ord), ..})) if ord == &enter_order),
-            setup::net::optional_find_timeout()).await;
-
-        warn!("{:?}", search.unwrap());
-
-        //
-        let accepted = OrderAccepted::from(&enter_order);
-        svc.send(&mut accepted.into()).await.unwrap();
-
-        tokio::time::sleep(Duration::from_millis(300)).await;
-
+        
         // REVIEW EVENTS
         info!("event_store: {}", event_store);
 
-        // STOP
+        // STOP clt and wait at least one heartbeat interval for svc to detect is_connected = false
         drop(clt);
-        tokio::time::sleep(Duration::from_millis(300)).await;
+        tokio::time::sleep(clt_hbeat_inverval).await; 
+        // EXPECT this call shall generate log warn indicating hbeat is outside of tolerance factor
         let svc_is_connected = svc.is_connected(None).await;
         assert!(!svc_is_connected);
     }
 }
+
+

@@ -17,7 +17,10 @@ impl ConId {
     pub fn clt(name: Option<&str>, local: Option<&str>, peer: &str) -> Self {
         ConId::Clt {
             name: name.unwrap_or("unknown").to_owned(),
-            local: local.map(|addr| addr.parse().unwrap_or_else(|_| panic!("unable to parse addr: {:?}", addr))),
+            local: local.map(|addr| {
+                addr.parse()
+                    .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", addr))
+            }),
             peer: peer
                 .parse()
                 .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", peer)),
@@ -42,13 +45,28 @@ impl ConId {
             local: local
                 .parse()
                 .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", local)),
-            peer: peer.map(|addr| addr.parse().unwrap_or_else(|_| panic!("unable to parse addr: {:?}", addr))),
+            peer: peer.map(|addr| {
+                addr.parse()
+                    .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", addr))
+            }),
         }
     }
     pub fn name(&self) -> &str {
         match self {
             ConId::Clt { name, .. } => name,
             ConId::Svc { name, .. } => name,
+        }
+    }
+    pub fn get_peer(&self) -> Option<SocketAddr> {
+        match self {
+            ConId::Clt { peer, .. } => Some(*peer),
+            ConId::Svc { peer, .. } => *peer,
+        }
+    }
+    pub fn get_local(&self) -> Option<SocketAddr> {
+        match self {
+            ConId::Clt { local, .. } => *local,
+            ConId::Svc { local, .. } => Some(*local),
         }
     }
 }
@@ -73,10 +91,10 @@ impl Display for ConId {
             ConId::Svc { name, local, peer } => {
                 write!(
                     f,
-                    "Svc({name}@{local}<-{})",
+                    "Svc({name}@{local}{})",
                     match peer {
-                        Some(peer) => format!("{}", peer),
-                        None => "none".to_owned(),
+                        Some(peer) => format!("<-{}", peer),
+                        None => "".to_owned(),
                     }
                 )
             }
@@ -99,7 +117,7 @@ mod test {
         info!("con_id: {:?}", con_id);
         info!("con_id: {}", con_id);
         assert_eq!(con_id.to_string(), "Clt(unittest@none->0.0.0.0:1)");
-        
+
         let con_id = ConId::svc(Some("unittest"), "0.0.0.0:1", None);
         info!("con_id: {:?}", con_id);
         info!("con_id: {}", con_id);

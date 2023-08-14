@@ -1,4 +1,6 @@
-use std::{any::type_name, collections::VecDeque, error::Error, fmt::Display, sync::Arc, time::Duration};
+use std::{
+    any::type_name, collections::VecDeque, error::Error, fmt::Display, sync::Arc, time::Duration,
+};
 
 use crate::prelude::*;
 use log::{debug, error, warn};
@@ -17,37 +19,6 @@ where
     con_id: ConId,
     senders: SvcSendersRef<P, C, MMS>,
     acceptor_abort_handle: AbortHandle,
-}
-impl<P, C, const MMS: usize> Display for SvcSender<P, C, MMS>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        #[rustfmt::skip]
-        let name = {
-            let mut protocol_full_name = type_name::<P>().split(['<','>']);
-            format!("{} SvcSender<{}<{}>, {}, {}>", 
-                self.con_id,
-                protocol_full_name.next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"), 
-                protocol_full_name.next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"),
-                type_name::<C>().split('<').next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"),
-                MMS,
-            )
-        };
-        write!(f, "{}", name)
-    }
-}
-
-impl<P, C, const MMS: usize> Drop for SvcSender<P, C, MMS>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
-    fn drop(&mut self) {
-        debug!("{} aborting acceptor queue", self);
-        self.acceptor_abort_handle.abort();
-    }
 }
 impl<P, C, const MMS: usize> SvcSender<P, C, MMS>
 where
@@ -83,8 +54,8 @@ where
             Err(format!("Not Connected senders len: {}", senders.len()).into()) // TODO better error type
         }
     }
-    
-    pub async fn is_connected(&self, timeout: Option<Duration>) -> bool{
+
+    pub async fn is_connected(&self, timeout: Option<Duration>) -> bool {
         let senders = self.senders.lock().await;
         for sender in senders.iter() {
             if sender.is_connected(timeout).await {
@@ -95,6 +66,39 @@ where
     }
     pub fn con_id(&self) -> &ConId {
         &self.con_id
+    }
+}
+impl<P, C, const MMS: usize> Display for SvcSender<P, C, MMS>
+where
+    P: Protocol,
+    C: CallbackSendRecv<P>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use futures::executor::block_on;
+        let clts = block_on(self.senders.lock()).iter().map(|clt| format!("[{}]", clt.con_id().get_peer().unwrap())).collect::<Vec<_>>().join(", ");
+        let con_id = format!("Svc({}@{}<-{})", self.con_id.name(), self.con_id.get_local().unwrap(), clts);
+        #[rustfmt::skip]
+        let name = {
+            let mut protocol_full_name = type_name::<P>().split(['<','>']);
+            format!("{} SvcSender<{}<{}>, {}, {}>", 
+                con_id,
+                protocol_full_name.next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"), 
+                protocol_full_name.next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"),
+                type_name::<C>().split('<').next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"),
+                MMS,
+            )
+        };
+        write!(f, "{}", name)
+    }
+}
+impl<P, C, const MMS: usize> Drop for SvcSender<P, C, MMS>
+where
+    P: Protocol,
+    C: CallbackSendRecv<P>,
+{
+    fn drop(&mut self) {
+        debug!("{} aborting acceptor queue", self);
+        self.acceptor_abort_handle.abort();
     }
 }
 
@@ -274,28 +278,22 @@ mod test {
         svc.send(&mut inp_svc_msg).await.unwrap();
 
         let out_svc_msg = event_store
-            .find(
-                |entry| match &entry.event {
-                    Dir::Recv(TestMsg::Clt(msg)) => msg == &inp_clt_msg,
-                    _ => false,
-                },
+            .find_recv(
+                "venue",
+                |into| matches!(into, TestMsg::Clt(msg) if msg == &inp_clt_msg),
                 setup::net::optional_find_timeout(),
             )
             .await
-            .unwrap()
-            .event;
+            .unwrap();
 
         let out_clt_msg = event_store
-            .find(
-                |entry| match &entry.event {
-                    Dir::Recv(TestMsg::Svc(msg)) => msg == &inp_svc_msg,
-                    _ => false,
-                },
+            .find_recv(
+                "broker",
+                |into| matches!(into, TestMsg::Svc(msg) if msg == &inp_svc_msg),
                 setup::net::optional_find_timeout(),
             )
             .await
-            .unwrap()
-            .event;
+            .unwrap();
 
         info!("Found out_svc_msg: {:?}", out_svc_msg);
         info!("Found out_clt_msg: {:?}", out_clt_msg);
@@ -303,6 +301,7 @@ mod test {
         info!("svc: {}", svc);
         info!("event_store: {}", event_store);
         drop(clt);
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        // TODO explore https://crates.io/crates/testing_logger to validate that drop did in fact work
+        tokio::time::sleep(Duration::from_secs(1)).await; // sleep so that you see the drop(clt) loggin on log::debug!()
     }
 }

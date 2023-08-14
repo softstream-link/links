@@ -8,6 +8,7 @@ log = { workspace = true }
 env_logger = { workspace = true }
 bytes = { workspace = true }
 tokio = { workspace = true }
+futures = { workspace = true }
 chrono = { workspace = true }
 
 byteserde = { workspace = true } # required to do serialization and deserialization

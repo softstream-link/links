@@ -19,7 +19,7 @@ pub struct Entry<T> {
     pub time: SystemTime,
     pub event: Dir<T>,
 }
-impl<T> Entry<T>{
+impl<T> Entry<T> {
     pub fn unwrap_recv_event(self) -> T {
         match self.event {
             Dir::Recv(t) => t,
@@ -35,8 +35,7 @@ impl<T> Entry<T>{
 }
 
 impl<T> Display for Entry<T>
-where
-    T: Debug,
+where T: Debug
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}\t{:?}", self.con_id, self.event)
@@ -47,14 +46,12 @@ pub type EventStoreRef<T> = Arc<EventStore<T>>;
 
 #[derive(Debug)]
 pub struct EventStore<T>
-where
-    T: Debug + Clone + Send + Sync + 'static,
+where T: Debug+Clone+Send+Sync+'static
 {
     store: Mutex<Vec<Entry<T>>>,
 }
 impl<T> Default for EventStore<T>
-where
-    T: Debug + Clone + Send + Sync + 'static,
+where T: Debug+Clone+Send+Sync+'static
 {
     fn default() -> Self {
         Self {
@@ -63,8 +60,7 @@ where
     }
 }
 impl<T> EventStore<T>
-where
-    T: Debug + Clone + Send + Sync + 'static,
+where T: Debug+Clone+Send+Sync+'static
 {
     pub fn new_ref() -> EventStoreRef<T> {
         Arc::new(Self::default())
@@ -76,7 +72,12 @@ where
     pub fn push(&self, e: Entry<T>) {
         self.lock().push(e);
     }
-    pub async fn find<P>(&self, mut predicate: P, timeout: Option<Duration>) -> Option<Entry<T>>
+    pub async fn find<P>(
+        &self,
+        con_id_name: &str,
+        mut predicate: P,
+        timeout: Option<Duration>,
+    ) -> Option<Entry<T>>
     where
         P: FnMut(&Entry<T>) -> bool,
     {
@@ -86,7 +87,10 @@ where
             {
                 // this scope will drop the lock before the next await
                 let events = self.lock();
-                let opt = events.iter().rev().find(|entry| predicate(*entry));
+                let opt = events
+                    .iter()
+                    .rev()
+                    .find(|entry| entry.con_id.name() == con_id_name && predicate(*entry));
                 if opt.is_some() {
                     return opt.cloned(); // because the resutl is behind a mutex must clone in order to return
                 }
@@ -99,41 +103,63 @@ where
         }
         None
     }
-    pub async fn find_recv<P>(&self, mut predicate: P, timeout: Option<Duration>) -> Option<T>
+    pub async fn find_recv<P>(
+        &self,
+        con_id_name: &str,
+        mut predicate: P,
+        timeout: Option<Duration>,
+    ) -> Option<T>
     where
         P: FnMut(&T) -> bool,
     {
-        
-        let entry = self.find(|entry| match entry.event {
-            Dir::Recv(ref t) => {
-                match predicate(t) {
-                    true => true,
-                    false => false,
-                }
-            },
-            _ => false,
-        }, timeout).await;
+        let entry = self
+            .find(
+                con_id_name,
+                |entry| match entry.event {
+                    Dir::Recv(ref t) => match predicate(t) {
+                        true => true,
+                        false => false,
+                    },
+                    _ => false,
+                },
+                timeout,
+            )
+            .await;
         match entry {
-            Some(Entry{event: Dir::Recv(t ), ..} ) => Some(t),
+            Some(Entry {
+                event: Dir::Recv(t),
+                ..
+            }) => Some(t),
             _ => None,
         }
     }
-    pub async fn find_send<P>(&self, mut predicate: P, timeout: Option<Duration>) -> Option<T>
+    pub async fn find_send<P>(
+        &self,
+        con_id_name: &str,
+        mut predicate: P,
+        timeout: Option<Duration>,
+    ) -> Option<T>
     where
         P: FnMut(&T) -> bool,
     {
-        
-        let entry = self.find(|entry| match entry.event {
-            Dir::Send(ref t) => {
-                match predicate(t) {
-                    true => true,
-                    false => false,
-                }
-            },
-            _ => false,
-        }, timeout).await;
+        let entry = self
+            .find(
+                con_id_name,
+                |entry| match entry.event {
+                    Dir::Send(ref t) => match predicate(t) {
+                        true => true,
+                        false => false,
+                    },
+                    _ => false,
+                },
+                timeout,
+            )
+            .await;
         match entry {
-            Some(Entry{event: Dir::Send(t ), ..} ) => Some(t),
+            Some(Entry {
+                event: Dir::Send(t),
+                ..
+            }) => Some(t),
             _ => None,
         }
     }
@@ -149,12 +175,15 @@ where
     }
 }
 impl<T> Display for EventStore<T>
-where
-    T: Debug + Clone + Send + Sync + 'static,
+where T: Debug+Clone+Send+Sync+'static
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        #[rustfmt::skip]
-        fn writeln<T: Debug>(f: &mut std::fmt::Formatter<'_>, count: usize, delta_window: Duration, entry: &Entry<T>) -> std::fmt::Result {    
+        fn writeln<T: Debug>(
+            f: &mut std::fmt::Formatter<'_>,
+            count: usize,
+            delta_window: Duration,
+            entry: &Entry<T>,
+        ) -> std::fmt::Result {
             let dt: DateTime<Local> = entry.time.into();
             let dt = &dt.format("%T.%f").to_string()[..15];
             writeln!(f, "{:<04} Δ{: >15?} {} {}", count, delta_window, dt, entry)?;
@@ -166,7 +195,7 @@ where
 
         if !events.is_empty() {
             let entry1 = events.first().expect("Could Not Get First Entry");
-            writeln(f,  1, Duration::from_secs(0), entry1)?;
+            writeln(f, 1, Duration::from_secs(0), entry1)?;
         }
 
         for (idx, pair) in events.windows(2).enumerate() {
@@ -179,7 +208,7 @@ where
 #[derive(Debug)]
 pub struct EventStoreCallback<INTO, M>
 where
-    INTO: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
+    INTO: From<M::RecvT>+From<M::SendT>+Debug+Clone+Send+Sync+'static,
     M: Messenger,
 {
     store: EventStoreRef<INTO>,
@@ -187,7 +216,7 @@ where
 }
 impl<INTO, M> EventStoreCallback<INTO, M>
 where
-    INTO: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
+    INTO: From<M::RecvT>+From<M::SendT>+Debug+Clone+Send+Sync+'static,
     M: Messenger,
 {
     pub fn new(store: EventStoreRef<INTO>) -> Self {
@@ -205,7 +234,7 @@ where
 }
 impl<INTO, M> Default for EventStoreCallback<INTO, M>
 where
-    INTO: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
+    INTO: From<M::RecvT>+From<M::SendT>+Debug+Clone+Send+Sync+'static,
     M: Messenger,
 {
     fn default() -> Self {
@@ -217,7 +246,7 @@ where
 }
 impl<INTO, M> CallbackEvent<INTO, M> for EventStoreCallback<INTO, M>
 where
-    INTO: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
+    INTO: From<M::RecvT>+From<M::SendT>+Debug+Clone+Send+Sync+'static,
     M: Messenger,
 {
     fn on_event(&self, cond_id: &ConId, event: Dir<INTO>) {
@@ -231,7 +260,7 @@ where
 }
 impl<INTO, M> Display for EventStoreCallback<INTO, M>
 where
-    INTO: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
+    INTO: From<M::RecvT>+From<M::SendT>+Debug+Clone+Send+Sync+'static,
     M: Messenger,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -241,7 +270,7 @@ where
 }
 impl<INTO, M> CallbackSendRecv<M> for EventStoreCallback<INTO, M>
 where
-    INTO: From<M::RecvT> + From<M::SendT> + Debug + Clone + Send + Sync + 'static,
+    INTO: From<M::RecvT>+From<M::SendT>+Debug+Clone+Send+Sync+'static,
     M: Messenger,
 {
     fn on_recv(&self, con_id: &ConId, msg: <M as Messenger>::RecvT) {
@@ -253,8 +282,6 @@ where
         self.on_event(con_id, Dir::Send(entry));
     }
 }
-
-
 
 #[cfg(test)]
 mod test {
@@ -271,46 +298,85 @@ mod test {
     async fn test_event_store() {
         setup::log::configure();
         let event_store = EventStore::new_ref();
-        let event_clb = EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new(event_store.clone());
+        let clt_clb = EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new(event_store.clone());
+        let svc_clb = EventStoreCallback::<TestMsg, TestSvcMsgProtocol>::new(event_store.clone());
 
-        for idx in 0..10 {
-            let svc_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(format!("hello  svc #{}", idx).as_bytes()));
-            event_clb.on_recv(&Default::default(), svc_msg.clone());
+        let svc_on_recv_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"SVC: on_recv Message"));
+        let svc_on_send_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"SVC: on_send Message"));
+        svc_clb.on_recv(
+            &ConId::svc(Some("svc"), "0.0.0.0:0", None),
+            svc_on_recv_msg.clone(),
+        );
+        svc_clb.on_send(
+            &ConId::svc(Some("svc"), "0.0.0.0:0", None),
+            &svc_on_send_msg,
+        );
 
-            let clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(format!("hello  clt #{}", idx).as_bytes()));
-            event_clb.on_send(&Default::default(), &clt_msg);
-        }
-        info!("event_clb: {}", event_clb);
-        
-        
-        // entry search
-        let find = event_store.find(|_| true, None).await;
-        info!("find: {:?}", find);
-        let last = event_store.last();
-        info!("last: {:?}", last);
-        assert_eq!(last, find);
-        match find.unwrap().event {
-            Dir::Send(msg) => assert_eq!(msg, msg),
-            _ => panic!("unexpected event"),
-        }
+        let clt_on_recv_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"CLT: on_recv Message"));
+        let clt_on_send_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"CLT: on_send Message"));
+        clt_clb.on_recv(
+            &ConId::clt(Some("clt"), None, "0.0.0.0:0"),
+            clt_on_recv_msg.clone(),
+        );
+        clt_clb.on_send(
+            &ConId::clt(Some("clt"), None, "0.0.0.0:0"),
+            &clt_on_send_msg,
+        );
 
-        // svc_recv search
+        info!("event_clb: {}", clt_clb);
+
+        // Entry find
+        let last_svc = event_store.find("svc", |_| true, None).await.unwrap();
+        info!("last_svc: {:?}", last_svc);
+        assert_eq!(
+            last_svc.event,
+            Dir::Send(TestMsg::Svc(svc_on_send_msg.clone()))
+        );
+
+        let last_clt = event_store.find("clt", |_| true, None).await.unwrap();
+        info!("last_clt: {:?}", last_clt);
+        assert_eq!(
+            last_clt.event,
+            Dir::Send(TestMsg::Clt(clt_on_send_msg.clone()))
+        );
+        let last_entry = event_store.last().unwrap();
+        info!("last_entry: {:?}", last_entry);
+        assert_eq!(last_entry, last_clt);
+
+        // RECV find upacks the event into TestMsg
         let svc_recv = event_store.find_recv(
-            |msg| matches!(msg, TestMsg::Svc(TestSvcMsg::Dbg(TestSvcMsgDebug{text, ..})) if text == &b"       hello  svc #9".into() ),
+            "svc",
+            |msg| matches!(msg, TestMsg::Clt(TestCltMsg::Dbg(TestCltMsgDebug{text, ..})) if text == &b"SVC: on_recv Message".into() ),
             None
         ).await;
         info!("svc_recv: {:?}", svc_recv);
-        assert!(svc_recv.is_some());
-        
-        // clt_send search
+        assert_eq!(svc_recv.unwrap(), TestMsg::Clt(svc_on_recv_msg));
+
+        // SEND find upacks the event into TestMsg
+        let svc_send = event_store.find_send(
+            "svc",
+            |msg| matches!(msg, TestMsg::Svc(TestSvcMsg::Dbg(TestSvcMsgDebug{text, ..})) if text == &b"SVC: on_send Message".into() ),
+            None
+        ).await;
+        info!("svc_send: {:?}", svc_send);
+        assert_eq!(svc_send.unwrap(), TestMsg::Svc(svc_on_send_msg));
+
+        // RECV find upacks the event into TestMsg
+        let clt_recv = event_store.find_recv(
+            "clt",
+            |msg| matches!(msg, TestMsg::Svc(TestSvcMsg::Dbg(TestSvcMsgDebug{text, ..})) if text == &b"CLT: on_recv Message".into() ),
+            None
+        ).await;
+        info!("clt_recv: {:?}", clt_recv);
+        assert_eq!(clt_recv.unwrap(), TestMsg::Svc(clt_on_recv_msg));
+
+        // SEND find upacks the event into TestMsg
         let clt_send = event_store.find_send(
-            |msg| matches!(msg, TestMsg::Clt(TestCltMsg::Dbg(TestCltMsgDebug{text, ..})) if text == &b"       hello  clt #9".into() ),
+            "clt",
+            |msg| matches!(msg, TestMsg::Clt(TestCltMsg::Dbg(TestCltMsgDebug{text, ..})) if text == &b"CLT: on_send Message".into() ),
             None
         ).await;
         info!("clt_send: {:?}", clt_send);
-        assert!(clt_send.is_some());
-
-        
-
+        assert_eq!(clt_send.unwrap(), TestMsg::Clt(clt_on_send_msg));
     }
 }
