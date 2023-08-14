@@ -81,7 +81,8 @@ mod test {
         info!("STARTED {}", clt);
 
         // MAKE SURE CONNECTED
-        let svc_is_connected = svc.is_connected(Some(clt_hbeat_inverval)).await; // wait at least one heartbeat interval
+        // wait at least one heartbeat interval after opening connection
+        let svc_is_connected = svc.is_connected(Some(clt_hbeat_inverval)).await; 
         let clt_is_connected = clt.is_connected(None).await;
         assert!(clt_is_connected);
         assert!(svc_is_connected);

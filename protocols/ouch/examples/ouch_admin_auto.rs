@@ -39,6 +39,7 @@ async fn test_clt_svc_connect() {
         Default::default(),
         1.,
     );
+    // START SVC
     let svc = OuchSvc::bind(*ADDR, svc_clbk, svc_prcl, Some("ouch/venue"))
         .await
         .unwrap();
@@ -46,14 +47,16 @@ async fn test_clt_svc_connect() {
     info!("{} Status connected: {}", svc, svc_is_connected);
     assert!(!svc_is_connected);
 
+    let hbeat_interval = Duration::from_millis(250);
     let clt_prcl = OuchCltAdminProtocol::new_ref(
         b"abcdef".into(),
         b"++++++++++".into(),
         Default::default(),
         Default::default(),
-        Duration::from_millis(250),
+        hbeat_interval,
         1.,
     );
+    // START CLT
     let clt = OuchClt::connect(
         *ADDR,
         setup::net::default_connect_timeout(),
@@ -65,28 +68,43 @@ async fn test_clt_svc_connect() {
     .await
     .unwrap();
 
-    let clt_connected = clt.is_connected(Duration::from_millis(100).into()).await;
+    // VALIDATED BOTH CONNECTED
+    let clt_connected = clt.is_connected(hbeat_interval.into()).await;
     info!("{} Status connected: {}", clt, clt_connected);
     assert!(clt_connected);
 
-    let svc_connected = svc.is_connected(Duration::from_millis(100).into()).await;
+    let svc_connected = svc.is_connected(hbeat_interval.into()).await;
     info!("{} Status connected: {}", svc, svc_connected);
     assert!(svc_connected);
+
+    // SEND A NEW ORDER
+    let mut enter_order = EnterOrder::default().into();
+    clt.send(&mut enter_order).await.unwrap();
+
+    let ouch_msg  = event_store
+        .find_recv(
+            svc.con_id().name(),
+            |sb_msg| 
+                matches!(sb_msg, OuchMsg::Clt(OuchCltMsg::U(UPayload{body: OuchCltPld::Enter(ord), ..})) if ord.user_ref_number == UserRefNumber::new(1)),
+            setup::net::optional_find_timeout(),
+        )
+        .await.unwrap();
+    
+    let enter_order: &EnterOrder = ouch_msg.unwrap_clt_u().try_into().unwrap();
+    
+    let mut order_accepted= OrderAccepted::from(enter_order).into();
+    svc.send(&mut order_accepted).await.unwrap();
+
+
+    let _  = event_store
+        .find_recv(
+            clt.con_id().name(),
+            |sb_msg| 
+                matches!(sb_msg, OuchMsg::Svc(OuchSvcMsg::U(UPayload{body: OuchSvcPld::Accepted(ord), ..})) if ord.user_ref_number == UserRefNumber::new(1)),
+            setup::net::optional_find_timeout(),
+        )
+        .await.unwrap();
+    
+    info!("event_store: {}", event_store);
 }
 
-// // SEND A NEW ORDER
-        // let enter_order = EnterOrder::default();
-        // clt.send(&mut enter_order.clone().into()).await.unwrap();
-
-        // // FIND THIS ORDER RECVED IN BY THE SVC VIA EVENT_STORE
-        // let search = event_store.find_recv(
-        //     |msg| matches!(msg, OuchMsg::Clt(OuchCltMsg::U(UPayload{payload: OuchCltPld::Enter(ord), ..})) if ord == &enter_order),
-        //     setup::net::optional_find_timeout()).await;
-
-        // warn!("{:?}", search.unwrap());
-
-        // //
-        // let accepted = OrderAccepted::from(&enter_order);
-        // svc.send(&mut accepted.into()).await.unwrap();
-
-        

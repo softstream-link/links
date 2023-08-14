@@ -31,7 +31,7 @@ where
 {
     header: UPayloadHeader,
     #[byteserde(deplete ( header.packet_length as usize - 1 ))]
-    pub payload: Payload,
+    pub body: Payload,
 }
 #[rustfmt::skip]
 impl<Payload> UPayload<Payload>
@@ -40,7 +40,7 @@ where
 {
     pub fn new(body: Payload) -> UPayload<Payload> {
         let header = UPayloadHeader::new((body.byte_len() + 1) as u16);
-        UPayload { header, payload: body }
+        UPayload { header, body }
     }
 }
 

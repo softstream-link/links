@@ -1,6 +1,8 @@
 use byteserde::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 
+use derive_more::TryInto;
+
 use crate::prelude::*;
 use std::fmt;
 
@@ -9,7 +11,7 @@ use super::unsequenced_data::UPayload;
 pub const MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG: usize = 54;
 
 #[rustfmt::skip]
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug, TryInto)]
 #[byteserde(peek(2, 1))]
 pub enum SBCltMsg<CltPayload: ByteSerializeStack + ByteDeserializeSlice<CltPayload> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug> {
     #[byteserde(eq(PacketTypeCltHeartbeat::as_slice()))]
@@ -37,7 +39,7 @@ impl<CltPayload: ByteSerializeStack + ByteDeserializeSlice<CltPayload> + ByteSer
     pub fn udata(payload: CltPayload) -> Self { SBCltMsg::U(UPayload::new(payload)) }
 }
 #[rustfmt::skip]
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug, TryInto)]
 #[byteserde(peek(2, 1))]
 pub enum SBSvcMsg<SvcPayload: ByteSerializeStack + ByteDeserializeSlice<SvcPayload> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug>{
     #[byteserde(eq(PacketTypeSvcHeartbeat::as_slice()))]
@@ -67,7 +69,7 @@ impl<SvcPayload: ByteSerializeStack + ByteDeserializeSlice<SvcPayload> + ByteSer
     pub fn udata(payload: SvcPayload) -> Self { Self::U(UPayload::new(payload)) }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, TryInto)]
 pub enum SBMsg<CltPayload, SvcPayload>
 where
     CltPayload: ByteSerializeStack+ByteDeserializeSlice<CltPayload>+ByteSerializedLenOf+PartialEq+Clone+fmt::Debug,
@@ -75,6 +77,24 @@ where
 {
     Clt(SBCltMsg<CltPayload>),
     Svc(SBSvcMsg<SvcPayload>),
+}
+impl<CltPayload, SvcPayload> SBMsg<CltPayload, SvcPayload>
+where
+    CltPayload: ByteSerializeStack+ByteDeserializeSlice<CltPayload>+ByteSerializedLenOf+PartialEq+Clone+fmt::Debug,
+    SvcPayload: ByteSerializeStack+ByteDeserializeSlice<SvcPayload>+ByteSerializedLenOf+PartialEq+Clone+fmt::Debug,
+{
+    pub fn unwrap_clt_u(&self) -> &CltPayload{
+        match self {
+            SBMsg::Clt(SBCltMsg::U(UPayload{body, ..})) => body,
+            _ => panic!("SoupBinTcp message is not Clt and/or UPayload, instead it is: {:?}", self),
+        }
+    }
+    pub fn unwrap_svc_u(&self) -> &SvcPayload{
+        match self {
+            SBMsg::Svc(SBSvcMsg::U(UPayload{body, ..})) => body,
+            _ => panic!("SoupBinTcp message is not Svc and/or UPayload, instead it is: {:?}", self),
+        }
+    }
 }
 impl<CltPayload, SvcPayload> From<SBCltMsg<CltPayload>> for SBMsg<CltPayload, SvcPayload>
 where
@@ -85,7 +105,6 @@ where
         SBMsg::Clt(value)
     }
 }
-#[rustfmt::skip]
 impl<CltPayload, SvcPayload> From<SBSvcMsg<SvcPayload>> for SBMsg<CltPayload, SvcPayload>
 where
     CltPayload: ByteSerializeStack+ByteDeserializeSlice<CltPayload>+ByteSerializedLenOf+PartialEq+Clone+fmt::Debug,

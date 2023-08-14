@@ -22,6 +22,7 @@ tokio = { version = "1.29", features = ["full"] }
 futures = "0.3"
 tokio-test = "0.4.2"
 lazy_static = "1.4.0"
+derive_more = "0.99"
 
 links_testing = { path = "./testing", features = ["unittest"] }
 links_soupbintcp_async = { path = "./protocols/soupbintcp" }

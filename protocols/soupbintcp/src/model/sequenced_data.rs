@@ -33,14 +33,14 @@ where
 {
     header: SPayloadHeader,
     #[byteserde(deplete ( header.packet_length as usize - 1 ))]
-    payload: Payload,
+    body: Payload,
 }
 #[rustfmt::skip]
 impl<Payload: ByteSerializeStack + ByteDeserializeSlice<Payload> + ByteSerializedLenOf + PartialEq + Clone + Debug> SPayload<Payload>
 {
     pub fn new(body: Payload) -> SPayload<Payload> {
         let header = SPayloadHeader::new((body.byte_len() + 1) as u16);
-        SPayload { header, payload: body }
+        SPayload { header, body }
     }
 }
 

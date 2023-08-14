@@ -1,4 +1,5 @@
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
+use derive_more::TryInto;
 use links_soupbintcp_async::prelude::{
     SBCltMsg, SBMsg, SBSvcMsg, MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG,
 };
@@ -8,7 +9,8 @@ use crate::prelude::*;
 use super::svc::order_aiq_canceled::OrderAiqCanceled;
 
 #[rustfmt::skip]
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, TryInto)]
+#[try_into(owned, ref, ref_mut)]
 #[byteserde(peek(0, 1))]
 pub enum OuchCltPld {
     #[byteserde(eq(PacketTypeEnterOrder::as_slice()))]
@@ -32,7 +34,8 @@ pub const MAX_FRAME_SIZE_OUCH_CLT_MSG: usize =
     MAX_FRAME_SIZE_OUCH_CLT_PLD + MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
 /// Both [ReplaceOrder] & [OrderReplaced] are serialized as b'U' hence it is impossible to distinguish deserialization type unless they are in two different enums.
 #[rustfmt::skip]
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, TryInto)]
+#[try_into(owned, ref, ref_mut)]
 #[byteserde(peek(0, 1))]
 pub enum OuchSvcPld {
     #[byteserde(eq(PacketTypeOrderAccepted::as_slice()))]
@@ -308,7 +311,6 @@ mod from_svc_pld {
             OuchMsg::Svc(payload.into())
         }
     }
-    
 }
 
 #[cfg(test)]
