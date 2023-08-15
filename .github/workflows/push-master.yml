@@ -1,0 +1,43 @@
+name: Test Non Master Snapshot On Nightly
+on:
+  push:
+     branches:
+      - 'master'
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out links current branch
+        uses: actions/checkout@v3 # this will checkout current project
+        with:
+          path: links
+      - name: Check out byteserde v4
+        uses: actions/checkout@v3 # TODO release byteserde v4 before merging this into master
+        with:
+          repository: 'softstream-link/byteserde'
+          ref: 'v4'
+          path: byteserde
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
+      - uses: taiki-e/install-action@nextest
+      - name: Test # TODO remove cd links once byteserde v4 is released
+        run: |
+          cd links
+          cargo nextest run
+          # cargo nextest run --success-output final
+          cargo nextest run --examples --success-output final
+          cargo test --doc #  NOTE: docs are not supported by nextest
+      - name: Clippy Deny Warnings # TODO remove cd links once byteserde v4 is released
+        run: |
+          cd links
+          cargo clippy --all-features -- --deny warnings
+
+
+
+    
+    
+
+
+
