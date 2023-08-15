@@ -1,4 +1,4 @@
-name: Test Non Master Snapshot On Nightly
+name: Test Master On Nightly
 on:
   push:
      branches:
