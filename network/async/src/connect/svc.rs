@@ -1,4 +1,6 @@
-use std::{any::type_name, collections::VecDeque, error::Error, fmt::Display, sync::Arc};
+use std::{
+    any::type_name, collections::VecDeque, error::Error, fmt::Display, sync::Arc, time::Duration,
+};
 
 use crate::prelude::*;
 use log::{debug, error, warn};
@@ -6,73 +8,28 @@ use tokio::{net::TcpListener, sync::Mutex, task::AbortHandle};
 
 use super::clt::{Clt, CltSender};
 
-// pub type SvcReaderRef<MESSENGER, FRAMER> = Arc<Mutex<Option<MessageRecver<MESSENGER, FRAMER>>>>;
-#[rustfmt::skip]
-pub type SvcSendersRef<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> = Arc<Mutex<VecDeque<CltSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>>>>;
-
-// pub type CallbackRef<HANDLER> = Arc<Mutex<impl Callback<HANDLER>>>;
+pub type SvcSendersRef<P, C, const MMS: usize> = Arc<Mutex<VecDeque<CltSender<P, C, MMS>>>>;
 
 #[derive(Debug)]
-pub struct SvcSender<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize>
+pub struct SvcSender<P, C, const MMS: usize>
 where
-    MESSENGER: Messenger,
-    CALLBACK: CallbackSendRecv<MESSENGER>,
+    P: Protocol,
+    C: CallbackSendRecv<P>,
 {
     con_id: ConId,
-    senders: SvcSendersRef<MESSENGER, CALLBACK, MAX_MSG_SIZE>,
-    recver_abort_handle: AbortHandle,
+    senders: SvcSendersRef<P, C, MMS>,
+    acceptor_abort_handle: AbortHandle,
 }
-impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> Display
-    for SvcSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
+impl<P, C, const MMS: usize> SvcSender<P, C, MMS>
 where
-    MESSENGER: Messenger,
-    CALLBACK: CallbackSendRecv<MESSENGER>,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msg_name = type_name::<MESSENGER>()
-            .split("::")
-            .last()
-            .unwrap_or("Unknown");
-        let clb_name = type_name::<CALLBACK>()
-            .split('<')
-            .next()
-            .unwrap_or("Unknown")
-            .split("::")
-            .last()
-            .unwrap_or("Unknown");
-        let con_name = match &self.con_id {
-            ConId::Svc { name, local, .. } => format!("Svc({}@{})", name, local),
-            _ => panic!("SvcSender has Invalid ConId: {:?}", self.con_id),
-        };
-        write!(
-            f,
-            "{} SvcSender<{}, {}, {}>",
-            con_name, msg_name, clb_name, MAX_MSG_SIZE
-        )
-    }
-}
-
-impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> Drop
-    for SvcSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
-where
-    MESSENGER: Messenger,
-    CALLBACK: CallbackSendRecv<MESSENGER>,
-{
-    fn drop(&mut self) {
-        debug!("{} aborting receiver queue", self);
-        self.recver_abort_handle.abort();
-    }
-}
-impl<MESSENGER, CALLBACK, const MAX_MSG_SIZE: usize> SvcSender<MESSENGER, CALLBACK, MAX_MSG_SIZE>
-where
-    MESSENGER: Messenger,
-    CALLBACK: CallbackSendRecv<MESSENGER>,
+    P: Protocol,
+    C: CallbackSendRecv<P>,
 {
     pub async fn is_accepted(&self) -> bool {
         let senders = self.senders.lock().await;
         !senders.is_empty()
     }
-    pub async fn send(&self, msg: &MESSENGER::SendMsg) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn send(&self, msg: &mut P::SendT) -> Result<(), Box<dyn Error+Send+Sync>> {
         {
             let mut senders = self.senders.lock().await;
             for idx in 0..senders.len() {
@@ -97,41 +54,103 @@ where
             Err(format!("Not Connected senders len: {}", senders.len()).into()) // TODO better error type
         }
     }
+
+    pub async fn is_connected(&self, timeout: Option<Duration>) -> bool {
+        let senders = self.senders.lock().await;
+        for sender in senders.iter() {
+            if sender.is_connected(timeout).await {
+                return true;
+            }
+        }
+        false
+    }
+    pub fn con_id(&self) -> &ConId {
+        &self.con_id
+    }
+}
+impl<P, C, const MMS: usize> Display for SvcSender<P, C, MMS>
+where
+    P: Protocol,
+    C: CallbackSendRecv<P>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use futures::executor::block_on;
+        let clts = block_on(self.senders.lock()).iter().map(|clt| format!("[{}]", clt.con_id().get_peer().unwrap())).collect::<Vec<_>>().join(", ");
+        let con_id = format!("Svc({}@{}<-{})", self.con_id.name(), self.con_id.get_local().unwrap(), clts);
+        #[rustfmt::skip]
+        let name = {
+            let mut protocol_full_name = type_name::<P>().split(['<','>']);
+            format!("{} SvcSender<{}<{}>, {}, {}>", 
+                con_id,
+                protocol_full_name.next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"), 
+                protocol_full_name.next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"),
+                type_name::<C>().split('<').next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown"),
+                MMS,
+            )
+        };
+        write!(f, "{}", name)
+    }
+}
+impl<P, C, const MMS: usize> Drop for SvcSender<P, C, MMS>
+where
+    P: Protocol,
+    C: CallbackSendRecv<P>,
+{
+    fn drop(&mut self) {
+        debug!("{} aborting acceptor queue", self);
+        self.acceptor_abort_handle.abort();
+    }
 }
 
 #[derive(Debug)]
-pub struct Svc<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize>
+pub struct Svc<P, C, const MMS: usize>
 where
-    HANDLER: Protocol,
-    CALLBACK: CallbackSendRecv<HANDLER>,
+    P: Protocol,
+    C: CallbackSendRecv<P>,
 {
-    p1: std::marker::PhantomData<HANDLER>,
-    p2: std::marker::PhantomData<CALLBACK>,
+    p1: std::marker::PhantomData<P>,
+    p2: std::marker::PhantomData<C>,
 }
 
-impl<HANDLER, CALLBACK, const MAX_MSG_SIZE: usize> Svc<HANDLER, CALLBACK, MAX_MSG_SIZE>
+impl<P, C, const MMS: usize> Svc<P, C, MMS>
 where
-    HANDLER: Protocol,
-    CALLBACK: CallbackSendRecv<HANDLER>,
+    P: Protocol,
+    C: CallbackSendRecv<P>,
 {
     pub async fn bind(
         addr: &str,
-        callback: Arc<CALLBACK>,
+        callback: Arc<C>,
+        protocol: Arc<P>,
         name: Option<&str>,
-    ) -> Result<SvcSender<HANDLER, CALLBACK, MAX_MSG_SIZE>, Box<dyn Error + Send + Sync>> {
+    ) -> Result<SvcSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
+        Self::bind_opt_protocol(addr, callback, Some(protocol), name).await
+    }
+    pub async fn bind_no_protocol(
+        addr: &str,
+        callback: Arc<C>,
+        name: Option<&str>,
+    ) -> Result<SvcSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
+        Self::bind_opt_protocol(addr, callback, None, name).await
+    }
+    async fn bind_opt_protocol(
+        addr: &str,
+        callback: Arc<C>,
+        protocol: Option<Arc<P>>,
+        name: Option<&str>,
+    ) -> Result<SvcSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
         let con_id = ConId::svc(name, addr, None);
         let lis = TcpListener::bind(&addr).await?;
         debug!("{} bound successfully", con_id);
 
         let senders = SvcSendersRef::new(Mutex::new(VecDeque::new()));
 
-        let recver_abort_handle = tokio::spawn({
+        let acceptor_abort_handle = tokio::spawn({
             let con_id = con_id.clone();
             let callback = Arc::clone(&callback);
             let senders = Arc::clone(&senders);
             async move {
                 debug!("{} accept loop started", con_id);
-                match Self::service_accept(lis, callback, senders, con_id.clone()).await {
+                match Self::service_accept(lis, callback, protocol, senders, con_id.clone()).await {
                     Ok(()) => debug!("{} accept loop stopped", con_id),
                     Err(e) => error!("{} accept loop error: {:?}", con_id, e),
                 }
@@ -142,28 +161,38 @@ where
         Ok(SvcSender {
             con_id: con_id.clone(),
             senders: Arc::clone(&senders),
-            recver_abort_handle,
+            acceptor_abort_handle,
         })
     }
     async fn service_accept(
         lis: TcpListener,
-        callback: Arc<CALLBACK>,
-        senders: SvcSendersRef<HANDLER, CALLBACK, MAX_MSG_SIZE>,
+        callback: Arc<C>,
+        protocol: Option<Arc<P>>,
+        senders: SvcSendersRef<P, C, MMS>,
         con_id: ConId,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    ) -> Result<(), Box<dyn Error+Send+Sync>> {
         loop {
             let (stream, _) = lis.accept().await.unwrap();
             let mut con_id = con_id.clone();
             con_id.set_local(stream.local_addr()?);
             con_id.set_peer(stream.peer_addr()?);
 
-            let clt = Clt::<HANDLER, CALLBACK, MAX_MSG_SIZE>::from_stream(
+            let clt = Clt::<P, C, MMS>::from_stream(
                 stream,
-                callback.clone(),
+                Arc::clone(&callback),
+                protocol.clone(),
                 con_id.clone(),
             )
             .await;
-            senders.lock().await.push_back(clt);
+            match clt {
+                Ok(clt) => {
+                    debug!("{} accepted", clt);
+                    senders.lock().await.push_back(clt);
+                }
+                Err(e) => {
+                    error!("{} accept error: {:?}", con_id, e);
+                }
+            }
         }
     }
 }
@@ -172,56 +201,69 @@ where
 mod test {
 
     use lazy_static::lazy_static;
-    use log::info;
+    use log::{info, Level};
 
     use super::*;
-    use crate::unittest::setup::{model::*, protocol::*};
+    use crate::{
+        callbacks::eventstore::EventStore,
+        unittest::setup::{model::*, protocol::*},
+    };
     use links_testing::unittest::setup;
     use tokio::time::Duration;
 
     lazy_static! {
-        static ref ADDR: String = setup::net::default_addr();
-        static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
-        static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
+        static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
     }
-    const MAX_MSG_SIZE: usize = 128;
+    const MMS: usize = 128;
     #[tokio::test]
     async fn test_svc_not_connected() {
         setup::log::configure();
-        let logger = LoggerCallbackRef::<SvcMsgProtocol>::default();
-        let svc = Svc::<_, _, MAX_MSG_SIZE>::bind(&ADDR, Arc::clone(&logger), Some("unittest"))
-            .await
-            .unwrap();
+        let logger = LoggerCallback::new_ref(Level::Debug, Level::Debug);
+        let svc = Svc::<_, _, MMS>::bind(
+            &ADDR,
+            Arc::clone(&logger),
+            TestSvcMsgProtocol.into(),
+            Some("unittest"),
+        )
+        .await
+        .unwrap();
         info!("{} ready", svc);
     }
 
     #[tokio::test]
-    async fn test_svc_clt_connection() {
-        setup::log::configure();
+    async fn test_svc_clt_connected() {
+        setup::log::configure_level(log::LevelFilter::Debug);
+        let event_store = EventStore::<TestMsg>::new_ref();
+        // let clt_callback = ChainCallback::new_ref(vec![
+        //     LoggerCallback::new_ref(log::Level::Warn),
+        //     EventStoreProxyCallback::<Msg, CltMsgProtocol>::new_ref(event_store.clone()),
+        // ]);
+        // let svc_callback = ChainCallback::new_ref(vec![
+        //     LoggerCallback::new_ref(log::Level::Warn),
+        //     EventStoreProxyCallback::<Msg, SvcMsgProtocol>::new_ref(event_store.clone()),
+        // ]);
+        let clt_callback =
+            EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new_ref(event_store.clone());
+        let svc_callback =
+            EventStoreCallback::<TestMsg, TestSvcMsgProtocol>::new_ref(event_store.clone());
 
-        let clt_event_log = EventLogCallbackRef::<CltMsgProtocol>::default();
-        let clt_callback = ChainCallbackRef::new(ChainCallback::new(vec![
-            LoggerCallbackRef::default(),
-            clt_event_log.clone(),
-        ]));
-
-        let svc_event_log = EventLogCallbackRef::<SvcMsgProtocol>::default();
-        let svc_callback = ChainCallbackRef::new(ChainCallback::new(vec![
-            LoggerCallbackRef::default(),
-            svc_event_log.clone(),
-        ]));
-
-        let svc = Svc::<_, _, MAX_MSG_SIZE>::bind(&ADDR, Arc::clone(&svc_callback), Some("venue"))
-            .await
-            .unwrap();
+        let svc = Svc::<_, _, MMS>::bind(
+            &ADDR,
+            svc_callback,
+            TestSvcMsgProtocol.into(),
+            Some("venue"),
+        )
+        .await
+        .unwrap();
 
         info!("{} sender ready", svc);
 
-        let clt = Clt::<CltMsgProtocol, _, MAX_MSG_SIZE>::connect(
+        let clt = Clt::<_, _, MMS>::connect(
             &ADDR,
-            *CONNECT_TIMEOUT,
-            *RETRY_AFTER,
-            Arc::clone(&clt_callback),
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
+            clt_callback,
+            TestCltMsgProtocol.into(),
             Some("broker"),
         )
         .await
@@ -230,36 +272,36 @@ mod test {
 
         while !svc.is_accepted().await {}
 
-        let inp_clt_msg = CltMsg::new(b"Hello Frm Client Msg");
-        let inp_svc_msg = SvcMsg::new(b"Hello Frm Server Msg");
-        clt.send(&inp_clt_msg).await.unwrap();
-        svc.send(&inp_svc_msg).await.unwrap();
+        let mut inp_clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+        let mut inp_svc_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
+        clt.send(&mut inp_clt_msg).await.unwrap();
+        svc.send(&mut inp_svc_msg).await.unwrap();
 
-        let out_svc_msg = svc_event_log
-            .find(
-                |entry| match &entry.event {
-                    Event::Recv(msg) => msg == &inp_clt_msg,
-                    _ => false,
-                },
-                setup::net::default_find_timeout(),
+        let out_svc_msg = event_store
+            .find_recv(
+                "venue",
+                |into| matches!(into, TestMsg::Clt(msg) if msg == &inp_clt_msg),
+                setup::net::optional_find_timeout(),
             )
-            .await;
+            .await
+            .unwrap();
 
-        let out_clt_msg = clt_event_log
-            .find(
-                |entry| match &entry.event {
-                    Event::Recv(msg) => msg == &inp_svc_msg,
-                    _ => false,
-                },
-                setup::net::default_find_timeout(),
+        let out_clt_msg = event_store
+            .find_recv(
+                "broker",
+                |into| matches!(into, TestMsg::Svc(msg) if msg == &inp_svc_msg),
+                setup::net::optional_find_timeout(),
             )
-            .await;
+            .await
+            .unwrap();
 
         info!("Found out_svc_msg: {:?}", out_svc_msg);
         info!("Found out_clt_msg: {:?}", out_clt_msg);
-        assert_eq!(&inp_clt_msg, out_svc_msg.unwrap().try_into_recv().unwrap());
-        assert_eq!(&inp_svc_msg, out_clt_msg.unwrap().try_into_recv().unwrap());
-        info!("clt_event_log: {}", clt_event_log);
-        info!("svc_event_log: {}", svc_event_log);
+        info!("clt: {}", clt);
+        info!("svc: {}", svc);
+        info!("event_store: {}", event_store);
+        drop(clt);
+        // TODO explore https://crates.io/crates/testing_logger to validate that drop did in fact work
+        tokio::time::sleep(Duration::from_secs(1)).await; // sleep so that you see the drop(clt) loggin on log::debug!()
     }
 }

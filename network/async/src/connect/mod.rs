@@ -1,4 +1,4 @@
 pub mod framing;
-pub mod messaging;
+pub mod messenger;
 pub mod clt;
 pub mod svc;

@@ -3,34 +3,37 @@ use std::{
     sync::Arc,
 };
 
-use crate::core::{ConId, Messenger};
+use crate::core::{conid::ConId, Messenger};
 
 use super::CallbackSendRecv;
 
-pub type ChainCallbackRef<MESSENGER> = Arc<ChainCallback<MESSENGER>>;
-pub type Chain<MESSENGER> = Vec<Arc<dyn CallbackSendRecv<MESSENGER>>>;
+pub type Chain<M> = Vec<Arc<dyn CallbackSendRecv<M>>>;
+
 #[derive(Debug)]
-pub struct ChainCallback<MESSENGER: Messenger> {
-    chain: Chain<MESSENGER>,
+pub struct ChainCallback<M: Messenger> {
+    chain: Chain<M>,
 }
 
-impl<MESSENGER: Messenger> ChainCallback<MESSENGER> {
-    pub fn new(chain: Chain<MESSENGER>) -> Self {
+impl<M: Messenger> ChainCallback<M> {
+    pub fn new(chain: Chain<M>) -> Self {
         Self { chain }
     }
+    pub fn new_ref(chain: Chain<M>) -> Arc<Self> {
+        Arc::new(Self::new(chain))
+    }
 }
-impl<MESSENGER: Messenger> Display for ChainCallback<MESSENGER> {
+impl<M: Messenger> Display for ChainCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ChainCallback<{}>", self.chain.len())
     }
 }
-impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for ChainCallback<MESSENGER> {
-    fn on_recv(&self, con_id: &ConId, msg: MESSENGER::RecvMsg) {
+impl<M: Messenger> CallbackSendRecv<M> for ChainCallback<M> {
+    fn on_recv(&self, con_id: &ConId, msg: M::RecvT) {
         for callback in self.chain.iter() {
             callback.on_recv(con_id, msg.clone());
         }
     }
-    fn on_send(&self, con_id: &ConId, msg: &MESSENGER::SendMsg) {
+    fn on_send(&self, con_id: &ConId, msg: &M::SendT) {
         for callback in self.chain.iter() {
             callback.on_send(con_id, msg);
         }
@@ -40,26 +43,29 @@ impl<MESSENGER: Messenger> CallbackSendRecv<MESSENGER> for ChainCallback<MESSENG
 #[cfg(test)]
 mod test {
 
-    use crate::callbacks::eventlog::EventLogCallbackRef;
-    use crate::callbacks::logger::LoggerCallbackRef;
-    use links_testing::unittest::setup;
+    use super::*;
+    use crate::callbacks::eventstore::EventStore;
+    use crate::prelude::*;
     use crate::unittest::setup::model::*;
     use crate::unittest::setup::protocol::*;
-
-    use super::*;
-
-    type EventLog = EventLogCallbackRef<CltMsgProtocol>;
-    type Logger = LoggerCallbackRef<CltMsgProtocol>;
-
+    use links_testing::unittest::setup;
+    use log::info;
+    use log::Level;
     #[test]
     fn test_event_log() {
         setup::log::configure();
-        let chain: Chain<CltMsgProtocol> = vec![EventLog::default(), Logger::default()];
-        let callback = ChainCallback::new(chain);
+        let store = EventStore::new_ref();
 
-        for _ in 0..10 {
-            let msg = CltMsg::new(b"hello".as_slice());
+        let callback = ChainCallback::new(vec![
+            LoggerCallback::new_ref(Level::Info, Level::Info),
+            EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new_ref(store.clone()),
+        ]);
+
+        for _ in 0..2 {
+            let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
             callback.on_send(&ConId::default(), &msg);
         }
+        info!("store: {}", store);
+        assert_eq!(store.len(), 2);
     }
 }

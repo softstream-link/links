@@ -10,7 +10,8 @@ edition = "2021"
 log = { workspace = true, optional = true}
 env_logger = { workspace = true, optional = true}
 lazy_static = { workspace = true, optional = true}
+rand = { workspace = true, optional = true}
 
 [features]
 default = ["unittest"]
-unittest = ["dep:log", "dep:env_logger", "dep:lazy_static"]
+unittest = ["dep:log", "dep:env_logger", "dep:lazy_static", "dep:rand"]

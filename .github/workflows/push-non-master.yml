@@ -1,5 +1,4 @@
-# samples https://github.com/actions/starter-workflows/blob/main/ci/rust.yml
-name: Test Non Master Snapshot
+name: Test Non Master Snapshot On Nightly
 on:
   push:
      branches:
@@ -9,31 +8,33 @@ jobs:
   push:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Check out links current branch
+        uses: actions/checkout@v3 # this will checkout current project
+        with:
+          path: links
+      - name: Check out byteserde v4
+        uses: actions/checkout@v3 # TODO release byteserde v4 before merging this into master
+        with:
+          repository: 'softstream-link/byteserde'
+          ref: 'v4'
+          path: byteserde
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
       - uses: taiki-e/install-action@nextest
-      - name: Toolchain Info
+      - name: Test # TODO remove cd links once byteserde v4 is released
         run: |
-          cargo --version --verbose
-          rustc --version
-      - name: Test
+          cd links
+          cargo nextest run
+          # cargo nextest run --success-output final
+          cargo nextest run --examples --success-output final
+          cargo test --doc #  NOTE: docs are not supported by nextest
+      - name: Clippy Deny Warnings # TODO remove cd links once byteserde v4 is released
         run: |
-          cargo nextest run --success-output final
-          # cargo test --examples
-      # - name: Benchmark
-      #   run: cargo bench
-      - name: Clippy Deny Warnings
-        run: cargo clippy --all-features -- --deny warnings
-      # - name: Publish Dry Run to crates.io
-      #   run: |
-      #     pwd
-      #     ls -la
-      #     pushd byteserde
-      #     cargo publish --dry-run
-      #     popd
-      #     pushd byteserde_derive
-      #     cargo publish --dry-run
-      #     popd
+          cd links
+          cargo clippy --all-features -- --deny warnings
+
 
 
     

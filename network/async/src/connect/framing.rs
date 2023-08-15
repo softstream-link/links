@@ -17,17 +17,17 @@ use tokio::{
 use crate::core::Framer;
 
 #[derive(Debug)]
-pub struct FrameReader<FRAMER: Framer> {
+pub struct FrameReader<F: Framer> {
     reader: OwnedReadHalf,
     buffer: BytesMut,
-    phantom: PhantomData<FRAMER>,
+    phantom: PhantomData<F>,
 }
-impl<FRAMER: Framer> Display for FrameReader<FRAMER> {
+impl<F: Framer> Display for FrameReader<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "FrameReader<{}> {{ {:?}->{:?} }}",
-            std::any::type_name::<FRAMER>(),
+            std::any::type_name::<F>(),
             self.reader
                 .local_addr()
                 .expect("could not get reader's local address"),
@@ -37,18 +37,17 @@ impl<FRAMER: Framer> Display for FrameReader<FRAMER> {
         )
     }
 }
-impl<FRAMER: Framer> FrameReader<FRAMER> {
-    pub fn with_capacity(reader: OwnedReadHalf, capacity: usize) -> FrameReader<FRAMER> {
+impl<F: Framer> FrameReader<F> {
+    pub fn with_capacity(reader: OwnedReadHalf, capacity: usize) -> FrameReader<F> {
         Self {
             reader,
             buffer: BytesMut::with_capacity(capacity),
             phantom: PhantomData,
         }
     }
-    // TODO error types for this crait
     pub async fn read_frame(&mut self) -> Result<Option<Bytes>, Box<dyn Error + Send + Sync>> {
         loop {
-            if let Some(bytes) = FRAMER::get_frame(&mut self.buffer) {
+            if let Some(bytes) = F::get_frame(&mut self.buffer) {
                 return Ok(Some(bytes));
             } else if 0 == self.reader.read_buf(&mut self.buffer).await? {
                 if self.buffer.is_empty() {
@@ -90,15 +89,15 @@ impl FrameWriter {
     }
 }
 
-type FrameManger<FRAMER> = (FrameReader<FRAMER>, FrameWriter);
+type FrameManger<F> = (FrameReader<F>, FrameWriter);
 
-pub fn into_split_frame_manager<FRAMER: Framer>(
+pub fn into_split_frame_manager<F: Framer>(
     stream: TcpStream,
     reader_capacity: usize,
-) -> FrameManger<FRAMER> {
+) -> FrameManger<F> {
     let (reader, writer) = stream.into_split();
     (
-        FrameReader::<FRAMER>::with_capacity(reader, reader_capacity),
+        FrameReader::<F>::with_capacity(reader, reader_capacity),
         FrameWriter::new(writer),
     )
 }
@@ -111,33 +110,37 @@ mod test {
     use crate::unittest::setup::model::*;
     use crate::unittest::setup::protocol::*;
     use byteserde::{prelude::*, utils::hex::to_hex_pretty};
+    use lazy_static::lazy_static;
     use links_testing::unittest::setup;
     use log::info;
     use tokio::net::TcpListener;
+
+    lazy_static! {
+        static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
+    }
+    
 
     #[tokio::test]
     async fn test_connection() {
         setup::log::configure();
         const CAP: usize = 128;
-        let addr = setup::net::default_addr();
-        let inp_svc_msg = SvcMsg::new(b"Hello Server Frame");
+        let inp_svc_msg = TestSvcMsgDebug::new(b"Hello Server Frame");
 
         let svc = {
-            let addr = addr.clone();
             tokio::spawn({
                 let inp_svc_msg = inp_svc_msg.clone();
                 async move {
-                    let listener = TcpListener::bind(addr).await.unwrap();
+                    let listener = TcpListener::bind(*ADDR).await.unwrap();
                     let (stream, _) = listener.accept().await.unwrap();
 
                     let (mut reader, mut writer) =
-                        into_split_frame_manager::<SvcMsgProtocol>(stream, CAP);
+                        into_split_frame_manager::<TestSvcMsgProtocol>(stream, CAP);
                     info!("svc: writer: {}, reader: {}", writer, reader);
-                    let mut out_svc_msg: Option<CltMsg> = None;
+                    let mut out_svc_msg: Option<TestCltMsgDebug> = None;
                     loop {
                         let frame = reader.read_frame().await.unwrap();
                         if let Some(frm) = frame {
-                            let msg: CltMsg = from_slice(&frm[..]).unwrap();
+                            let msg: TestCltMsgDebug = from_slice(&frm[..]).unwrap();
                             out_svc_msg = Some(msg);
 
                             let (slice, size): ([u8; CAP], _) =
@@ -153,15 +156,14 @@ mod test {
                 }
             })
         };
-        let inp_clt_msg = CltMsg::new(b"Hello Client Frame");
+        let inp_clt_msg = TestCltMsgDebug::new(b"Hello Client Frame");
         let clt = {
-            let addr = addr.clone();
             tokio::spawn({
                 let inp_clt_msg = inp_clt_msg.clone();
                 async move {
-                    let stream = TcpStream::connect(addr).await.unwrap();
+                    let stream = TcpStream::connect(*ADDR).await.unwrap();
                     let (mut reader, mut writer) =
-                        into_split_frame_manager::<CltMsgProtocol>(stream, CAP);
+                        into_split_frame_manager::<TestCltMsgProtocol>(stream, CAP);
 
                     info!("clt: writer: {}, reader: {}", writer, reader);
                     let (slice, size): ([u8; CAP], _) = to_bytes_stack(&inp_clt_msg).unwrap();
@@ -170,7 +172,7 @@ mod test {
                     writer.write_frame(slice).await.unwrap();
 
                     let frame = reader.read_frame().await.unwrap().unwrap();
-                    let out_clt_msg: SvcMsg = from_slice(&frame[..]).unwrap();
+                    let out_clt_msg: TestSvcMsgDebug = from_slice(&frame[..]).unwrap();
                     out_clt_msg
                 }
             })
@@ -184,60 +186,5 @@ mod test {
         assert_eq!(inp_clt_msg, out_svc_msg);
         assert_eq!(inp_svc_msg, out_clt_msg);
     }
-    // TODO move to soupbintcp4 and create from local msg
-    // #[tokio::test]
-    // async fn test_connection() {
-    //     setup::log::configure();
-    //     const CAP: usize = 1024;
-    //     let addr = setup::net::default_addr();
-    //     type SoupBinX = SoupBinMsg<NoPayload>;
-    //     let svc = {
-    //         let addr = addr.clone();
-    //         tokio::spawn(async move {
-    //             let listener = TcpListener::bind(addr).await.unwrap();
-    //             let (stream, _) = listener.accept().await.unwrap();
-
-    //             let (mut reader, mut writer) =
-    //                 into_split_frame_manager::<SoupBinFramer>(stream, CAP);
-    //             info!("svc: writer: {}, reader: {}", writer, reader);
-    //             loop {
-    //                 let frame = reader.read_frame().await.unwrap();
-    //                 if let Some(frm) = frame {
-    //                     info!("svc: read_frame: \n{}", to_hex_pretty(&frm[..]));
-    //                     let msg: SoupBinX = from_slice(&frm[..]).unwrap();
-    //                     info!("svc: from_slice: {:?}", msg);
-
-    //                     let msg = SoupBinX::dbg(b"Hello From Server");
-    //                     let (slice, size): ([u8; CAP], _) = to_bytes_stack(&msg).unwrap();
-    //                     writer.write_frame(&slice[..size]).await.unwrap();
-    //                     info!("svc: write_frame: \n{}", to_hex_pretty(&slice[..size]))
-    //                 } else {
-    //                     info!("svc: msg: None - Client closed connection");
-    //                     break;
-    //                 }
-    //             }
-    //         })
-    //     };
-    //     let clt = {
-    //         let addr = addr.clone();
-    //         tokio::spawn(async move {
-    //             let stream = TcpStream::connect(addr).await.unwrap();
-    //             let (mut reader, mut writer) =
-    //                 into_split_frame_manager::<SoupBinFramer>(stream, CAP);
-    //             info!("clt: writer: {}, reader: {}", writer, reader);
-    //             let msg = SoupBinX::dbg(b"Hello From Client");
-    //             let (slice, size): ([u8; CAP], _) = to_bytes_stack(&msg).unwrap();
-    //             let slice = &slice[..size];
-    //             writer.write_frame(slice).await.unwrap();
-    //             info!("clt: write_frame: \n{}", to_hex_pretty(slice));
-    //             let frame = reader.read_frame().await.unwrap().unwrap();
-
-    //             info!("clt: read_frame: \n{}", to_hex_pretty(&frame[..]));
-    //             let msg: SoupBinX = from_slice(&frame[..]).unwrap();
-    //             info!("clt: from_slice: {:?}", msg);
-    //         })
-    //     };
-    //     clt.await.unwrap();
-    //     svc.await.unwrap();
-    // }
+    
 }

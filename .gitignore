@@ -13,5 +13,3 @@ Cargo.lock
 # Added by cargo
 
 target/*
-binserde/target/*
-binserde/binserde_derive/target/*

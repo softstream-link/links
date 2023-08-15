@@ -1,30 +1,34 @@
 use std::fmt::{Debug, Display};
 
-use crate::core::{ConId, Messenger};
+use crate::core::{conid::ConId, Messenger};
 
 pub mod chain;
-pub mod eventlog;
-pub mod eventlog_into;
+pub mod devnull;
+pub mod eventstore;
 pub mod logger;
 
-pub trait CallbackSendRecv<MESSENGER: Messenger>: Debug + Display + Send + Sync + 'static {
-    fn on_recv(&self, con_id: &ConId, msg: MESSENGER::RecvMsg);
-    fn on_send(&self, con_id: &ConId, msg: &MESSENGER::SendMsg);
+pub trait CallbackSendRecv<M: Messenger>: Debug + Display + Send + Sync + 'static {
+    fn on_recv(&self, con_id: &ConId, msg: M::RecvT);
+    fn on_send(&self, con_id: &ConId, msg: &M::SendT);
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Event<INTO, MESSENGER: Messenger>
-where
-    INTO: From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg>,
-{
-    Recv(INTO),
-    Send(INTO),
-    _Phantom(std::marker::PhantomData<MESSENGER>),
+pub enum Dir<T> {
+    Recv(T),
+    Send(T),
+}
+impl<T> Dir<T> {
+    pub fn unwrap(self) -> T {
+        match self {
+            Self::Recv(t) => t,
+            Self::Send(t) => t,
+        }
+    }
 }
 
-pub trait CallbackEvent<INTO, MESSENGER: Messenger>: CallbackSendRecv<MESSENGER>
+pub trait CallbackEvent<T, M: Messenger>: CallbackSendRecv<M>
 where
-    INTO: From<MESSENGER::RecvMsg> + From<MESSENGER::SendMsg> + Debug + Send + Sync + 'static,
+    T: From<M::RecvT> + From<M::SendT> + Debug + Send + Sync + 'static,
 {
-    fn on_event(&self, cond_id: &ConId, event: Event<INTO, MESSENGER>);
+    fn on_event(&self, cond_id: &ConId, event: Dir<T>);
 }
