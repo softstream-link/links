@@ -13,7 +13,7 @@ mod test {
     use std::{sync::Arc, time::Duration};
 
     lazy_static! {
-        static ref ADDR: &'static str = &setup::net::default_addr();
+        static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
     }
     use crate::prelude::*;
 

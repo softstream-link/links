@@ -294,7 +294,7 @@ mod test {
     use links_testing::unittest::setup;
 
     lazy_static! {
-        static ref ADDR: &'static str = &setup::net::default_addr();
+        static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
     }
     #[tokio::test]
     async fn test_clt_not_connected() {

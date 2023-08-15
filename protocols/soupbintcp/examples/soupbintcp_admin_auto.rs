@@ -16,7 +16,7 @@ async fn main() {
 }
 
 lazy_static! {
-    static ref ADDR: &'static str = &setup::net::default_addr();
+    static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
     static ref TMOUT: Duration = setup::net::default_connect_timeout();
     static ref RETRY: Duration = setup::net::default_connect_retry_after();
 }

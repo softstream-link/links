@@ -16,22 +16,23 @@ pub mod setup {
         }
     }
     pub mod net {
-        use std::{net::TcpListener, time::Duration};
+        use std::{net::TcpListener, ops::Range, time::Duration};
 
-        use lazy_static::lazy_static;
-        lazy_static! {
-            static ref AVAILABLE_PORT: u16 = {
-                for port in 8000..9000 {
-                    if TcpListener::bind(format!("0.0.0.0:{}", port)).is_ok() {
-                        return port;
-                    }
+        pub fn find_available_port(range: Range<u16>) -> u16 {
+            use rand::Rng;
+            let mut rng = rand::thread_rng();
+            for _ in 0..1000 {
+                let port = rng.gen_range(range.clone());
+                if TcpListener::bind(format!("0.0.0.0:{}", port)).is_ok() {
+                    return port;
                 }
-                panic!("Unable to find an available port in range 8000..9000");
-            };
+            }
+            panic!("Unable to find an available port in range: {:?}", range);
         }
 
-        pub fn default_addr() -> &'static str {
-            let addr = format!("0.0.0.0:{}", *AVAILABLE_PORT).into_boxed_str();
+        pub fn rand_avail_addr_port() -> &'static str {
+            let port = find_available_port(8000..9000);
+            let addr = format!("0.0.0.0:{}", port).into_boxed_str();
             Box::leak(addr)
         }
 

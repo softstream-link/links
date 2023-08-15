@@ -212,7 +212,7 @@ mod test {
     use tokio::time::Duration;
 
     lazy_static! {
-        static ref ADDR: &'static str = &setup::net::default_addr();
+        static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
     }
     const MMS: usize = 128;
     #[tokio::test]

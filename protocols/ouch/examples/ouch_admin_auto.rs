@@ -16,7 +16,7 @@ async fn main() {
 }
 
 lazy_static! {
-    static ref ADDR: &'static str = &setup::net::default_addr();
+    static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
 }
 
 async fn test_clt_svc_connect() {

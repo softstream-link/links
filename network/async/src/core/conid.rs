@@ -84,17 +84,17 @@ impl Display for ConId {
                     "Clt({name}@{}->{peer})",
                     match local {
                         Some(local) => format!("{}", local),
-                        None => "none".to_owned(),
+                        None => "pending".to_owned(),
                     }
                 )
             }
             ConId::Svc { name, local, peer } => {
                 write!(
                     f,
-                    "Svc({name}@{local}{})",
+                    "Svc({name}@{local}<-{})",
                     match peer {
-                        Some(peer) => format!("<-{}", peer),
-                        None => "".to_owned(),
+                        Some(peer) => format!("{}", peer),
+                        None => "pending".to_owned(),
                     }
                 )
             }
@@ -111,16 +111,16 @@ mod test {
     use links_testing::unittest::setup;
 
     #[test]
-    fn test_cond_id() {
+    fn test_con_id() {
         setup::log::configure();
         let con_id = ConId::clt(Some("unittest"), None, "0.0.0.0:1");
         info!("con_id: {:?}", con_id);
         info!("con_id: {}", con_id);
-        assert_eq!(con_id.to_string(), "Clt(unittest@none->0.0.0.0:1)");
+        assert_eq!(con_id.to_string(), "Clt(unittest@pending->0.0.0.0:1)");
 
         let con_id = ConId::svc(Some("unittest"), "0.0.0.0:1", None);
         info!("con_id: {:?}", con_id);
         info!("con_id: {}", con_id);
-        assert_eq!(con_id.to_string(), "Svc(unittest@0.0.0.0:1<-none)");
+        assert_eq!(con_id.to_string(), "Svc(unittest@0.0.0.0:1<-pending)");
     }
 }

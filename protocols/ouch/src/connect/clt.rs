@@ -12,7 +12,7 @@ mod test {
     use log::{info, Level};
 
     lazy_static! {
-        static ref ADDR: &'static str = &setup::net::default_addr();
+        static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
     }
     use crate::prelude::*;
 
