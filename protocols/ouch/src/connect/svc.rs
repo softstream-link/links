@@ -7,29 +7,30 @@ pub type OuchSvc<Protocol, Callback> = SBSvc<Protocol, Callback, MAX_FRAME_SIZE_
 #[cfg(test)]
 mod test {
 
-    use lazy_static::lazy_static;
     use links_testing::unittest::setup;
     use log::{info, Level};
     use std::{sync::Arc, time::Duration};
 
-    lazy_static! {
-        static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
-    }
     use crate::prelude::*;
 
     #[tokio::test]
     async fn test_svc_not_connected() {
         setup::log::configure();
-        let protocol = OuchSvcAdminProtocol::new_ref(
+        let prcl = OuchSvcAdminProtocol::new_ref(
             b"abcdef".into(),
             b"++++++++++".into(),
             Default::default(),
             Default::default(),
         );
-        let callback = OuchSvcLoggerCallback::new_ref(Level::Info, Level::Info);
-        let svc = OuchSvc::bind(&ADDR, callback, protocol, Some("ouch5/venue"))
-            .await
-            .unwrap();
+        let clbk = OuchSvcLoggerCallback::new_ref(Level::Info, Level::Info);
+        let svc = OuchSvc::bind_async(
+            setup::net::rand_avail_addr_port(),
+            clbk,
+            Some(prcl),
+            Some("ouch5/venue"),
+        )
+        .await
+        .unwrap();
         info!("{}", svc);
         assert!(!svc.is_connected(None).await);
         assert!(!svc.is_accepted().await);
@@ -38,7 +39,7 @@ mod test {
     #[tokio::test]
     async fn test_svc_clt_connected() {
         setup::log::configure_level(log::LevelFilter::Info);
-
+        let addr = setup::net::rand_avail_addr_port();
         // CONFIGURE
         let svc_prcl = OuchSvcAdminProtocol::new_ref(
             b"abcdef".into(),
@@ -63,13 +64,13 @@ mod test {
         let clt_clbk = OuchCltEvenStoreCallback::new_ref(Arc::clone(&event_store));
 
         // START
-        let svc = OuchSvc::bind(*ADDR, svc_clbk, svc_prcl, Some("ouch5/venue"))
+        let svc = OuchSvc::bind_async(addr, svc_clbk, Some(svc_prcl), Some("ouch5/venue"))
             .await
             .unwrap();
 
         info!("STARTED {}", svc);
         let clt = OuchClt::connect_async(
-            *ADDR,
+            addr,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
             clt_clbk,
@@ -82,22 +83,19 @@ mod test {
 
         // MAKE SURE CONNECTED
         // wait at least one heartbeat interval after opening connection
-        let svc_is_connected = svc.is_connected(Some(clt_hbeat_inverval)).await; 
+        let svc_is_connected = svc.is_connected(Some(clt_hbeat_inverval)).await;
         let clt_is_connected = clt.is_connected(None).await;
         assert!(clt_is_connected);
         assert!(svc_is_connected);
 
-        
         // REVIEW EVENTS
         info!("event_store: {}", event_store);
 
         // STOP clt and wait at least one heartbeat interval for svc to detect is_connected = false
         drop(clt);
-        tokio::time::sleep(clt_hbeat_inverval).await; 
+        tokio::time::sleep(clt_hbeat_inverval).await;
         // EXPECT this call shall generate log warn indicating hbeat is outside of tolerance factor
         let svc_is_connected = svc.is_connected(None).await;
         assert!(!svc_is_connected);
     }
 }
-
-

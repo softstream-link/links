@@ -30,7 +30,7 @@ async fn test_clt_svc() {
         Default::default(),
         1.,
     );
-    let svc = SBSvc::<_, _, MMS>::bind(*ADDR, svc_clbk, svc_prcl_admin, Some("venue"))
+    let svc = SBSvc::<_, _, MMS>::bind_async(*ADDR, svc_clbk, Some(svc_prcl_admin), Some("venue"))
         .await
         .unwrap();
     let svc_is_connected = svc.is_connected(None).await;

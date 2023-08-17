@@ -5,28 +5,23 @@ pub type SBSvc<Protocol, Callback, const MMS: usize> = Svc<Protocol, Callback, M
 #[cfg(test)]
 mod test {
 
-    use std::{sync::Arc, time::Duration};
+    use std::sync::Arc;
 
     use crate::prelude::*;
-    use lazy_static::lazy_static;
+
     use links_testing::unittest::setup;
     use log::{info, Level};
 
     const MMS: usize = 128;
 
-    lazy_static! {
-        static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
-        static ref CONNECT_TIMEOUT: Duration = setup::net::default_connect_timeout();
-        static ref RETRY_AFTER: Duration = setup::net::default_connect_retry_after();
-    }
-
     #[tokio::test]
     async fn test_svc_not_connected() {
         setup::log::configure();
 
-        let svc = SBSvc::<_, _, MMS>::bind_no_protocol(
-            *ADDR,
+        let svc = SBSvc::<_, _, MMS>::bind_async(
+            setup::net::rand_avail_addr_port(),
             SBSvcLoggerCallback::<SBSvcAdminProtocol<Nil, Nil>>::new_ref(Level::Info, Level::Info),
+            None,
             Some("soupbin/unittest"),
         )
         .await
@@ -38,6 +33,7 @@ mod test {
     #[tokio::test]
     async fn test_svc_clt_connected() {
         setup::log::configure();
+        let addr = setup::net::rand_avail_addr_port();
 
         let event_store = SBEventStore::new_ref();
         let svc_callback = SBSvcChainCallback::<SBSvcAdminProtocol<Nil, Nil>>::new_ref(vec![
@@ -49,16 +45,16 @@ mod test {
             SBCltEvenStoreCallback::new_ref(Arc::clone(&event_store)),
         ]);
 
-        let svc = SBSvc::<_, _, MMS>::bind_no_protocol(*ADDR, svc_callback, Some("soupbin/venue"))
+        let svc = SBSvc::<_, _, MMS>::bind_async(addr, svc_callback, None, Some("soupbin/venue"))
             .await
             .unwrap();
 
         info!("{} started", svc);
 
         let clt = SBClt::<_, _, MMS>::connect_async(
-            *ADDR,
-            *CONNECT_TIMEOUT,
-            *RETRY_AFTER,
+            addr,
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
             clt_callback,
             None,
             Some("soupbin/broker"),

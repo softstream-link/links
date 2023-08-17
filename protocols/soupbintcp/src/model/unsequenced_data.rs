@@ -32,10 +32,8 @@ pub struct UPayload<Payload>
 where
     Payload: ByteSerializeStack + ByteDeserializeSlice<Payload> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug,
 {
-    // header: UPayloadHeader,
-    packet_length: u16,
-    packet_type: PacketTypeUnsequencedData,
-    #[byteserde(deplete ( packet_length as usize - 1 ))]
+    header: UPayloadHeader,
+    #[byteserde(deplete ( header.packet_length as usize - 1 ))]
     pub body: Payload,
 }
 #[rustfmt::skip]
@@ -45,9 +43,8 @@ where
 {
     #[inline]
     pub fn new(body: Payload) -> UPayload<Payload> {
-        // let header = UPayloadHeader::new((body.byte_len() + 1) as u16);
-        // UPayload { header, body }
-        UPayload { packet_length: (body.byte_len() + 1 )as u16, packet_type: PacketTypeUnsequencedData::default(), body }
+        let header = UPayloadHeader::new((body.byte_len() + 1) as u16);
+        UPayload { header, body }
     }
 }
 

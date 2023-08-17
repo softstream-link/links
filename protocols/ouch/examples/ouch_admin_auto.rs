@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use lazy_static::lazy_static;
 use links_ouch_async::prelude::*;
 use links_testing::unittest::setup;
 use log::{info, Level};
@@ -15,12 +14,10 @@ async fn main() {
     test_clt_svc_connect().await;
 }
 
-lazy_static! {
-    static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
-}
 
 async fn test_clt_svc_connect() {
     setup::log::configure_level(log::LevelFilter::Info);
+    let addr = setup::net::rand_avail_addr_port();
 
     let event_store = OuchEventStore::new_ref();
     // log only recv & store
@@ -40,7 +37,7 @@ async fn test_clt_svc_connect() {
         1.,
     );
     // START SVC
-    let svc = OuchSvc::bind(*ADDR, svc_clbk, svc_prcl, Some("ouch/venue"))
+    let svc = OuchSvc::bind_async(addr, svc_clbk, Some(svc_prcl), Some("ouch/venue"))
         .await
         .unwrap();
     let svc_is_connected = svc.is_connected(None).await;
@@ -58,7 +55,7 @@ async fn test_clt_svc_connect() {
     );
     // START CLT
     let clt = OuchClt::connect_async(
-        *ADDR,
+        addr,
         setup::net::default_connect_timeout(),
         setup::net::default_connect_retry_after(),
         clt_clbk.clone(),
