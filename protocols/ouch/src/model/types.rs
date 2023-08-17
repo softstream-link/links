@@ -247,10 +247,10 @@ pub mod user_ref {
     #[rustfmt::skip]
     u32_tuple!(UserRefNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy, Debug, Default);
     #[derive(Default)]
-    pub struct UserRefNumberIterator {
+    pub struct UserRefNumberGenerator {
         last: u32,
     }
-    impl Iterator for UserRefNumberIterator {
+    impl Iterator for UserRefNumberGenerator {
         type Item = UserRefNumber;
         fn next(&mut self) -> Option<Self::Item> {
             if self.last == u32::MAX {
@@ -273,7 +273,7 @@ pub mod user_ref {
         fn test_user_ref_number_iterator() {
             setup::log::configure();
 
-            let mut iter = UserRefNumberIterator::default();
+            let mut iter = UserRefNumberGenerator::default();
             let next = iter.next().unwrap();
             info!("next: {:?}", next);
             assert_eq!(next, UserRefNumber::new(1));

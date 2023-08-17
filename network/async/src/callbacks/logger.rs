@@ -87,17 +87,17 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_event_log() {
+    fn test_callback() {
         setup::log::configure_level(log::LevelFilter::Trace);
-        let log = LoggerCallback::<TestCltMsgProtocol>::new_ref(Level::Trace, Level::Trace);
+        let clbk = LoggerCallback::<TestCltMsgProtocol>::new_ref(Level::Trace, Level::Trace);
 
         for _ in 0..2 {
             let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
-            log.on_send(&ConId::default(), &msg);
+            clbk.on_send(&ConId::default(), &msg);
         }
         for _ in 0..2 {
             let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"hello".as_slice()));
-            log.on_recv(&ConId::default(), msg);
+            clbk.on_recv(&ConId::default(), msg);
         }
     }
 }

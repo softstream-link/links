@@ -56,10 +56,10 @@ mod test {
             clt_hbeat_inverval,
             1.,
         );
-        // let svc_clbk = Ouch5SvcLoggerCallback::new_ref(Level::Info, Level::Debug);
-        // let clt_clbk = Ouch5CltLoggerCallback::new_ref(Level::Info, Level::Debug);
+        // let svc_clbk = OuchSvcLoggerCallback::new_ref(Level::Info, Level::Debug);
+        // let clt_clbk = OuchCltLoggerCallback::new_ref(Level::Info, Level::Debug);
 
-        let event_store = OuchEventStore::new_ref();
+        let event_store = OuchEventStoreAsync::new_ref();
         let svc_clbk = OuchSvcEvenStoreCallback::new_ref(Arc::clone(&event_store));
         let clt_clbk = OuchCltEvenStoreCallback::new_ref(Arc::clone(&event_store));
 

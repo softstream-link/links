@@ -4,6 +4,7 @@ use crate::core::{conid::ConId, Messenger};
 
 pub mod chain;
 pub mod devnull;
+pub mod counter;
 pub mod eventstore;
 pub mod logger;
 

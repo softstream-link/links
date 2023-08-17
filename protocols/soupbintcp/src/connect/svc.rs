@@ -35,7 +35,7 @@ mod test {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
 
-        let event_store = SBEventStore::new_ref();
+        let event_store = SBEventStoreAsync::new_ref();
         let svc_callback = SBSvcChainCallback::<SBSvcAdminProtocol<Nil, Nil>>::new_ref(vec![
             SBSvcLoggerCallback::new_ref(Level::Info, Level::Info),
             SBSvcEvenStoreCallback::new_ref(Arc::clone(&event_store)),

@@ -46,17 +46,17 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_event_log() {
+    fn test_callback() {
         setup::log::configure();
-        let log = DevNullCallback::<TestCltMsgProtocol>::default();
+        let clbk = DevNullCallback::<TestCltMsgProtocol>::default();
 
         for _ in 0..2 {
             let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
-            log.on_send(&ConId::default(), &msg);
+            clbk.on_send(&ConId::default(), &msg);
         }
         for _ in 0..2 {
             let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"hello".as_slice()));
-            log.on_recv(&ConId::default(), msg);
+            clbk.on_recv(&ConId::default(), msg);
         }
     }
 }

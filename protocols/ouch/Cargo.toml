@@ -31,3 +31,7 @@ criterion = { workspace = true }
 [[bench]]
 name = "ouch_model"
 harness = false
+
+[[bench]]
+name = "ouch_send"
+harness = false

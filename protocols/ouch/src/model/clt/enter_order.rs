@@ -66,7 +66,7 @@ impl Default for EnterOrder {
         };
         Self {
             packet_type: PacketTypeEnterOrder::default(),
-            user_ref_number: UserRefNumberIterator::default().next().unwrap(),
+            user_ref_number: UserRefNumberGenerator::default().next().unwrap(),
             side: Side::buy(),
             quantity: Quantity::from(100),
             symbol: Symbol::from(b"DUMMY".as_slice()),

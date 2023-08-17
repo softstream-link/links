@@ -52,18 +52,18 @@ mod test {
     use log::info;
     use log::Level;
     #[test]
-    fn test_event_log() {
+    fn test_callback() {
         setup::log::configure();
         let store = EventStoreAsync::new_ref();
 
-        let callback = ChainCallback::new(vec![
+        let clbk = ChainCallback::new(vec![
             LoggerCallback::new_ref(Level::Info, Level::Info),
             EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new_ref(store.clone()),
         ]);
 
         for _ in 0..2 {
             let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
-            callback.on_send(&ConId::default(), &msg);
+            clbk.on_send(&ConId::default(), &msg);
         }
         info!("store: {}", store);
         assert_eq!(store.len(), 2);

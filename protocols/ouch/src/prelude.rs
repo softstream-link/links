@@ -53,7 +53,7 @@ pub use crate::connect::svc::OuchSvc;
 
 // callbacks
 // event store
-pub use crate::callbacks::OuchEventStore;
+pub use crate::callbacks::OuchEventStoreAsync;
 
 pub use crate::callbacks::OuchCltEvenStoreCallback;
 pub use crate::callbacks::OuchSvcEvenStoreCallback;
@@ -70,5 +70,8 @@ pub use crate::callbacks::OuchSvcChainCallback;
 pub use crate::callbacks::OuchCltDevNullCallback;
 pub use crate::callbacks::OuchSvcDevNullCallback;
 
+// // counters
+pub use crate::callbacks::OuchCltCounterCallback;
+pub use crate::callbacks::OuchSvcCounterCallback;
 
 

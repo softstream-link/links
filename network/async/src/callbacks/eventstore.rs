@@ -332,7 +332,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_event_store() {
+    fn test_callback() {
         setup::log::configure();
 
         let runtime = Arc::new(Builder::new_multi_thread().enable_all().build().unwrap());

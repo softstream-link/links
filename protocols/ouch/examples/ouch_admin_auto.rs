@@ -19,7 +19,7 @@ async fn test_clt_svc_connect() {
     setup::log::configure_level(log::LevelFilter::Info);
     let addr = setup::net::rand_avail_addr_port();
 
-    let event_store = OuchEventStore::new_ref();
+    let event_store = OuchEventStoreAsync::new_ref();
     // log only recv & store
     let svc_clbk = OuchSvcChainCallback::new_ref(vec![
         OuchSvcLoggerCallback::new_ref(Level::Info, Level::Debug),

@@ -36,7 +36,7 @@ pub use crate::connect::svc::SBSvc;
 // callbacks
 // // store
 pub use crate::callbacks::SBCltEvenStoreCallback;
-pub use crate::callbacks::SBEventStore;
+pub use crate::callbacks::SBEventStoreAsync;
 pub use crate::callbacks::SBSvcEvenStoreCallback;
 // // loggers
 pub use crate::callbacks::SBCltLoggerCallback;
@@ -47,3 +47,6 @@ pub use crate::callbacks::SBSvcChainCallback;
 // // dev null
 pub use crate::callbacks::SBCltDevNullCallback;
 pub use crate::callbacks::SBSvcDevNullCallback;
+// // counters
+pub use crate::callbacks::SBCltCounterCallback;
+pub use crate::callbacks::SBSvcCounterCallback;
