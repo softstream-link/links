@@ -23,12 +23,16 @@ jobs:
         with:
           components: clippy
       - uses: taiki-e/install-action@nextest
-      - name: Test # TODO remove cd links once byteserde v4 is released
+      - name: Testing # TODO remove cd links once byteserde v4 is released
         run: |
           cd links
           cargo nextest run # --success-output final
           cargo nextest run --examples # --success-output final
           cargo test --doc #  NOTE: docs are not supported by nextest
+      - name: Benchmarking
+        run: |
+          cd links
+          cargo bench
       - name: Clippy Deny Warnings # TODO remove cd links once byteserde v4 is released
         run: |
           cd links
