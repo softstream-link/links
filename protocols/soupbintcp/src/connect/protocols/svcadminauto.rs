@@ -110,7 +110,7 @@ where
         const MMS: usize,
     >(
         &self,
-        clt: CltSender<P, C, MMS>,
+        clt: CltSenderAsync<P, C, MMS>,
     ) -> Result<(), Box<dyn Error+Send+Sync>> {
         let hbeat_timeout = { // drops the lock
             let hbeat_timeout = *self.hbeat_interval.lock().await;

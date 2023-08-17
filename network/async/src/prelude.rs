@@ -1,9 +1,9 @@
 // connect
 pub use crate::connect::clt::Clt;
-pub use crate::connect::clt::CltSender;
+pub use crate::connect::clt::CltSenderAsync;
 
 pub use crate::connect::svc::Svc;
-pub use crate::connect::svc::SvcSender;
+pub use crate::connect::svc::SvcSenderAsync;
 
 // core
 pub use crate::core::conid::ConId;
@@ -16,7 +16,7 @@ pub use crate::core::Protocol;
 pub use crate::callbacks::CallbackSendRecv;
 
 // // store
-pub use crate::callbacks::eventstore::{Entry, EventStore, EventStoreCallback};
+pub use crate::callbacks::eventstore::{Entry, EventStoreAsync, EventStoreCallback};
 pub use crate::callbacks::{CallbackEvent, Dir};
 // // loggers
 pub use crate::callbacks::logger::LoggerCallback;

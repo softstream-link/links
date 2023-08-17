@@ -14,6 +14,10 @@ pub const MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG: usize = 54;
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug, TryInto)]
 #[byteserde(peek(2, 1))]
 pub enum SBCltMsg<CltPayload: ByteSerializeStack + ByteDeserializeSlice<CltPayload> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug> {
+    #[byteserde(eq(PacketTypeUnsequencedData::as_slice()))]
+    U(UPayload::<CltPayload>),
+    #[byteserde(eq(PacketTypeSequencedData::as_slice()))]
+    S(SPayload::<CltPayload>),
     #[byteserde(eq(PacketTypeCltHeartbeat::as_slice()))]
     HBeat(CltHeartbeat),
     #[byteserde(eq(PacketTypeDebug::as_slice()))]
@@ -22,10 +26,6 @@ pub enum SBCltMsg<CltPayload: ByteSerializeStack + ByteDeserializeSlice<CltPaylo
     Login(LoginRequest),
     #[byteserde(eq(PacketTypeLogoutRequest::as_slice()))]
     Logout(LogoutRequest),
-    #[byteserde(eq(PacketTypeSequencedData::as_slice()))]
-    S(SPayload::<CltPayload>),
-    #[byteserde(eq(PacketTypeUnsequencedData::as_slice()))]
-    U(UPayload::<CltPayload>),
 }
 #[rustfmt::skip]
 impl<CltPayload: ByteSerializeStack + ByteDeserializeSlice<CltPayload> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug> SBCltMsg<CltPayload> {
@@ -42,6 +42,10 @@ impl<CltPayload: ByteSerializeStack + ByteDeserializeSlice<CltPayload> + ByteSer
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, fmt::Debug, TryInto)]
 #[byteserde(peek(2, 1))]
 pub enum SBSvcMsg<SvcPayload: ByteSerializeStack + ByteDeserializeSlice<SvcPayload> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug>{
+    #[byteserde(eq(PacketTypeUnsequencedData::as_slice()))]
+    U(UPayload::<SvcPayload>),
+    #[byteserde(eq(PacketTypeSequencedData::as_slice()))]
+    S(SPayload::<SvcPayload>),
     #[byteserde(eq(PacketTypeSvcHeartbeat::as_slice()))]
     HBeat(SvcHeartbeat),
     #[byteserde(eq(PacketTypeDebug::as_slice()))]
@@ -52,10 +56,6 @@ pub enum SBSvcMsg<SvcPayload: ByteSerializeStack + ByteDeserializeSlice<SvcPaylo
     LoginAcc(LoginAccepted),
     #[byteserde(eq(PacketTypeLoginRejected::as_slice()))]
     LoginRej(LoginRejected),
-    #[byteserde(eq(PacketTypeSequencedData::as_slice()))]
-    S(SPayload::<SvcPayload>),
-    #[byteserde(eq(PacketTypeUnsequencedData::as_slice()))]
-    U(UPayload::<SvcPayload>),
 }
 #[rustfmt::skip]
 impl<SvcPayload: ByteSerializeStack + ByteDeserializeSlice<SvcPayload> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug> SBSvcMsg<SvcPayload> {

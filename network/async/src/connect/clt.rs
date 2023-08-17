@@ -1,4 +1,4 @@
-use tokio::{sync::Mutex, task::AbortHandle};
+use tokio::{runtime::Runtime, sync::Mutex, task::AbortHandle};
 
 use std::{
     any::type_name,
@@ -17,7 +17,7 @@ use super::messenger::{into_split_messenger, MsgRecverRef, MsgSenderRef};
 use tokio::{spawn, time::sleep};
 
 #[derive(Debug)]
-pub struct CltSender<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
+pub struct CltSenderAsync<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
     con_id: ConId,
     sender: MsgSenderRef<P, MMS>,
     callback: Arc<C>,
@@ -26,7 +26,7 @@ pub struct CltSender<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
     // callback: CallbackRef<M>, // TODO can't be fixed for now.
     // pub type CallbackRef<M> = Arc<Mutex<impl Callback<M>>>; // impl Trait` in type aliases is unstable see issue #63063 <https://github.com/rust-lang/rust/issues/63063>
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> CltSender<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> CltSenderAsync<P, C, MMS> {
     pub async fn send(&self, msg: &mut P::SendT) -> Result<(), Box<dyn Error+Send+Sync>> {
         if let Some(protocol) = &self.protocol {
             protocol.on_send(&self.con_id, msg);
@@ -49,7 +49,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> CltSender<P, C, MMS>
         &self.con_id
     }
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for CltSender<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for CltSenderAsync<P, C, MMS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg_name = type_name::<P>().split("::").last().unwrap_or("Unknown");
         let clb_name = type_name::<C>()
@@ -66,13 +66,35 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for CltSende
         )
     }
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Drop for CltSender<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Drop for CltSenderAsync<P, C, MMS> {
     fn drop(&mut self) {
         for (idx, handle) in self.abort_handles.iter().enumerate() {
             debug!("{} {} change name aborting receiver", self, idx); // TODO change name of message
             handle.abort();
         }
         // self.recv_loop_abort_handle.abort();
+    }
+}
+
+#[derive(Debug)]
+pub struct CltSenderSync<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
+    clt: CltSenderAsync<P, C, MMS>,
+    runtime: Arc<Runtime>,
+}
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> CltSenderSync<P, C, MMS> {
+    pub fn send(&self, msg: &mut P::SendT) -> Result<(), Box<dyn Error+Send+Sync>> {
+        self.runtime.block_on(self.clt.send(msg))
+    }
+    pub fn is_connected(&self, timeout: Option<Duration>) -> bool {
+        self.runtime.block_on(self.clt.is_connected(timeout))
+    }
+    pub fn con_id(&self) -> &ConId {
+        self.clt.con_id()
+    }
+}
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for CltSenderSync<P, C, MMS> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.clt)
     }
 }
 
@@ -85,26 +107,26 @@ pub struct Clt<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
     protocol: Option<Arc<P>>,
 }
 impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
-    pub async fn connect(
+    pub fn connect_sync(
         addr: &str,
         timeout: Duration,
         retry_after: Duration,
         callback: Arc<C>,
-        protocol: Arc<P>,
+        protocol: Option<Arc<P>>,
         name: Option<&str>,
-    ) -> Result<CltSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
-        Self::connect_opt_protocol(addr, timeout, retry_after, callback, Some(protocol), name).await
+        runtime: Arc<Runtime>,
+    ) -> Result<CltSenderSync<P, C, MMS>, Box<dyn Error+Send+Sync>> {
+        let clt = runtime.block_on(Self::connect_async(
+            addr,
+            timeout,
+            retry_after,
+            callback,
+            protocol,
+            name,
+        ))?;
+        Ok(CltSenderSync { clt, runtime })
     }
-    pub async fn connect_no_protocol(
-        addr: &str,
-        timeout: Duration,
-        retry_after: Duration,
-        callback: Arc<C>,
-        name: Option<&str>,
-    ) -> Result<CltSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
-        Self::connect_opt_protocol(addr, timeout, retry_after, callback, None, name).await
-    }
-    async fn connect_opt_protocol(
+    pub async fn connect_async(
         addr: &str,
         timeout: Duration,
         retry_after: Duration,
@@ -112,7 +134,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
         protocol: Option<Arc<P>>,
         name: Option<&str>,
         // TODO shall add custom Error type to be able to detect timeout?
-    ) -> Result<CltSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
+    ) -> Result<CltSenderAsync<P, C, MMS>, Box<dyn Error+Send+Sync>> {
         assert!(timeout > retry_after);
         let now = Instant::now();
         let con_id = ConId::clt(name, None, addr);
@@ -136,13 +158,12 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
         }
         Err(format!("{:?} connect timeout: {:?}", con_id, timeout).into())
     }
-
     pub(crate) async fn from_stream(
         stream: TcpStream,
         callback: Arc<C>,
         protocol: Option<Arc<P>>,
         con_id: ConId,
-    ) -> Result<CltSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
+    ) -> Result<CltSenderAsync<P, C, MMS>, Box<dyn Error+Send+Sync>> {
         stream
             .set_nodelay(true)
             .expect("failed to set_nodelay=true");
@@ -190,7 +211,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
                 spawn({
                     let con_id = con_id.clone();
                     let protocol = Arc::clone(protocol);
-                    let clt_sender = CltSender {
+                    let clt_sender = CltSenderAsync {
                         con_id: con_id.clone(),
                         sender: Arc::clone(&sender),
                         callback: Arc::clone(&callback),
@@ -215,7 +236,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
             );
         }
 
-        Ok(CltSender {
+        Ok(CltSenderAsync {
             con_id,
             sender,
             callback,
@@ -223,7 +244,6 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
             abort_handles,
         })
     }
-
     async fn recv_loop(clt: Clt<P, C, MMS>) -> Result<(), Box<dyn Error+Sync+Send>> {
         // Don't call clt.recv instead of lock clt.recver and use it in exclusive mode to avoid relocking on each msg
         // let opt_recv = clt.recv().await?;
@@ -236,7 +256,6 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
         }
         Ok(())
     }
-
     pub async fn send(&self, msg: &mut P::SendT) -> Result<(), Box<dyn Error+Send+Sync>> {
         // let protocol intercept
         if let Some(ref protocol) = self.protocol {
@@ -283,35 +302,58 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Drop for Clt<P, C, M
     }
 }
 
+
 #[cfg(test)]
 mod test {
 
-    use lazy_static::lazy_static;
+    
+
     use log::{info, Level};
+    use tokio::runtime::Builder;
 
     use super::*;
     use crate::unittest::setup::protocol::*;
     use links_testing::unittest::setup;
 
-    lazy_static! {
-        static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
-    }
     #[tokio::test]
-    async fn test_clt_not_connected() {
+    async fn test_clt_not_connected_async() {
         setup::log::configure();
 
         let logger = LoggerCallback::new(Level::Debug, Level::Debug).into();
-        let clt = Clt::<_, _, 128>::connect(
-            *ADDR,
+        let clt = Clt::<_, _, 128>::connect_async(
+            setup::net::rand_avail_addr_port(),
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
             logger,
-            TestCltMsgProtocol.into(),
+            Some(TestCltMsgProtocol.into()),
             None,
         )
         .await;
 
         info!("{:?}", clt);
         assert!(clt.is_err())
+    }
+
+    #[test]
+    fn test_clt_not_connected_sync() {
+        setup::log::configure();
+        let runtime = Arc::new(Builder::new_multi_thread().enable_all().build().unwrap());
+
+        let logger = LoggerCallback::new(Level::Debug, Level::Debug).into();
+        let clt = Clt::<_, _, 128>::connect_sync(
+            setup::net::rand_avail_addr_port(),
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
+            logger,
+            Some(TestCltMsgProtocol.into()),
+            None,
+            runtime.clone(),
+        );
+
+        info!("{:?}", clt);
+        assert!(clt.is_err());
+        info!("{:?}", runtime);
+
+        // sleep(Duration::from_secs(20))
     }
 }

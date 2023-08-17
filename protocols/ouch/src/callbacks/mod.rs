@@ -4,7 +4,7 @@ use links_network_async::prelude::*;
 use crate::prelude::*;
 
 // event store
-pub type OuchEventStore = EventStore<OuchMsg>;
+pub type OuchEventStore = EventStoreAsync<OuchMsg>;
 pub type OuchCltEvenStoreCallback<Messenger> = EventStoreCallback<OuchMsg, Messenger>;
 pub type OuchSvcEvenStoreCallback<Messenger> = EventStoreCallback<OuchMsg, Messenger>;
 

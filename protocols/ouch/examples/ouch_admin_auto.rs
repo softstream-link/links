@@ -57,12 +57,12 @@ async fn test_clt_svc_connect() {
         1.,
     );
     // START CLT
-    let clt = OuchClt::connect(
+    let clt = OuchClt::connect_async(
         *ADDR,
         setup::net::default_connect_timeout(),
         setup::net::default_connect_retry_after(),
         clt_clbk.clone(),
-        clt_prcl,
+        Some(clt_prcl),
         Some("ouch/broker"),
     )
     .await

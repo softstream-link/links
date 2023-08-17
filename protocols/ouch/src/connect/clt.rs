@@ -19,7 +19,7 @@ mod test {
     #[tokio::test]
     async fn test_clt() {
         setup::log::configure();
-        let protocol = OuchCltAdminProtocol::new_ref(
+        let prcl = OuchCltAdminProtocol::new_ref(
             b"abcdef".into(),
             b"++++++++++".into(),
             Default::default(),
@@ -27,13 +27,13 @@ mod test {
             Default::default(),
             1.,
         );
-        let callback = OuchCltLoggerCallback::new_ref(Level::Info, Level::Info);
-        let res = OuchClt::connect(
+        let clbk = OuchCltLoggerCallback::new_ref(Level::Info, Level::Info);
+        let res = OuchClt::connect_async(
             &ADDR,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
-            callback,
-            protocol,
+            clbk,
+            Some(prcl),
             Some("ouch5/broker"),
         )
         .await;

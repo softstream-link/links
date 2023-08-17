@@ -141,7 +141,7 @@ pub mod setup {
         use crate::prelude::*;
 
         use super::model::*;
-
+        const HBEAT_INTERVAL: Duration = Duration::from_millis(500);
         #[derive(Debug, Clone, PartialEq)]
         pub struct TestCltMsgProtocol;
         impl Messenger for TestCltMsgProtocol {
@@ -189,12 +189,12 @@ pub mod setup {
                 const MMS: usize,
             >(
                 &self,
-                clt: CltSender<P, C, MMS>,
+                clt: CltSenderAsync<P, C, MMS>,
             ) -> Result<(), Box<dyn Error+Send+Sync>> {
                 loop {
                     let mut msg = TestSvcMsg::HBeat(TestHBeatMsgDebug::new(b"svc ping"));
                     clt.send(&mut msg).await?;
-                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    tokio::time::sleep(HBEAT_INTERVAL).await;
                 }
             }
         }
@@ -229,12 +229,12 @@ pub mod setup {
                 const MMS: usize,
             >(
                 &self,
-                clt: CltSender<P, C, MMS>,
+                clt: CltSenderAsync<P, C, MMS>,
             ) -> Result<(), Box<dyn Error+Send+Sync>> {
                 loop {
                     let mut msg = TestCltMsg::HBeat(TestHBeatMsgDebug::new(b"clt ping"));
                     clt.send(&mut msg).await?;
-                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    tokio::time::sleep(HBEAT_INTERVAL).await;
                 }
             }
         }

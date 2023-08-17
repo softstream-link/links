@@ -19,11 +19,12 @@ mod test {
     async fn test_clt_not_connected() {
         setup::log::configure();
 
-        let clt = SBClt::<_, _, 128>::connect_no_protocol(
+        let clt = SBClt::<_, _, 128>::connect_async(
             *ADDR,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
             SBCltLoggerCallback::<SBCltAdminProtocol<Nil, Nil>>::new_ref(Level::Info, Level::Info),
+            None,
             Some("soupbin/unittest"),
         )
         .await;

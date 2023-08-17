@@ -55,11 +55,12 @@ mod test {
 
         info!("{} started", svc);
 
-        let clt = SBClt::<_, _, MMS>::connect_no_protocol(
+        let clt = SBClt::<_, _, MMS>::connect_async(
             *ADDR,
             *CONNECT_TIMEOUT,
             *RETRY_AFTER,
             clt_callback,
+            None,
             Some("soupbin/broker"),
         )
         .await

@@ -11,7 +11,7 @@ use std::{
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
 
-use crate::prelude::{CallbackSendRecv, Clt, CltSender};
+use crate::prelude::{CallbackSendRecv, Clt, CltSenderAsync};
 
 use self::conid::ConId;
 
@@ -71,7 +71,7 @@ pub trait Protocol: Clone+Messenger+Framer+Send+Sync+'static {
         const MMS: usize,
     >(
         &self,
-        clt: CltSender<P, C, MMS>,
+        clt: CltSenderAsync<P, C, MMS>,
     ) -> impl Future<Output=Result<(), Box<dyn Error+Send+Sync>>>+Send+'_ {
         async { Ok(()) }
     }

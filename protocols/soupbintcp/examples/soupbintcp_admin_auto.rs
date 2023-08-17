@@ -47,12 +47,12 @@ async fn test_clt_svc() {
         Default::default(),
         1.,
     );
-    let clt = SBClt::<_, _, MMS>::connect(
+    let clt = SBClt::<_, _, MMS>::connect_async(
         *ADDR,
         setup::net::default_connect_timeout(),
         setup::net::default_connect_retry_after(),
         clt_clbk.clone(),
-        clt_prcl_admin,
+        Some(clt_prcl_admin),
         Some("clt-fail"),
     )
     .await;
@@ -72,12 +72,12 @@ async fn test_clt_svc() {
         Duration::from_millis(250),
         1.,
     );
-    let clt = SBClt::<_, _, MMS>::connect(
+    let clt = SBClt::<_, _, MMS>::connect_async(
         *ADDR,
         setup::net::default_connect_timeout(),
         setup::net::default_connect_retry_after(),
         clt_clbk.clone(),
-        clt_prcl_admin,
+        Some(clt_prcl_admin),
         Some("clt-pass"),
     )
     .await;

@@ -19,27 +19,48 @@ pub struct EnterOrder {
     pub cross_type: CrossType,
     pub clt_order_id: CltOrderId,
     #[byteserde(replace( appendages.byte_len() ))]
-    pub appendage_length: u16,
+    appendage_length: u16,
     #[byteserde(deplete(appendage_length))]
     pub appendages: OptionalAppendage,
 }
-impl CancelableOrder for EnterOrder {
-    fn user_ref_number(&self) -> UserRefNumber {
-        self.user_ref_number
-    }
-    fn quantity(&self) -> Quantity {
-        self.quantity
-    }
-    fn cl_ord_id(&self) -> CltOrderId {
-        self.clt_order_id
+impl EnterOrder {
+    #[inline]
+    pub fn new(
+        user_ref_number: UserRefNumber,
+        quantity: Quantity,
+        symbol: Symbol,
+        price: Price,
+        time_in_force: TimeInForce,
+        display: Display,
+        capacity: Capacity,
+        int_mkt_sweep_eligibility: IntMktSweepEligibility,
+        cross_type: CrossType,
+        clt_order_id: CltOrderId,
+        appendages: OptionalAppendage,
+    ) -> Self {
+        Self {
+            packet_type: PacketTypeEnterOrder::default(),
+            user_ref_number,
+            side: Side::buy(),
+            quantity,
+            symbol,
+            price,
+            time_in_force,
+            display,
+            capacity,
+            int_mkt_sweep_eligibility,
+            cross_type,
+            clt_order_id,
+            appendage_length: appendages.byte_len() as u16,
+            appendages,
+        }
     }
 }
+
 impl Default for EnterOrder {
     fn default() -> Self {
         let appendages = OptionalAppendage {
-            customer_type: Some(TagValueElement::<CustomerType>::new(
-                CustomerType::retail(),
-            )),
+            customer_type: Some(TagValueElement::<CustomerType>::new(CustomerType::retail())),
 
             ..Default::default()
         };
@@ -59,6 +80,17 @@ impl Default for EnterOrder {
             appendage_length: appendages.byte_len() as u16,
             appendages,
         }
+    }
+}
+impl CancelableOrder for EnterOrder {
+    fn user_ref_number(&self) -> UserRefNumber {
+        self.user_ref_number
+    }
+    fn quantity(&self) -> Quantity {
+        self.quantity
+    }
+    fn cl_ord_id(&self) -> CltOrderId {
+        self.clt_order_id
     }
 }
 

@@ -2,6 +2,8 @@ use byteserde::prelude::*;
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 use std::fmt;
 
+use crate::prelude::Nil;
+
 use super::payload::SamplePayload;
 use super::types::PacketTypeUnsequencedData;
 
@@ -15,6 +17,7 @@ pub struct UPayloadHeader {
     packet_type: PacketTypeUnsequencedData,
 }
 impl UPayloadHeader {
+    #[inline]
     pub fn new(packet_length: u16) -> Self {
         UPayloadHeader {
             packet_length,
@@ -29,8 +32,10 @@ pub struct UPayload<Payload>
 where
     Payload: ByteSerializeStack + ByteDeserializeSlice<Payload> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug,
 {
-    header: UPayloadHeader,
-    #[byteserde(deplete ( header.packet_length as usize - 1 ))]
+    // header: UPayloadHeader,
+    packet_length: u16,
+    packet_type: PacketTypeUnsequencedData,
+    #[byteserde(deplete ( packet_length as usize - 1 ))]
     pub body: Payload,
 }
 #[rustfmt::skip]
@@ -38,15 +43,22 @@ impl<Payload> UPayload<Payload>
 where
     Payload: ByteSerializeStack + ByteDeserializeSlice<Payload> + ByteSerializedLenOf + PartialEq + Clone + fmt::Debug,
 {
+    #[inline]
     pub fn new(body: Payload) -> UPayload<Payload> {
-        let header = UPayloadHeader::new((body.byte_len() + 1) as u16);
-        UPayload { header, body }
+        // let header = UPayloadHeader::new((body.byte_len() + 1) as u16);
+        // UPayload { header, body }
+        UPayload { packet_length: (body.byte_len() + 1 )as u16, packet_type: PacketTypeUnsequencedData::default(), body }
     }
 }
 
 impl Default for UPayload<SamplePayload> {
     fn default() -> Self {
         UPayload::new(SamplePayload::default())
+    }
+}
+impl Default for UPayload<Nil>{
+    fn default() -> Self {
+        UPayload::new(Nil)
     }
 }
 

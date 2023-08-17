@@ -44,7 +44,7 @@ impl<M: Messenger> CallbackSendRecv<M> for ChainCallback<M> {
 mod test {
 
     use super::*;
-    use crate::callbacks::eventstore::EventStore;
+    use crate::callbacks::eventstore::EventStoreAsync;
     use crate::prelude::*;
     use crate::unittest::setup::model::*;
     use crate::unittest::setup::protocol::*;
@@ -54,7 +54,7 @@ mod test {
     #[test]
     fn test_event_log() {
         setup::log::configure();
-        let store = EventStore::new_ref();
+        let store = EventStoreAsync::new_ref();
 
         let callback = ChainCallback::new(vec![
             LoggerCallback::new_ref(Level::Info, Level::Info),

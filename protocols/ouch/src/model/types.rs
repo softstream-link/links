@@ -246,7 +246,6 @@ pub mod user_ref {
     use super::*;
     #[rustfmt::skip]
     u32_tuple!(UserRefNumber, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Clone, Copy, Debug, Default);
-
     #[derive(Default)]
     pub struct UserRefNumberIterator {
         last: u32,

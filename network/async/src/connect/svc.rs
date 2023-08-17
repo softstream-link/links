@@ -4,27 +4,19 @@ use std::{
 
 use crate::prelude::*;
 use log::{debug, error, warn};
-use tokio::{net::TcpListener, sync::Mutex, task::AbortHandle};
+use tokio::{net::TcpListener, runtime::Runtime, sync::Mutex, task::AbortHandle};
 
-use super::clt::{Clt, CltSender};
+use super::clt::{Clt, CltSenderAsync};
 
-pub type SvcSendersRef<P, C, const MMS: usize> = Arc<Mutex<VecDeque<CltSender<P, C, MMS>>>>;
+pub type SvcSendersRef<P, C, const MMS: usize> = Arc<Mutex<VecDeque<CltSenderAsync<P, C, MMS>>>>;
 
 #[derive(Debug)]
-pub struct SvcSender<P, C, const MMS: usize>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
+pub struct SvcSenderAsync<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
     con_id: ConId,
     senders: SvcSendersRef<P, C, MMS>,
     acceptor_abort_handle: AbortHandle,
 }
-impl<P, C, const MMS: usize> SvcSender<P, C, MMS>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> SvcSenderAsync<P, C, MMS> {
     pub async fn is_accepted(&self) -> bool {
         let senders = self.senders.lock().await;
         !senders.is_empty()
@@ -68,15 +60,20 @@ where
         &self.con_id
     }
 }
-impl<P, C, const MMS: usize> Display for SvcSender<P, C, MMS>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for SvcSenderAsync<P, C, MMS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use futures::executor::block_on;
-        let clts = block_on(self.senders.lock()).iter().map(|clt| format!("[{}]", clt.con_id().get_peer().unwrap())).collect::<Vec<_>>().join(", ");
-        let con_id = format!("Svc({}@{}<-{})", self.con_id.name(), self.con_id.get_local().unwrap(), clts);
+        let clts = block_on(self.senders.lock())
+            .iter()
+            .map(|clt| format!("[{}]", clt.con_id().get_peer().unwrap()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let con_id = format!(
+            "Svc({}@{}<-{})",
+            self.con_id.name(),
+            self.con_id.get_local().unwrap(),
+            clts
+        );
         #[rustfmt::skip]
         let name = {
             let mut protocol_full_name = type_name::<P>().split(['<','>']);
@@ -91,11 +88,7 @@ where
         write!(f, "{}", name)
     }
 }
-impl<P, C, const MMS: usize> Drop for SvcSender<P, C, MMS>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Drop for SvcSenderAsync<P, C, MMS> {
     fn drop(&mut self) {
         debug!("{} aborting acceptor queue", self);
         self.acceptor_abort_handle.abort();
@@ -103,41 +96,51 @@ where
 }
 
 #[derive(Debug)]
-pub struct Svc<P, C, const MMS: usize>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
-    p1: std::marker::PhantomData<P>,
-    p2: std::marker::PhantomData<C>,
+pub struct SvcSenderSync<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
+    svc: SvcSenderAsync<P, C, MMS>,
+    runtime: Arc<Runtime>,
+}
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> SvcSenderSync<P, C, MMS> {
+    pub fn is_accepted(&self) -> bool {
+        self.runtime.block_on(self.svc.is_accepted())
+    }
+    pub fn send(&self, msg: &mut P::SendT) -> Result<(), Box<dyn Error+Send+Sync>> {
+        self.runtime.block_on(self.svc.send(msg))
+    }
+    pub fn is_connected(&self, timeout: Option<Duration>) -> bool {
+        self.runtime.block_on(self.svc.is_connected(timeout))
+    }
+    pub fn con_id(&self) -> &ConId {
+        self.svc.con_id()
+    }
+}
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for SvcSenderSync<P, C, MMS> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.svc)
+    }
 }
 
-impl<P, C, const MMS: usize> Svc<P, C, MMS>
-where
-    P: Protocol,
-    C: CallbackSendRecv<P>,
-{
-    pub async fn bind(
-        addr: &str,
-        callback: Arc<C>,
-        protocol: Arc<P>,
-        name: Option<&str>,
-    ) -> Result<SvcSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
-        Self::bind_opt_protocol(addr, callback, Some(protocol), name).await
-    }
-    pub async fn bind_no_protocol(
-        addr: &str,
-        callback: Arc<C>,
-        name: Option<&str>,
-    ) -> Result<SvcSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
-        Self::bind_opt_protocol(addr, callback, None, name).await
-    }
-    async fn bind_opt_protocol(
+#[derive(Debug)]
+pub struct Svc<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
+    phantom: std::marker::PhantomData<(P, C)>,
+}
+impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Svc<P, C, MMS> {
+    pub fn bind_sync(
         addr: &str,
         callback: Arc<C>,
         protocol: Option<Arc<P>>,
         name: Option<&str>,
-    ) -> Result<SvcSender<P, C, MMS>, Box<dyn Error+Send+Sync>> {
+        runtime: Arc<Runtime>,
+    ) -> Result<SvcSenderSync<P, C, MMS>, Box<dyn Error+Send+Sync>> {
+        let svc = runtime.block_on(Self::bind_async(addr, callback, protocol, name))?;
+        Ok(SvcSenderSync { svc, runtime })
+    }
+    pub async fn bind_async(
+        addr: &str,
+        callback: Arc<C>,
+        protocol: Option<Arc<P>>,
+        name: Option<&str>,
+    ) -> Result<SvcSenderAsync<P, C, MMS>, Box<dyn Error+Send+Sync>> {
         let con_id = ConId::svc(name, addr, None);
         let lis = TcpListener::bind(&addr).await?;
         debug!("{} bound successfully", con_id);
@@ -158,7 +161,7 @@ where
         })
         .abort_handle();
 
-        Ok(SvcSender {
+        Ok(SvcSenderAsync {
             con_id: con_id.clone(),
             senders: Arc::clone(&senders),
             acceptor_abort_handle,
@@ -200,29 +203,25 @@ where
 #[cfg(test)]
 mod test {
 
-    use lazy_static::lazy_static;
     use log::{info, Level};
 
     use super::*;
     use crate::{
-        callbacks::eventstore::EventStore,
+        callbacks::eventstore::{EventStoreAsync, EventStoreSync},
         unittest::setup::{model::*, protocol::*},
     };
     use links_testing::unittest::setup;
-    use tokio::time::Duration;
+    use tokio::{runtime::Builder, time::Duration};
 
-    lazy_static! {
-        static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
-    }
     const MMS: usize = 128;
     #[tokio::test]
-    async fn test_svc_not_connected() {
+    async fn test_svc_not_connected_async() {
         setup::log::configure();
         let logger = LoggerCallback::new_ref(Level::Debug, Level::Debug);
-        let svc = Svc::<_, _, MMS>::bind(
-            &ADDR,
+        let svc = Svc::<_, _, MMS>::bind_async(
+            setup::net::rand_avail_addr_port(),
             Arc::clone(&logger),
-            TestSvcMsgProtocol.into(),
+            Some(TestSvcMsgProtocol.into()),
             Some("unittest"),
         )
         .await
@@ -230,10 +229,28 @@ mod test {
         info!("{} ready", svc);
     }
 
+    #[test]
+    fn test_svc_not_connected_sync() {
+        setup::log::configure();
+        let runtime = Arc::new(Builder::new_multi_thread().enable_all().build().unwrap());
+
+        let logger = LoggerCallback::new_ref(Level::Debug, Level::Debug);
+        let svc = Svc::<_, _, MMS>::bind_sync(
+            setup::net::rand_avail_addr_port(),
+            Arc::clone(&logger),
+            Some(TestSvcMsgProtocol.into()),
+            Some("unittest"),
+            runtime,
+        )
+        .unwrap();
+        info!("{} ready", svc);
+    }
+
     #[tokio::test]
-    async fn test_svc_clt_connected() {
+    async fn test_svc_clt_connected_async() {
         setup::log::configure_level(log::LevelFilter::Debug);
-        let event_store = EventStore::<TestMsg>::new_ref();
+        let addr = setup::net::rand_avail_addr_port();
+        let event_store = EventStoreAsync::<TestMsg>::new_ref();
         // let clt_callback = ChainCallback::new_ref(vec![
         //     LoggerCallback::new_ref(log::Level::Warn),
         //     EventStoreProxyCallback::<Msg, CltMsgProtocol>::new_ref(event_store.clone()),
@@ -247,10 +264,10 @@ mod test {
         let svc_callback =
             EventStoreCallback::<TestMsg, TestSvcMsgProtocol>::new_ref(event_store.clone());
 
-        let svc = Svc::<_, _, MMS>::bind(
-            &ADDR,
+        let svc = Svc::<_, _, MMS>::bind_async(
+            addr,
             svc_callback,
-            TestSvcMsgProtocol.into(),
+            Some(TestSvcMsgProtocol.into()),
             Some("venue"),
         )
         .await
@@ -258,12 +275,12 @@ mod test {
 
         info!("{} sender ready", svc);
 
-        let clt = Clt::<_, _, MMS>::connect(
-            &ADDR,
+        let clt = Clt::<_, _, MMS>::connect_async(
+            addr,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
             clt_callback,
-            TestCltMsgProtocol.into(),
+            Some(TestCltMsgProtocol.into()),
             Some("broker"),
         )
         .await
@@ -303,5 +320,74 @@ mod test {
         drop(clt);
         // TODO explore https://crates.io/crates/testing_logger to validate that drop did in fact work
         tokio::time::sleep(Duration::from_secs(1)).await; // sleep so that you see the drop(clt) loggin on log::debug!()
+    }
+
+    #[test]
+    fn test_svc_clt_connected_sync() {
+        setup::log::configure_level(log::LevelFilter::Debug);
+        let addr = setup::net::rand_avail_addr_port();
+        let runtime = Arc::new(Builder::new_multi_thread().enable_all().build().unwrap());
+        let event_store = EventStoreSync::<TestMsg>::new(runtime.clone());
+        // let clt_callback = ChainCallback::new_ref(vec![
+        //     LoggerCallback::new_ref(log::Level::Warn),
+        //     EventStoreProxyCallback::<Msg, CltMsgProtocol>::new_ref(event_store.async_ref()),
+        // ]);
+        // let svc_callback = ChainCallback::new_ref(vec![
+        //     LoggerCallback::new_ref(log::Level::Warn),
+        //     EventStoreProxyCallback::<Msg, SvcMsgProtocol>::new_ref(event_store.async_ref()),
+        // ]);
+        let clt_callback = EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new_ref(
+            event_store.async_ref(),
+        );
+        let svc_callback = EventStoreCallback::<TestMsg, TestSvcMsgProtocol>::new_ref(
+            event_store.async_ref(),
+        );
+
+        let svc = Svc::<_, _, MMS>::bind_sync(
+            addr,
+            svc_callback,
+            Some(TestSvcMsgProtocol.into()),
+            Some("venue"),
+            runtime.clone(),
+        )
+        .unwrap();
+
+        info!("{} sender ready", svc);
+
+        let clt = Clt::<_, _, MMS>::connect_sync(
+            addr,
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
+            clt_callback,
+            Some(TestCltMsgProtocol.into()),
+            Some("broker"),
+            runtime.clone(),
+        )
+        .unwrap();
+        info!("{} sender ready", clt);
+
+        while !svc.is_accepted() {}
+
+        info!("clt: {}", clt);
+        info!("svc: {}", svc);
+
+        info!("event_store: {}", event_store);
+        let out_svc_hbeat = event_store
+            .find_recv(
+                svc.con_id().name(),
+                |into| matches!(into, TestMsg::Clt(TestCltMsg::HBeat(_))),
+                setup::net::optional_find_timeout(),
+            )
+            .unwrap();
+        info!("Found out_svc_hbeat: {:?}", out_svc_hbeat);
+
+        let out_clt_hbeat = event_store
+            .find_recv(
+                clt.con_id().name(),
+                |into| matches!(into, TestMsg::Svc(TestSvcMsg::HBeat(_))),
+                setup::net::optional_find_timeout(),
+            )
+            .unwrap();
+        info!("Found out_clt_hbeat: {:?}", out_clt_hbeat);
     }
 }

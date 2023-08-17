@@ -68,12 +68,12 @@ mod test {
             .unwrap();
 
         info!("STARTED {}", svc);
-        let clt = OuchClt::connect(
+        let clt = OuchClt::connect_async(
             *ADDR,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
             clt_clbk,
-            clt_prcl,
+            Some(clt_prcl),
             Some("ouch5/broker"),
         )
         .await

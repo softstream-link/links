@@ -6,7 +6,7 @@ use std::{
 };
 
 use chrono::{DateTime, Local};
-use tokio::task::yield_now;
+use tokio::{runtime::Runtime, task::yield_now};
 
 use crate::core::{conid::ConId, Messenger};
 
@@ -33,36 +33,76 @@ impl<T> Entry<T> {
         }
     }
 }
-
-impl<T> Display for Entry<T>
-where T: Debug
-{
+impl<T: Debug> Display for Entry<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}\t{:?}", self.con_id, self.event)
     }
 }
 
-pub type EventStoreRef<T> = Arc<EventStore<T>>;
+pub type EventStoreAsyncRef<T> = Arc<EventStoreAsync<T>>;
 
 #[derive(Debug)]
-pub struct EventStore<T>
-where T: Debug+Clone+Send+Sync+'static
-{
-    store: Mutex<Vec<Entry<T>>>,
+pub struct EventStoreSync<T: Debug+Clone+Send+Sync+'static> {
+    store: EventStoreAsyncRef<T>,
+    runtime: Arc<Runtime>,
 }
-impl<T> Default for EventStore<T>
-where T: Debug+Clone+Send+Sync+'static
-{
-    fn default() -> Self {
+impl<T: Debug+Clone+Send+Sync+'static> EventStoreSync<T> {
+    pub fn new(runtime: Arc<Runtime>) -> Self {
         Self {
-            store: Default::default(),
+            store: EventStoreAsyncRef::default(),
+            runtime,
         }
     }
+
+    pub fn async_ref(&self) -> EventStoreAsyncRef<T> {
+        Arc::clone(&self.store)
+    }
+    pub fn find<P: FnMut(&Entry<T>) -> bool>(
+        &self,
+        con_id_name: &str,
+        predicate: P,
+        timeout: Option<Duration>,
+    ) -> Option<Entry<T>> {
+        self.runtime
+            .block_on(self.store.find(con_id_name, predicate, timeout))
+    }
+    pub fn find_recv<P: FnMut(&T) -> bool>(
+        &self,
+        con_id_name: &str,
+        predicate: P,
+        timeout: Option<Duration>,
+    ) -> Option<T> {
+        self.runtime
+            .block_on(self.store.find_recv(con_id_name, predicate, timeout))
+    }
+    pub fn find_send<P: FnMut(&T) -> bool>(
+        &self,
+        con_id_name: &str,
+        predicate: P,
+        timeout: Option<Duration>,
+    ) -> Option<T> {
+        self.runtime
+            .block_on(self.store.find_send(con_id_name, predicate, timeout))
+    }
+    pub fn last(&self) -> Option<Entry<T>> {
+        self.store.last()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.store.is_empty()
+    }
 }
-impl<T> EventStore<T>
-where T: Debug+Clone+Send+Sync+'static
-{
-    pub fn new_ref() -> EventStoreRef<T> {
+impl<T: Debug+Clone+Send+Sync+'static> Display for EventStoreSync<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.store, f)
+    }
+}
+
+#[derive(Debug)]
+pub struct EventStoreAsync<T: Debug+Clone+Send+Sync+'static> {
+    store: Mutex<Vec<Entry<T>>>,
+}
+impl<T: Debug+Clone+Send+Sync+'static> EventStoreAsync<T> {
+    pub fn new_ref() -> EventStoreAsyncRef<T> {
         Arc::new(Self::default())
     }
     fn lock(&self) -> MutexGuard<'_, Vec<Entry<T>>> {
@@ -72,15 +112,12 @@ where T: Debug+Clone+Send+Sync+'static
     pub fn push(&self, e: Entry<T>) {
         self.lock().push(e);
     }
-    pub async fn find<P>(
+    pub async fn find<P: FnMut(&Entry<T>) -> bool>(
         &self,
         con_id_name: &str,
         mut predicate: P,
         timeout: Option<Duration>,
-    ) -> Option<Entry<T>>
-    where
-        P: FnMut(&Entry<T>) -> bool,
-    {
+    ) -> Option<Entry<T>> {
         let now = Instant::now();
         let timeout = timeout.unwrap_or_else(|| Duration::from_secs(0));
         loop {
@@ -103,15 +140,12 @@ where T: Debug+Clone+Send+Sync+'static
         }
         None
     }
-    pub async fn find_recv<P>(
+    pub async fn find_recv<P: FnMut(&T) -> bool>(
         &self,
         con_id_name: &str,
         mut predicate: P,
         timeout: Option<Duration>,
-    ) -> Option<T>
-    where
-        P: FnMut(&T) -> bool,
-    {
+    ) -> Option<T> {
         let entry = self
             .find(
                 con_id_name,
@@ -133,15 +167,12 @@ where T: Debug+Clone+Send+Sync+'static
             _ => None,
         }
     }
-    pub async fn find_send<P>(
+    pub async fn find_send<P: FnMut(&T) -> bool>(
         &self,
         con_id_name: &str,
         mut predicate: P,
         timeout: Option<Duration>,
-    ) -> Option<T>
-    where
-        P: FnMut(&T) -> bool,
-    {
+    ) -> Option<T> {
         let entry = self
             .find(
                 con_id_name,
@@ -174,9 +205,14 @@ where T: Debug+Clone+Send+Sync+'static
         self.lock().is_empty()
     }
 }
-impl<T> Display for EventStore<T>
-where T: Debug+Clone+Send+Sync+'static
-{
+impl<T: Debug+Clone+Send+Sync+'static> Default for EventStoreAsync<T> {
+    fn default() -> Self {
+        Self {
+            store: Default::default(),
+        }
+    }
+}
+impl<T: Debug+Clone+Send+Sync+'static> Display for EventStoreAsync<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         fn writeln<T: Debug>(
             f: &mut std::fmt::Formatter<'_>,
@@ -211,7 +247,7 @@ where
     INTO: From<M::RecvT>+From<M::SendT>+Debug+Clone+Send+Sync+'static,
     M: Messenger,
 {
-    store: EventStoreRef<INTO>,
+    store: EventStoreAsyncRef<INTO>,
     phantom: std::marker::PhantomData<M>,
 }
 impl<INTO, M> EventStoreCallback<INTO, M>
@@ -219,13 +255,13 @@ where
     INTO: From<M::RecvT>+From<M::SendT>+Debug+Clone+Send+Sync+'static,
     M: Messenger,
 {
-    pub fn new(store: EventStoreRef<INTO>) -> Self {
+    pub fn new(store: EventStoreAsyncRef<INTO>) -> Self {
         Self {
             store,
             phantom: std::marker::PhantomData,
         }
     }
-    pub fn new_ref(store: EventStoreRef<INTO>) -> Arc<Self> {
+    pub fn new_ref(store: EventStoreAsyncRef<INTO>) -> Arc<Self> {
         Arc::new(Self {
             store,
             phantom: std::marker::PhantomData,
@@ -287,6 +323,7 @@ where
 mod test {
 
     use log::info;
+    use tokio::runtime::Builder;
 
     use crate::unittest::setup::model::*;
     use crate::unittest::setup::protocol::*;
@@ -294,12 +331,20 @@ mod test {
 
     use super::*;
 
-    #[tokio::test]
-    async fn test_event_store() {
+    #[test]
+    fn test_event_store() {
         setup::log::configure();
-        let event_store = EventStore::new_ref();
-        let clt_clb = EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new(event_store.clone());
-        let svc_clb = EventStoreCallback::<TestMsg, TestSvcMsgProtocol>::new(event_store.clone());
+
+        let runtime = Arc::new(Builder::new_multi_thread().enable_all().build().unwrap());
+
+        // let event_store_async = EventStoreAsync::new_ref();
+        let event_store = EventStoreSync::new(runtime);
+        let clt_clb = EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new(
+            event_store.async_ref(),
+        );
+        let svc_clb = EventStoreCallback::<TestMsg, TestSvcMsgProtocol>::new(
+            event_store.async_ref(),
+        );
 
         let svc_on_recv_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"SVC: on_recv Message"));
         let svc_on_send_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"SVC: on_send Message"));
@@ -326,14 +371,14 @@ mod test {
         info!("event_clb: {}", clt_clb);
 
         // Entry find
-        let last_svc = event_store.find("svc", |_| true, None).await.unwrap();
+        let last_svc = event_store.find("svc", |_| true, None).unwrap();
         info!("last_svc: {:?}", last_svc);
         assert_eq!(
             last_svc.event,
             Dir::Send(TestMsg::Svc(svc_on_send_msg.clone()))
         );
 
-        let last_clt = event_store.find("clt", |_| true, None).await.unwrap();
+        let last_clt = event_store.find("clt", |_| true, None).unwrap();
         info!("last_clt: {:?}", last_clt);
         assert_eq!(
             last_clt.event,
@@ -348,7 +393,7 @@ mod test {
             "svc",
             |msg| matches!(msg, TestMsg::Clt(TestCltMsg::Dbg(TestCltMsgDebug{text, ..})) if text == &b"SVC: on_recv Message".into() ),
             None
-        ).await;
+        );
         info!("svc_recv: {:?}", svc_recv);
         assert_eq!(svc_recv.unwrap(), TestMsg::Clt(svc_on_recv_msg));
 
@@ -357,7 +402,7 @@ mod test {
             "svc",
             |msg| matches!(msg, TestMsg::Svc(TestSvcMsg::Dbg(TestSvcMsgDebug{text, ..})) if text == &b"SVC: on_send Message".into() ),
             None
-        ).await;
+        );
         info!("svc_send: {:?}", svc_send);
         assert_eq!(svc_send.unwrap(), TestMsg::Svc(svc_on_send_msg));
 
@@ -366,7 +411,7 @@ mod test {
             "clt",
             |msg| matches!(msg, TestMsg::Svc(TestSvcMsg::Dbg(TestSvcMsgDebug{text, ..})) if text == &b"CLT: on_recv Message".into() ),
             None
-        ).await;
+        );
         info!("clt_recv: {:?}", clt_recv);
         assert_eq!(clt_recv.unwrap(), TestMsg::Svc(clt_on_recv_msg));
 
@@ -375,7 +420,7 @@ mod test {
             "clt",
             |msg| matches!(msg, TestMsg::Clt(TestCltMsg::Dbg(TestCltMsgDebug{text, ..})) if text == &b"CLT: on_send Message".into() ),
             None
-        ).await;
+        );
         info!("clt_send: {:?}", clt_send);
         assert_eq!(clt_send.unwrap(), TestMsg::Clt(clt_on_send_msg));
     }
