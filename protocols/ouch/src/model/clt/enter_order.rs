@@ -24,6 +24,7 @@ pub struct EnterOrder {
     pub appendages: OptionalAppendage,
 }
 impl EnterOrder {
+    #[allow(clippy::too_many_arguments)]
     #[inline]
     pub fn new(
         user_ref_number: UserRefNumber,
