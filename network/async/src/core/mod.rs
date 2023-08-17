@@ -11,7 +11,7 @@ use std::{
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
 
-use crate::prelude::{CallbackSendRecv, Clt, CltSenderAsync};
+use crate::prelude::*;
 
 use self::conid::ConId;
 
@@ -51,7 +51,14 @@ pub trait Protocol: Clone+Messenger+Framer+Send+Sync+'static {
     /// Provides a protocol specific implementation of the connection status by analyzing packets going
     /// through the connection
     fn is_connected(&self, timeout: Option<Duration>) -> impl Future<Output=bool>+'_ {
-        async { false }
+        async { todo!(
+            "
+            Default implementation of this method is not provided.
+            Typicall implementaiton involves you implementing {}::on_recv( ... ) and then track if the last message arrived 
+            with in allowed tolerance Interval. {}::is_within_tolerance_factor() can be used to help track arrival frequency.
+            ", std::any::type_name::<Self>()
+            , std::any::type_name::<EventIntervalTracker>()
+        ) }
     }
     fn handshake<
         's,

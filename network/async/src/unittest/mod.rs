@@ -141,7 +141,7 @@ pub mod setup {
         use crate::prelude::*;
 
         use super::model::*;
-        const HBEAT_INTERVAL: Duration = Duration::from_millis(500);
+        pub const HBEAT_INTERVAL: Duration = Duration::from_millis(500);
         #[derive(Debug, Clone, PartialEq)]
         pub struct TestCltMsgProtocol;
         impl Messenger for TestCltMsgProtocol {
@@ -237,6 +237,7 @@ pub mod setup {
                     tokio::time::sleep(HBEAT_INTERVAL).await;
                 }
             }
+            
         }
     }
 }

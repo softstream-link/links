@@ -203,6 +203,8 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Svc<P, C, MMS> {
 #[cfg(test)]
 mod test {
 
+    use std::thread::sleep;
+
     use log::{info, Level};
 
     use super::*;
@@ -336,12 +338,10 @@ mod test {
         //     LoggerCallback::new_ref(log::Level::Warn),
         //     EventStoreProxyCallback::<Msg, SvcMsgProtocol>::new_ref(event_store.async_ref()),
         // ]);
-        let clt_callback = EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new_ref(
-            event_store.async_ref(),
-        );
-        let svc_callback = EventStoreCallback::<TestMsg, TestSvcMsgProtocol>::new_ref(
-            event_store.async_ref(),
-        );
+        let clt_callback =
+            EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new_ref(event_store.async_ref());
+        let svc_callback =
+            EventStoreCallback::<TestMsg, TestSvcMsgProtocol>::new_ref(event_store.async_ref());
 
         let svc = Svc::<_, _, MMS>::bind_sync(
             addr,
@@ -351,7 +351,6 @@ mod test {
             runtime.clone(),
         )
         .unwrap();
-
         info!("{} sender ready", svc);
 
         let clt = Clt::<_, _, MMS>::connect_sync(
@@ -367,6 +366,7 @@ mod test {
         info!("{} sender ready", clt);
 
         while !svc.is_accepted() {}
+        sleep(HBEAT_INTERVAL); // wait for hbeat to start
 
         info!("clt: {}", clt);
         info!("svc: {}", svc);
