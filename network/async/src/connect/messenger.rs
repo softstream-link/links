@@ -1,16 +1,20 @@
 use std::{
     any::type_name,
     error::Error,
-    fmt::{Debug, Display}, sync::Arc,
+    fmt::{Debug, Display},
+    sync::Arc,
 };
 
-use crate::prelude::*;
 use byteserde::{prelude::from_slice, ser_stack::to_bytes_stack};
+use links_network_core::prelude::{ConId, Framer, Messenger};
 use log::warn;
-use tokio::{net::{
-    tcp::{OwnedReadHalf, OwnedWriteHalf},
-    TcpStream,
-}, sync::Mutex};
+use tokio::{
+    net::{
+        tcp::{OwnedReadHalf, OwnedWriteHalf},
+        TcpStream,
+    },
+    sync::Mutex,
+};
 
 use super::framing::{FrameReader, FrameWriter};
 
@@ -31,7 +35,7 @@ impl<M: Messenger, const MMS: usize> MessageSender<M, MMS> {
             phantom: std::marker::PhantomData,
         }
     }
-    pub async fn send(&mut self, msg: &M::SendT) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn send(&mut self, msg: &M::SendT) -> Result<(), Box<dyn Error+Send+Sync>> {
         let (bytes, size) = to_bytes_stack::<MMS, M::SendT>(msg)?;
         self.writer.write_frame(&bytes[..size]).await?;
         Ok(())
@@ -66,7 +70,7 @@ impl<M: Messenger, F: Framer> MessageRecver<M, F> {
             phantom: std::marker::PhantomData,
         }
     }
-    pub async fn recv(&mut self) -> Result<Option<M::RecvT>, Box<dyn Error + Send + Sync>> {
+    pub async fn recv(&mut self) -> Result<Option<M::RecvT>, Box<dyn Error+Send+Sync>> {
         let res = self.reader.read_frame().await;
         let opt_frame = match res {
             Ok(opt) => opt,
@@ -101,12 +105,11 @@ pub fn into_split_messenger<M: Messenger, const MMS: usize, F: Framer>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::unittest::setup::{model::*, protocol::*};
+    use crate::unittest::setup::protocol::*;
     use lazy_static::lazy_static;
-    use links_testing::unittest::setup;
+    use links_testing::unittest::{setup, setup::model::*};
     use log::info;
     use tokio::net::TcpListener;
-
 
     lazy_static! {
         static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
@@ -175,5 +178,4 @@ mod test {
         assert_eq!(inp_clt_msg, out_svc_msg);
         assert_eq!(inp_svc_msg, out_clt_msg);
     }
-
 }

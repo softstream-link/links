@@ -1,111 +1,16 @@
 pub mod setup {
 
-    pub mod model {
-        pub const TEXT_SIZE: usize = 20;
-        use crate::prelude::*;
+    pub mod protocol {
+        use links_network_core::prelude::{CallbackSendRecv, Framer, Messenger};
+        use links_testing::unittest::setup::model::*;
+
+        use std::{error::Error, time::Duration};
+
         use bytes::{Bytes, BytesMut};
-        use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
-        use byteserde_types::prelude::*;
+        use log::info;
 
-        #[rustfmt::skip]
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
-        pub struct TestCltMsgDebug {
-            ty: ConstCharAscii<b'1'>,
-            pub text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
-        }
-        impl TestCltMsgDebug {
-            pub fn new(text: &[u8]) -> Self {
-                Self {
-                    ty: Default::default(),
-                    text: StringAsciiFixed::from(text),
-                }
-            }
-        }
-        #[rustfmt::skip]
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
-        pub struct TestCltMsgLoginReq {
-            pub ty: ConstCharAscii<b'L'>,
-            text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
-        }
-        #[rustfmt::skip]
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
-        pub struct TestSvcMsgLoginAcpt {
-            pub ty: ConstCharAscii<b'L'>,
-            text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
-        }
-
-        #[rustfmt::skip]
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
-        pub struct TestSvcMsgDebug {
-            ty: ConstCharAscii<b'2'>,
-            pub text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
-        }
-        impl TestSvcMsgDebug {
-            pub fn new(text: &[u8]) -> Self {
-                Self {
-                    ty: Default::default(),
-                    text: StringAsciiFixed::from(text),
-                }
-            }
-        }
-
-        #[rustfmt::skip]
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
-        pub struct TestHBeatMsgDebug {
-            ty: ConstCharAscii<b'H'>,
-            text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
-        }
-        impl TestHBeatMsgDebug {
-            pub fn new(text: &[u8]) -> Self {
-                Self {
-                    ty: Default::default(),
-                    text: StringAsciiFixed::from(text),
-                }
-            }
-        }
-
-        #[rustfmt::skip]
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
-        #[byteserde(peek(0, 1))]
-        pub enum TestCltMsg {
-            #[byteserde(eq(&[b'1']))]
-            Dbg(TestCltMsgDebug),
-            #[byteserde(eq(&[b'L']))]
-            Login(TestCltMsgLoginReq),
-            #[byteserde(eq(&[b'H']))]
-            HBeat(TestHBeatMsgDebug),
-        }
-
-        #[rustfmt::skip]
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, )]
-        #[byteserde(peek(0, 1))]
-        pub enum TestSvcMsg {
-            #[byteserde(eq(&[b'2']))]
-            Dbg(TestSvcMsgDebug),
-            #[byteserde(eq(&[b'L']))]
-            Accept(TestSvcMsgLoginAcpt),
-            #[byteserde(eq(&[b'H']))]
-            HBeat(TestHBeatMsgDebug),
-        }
-
-        #[derive(PartialEq, Clone, Debug)]
-        pub enum TestMsg {
-            Clt(TestCltMsg),
-            Svc(TestSvcMsg),
-        }
-        impl From<TestCltMsg> for TestMsg {
-            fn from(msg: TestCltMsg) -> Self {
-                Self::Clt(msg)
-            }
-        }
-        impl From<TestSvcMsg> for TestMsg {
-            fn from(msg: TestSvcMsg) -> Self {
-                Self::Svc(msg)
-            }
-        }
-
+        use crate::prelude::*;
         pub struct MsgFramer;
-        const FRAME_SIZE: usize = TEXT_SIZE + 1;
         impl Framer for MsgFramer {
             fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
                 if bytes.len() < FRAME_SIZE {
@@ -116,31 +21,8 @@ pub mod setup {
                 }
             }
         }
-        #[cfg(test)]
-        mod test {
-            use super::*;
-            use byteserde::size::ByteSerializedLenOf;
-            // for simplicity the framer assume each message to be of fixed size, this test just to avoid mistakes
-            #[test]
-            fn test_msg_len() {
-                assert_eq!(TestCltMsgDebug::default().byte_len(), FRAME_SIZE);
-                assert_eq!(TestCltMsgLoginReq::default().byte_len(), FRAME_SIZE);
-                assert_eq!(TestSvcMsgDebug::default().byte_len(), FRAME_SIZE);
-                assert_eq!(TestSvcMsgLoginAcpt::default().byte_len(), FRAME_SIZE);
-                assert_eq!(TestHBeatMsgDebug::default().byte_len(), FRAME_SIZE);
-            }
-        }
-    }
-    pub mod protocol {
 
-        use std::{error::Error, time::Duration};
-
-        use bytes::{Bytes, BytesMut};
-        use log::info;
-
-        use crate::prelude::*;
-
-        use super::model::*;
+        // use super::model::*;
         pub const HBEAT_INTERVAL: Duration = Duration::from_millis(500);
         #[derive(Debug, Clone, PartialEq)]
         pub struct TestCltMsgProtocol;
@@ -237,7 +119,6 @@ pub mod setup {
                     tokio::time::sleep(HBEAT_INTERVAL).await;
                 }
             }
-            
         }
     }
 }

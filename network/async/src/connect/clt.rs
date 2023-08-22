@@ -9,6 +9,7 @@ use std::{
 };
 
 use crate::prelude::*;
+use links_network_core::prelude::{CallbackSendRecv, ConId};
 use log::{debug, error};
 use tokio::net::TcpStream;
 
@@ -142,7 +143,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
             let res = TcpStream::connect(addr).await;
             match res {
                 Err(e) => {
-                    debug!("{} connect failed. e: {:?}", con_id, e);
+                    debug!("{} connection failed. e: {:?}", con_id, e);
                     sleep(retry_after).await;
                     continue;
                 }
@@ -312,6 +313,7 @@ mod test {
     use tokio::runtime::Builder;
 
     use super::*;
+    use links_network_core::prelude::LoggerCallback;
     use crate::unittest::setup::protocol::*;
     use links_testing::unittest::setup;
 

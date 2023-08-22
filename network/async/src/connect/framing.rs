@@ -14,7 +14,7 @@ use tokio::{
     },
 };
 
-use crate::core::Framer;
+use links_network_core::prelude::Framer;
 
 #[derive(Debug)]
 pub struct FrameReader<F: Framer> {
@@ -45,7 +45,7 @@ impl<F: Framer> FrameReader<F> {
             phantom: PhantomData,
         }
     }
-    pub async fn read_frame(&mut self) -> Result<Option<Bytes>, Box<dyn Error + Send + Sync>> {
+    pub async fn read_frame(&mut self) -> Result<Option<Bytes>, Box<dyn Error+Send+Sync>> {
         loop {
             if let Some(bytes) = F::get_frame(&mut self.buffer) {
                 return Ok(Some(bytes));
@@ -82,7 +82,7 @@ impl FrameWriter {
     pub fn new(writer: OwnedWriteHalf) -> FrameWriter {
         Self { writer }
     }
-    pub async fn write_frame(&mut self, bytes: &[u8]) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn write_frame(&mut self, bytes: &[u8]) -> Result<(), Box<dyn Error+Send+Sync>> {
         self.writer.write_all(bytes).await?;
         self.writer.flush().await?;
         Ok(())
@@ -107,18 +107,17 @@ mod test {
 
     use super::*;
 
-    use crate::unittest::setup::model::*;
     use crate::unittest::setup::protocol::*;
     use byteserde::{prelude::*, utils::hex::to_hex_pretty};
     use lazy_static::lazy_static;
     use links_testing::unittest::setup;
+    use links_testing::unittest::setup::model::*;
     use log::info;
     use tokio::net::TcpListener;
 
     lazy_static! {
         static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
     }
-    
 
     #[tokio::test]
     async fn test_connection() {
@@ -186,5 +185,4 @@ mod test {
         assert_eq!(inp_clt_msg, out_svc_msg);
         assert_eq!(inp_svc_msg, out_clt_msg);
     }
-    
 }

@@ -1,0 +1,17 @@
+[package]
+name = "links_network_sync"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+mio = { workspace = true }
+links_network_core = { workspace = true }
+bytes = { workspace = true }
+log = { workspace = true }
+# rayon = { workspace = true }
+
+[dev-dependencies]
+env_logger = { workspace = true }
+links_testing = { workspace = true }

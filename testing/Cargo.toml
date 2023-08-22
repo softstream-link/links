@@ -7,12 +7,30 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# links_network_async ={ workspace = true }
-log = { workspace = true, optional = true}
-env_logger = { workspace = true, optional = true}
-lazy_static = { workspace = true, optional = true}
-rand = { workspace = true, optional = true}
+log = { workspace = true, optional = true }
+env_logger = { workspace = true, optional = true }
+rand = { workspace = true, optional = true }
+
+bytes = { workspace = true, optional = true }
+byteserde = { workspace = true, optional = true }        # required to do serialization and deserialization
+byteserde_types = { workspace = true, optional = true }  # required to setup unit test models
+byteserde_derive = { workspace = true, optional = true } # required to setup unit test models
+
+num-format = { workspace = true, optional = true }
+colored = { workspace = true, optional = true }
 
 [features]
 default = ["unittest"]
-unittest = ["dep:log", "dep:env_logger", "dep:lazy_static", "dep:rand"]
+unittest = [
+    "dep:log",
+    "dep:env_logger",
+    "dep:rand",
+    "dep:bytes",
+
+    "dep:byteserde",
+    "dep:byteserde_types",
+    "dep:byteserde_derive",
+    
+    "dep:num-format",
+    "dep:colored",
+]

@@ -1,11 +1,10 @@
 use std::{
     fmt::{Display, Formatter},
-    time::Duration
+    time::{Duration, Instant}
 };
 
-use tokio::time::Instant;
 
-use links_network_core::prelude::*;
+use super::conid::ConId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EventIntervalTracker {

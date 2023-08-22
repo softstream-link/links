@@ -6,9 +6,9 @@ use std::{
     },
 };
 
-use num_format::{ToFormattedString, Locale};
-
-use crate::core::{conid::ConId, Messenger};
+use crate::core::Messenger;
+use crate::prelude::*;
+use num_format::{Locale, ToFormattedString};
 
 use super::CallbackSendRecv;
 
@@ -39,8 +39,12 @@ impl<M: Messenger> Display for CounterCallback<M> {
         write!(
             f,
             "CounterCallback<sent: {}, recv: {}>",
-            self.sent.load(Ordering::SeqCst).to_formatted_string(&Locale::en),
-            self.recv.load(Ordering::SeqCst).to_formatted_string(&Locale::en)
+            self.sent
+                .load(Ordering::SeqCst)
+                .to_formatted_string(&Locale::en),
+            self.recv
+                .load(Ordering::SeqCst)
+                .to_formatted_string(&Locale::en)
         )
     }
 }

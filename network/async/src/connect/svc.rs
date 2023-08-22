@@ -3,6 +3,7 @@ use std::{
 };
 
 use crate::prelude::*;
+use links_network_core::prelude::{CallbackSendRecv, ConId};
 use log::{debug, error, warn};
 use tokio::{net::TcpListener, runtime::Runtime, sync::Mutex, task::AbortHandle};
 
@@ -208,11 +209,13 @@ mod test {
     use log::{info, Level};
 
     use super::*;
+    use links_network_core::prelude::LoggerCallback;
+
     use crate::{
-        callbacks::eventstore::{EventStoreAsync, EventStoreSync},
-        unittest::setup::{model::*, protocol::*},
+        prelude::{EventStoreAsync, EventStoreCallback, EventStoreSync},
+        unittest::setup::protocol::*,
     };
-    use links_testing::unittest::setup;
+    use links_testing::unittest::{setup, setup::model::*};
     use tokio::{runtime::Builder, time::Duration};
 
     const MMS: usize = 128;

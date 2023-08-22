@@ -1,26 +1,20 @@
 [package]
-name = "links_network_async"
+name = "links_network_core"
 version = "0.1.0"
 edition = "2021"
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [dependencies]
-log = { workspace = true }
-env_logger = { workspace = true }
 bytes = { workspace = true }
-tokio = { workspace = true }
-futures = { workspace = true }
-chrono = { workspace = true }
-num-format = { workspace = true }
-
-links_network_core ={ workspace = true }
-
 byteserde = { workspace = true } # required to do serialization and deserialization
+num-format = { workspace = true }
+log = { workspace = true }
 
 [dev-dependencies]
+env_logger = { workspace = true }
+
 byteserde_types = { workspace = true }  # required to setup unit test models
 byteserde_derive = { workspace = true } # required to setup unit test models
-
-tokio-test = { workspace = true }
-lazy_static = { workspace = true }
 
 links_testing = { workspace = true }

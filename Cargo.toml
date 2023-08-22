@@ -1,5 +1,12 @@
 [workspace]
-members = ["protocols/soupbintcp", "protocols/ouch", "network/async", "testing"]
+members = [
+    "network/core",
+    "network/sync",
+    "network/async",
+    "protocols/ouch",
+    "protocols/soupbintcp",
+    "testing",
+]
 resolver = "2"
 
 
@@ -12,7 +19,13 @@ derive_more = "0.99"                                                            
 
 # networking
 links_network_async = { path = "./network/async" }
+links_network_sync = { path = "./network/sync" }
+links_network_core = { path = "./network/core" }
 bytes = "1.4"
+
+# synch
+mio = {version = "0.8", features = ["os-poll" , "net"]}
+# rayon = { version = "1.7" }
 
 # async 
 tokio = { version = "1.29", features = ["full"] }
@@ -26,6 +39,7 @@ num-format = "0.4"
 # logging
 log = "0.4"
 env_logger = "0.10"
+colored =  "2.0"
 
 # protocols
 links_soupbintcp_async = { path = "./protocols/soupbintcp" }
