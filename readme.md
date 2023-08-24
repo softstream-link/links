@@ -10,3 +10,8 @@ ouch - ??
 
 run tests
 cargo nextest run
+
+TODO performance ideas to investigate
+# try enums eq(...) with const instead of funct
+# eliminate ouch appendix to see how much Option<> has effect on deser
+# use match in stead of if in the der logic of the Option

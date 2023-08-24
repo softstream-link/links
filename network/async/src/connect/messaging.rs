@@ -107,7 +107,7 @@ pub fn into_split_messenger<MESSENGER: Messenger, const MAX_MSG_SIZE: usize, FRA
     let (reader, writer) = stream.into_split();
     (
         MessageSender::new(writer, con_id.clone()),
-        MessageRecver::with_capacity(reader, MAX_MSG_SIZE, con_id),
+        MessageRecver::with_capacity(reader, MAX_MSG_SIZE, con_id), // TODO should recvr capacity be or a factor of max msg size? benchmark does not show effect
     )
 }
 

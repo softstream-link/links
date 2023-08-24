@@ -8,10 +8,26 @@ edition = "2021"
 [dependencies]
 mio = { workspace = true }
 links_network_core = { workspace = true }
+
 bytes = { workspace = true }
+
 log = { workspace = true }
-# rayon = { workspace = true }
+
+byteserde = { workspace = true } # required to do serialization and deserialization
+
 
 [dev-dependencies]
 env_logger = { workspace = true }
 links_testing = { workspace = true }
+num-format = { workspace = true }
+
+byteserde_types = { workspace = true }  # required to setup unit test models
+byteserde_derive = { workspace = true } # required to setup unit test models
+
+
+criterion = { workspace = true } # required to setup benchmarks
+rand = { workspace = true } # required to setup benchmarks
+
+[[bench]]
+name = "blocking_framer"
+harness = false

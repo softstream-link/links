@@ -22,12 +22,44 @@ pub struct FrameReader<F: Framer> {
     buffer: BytesMut,
     phantom: PhantomData<F>,
 }
+impl<F: Framer> FrameReader<F> {
+    pub fn with_capacity(reader: OwnedReadHalf, capacity: usize) -> FrameReader<F> {
+        Self {
+            reader,
+            buffer: BytesMut::with_capacity(F::MAX_FRAME_SIZE),
+            phantom: PhantomData,
+        }
+    }
+    pub async fn read_frame(&mut self) -> Result<Option<Bytes>, Box<dyn Error+Send+Sync>> {
+        loop {
+            if let Some(bytes) = F::get_frame(&mut self.buffer) {
+                return Ok(Some(bytes));
+            } else {
+                match self.reader.read_buf(&mut self.buffer).await? {
+                    0 => {
+                        if self.buffer.is_empty() {
+                            return Ok(None);
+                        } else {
+                            return Err("connection reset by peer".into()); // TODO add remainder of buffer to message
+                        }
+                    }
+                    _ => {
+                        continue;
+                    }
+                }
+            }
+        }
+    }
+}
 impl<F: Framer> Display for FrameReader<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "FrameReader<{}> {{ {:?}->{:?} }}",
-            std::any::type_name::<F>(),
+            std::any::type_name::<F>()
+                .split("::")
+                .last()
+                .unwrap_or("Unknown"),
             self.reader
                 .local_addr()
                 .expect("could not get reader's local address"),
@@ -37,32 +69,20 @@ impl<F: Framer> Display for FrameReader<F> {
         )
     }
 }
-impl<F: Framer> FrameReader<F> {
-    pub fn with_capacity(reader: OwnedReadHalf, capacity: usize) -> FrameReader<F> {
-        Self {
-            reader,
-            buffer: BytesMut::with_capacity(capacity),
-            phantom: PhantomData,
-        }
-    }
-    pub async fn read_frame(&mut self) -> Result<Option<Bytes>, Box<dyn Error+Send+Sync>> {
-        loop {
-            if let Some(bytes) = F::get_frame(&mut self.buffer) {
-                return Ok(Some(bytes));
-            } else if 0 == self.reader.read_buf(&mut self.buffer).await? {
-                if self.buffer.is_empty() {
-                    return Ok(None);
-                } else {
-                    return Err("connection reset by peer".into()); // TODO add remainder of buffer to message
-                }
-            }
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct FrameWriter {
     writer: OwnedWriteHalf,
+}
+impl FrameWriter {
+    pub fn new(writer: OwnedWriteHalf) -> FrameWriter {
+        Self { writer }
+    }
+    pub async fn write_frame(&mut self, bytes: &[u8]) -> Result<(), Box<dyn Error+Send+Sync>> {
+        self.writer.write_all(bytes).await?;
+        self.writer.flush().await?;
+        Ok(())
+    }
 }
 impl Display for FrameWriter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -76,16 +96,6 @@ impl Display for FrameWriter {
                 .peer_addr()
                 .expect("could not get reader's peer address"),
         )
-    }
-}
-impl FrameWriter {
-    pub fn new(writer: OwnedWriteHalf) -> FrameWriter {
-        Self { writer }
-    }
-    pub async fn write_frame(&mut self, bytes: &[u8]) -> Result<(), Box<dyn Error+Send+Sync>> {
-        self.writer.write_all(bytes).await?;
-        self.writer.flush().await?;
-        Ok(())
     }
 }
 
@@ -109,27 +119,22 @@ mod test {
 
     use crate::unittest::setup::protocol::*;
     use byteserde::{prelude::*, utils::hex::to_hex_pretty};
-    use lazy_static::lazy_static;
     use links_testing::unittest::setup;
     use links_testing::unittest::setup::model::*;
     use log::info;
     use tokio::net::TcpListener;
-
-    lazy_static! {
-        static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();
-    }
 
     #[tokio::test]
     async fn test_connection() {
         setup::log::configure();
         const CAP: usize = 128;
         let inp_svc_msg = TestSvcMsgDebug::new(b"Hello Server Frame");
-
+        let addr = setup::net::rand_avail_addr_port();
         let svc = {
             tokio::spawn({
                 let inp_svc_msg = inp_svc_msg.clone();
                 async move {
-                    let listener = TcpListener::bind(*ADDR).await.unwrap();
+                    let listener = TcpListener::bind(addr).await.unwrap();
                     let (stream, _) = listener.accept().await.unwrap();
 
                     let (mut reader, mut writer) =
@@ -144,8 +149,9 @@ mod test {
 
                             let (slice, size): ([u8; CAP], _) =
                                 to_bytes_stack(&inp_svc_msg).unwrap();
-                            writer.write_frame(&slice[..size]).await.unwrap();
-                            info!("svc: write_frame: \n{}", to_hex_pretty(&slice[..size]))
+                            let slice = &slice[..size];
+                            writer.write_frame(slice).await.unwrap();
+                            info!("svc: write_frame: \n{}", to_hex_pretty(slice))
                         } else {
                             info!("svc: msg: None - Client closed connection");
                             break;
@@ -160,7 +166,7 @@ mod test {
             tokio::spawn({
                 let inp_clt_msg = inp_clt_msg.clone();
                 async move {
-                    let stream = TcpStream::connect(*ADDR).await.unwrap();
+                    let stream = TcpStream::connect(addr).await.unwrap();
                     let (mut reader, mut writer) =
                         into_split_frame_manager::<TestCltMsgProtocol>(stream, CAP);
 

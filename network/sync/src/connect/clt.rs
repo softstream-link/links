@@ -7,6 +7,11 @@
 // use log::{debug, info};
 // use mio::{net::TcpStream, Interest, Poll, Token, Events};
 
+use std::{error::Error, net::TcpStream};
+
+// pub struct CltBlocking {
+//     stream: TcpStream,
+// }
 // pub struct Clt {}
 
 // impl Clt {
@@ -18,38 +23,8 @@
 //         // poll: Arc<Pollel>,
 //     ) -> Result<(), Box<dyn Error>> {
 //         let mut stream = TcpStream::connect(addr.parse()?)?;
-
-//         // let mut poll = poll;
-//         // if let None = poll {
-//         //     poll = Some(Poll::new()?);
-//         // }
-//         let mut poll = Poll::new()?;
-//         let mut events = Events::with_capacity(1024);
-//         const RW: Interest = Interest::READABLE.add(Interest::WRITABLE);
-//         const READ: Interest = Interest::READABLE;;
-//         poll.registry().register(&mut stream, Token(0), READ)?;
-
-//         loop{
-//             info!("polling...");
-//             poll.poll(&mut events, None)?;
-//             for event in events.iter() {
-//                 info!("event: {:?}", event);
-//                 match event.token() {
-//                     Token(0) => {
-//                         info!("event: {:?}", event);
-//                         info!("stream: {:?}", stream);
-//                         // info!("accepted connection from: {}", addr);
-//                         // poll.registry()
-//                         //     .register(&mut stream, Token(1), Interest::READABLE)?;
-//                     }
-//                     // Token(1) => {
-//                     //     info!("received data from: {:?}", event.token());
-//                     // }
-//                     _ => unreachable!(),
-//                 }
-//             }
-//         }
-
+//     }
+// }
 
 //         // assert!(timeout > retry_after);
 //         // let now = Instant::now();

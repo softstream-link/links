@@ -48,6 +48,8 @@ where
     SendPayload: ByteDeserializeSlice<SendPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
     RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
+    // const MAX_FRAME_SIZE: usize = SoupBinFramer::MAX_FRAME_SIZE;
+    // const MAX_FRAME_SIZE: usize = 1024;
     #[inline]
     fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
         SoupBinFramer::get_frame(bytes)

@@ -171,7 +171,7 @@ pub mod setup {
         }
 
         // pub struct MsgFramer;
-        pub const FRAME_SIZE: usize = TEXT_SIZE + 1;
+        pub const TEST_MSG_FRAME_SIZE: usize = TEXT_SIZE + 1;
 
         #[cfg(test)]
         mod test {
@@ -180,12 +180,14 @@ pub mod setup {
             // for simplicity the framer assume each message to be of fixed size, this test just to avoid mistakes
             #[test]
             fn test_msg_len() {
-                assert_eq!(TestCltMsgDebug::default().byte_len(), FRAME_SIZE);
-                assert_eq!(TestCltMsgLoginReq::default().byte_len(), FRAME_SIZE);
-                assert_eq!(TestSvcMsgDebug::default().byte_len(), FRAME_SIZE);
-                assert_eq!(TestSvcMsgLoginAcpt::default().byte_len(), FRAME_SIZE);
-                assert_eq!(TestHBeatMsgDebug::default().byte_len(), FRAME_SIZE);
+                assert_eq!(TestCltMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
+                assert_eq!(TestCltMsgLoginReq::default().byte_len(), TEST_MSG_FRAME_SIZE);
+                assert_eq!(TestSvcMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
+                assert_eq!(TestSvcMsgLoginAcpt::default().byte_len(), TEST_MSG_FRAME_SIZE);
+                assert_eq!(TestHBeatMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
             }
         }
     }
+
+    
 }

@@ -147,17 +147,17 @@ mod test {
     use log::{info, Level};
 
     #[test]
-    fn test_svc_bind() {
-        setup::log::configure();
-        let addr = "0.0.0.0:8080"; // setup::net::rand_avail_addr_port();
-        let clbk = LoggerCallback::<TestSvcMsgProtocol>::new_ref(Level::Info, Level::Info);
-        let acceptor = SvcAcceptor::new_ref("IO");
-        let res = Svc::bind(&addr, clbk, Some("test_svc_bind"), acceptor);
-        info!("res: {:?}", res);
-        sleep(Duration::from_secs(10));
-        // assert!(res.is_ok());
-        // sleep(Duration::from_secs(10));
-    }
+    // fn test_svc_bind() {
+    //     setup::log::configure();
+    //     let addr = "0.0.0.0:8080"; // setup::net::rand_avail_addr_port();
+    //     let clbk = LoggerCallback::<TestSvcMsgProtocol>::new_ref(Level::Info, Level::Info);
+    //     let acceptor = SvcAcceptor::new_ref("IO");
+    //     let res = Svc::bind(&addr, clbk, Some("test_svc_bind"), acceptor);
+    //     info!("res: {:?}", res);
+    //     sleep(Duration::from_secs(10));
+    //     // assert!(res.is_ok());
+    //     // sleep(Duration::from_secs(10));
+    // }
 
     #[test]
     fn test_channel() {

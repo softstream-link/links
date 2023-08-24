@@ -40,9 +40,9 @@ impl<M: Messenger> CallbackSendRecv<M> for DevNullCallback<M> {
 #[cfg(test)]
 mod test {
 
-    use crate::unittest::setup::model::*;
-    use crate::unittest::setup::protocol::*;
+    use crate::unittest::setup::messenger::TestCltMsgProtocol;
     use links_testing::unittest::setup;
+    use links_testing::unittest::setup::model::*;
 
     use super::*;
 
