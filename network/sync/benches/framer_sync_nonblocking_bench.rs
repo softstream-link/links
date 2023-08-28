@@ -1,16 +1,14 @@
 use std::{
     net::{TcpListener, TcpStream},
-    // os::fd::AsRawFd,
     thread,
 };
 
 use bytes::{Bytes, BytesMut};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_network_core::prelude::Framer;
-use links_network_sync::connect::framer::blocking::into_frame_processor;
+use links_network_sync::connect::framer::nonblocking::{into_frame_processor, Partial};
 use links_testing::unittest::setup;
 use log::{error, info};
-use nix::sys::socket::{sockopt::ReusePort, setsockopt};
 use num_format::{Locale, ToFormattedString};
 
 const BENCH_MAX_FRAME_SIZE: usize = 128;
@@ -38,7 +36,6 @@ fn send_random_frame(c: &mut Criterion) {
         .spawn({
             move || {
                 let listener = TcpListener::bind(addr).unwrap();
-                setsockopt(&listener, ReusePort, &true).unwrap();
                 let (stream, _) = listener.accept().unwrap();
                 let (mut reader, _) =
                     into_frame_processor::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
@@ -47,12 +44,15 @@ fn send_random_frame(c: &mut Criterion) {
                 loop {
                     let res = reader.read_frame();
                     match res {
-                        Ok(None) => {
+                        Ok(Partial::Content(None)) => {
                             info!("svc: read_frame is None, client closed connection");
                             break;
                         }
-                        Ok(Some(_)) => {
+                        Ok(Partial::Content(Some(_))) => {
                             frame_recv_count += 1;
+                        }
+                        Ok(Partial::NotReady) => {
+                            continue; // try reading again
                         }
                         Err(e) => {
                             info!("Svc read_rame error: {}", e.to_string());
@@ -73,7 +73,7 @@ fn send_random_frame(c: &mut Criterion) {
     // info!("clt: writer: {}", writer);
 
     let id = format!(
-        "send_random_frame BLOCKING size: {} bytes",
+        "send_random_frame NON-BLOCKING size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
     let mut frame_send_count = 0_u32;
@@ -108,7 +108,6 @@ fn recv_random_frame(c: &mut Criterion) {
         .spawn({
             move || {
                 let listener = TcpListener::bind(addr).unwrap();
-                setsockopt(&listener, ReusePort, &true).unwrap();
                 let (stream, _) = listener.accept().unwrap();
                 let (_, mut writer) =
                     into_frame_processor::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
@@ -138,15 +137,29 @@ fn recv_random_frame(c: &mut Criterion) {
     // info!("clt: reader: {}", reader);
 
     let id = format!(
-        "recv_random_frame BLOCKING size: {} bytes",
+        "recv_random_frame NON-BLOCKING size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
     let mut frame_recv_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                reader.read_frame().unwrap();
-                frame_recv_count += 1;
+                loop {
+                    let res = reader.read_frame();
+                    match res {
+                        Ok(Partial::Content(Some(_))) => {
+                            frame_recv_count += 1;
+                            break;
+                        }
+
+                        Ok(Partial::NotReady) => {
+                            continue;
+                        }
+                        _ => {
+                            panic!("clt: read_frame error: {:?}", res);
+                        }
+                    }
+                }
             })
         })
     });
@@ -182,12 +195,15 @@ fn round_trip_random_frame(c: &mut Criterion) {
                 loop {
                     let res = reader.read_frame();
                     match res {
-                        Ok(None) => {
+                        Ok(Partial::Content(None)) => {
                             info!("svc: read_frame is None, client closed connection");
                             break;
                         }
-                        Ok(Some(recv_frame)) => {
+                        Ok(Partial::Content(Some(recv_frame))) => {
                             writer.write_frame(&recv_frame).unwrap();
+                        }
+                        Ok(Partial::NotReady) => {
+                            continue; // try reading again
                         }
                         Err(e) => {
                             error!("Svc read_frame error: {}", e.to_string());
@@ -207,7 +223,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
     // info!("clt: writer: {}", writer);
 
     let id = format!(
-        "round_trip_random_frame BLOCKING size: {} bytes",
+        "round_trip_random_frame NON-BLOCKING size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
     let mut frame_send_count = 0_u32;
@@ -217,15 +233,22 @@ fn round_trip_random_frame(c: &mut Criterion) {
             black_box({
                 writer.write_frame(random_frame).unwrap();
                 frame_send_count += 1;
-                let res = reader.read_frame();
-                frame_recv_count += 1;
-                match res {
-                    Ok(None) => {
-                        panic!("clt: read_frame is None, server closed connection");
-                    }
-                    Ok(Some(_)) => {}
-                    Err(e) => {
-                        panic!("clt: read_frame error: {}", e.to_string());
+                loop {
+                    let res = reader.read_frame();
+                    match res {
+                        Ok(Partial::Content(None)) => {
+                            panic!("clt: read_frame is None, server closed connection");
+                        }
+                        Ok(Partial::Content(Some(_))) => {
+                            frame_recv_count += 1;
+                            break;
+                        }
+                        Ok(Partial::NotReady) => {
+                            continue;
+                        }
+                        Err(e) => {
+                            panic!("clt: read_frame error: {}", e.to_string());
+                        }
                     }
                 }
             })

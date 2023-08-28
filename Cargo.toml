@@ -22,6 +22,7 @@ links_network_async = { path = "./network/async" }
 links_network_sync = { path = "./network/sync" }
 links_network_core = { path = "./network/core" }
 bytes = "1.4"
+nix = {version ="0.27", features = ["net"]}
 
 # synch
 mio = {version = "0.8", features = ["os-poll" , "net"]}
@@ -35,6 +36,7 @@ futures = "0.3"                                   # invoke async functions from 
 rand = "0.8"
 chrono = "0.4.26"
 num-format = "0.4"
+
 
 # logging
 log = "0.4"
@@ -51,3 +53,5 @@ lazy_static = "1.4.0"
 
 # bechmarking only
 criterion = { version= "0.5", features = ["async_tokio", "async_futures"]}
+
+
