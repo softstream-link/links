@@ -5,7 +5,7 @@ use tokio::{
 
 use bytes::{Bytes, BytesMut};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_async::connect::framing::into_split_frame_manager;
+use links_network_async::connect::framer::into_split_frame_manager;
 use links_network_core::prelude::Framer;
 use links_testing::unittest::setup::{self, data::random_bytes};
 use log::info;

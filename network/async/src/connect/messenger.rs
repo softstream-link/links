@@ -16,7 +16,7 @@ use tokio::{
     sync::Mutex,
 };
 
-use super::framing::{FrameReader, FrameWriter};
+use super::framer::{FrameReader, FrameWriter};
 
 pub type MsgRecverRef<P, F> = Arc<Mutex<MessageRecver<P, F>>>;
 pub type MsgSenderRef<P, const MMS: usize> = Arc<Mutex<MessageSender<P, MMS>>>;
