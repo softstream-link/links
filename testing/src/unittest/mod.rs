@@ -68,6 +68,13 @@ pub mod setup {
             Some(Duration::from_millis(1))
         }
     }
+    pub mod data {
+        pub fn random_bytes(size: usize) -> &'static [u8] {
+            let data = (0..size).map(|_| rand::random::<u8>()).collect::<Vec<_>>();
+            let leaked_ref: &'static [u8] = Box::leak(data.into_boxed_slice());
+            leaked_ref
+        }
+    }
     pub mod model {
         pub const TEXT_SIZE: usize = 20;
         use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
@@ -181,13 +188,17 @@ pub mod setup {
             #[test]
             fn test_msg_len() {
                 assert_eq!(TestCltMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
-                assert_eq!(TestCltMsgLoginReq::default().byte_len(), TEST_MSG_FRAME_SIZE);
+                assert_eq!(
+                    TestCltMsgLoginReq::default().byte_len(),
+                    TEST_MSG_FRAME_SIZE
+                );
                 assert_eq!(TestSvcMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
-                assert_eq!(TestSvcMsgLoginAcpt::default().byte_len(), TEST_MSG_FRAME_SIZE);
+                assert_eq!(
+                    TestSvcMsgLoginAcpt::default().byte_len(),
+                    TEST_MSG_FRAME_SIZE
+                );
                 assert_eq!(TestHBeatMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
             }
         }
     }
-
-    
 }

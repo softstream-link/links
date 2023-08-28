@@ -10,20 +10,18 @@ pub mod setup {
         use log::info;
 
         use crate::prelude::*;
-        pub struct MsgFramer;
-        impl Framer for MsgFramer {
-            const MAX_FRAME_SIZE: usize = TEST_MSG_FRAME_SIZE;
+        pub struct TestMsgFramer;
+        impl Framer for TestMsgFramer {
             fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-                if bytes.len() <  Self::MAX_FRAME_SIZE {
+                if bytes.len() < TEST_MSG_FRAME_SIZE {
                     return None;
                 } else {
-                    let frame = bytes.split_to(Self::MAX_FRAME_SIZE);
+                    let frame = bytes.split_to(TEST_MSG_FRAME_SIZE);
                     return Some(frame.freeze());
                 }
             }
         }
 
-        // use super::model::*;
         pub const HBEAT_INTERVAL: Duration = Duration::from_millis(500);
         #[derive(Debug, Clone, PartialEq)]
         pub struct TestCltMsgProtocol;
@@ -32,9 +30,8 @@ pub mod setup {
             type RecvT = TestSvcMsg;
         }
         impl Framer for TestCltMsgProtocol {
-            const MAX_FRAME_SIZE: usize = MsgFramer::MAX_FRAME_SIZE;
             fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-                MsgFramer::get_frame(bytes)
+                TestMsgFramer::get_frame(bytes)
             }
         }
 
@@ -45,9 +42,8 @@ pub mod setup {
             type RecvT = TestCltMsg;
         }
         impl Framer for TestSvcMsgProtocol {
-            const MAX_FRAME_SIZE: usize = MsgFramer::MAX_FRAME_SIZE;
             fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-                MsgFramer::get_frame(bytes)
+                TestMsgFramer::get_frame(bytes)
             }
         }
 

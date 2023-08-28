@@ -63,10 +63,10 @@ impl<M: Messenger, F: Framer> Display for MessageRecver<M, F> {
 }
 
 impl<M: Messenger, F: Framer> MessageRecver<M, F> {
-    pub fn with_capacity(reader: OwnedReadHalf, capacity: usize, con_id: ConId) -> Self {
+    pub fn with_max_frame_size(reader: OwnedReadHalf, reader_max_frame_size: usize, con_id: ConId) -> Self {
         Self {
             con_id,
-            reader: FrameReader::with_capacity(reader, capacity),
+            reader: FrameReader::with_max_frame_size(reader, reader_max_frame_size),
             phantom: std::marker::PhantomData,
         }
     }
@@ -98,7 +98,7 @@ pub fn into_split_messenger<M: Messenger, const MMS: usize, F: Framer>(
     let (reader, writer) = stream.into_split();
     (
         MessageSender::new(writer, con_id.clone()),
-        MessageRecver::with_capacity(reader, MMS, con_id),
+        MessageRecver::with_max_frame_size(reader, MMS, con_id),
     )
 }
 

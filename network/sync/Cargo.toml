@@ -29,5 +29,5 @@ criterion = { workspace = true } # required to setup benchmarks
 rand = { workspace = true } # required to setup benchmarks
 
 [[bench]]
-name = "blocking_framer"
+name = "framer_sync_blocking_bench"
 harness = false

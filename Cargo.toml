@@ -50,4 +50,4 @@ tokio-test = "0.4.2"
 lazy_static = "1.4.0"
 
 # bechmarking only
-criterion = "0.5"
+criterion = { version= "0.5", features = ["async_tokio", "async_futures"]}

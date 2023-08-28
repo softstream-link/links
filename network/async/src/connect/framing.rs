@@ -23,10 +23,10 @@ pub struct FrameReader<F: Framer> {
     phantom: PhantomData<F>,
 }
 impl<F: Framer> FrameReader<F> {
-    pub fn with_capacity(reader: OwnedReadHalf, capacity: usize) -> FrameReader<F> {
+    pub fn with_max_frame_size(reader: OwnedReadHalf, max_frame_size: usize) -> FrameReader<F> {
         Self {
             reader,
-            buffer: BytesMut::with_capacity(F::MAX_FRAME_SIZE),
+            buffer: BytesMut::with_capacity(max_frame_size),
             phantom: PhantomData,
         }
     }
@@ -107,7 +107,7 @@ pub fn into_split_frame_manager<F: Framer>(
 ) -> FrameManger<F> {
     let (reader, writer) = stream.into_split();
     (
-        FrameReader::<F>::with_capacity(reader, reader_capacity),
+        FrameReader::<F>::with_max_frame_size(reader, reader_capacity),
         FrameWriter::new(writer),
     )
 }

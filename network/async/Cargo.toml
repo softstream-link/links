@@ -24,3 +24,10 @@ tokio-test = { workspace = true }
 lazy_static = { workspace = true }
 
 links_testing = { workspace = true }
+
+criterion = { workspace = true } # required to setup benchmarks
+rand = { workspace = true } # required to setup benchmarks
+
+[[bench]]
+name = "framer_async_bench"
+harness = false

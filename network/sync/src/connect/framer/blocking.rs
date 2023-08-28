@@ -1,8 +1,7 @@
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
 use links_network_core::prelude::*;
-use log::info;
-use std::fmt::{format, Display};
+use std::fmt::Display;
 use std::io::{Read, Write};
 use std::os::fd::AsRawFd;
 use std::{error::Error, net::TcpStream};
