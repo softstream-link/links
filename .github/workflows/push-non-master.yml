@@ -32,8 +32,7 @@ jobs:
       - name: Benchmarking
         run: |
           cd links
-          # cargo bench
-          cargo bench --features full
+          cargo bench --all-features
       - name: Clippy Deny Warnings # TODO remove cd links once byteserde v4 is released
         run: |
           cd links
