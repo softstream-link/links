@@ -1,6 +1,7 @@
 use std::{
     net::{TcpListener, TcpStream},
-    thread,
+    thread::{self, sleep},
+    time::Duration,
 };
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -90,6 +91,8 @@ fn send_msg(c: &mut Criterion) {
             })
             .unwrap();
 
+    sleep(Duration::from_millis(100)); // allow the spawned to bind
+
     // CONFIGUR clt
     let (_, mut writer) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
         TcpStream::connect(addr).unwrap(),
@@ -153,6 +156,8 @@ fn recv_msg(c: &mut Criterion) {
                 }
             })
             .unwrap();
+
+    sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGUR clt
     let (mut reader, _) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
@@ -220,6 +225,8 @@ fn round_trip_msg(c: &mut Criterion) {
             }
         })
         .unwrap();
+
+    sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGUR clt
     let stream = TcpStream::connect(addr).unwrap();

@@ -1,6 +1,7 @@
 use std::{
     net::{TcpListener, TcpStream},
-    thread,
+    thread::{self, sleep},
+    time::Duration,
 };
 
 use bytes::{Bytes, BytesMut};
@@ -65,6 +66,8 @@ fn send_random_frame(c: &mut Criterion) {
         })
         .unwrap();
 
+    sleep(Duration::from_millis(100)); // allow the spawned to bind
+
     // CONFIGUR clt
     let (_, mut writer) = into_split_framer::<BenchMsgFramer>(
         TcpStream::connect(addr).unwrap(),
@@ -128,6 +131,8 @@ fn recv_random_frame(c: &mut Criterion) {
             }
         })
         .unwrap();
+
+    sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGUR clt
     let (mut reader, _) = into_split_framer::<BenchMsgFramer>(
@@ -214,6 +219,8 @@ fn round_trip_random_frame(c: &mut Criterion) {
             }
         })
         .unwrap();
+
+    sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGUR clt
     let stream = TcpStream::connect(addr).unwrap();
