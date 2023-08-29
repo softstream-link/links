@@ -218,7 +218,7 @@ mod test {
             })
             .unwrap();
 
-        sleep(Duration::from_millis(100)); // allow the spanwed to bind
+        sleep(Duration::from_millis(100)); // allow the spawned to bind
         // CONFIGUR clt
         let (_, mut writer) =
             into_split_framer::<MsgFramer>(TcpStream::connect(addr).unwrap(), TEST_SEND_FRAME_SIZE);

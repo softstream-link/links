@@ -100,7 +100,7 @@ where
 #[cfg(feature = "unittest")]
 mod test {
     use crate::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol};
-    use std::{net::TcpListener, thread::Builder};
+    use std::{net::TcpListener, thread::{Builder, sleep}, time::Duration};
 
     use super::*;
     use links_testing::unittest::setup::{
@@ -144,10 +144,12 @@ mod test {
             }
         }).unwrap();
 
+        sleep(Duration::from_millis(100)); // allow the spawned to bind
         let inp_clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
         let clt = Builder::new().name("Thread-Clt".to_owned()).spawn({
             let inp_clt_msg = inp_clt_msg.clone();
             move || {
+                
                 let stream = TcpStream::connect(addr).unwrap();
                 let (mut recver, mut sender) =
                     into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
