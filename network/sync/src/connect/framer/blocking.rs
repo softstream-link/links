@@ -129,7 +129,7 @@ mod test {
     use super::*;
     use std::{
         net::TcpListener,
-        thread::{self},
+        thread::{self, sleep}, time::Duration,
     };
 
     use links_testing::unittest::setup;
@@ -191,6 +191,7 @@ mod test {
             })
             .unwrap();
 
+        sleep(Duration::from_millis(100)); // allow the spanwed to bind
         // CONFIGUR clt
         let (_, mut writer) = into_split_framer::<MsgFramer>(
             TcpStream::connect(addr).unwrap(),

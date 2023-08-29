@@ -149,7 +149,10 @@ pub fn into_split_framer<F: Framer>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::{net::TcpListener, thread};
+    use std::{
+        net::TcpListener,
+        thread::{self, sleep}, time::Duration,
+    };
 
     use byteserde::utils::hex::to_hex_pretty;
 
@@ -215,11 +218,10 @@ mod test {
             })
             .unwrap();
 
+        sleep(Duration::from_millis(100)); // allow the spanwed to bind
         // CONFIGUR clt
-        let (_, mut writer) = into_split_framer::<MsgFramer>(
-            TcpStream::connect(addr).unwrap(),
-            TEST_SEND_FRAME_SIZE,
-        );
+        let (_, mut writer) =
+            into_split_framer::<MsgFramer>(TcpStream::connect(addr).unwrap(), TEST_SEND_FRAME_SIZE);
 
         info!("clt: {}", writer);
 

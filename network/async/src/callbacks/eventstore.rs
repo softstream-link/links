@@ -6,12 +6,10 @@ use std::{
 };
 
 use chrono::{DateTime, Local};
-use links_network_core::prelude::{ConId, Messenger, Entry};
+use links_network_core::prelude::{ConId, Entry, Messenger};
 use tokio::{runtime::Runtime, task::yield_now};
 
 use links_network_core::prelude::{CallbackEvent, CallbackSendRecv, Dir};
-
-
 
 pub type EventStoreAsyncRef<T> = Arc<EventStoreAsync<T>>;
 
@@ -363,7 +361,7 @@ mod test {
         // RECV find upacks the event into TestMsg
         let svc_recv = event_store.find_recv(
             "svc",
-            |msg| matches!(msg, TestMsg::Clt(TestCltMsg::Dbg(TestCltMsgDebug{text, ..})) if text == &b"SVC: on_recv Message".into() ),
+            |msg| matches!(msg, TestMsg::Clt(TestCltMsg::Dbg(TestCltMsgDebug{text, ..})) if text == &b"SVC: on_recv Message".as_slice().into() ),
             None
         );
         info!("svc_recv: {:?}", svc_recv);
@@ -372,7 +370,7 @@ mod test {
         // SEND find upacks the event into TestMsg
         let svc_send = event_store.find_send(
             "svc",
-            |msg| matches!(msg, TestMsg::Svc(TestSvcMsg::Dbg(TestSvcMsgDebug{text, ..})) if text == &b"SVC: on_send Message".into() ),
+            |msg| matches!(msg, TestMsg::Svc(TestSvcMsg::Dbg(TestSvcMsgDebug{text, ..})) if text == &b"SVC: on_send Message".as_slice().into() ),
             None
         );
         info!("svc_send: {:?}", svc_send);
@@ -381,7 +379,7 @@ mod test {
         // RECV find upacks the event into TestMsg
         let clt_recv = event_store.find_recv(
             "clt",
-            |msg| matches!(msg, TestMsg::Svc(TestSvcMsg::Dbg(TestSvcMsgDebug{text, ..})) if text == &b"CLT: on_recv Message".into() ),
+            |msg| matches!(msg, TestMsg::Svc(TestSvcMsg::Dbg(TestSvcMsgDebug{text, ..})) if text == &b"CLT: on_recv Message".as_slice().into() ),
             None
         );
         info!("clt_recv: {:?}", clt_recv);
@@ -390,7 +388,7 @@ mod test {
         // SEND find upacks the event into TestMsg
         let clt_send = event_store.find_send(
             "clt",
-            |msg| matches!(msg, TestMsg::Clt(TestCltMsg::Dbg(TestCltMsgDebug{text, ..})) if text == &b"CLT: on_send Message".into() ),
+            |msg| matches!(msg, TestMsg::Clt(TestCltMsg::Dbg(TestCltMsgDebug{text, ..})) if text == &b"CLT: on_send Message".as_slice().into() ),
             None
         );
         info!("clt_send: {:?}", clt_send);

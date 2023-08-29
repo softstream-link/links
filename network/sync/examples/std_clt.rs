@@ -14,7 +14,7 @@ fn main() {
     println!("connected reader: {:?}", reader);
     println!("connected writer: {:?}", writer);
     spawn(move || {
-        for i in 0..10 {
+        for _ in 0..10 {
             loop {
                 match writer.write(b"Hello World") {
                     Ok(0) => {

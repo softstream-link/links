@@ -4,11 +4,9 @@ use bytes::{Bytes, BytesMut};
 use links_network_async::prelude::*;
 
 #[derive(Debug)]
-pub struct SoupBinFramer<const MAX_FRAME_SIZE: usize>;
+pub struct SoupBinFramer;
 
-impl<const MAX_FRAME_SIZE: usize> Framer for SoupBinFramer<MAX_FRAME_SIZE> {
-    const MAX_FRAME_SIZE: usize = MAX_FRAME_SIZE;
-
+impl Framer for SoupBinFramer {
     fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
         // ensures there is at least 2 bytes to represent packet_length
         if bytes.len() < 2 {
@@ -80,7 +78,7 @@ mod test {
 
         let mut msg_out: Vec<SBCltMsg<SamplePayload>> = vec![];
         loop {
-            let frame = SoupBinFramer::<CAP>::get_frame(&mut bytes);
+            let frame = SoupBinFramer::get_frame(&mut bytes);
             match frame {
                 Some(frame) => {
                     let des = &mut ByteDeserializerSlice::new(&frame[..]);
@@ -120,7 +118,7 @@ mod test {
             let len = bytes.len();
             // let des = &mut ByteDeserializerSlice::new(&bytes[..]);
             // info!("des: {des:#x}");
-            let frame = SoupBinFramer::<CAP>::get_frame(&mut bytes);
+            let frame = SoupBinFramer::get_frame(&mut bytes);
 
             match frame {
                 Some(frame) => {
