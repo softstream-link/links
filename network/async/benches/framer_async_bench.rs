@@ -1,3 +1,5 @@
+use std::{thread::sleep, time::Duration};
+
 use tokio::{
     net::{TcpListener, TcpStream},
     runtime::Builder,
@@ -59,6 +61,8 @@ fn send_random_frame_block_on(c: &mut Criterion) {
         }
         frame_recv_count
     });
+
+    sleep(Duration::from_millis(100)); // wait for svc to start
 
     // CONFIGUR clt
     let mut writer = clt_runtime.block_on(async move {
@@ -125,6 +129,7 @@ fn send_random_frame_as_async(c: &mut Criterion) {
         }
     });
 
+    sleep(Duration::from_millis(100)); // wait for svc to start
     let random_frame = random_bytes(BENCH_MAX_FRAME_SIZE);
     let id = format!(
         "send_random_frame_as_async size: {} bytes",
@@ -179,10 +184,12 @@ fn recv_random_frame_as_async(c: &mut Criterion) {
         }
     });
 
+    sleep(Duration::from_millis(100)); // wait for svc to start
     let id = format!(
         "recv_random_frame_as_async size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
+
     c.bench_function(id.as_str(), {
         |b| {
             let clt_runtime = Builder::new_multi_thread().enable_all().build().unwrap();
@@ -234,6 +241,7 @@ fn round_trip_random_frame_as_async(c: &mut Criterion) {
             }
         }
     });
+    sleep(Duration::from_millis(100)); // wait for svc to start
 
     let random_frame = random_bytes(BENCH_MAX_FRAME_SIZE);
     let id = format!(
@@ -263,8 +271,8 @@ fn round_trip_random_frame_as_async(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    recv_random_frame_as_async,
     send_random_frame_as_async,
+    recv_random_frame_as_async,
     round_trip_random_frame_as_async,
     send_random_frame_block_on,
 );
