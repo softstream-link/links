@@ -9,10 +9,15 @@ use std::os::fd::AsRawFd;
 
 const EOF: usize = 0;
 #[derive(Debug)]
-pub enum Partial<T> {
-    Content(Option<T>),
+pub enum ReadStatus<T> {
+    Completed(Option<T>),
     NotReady,
 }
+pub enum WriteStatus {
+    Completed,
+    NotReady,
+}
+
 pub struct FrameReader<F: Framer> {
     reader: TcpStreamMio,
     buffer: BytesMut,
@@ -29,10 +34,10 @@ impl<F: Framer> FrameReader<F> {
         }
     }
     #[inline]
-    pub fn read_frame(&mut self) -> Result<Partial<Bytes>, Box<dyn Error>> {
+    pub fn read_frame(&mut self) -> Result<ReadStatus<Bytes>, Box<dyn Error>> {
         loop {
             if let Some(bytes) = F::get_frame(&mut self.buffer) {
-                return Ok(Partial::Content(Some(bytes)));
+                return Ok(ReadStatus::Completed(Some(bytes)));
             } else {
                 self.buffer.reserve(self.max_frame_size);
 
@@ -45,7 +50,7 @@ impl<F: Framer> FrameReader<F> {
                 match self.reader.read(&mut self.buffer[residual..]) {
                     Ok(EOF) => {
                         if residual == 0 {
-                            return Ok(Partial::Content(None));
+                            return Ok(ReadStatus::Completed(None));
                         } else {
                             unsafe { self.buffer.set_len(residual) };
                             return Err(format!(
@@ -62,7 +67,7 @@ impl<F: Framer> FrameReader<F> {
                         unsafe {
                             self.buffer.set_len(residual);
                         }
-                        return Ok(Partial::NotReady);
+                        return Ok(ReadStatus::NotReady);
                     }
                     Err(e) => {
                         return Err(format!("read error: {}", e.to_string()).into());
@@ -100,10 +105,19 @@ impl FrameWriter {
         Self { writer: stream }
     }
     #[inline]
-    pub fn write_frame(&mut self, bytes: &[u8]) -> Result<(), Box<dyn Error>> {
-        self.writer.write_all(&bytes)?;
+    pub fn write_frame(&mut self, bytes: &[u8]) -> Result<WriteStatus, Box<dyn Error>> {
+        match self.writer.write_all(&bytes) {
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                return Ok(WriteStatus::NotReady);
+            }
+            Err(e) => {
+                return Err(format!("write error: {}", e.to_string()).into());
+            }
+            Ok(_) => {}
+        }
+
         self.writer.flush()?;
-        Ok(())
+        Ok(WriteStatus::Completed)
     }
 }
 impl Display for FrameWriter {
@@ -151,7 +165,8 @@ mod test {
     use super::*;
     use std::{
         net::TcpListener,
-        thread::{self, sleep}, time::Duration,
+        thread::{self, sleep},
+        time::Duration,
     };
 
     use byteserde::utils::hex::to_hex_pretty;
@@ -197,14 +212,14 @@ mod test {
                     loop {
                         let res = reader.read_frame();
                         match res {
-                            Ok(Partial::Content(None)) => {
+                            Ok(ReadStatus::Completed(None)) => {
                                 info!("svc: read_frame is None, client closed connection");
                                 break;
                             }
-                            Ok(Partial::Content(Some(_))) => {
+                            Ok(ReadStatus::Completed(Some(_))) => {
                                 frame_recv_count += 1;
                             }
-                            Ok(Partial::NotReady) => {
+                            Ok(ReadStatus::NotReady) => {
                                 continue; // try reading again
                             }
                             Err(e) => {
@@ -219,7 +234,7 @@ mod test {
             .unwrap();
 
         sleep(Duration::from_millis(100)); // allow the spawned to bind
-        // CONFIGUR clt
+                                           // CONFIGUR clt
         let (_, mut writer) =
             into_split_framer::<MsgFramer>(TcpStream::connect(addr).unwrap(), TEST_SEND_FRAME_SIZE);
 
@@ -227,8 +242,21 @@ mod test {
 
         let mut frame_send_count = 0_usize;
         for _ in 0..WRITE_N_TIMES {
-            writer.write_frame(random_frame).unwrap();
-            frame_send_count += 1;
+            loop {
+                match writer.write_frame(random_frame) {
+                    Ok(WriteStatus::Completed) => {
+                        frame_send_count += 1;
+                        break;
+                    }
+                    Ok(WriteStatus::NotReady) => {
+                        continue;
+                    }
+                    Err(e) => {
+                        error!("clt write_frame error: {}", e.to_string());
+                        break;
+                    }
+                }
+            }
         }
         info!(
             "frame_send_count: {}",
@@ -241,6 +269,6 @@ mod test {
             "frame_recv_count: {}",
             frame_recv_count.to_formatted_string(&Locale::en)
         );
-        // assert_eq!(frame_send_count, frame_recv_count);
+        assert_eq!(frame_send_count, frame_recv_count);
     }
 }

@@ -7,7 +7,9 @@ use std::{
 use bytes::{Bytes, BytesMut};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_network_core::prelude::Framer;
-use links_network_sync::connect::framer::nonblocking::{into_split_framer, Partial};
+use links_network_sync::connect::framer::nonblocking::{
+    into_split_framer, ReadStatus, WriteStatus,
+};
 use links_testing::unittest::setup;
 use log::{error, info};
 use num_format::{Locale, ToFormattedString};
@@ -43,16 +45,15 @@ fn send_random_frame(c: &mut Criterion) {
                 // info!("svc: reader: {}", reader);
                 let mut frame_recv_count = 0_u32;
                 loop {
-                    let res = reader.read_frame();
-                    match res {
-                        Ok(Partial::Content(None)) => {
+                    match reader.read_frame() {
+                        Ok(ReadStatus::Completed(None)) => {
                             info!("svc: read_frame is None, client closed connection");
                             break;
                         }
-                        Ok(Partial::Content(Some(_))) => {
+                        Ok(ReadStatus::Completed(Some(_))) => {
                             frame_recv_count += 1;
                         }
-                        Ok(Partial::NotReady) => {
+                        Ok(ReadStatus::NotReady) => {
                             continue; // try reading again
                         }
                         Err(e) => {
@@ -83,7 +84,19 @@ fn send_random_frame(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                writer.write_frame(random_frame).unwrap();
+                loop {
+                    match writer.write_frame(random_frame) {
+                        Ok(WriteStatus::Completed) => {
+                            break;
+                        }
+                        Ok(WriteStatus::NotReady) => {
+                            continue;
+                        }
+                        Err(e) => {
+                            panic!("clt: write_frame error: {}", e.to_string());
+                        }
+                    }
+                }
                 frame_send_count += 1;
             })
         })
@@ -117,15 +130,19 @@ fn recv_random_frame(c: &mut Criterion) {
                 // info!("svc: writer: {}", writer);
                 let mut frame_send_count = 0_u32;
                 loop {
-                    let res = writer.write_frame(random_frame);
-                    match res {
-                        Ok(_) => {}
+                    match writer.write_frame(random_frame) {
+                        Ok(WriteStatus::Completed) => {
+                            frame_send_count += 1;
+                        }
+                        Ok(WriteStatus::NotReady)=>{
+                            continue;
+                        }
                         Err(e) => {
                             info!("Svc write_frame, expected error: {}", e.to_string()); // not error as client will stop reading and drop
                             break;
                         }
                     }
-                    frame_send_count += 1;
+                    
                 }
                 frame_send_count
             }
@@ -150,18 +167,19 @@ fn recv_random_frame(c: &mut Criterion) {
         b.iter(|| {
             black_box({
                 loop {
-                    let res = reader.read_frame();
-                    match res {
-                        Ok(Partial::Content(Some(_))) => {
+                    match reader.read_frame() {
+                        Ok(ReadStatus::Completed(Some(_))) => {
                             frame_recv_count += 1;
                             break;
                         }
-
-                        Ok(Partial::NotReady) => {
+                        Ok(ReadStatus::NotReady) => {
                             continue;
                         }
-                        _ => {
-                            panic!("clt: read_frame error: {:?}", res);
+                        Ok(ReadStatus::Completed(None)) => {
+                            panic!("clt: read_frame is None, server closed connection");
+                        }
+                        Err(e) => {
+                            panic!("clt: read_frame error: {:?}", e);
                         }
                     }
                 }
@@ -200,14 +218,14 @@ fn round_trip_random_frame(c: &mut Criterion) {
                 loop {
                     let res = reader.read_frame();
                     match res {
-                        Ok(Partial::Content(None)) => {
+                        Ok(ReadStatus::Completed(None)) => {
                             info!("svc: read_frame is None, client closed connection");
                             break;
                         }
-                        Ok(Partial::Content(Some(recv_frame))) => {
+                        Ok(ReadStatus::Completed(Some(recv_frame))) => {
                             writer.write_frame(&recv_frame).unwrap();
                         }
-                        Ok(Partial::NotReady) => {
+                        Ok(ReadStatus::NotReady) => {
                             continue; // try reading again
                         }
                         Err(e) => {
@@ -238,19 +256,30 @@ fn round_trip_random_frame(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                writer.write_frame(random_frame).unwrap();
-                frame_send_count += 1;
                 loop {
-                    let res = reader.read_frame();
-                    match res {
-                        Ok(Partial::Content(None)) => {
+                    match writer.write_frame(random_frame){
+                        Ok(WriteStatus::Completed) => {
+                            frame_send_count += 1;
+                            break;
+                        }
+                        Ok(WriteStatus::NotReady) => {
+                            continue;
+                        }
+                        Err(e) => {
+                            panic!("clt: write_frame error: {}", e.to_string());
+                        }
+                    }
+                }
+                loop {
+                    match reader.read_frame() {
+                        Ok(ReadStatus::Completed(None)) => {
                             panic!("clt: read_frame is None, server closed connection");
                         }
-                        Ok(Partial::Content(Some(_))) => {
+                        Ok(ReadStatus::Completed(Some(_))) => {
                             frame_recv_count += 1;
                             break;
                         }
-                        Ok(Partial::NotReady) => {
+                        Ok(ReadStatus::NotReady) => {
                             continue;
                         }
                         Err(e) => {
