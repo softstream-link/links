@@ -47,7 +47,7 @@ colored =  "2.0"
 links_soupbintcp_async = { path = "./protocols/soupbintcp" }
 
 # testing only
-links_testing = { path = "./testing", features = ["unittest"] }
+links_testing = { path = "./testing" }
 tokio-test = "0.4.2"
 lazy_static = "1.4.0"
 

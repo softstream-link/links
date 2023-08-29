@@ -19,9 +19,11 @@ log = { workspace = true }
 byteserde = { workspace = true } # required to do serialization and deserialization
 
 
+links_testing = { workspace = true, optional = true } # benchmarks
 [dev-dependencies]
+links_testing = { workspace = true } # tests
+
 env_logger = { workspace = true }
-links_testing = { workspace = true }
 num-format = { workspace = true }
 
 byteserde_types = { workspace = true }  # required to setup unit test models
@@ -29,7 +31,15 @@ byteserde_derive = { workspace = true } # required to setup unit test models
 
 
 criterion = { workspace = true } # required to setup benchmarks
-rand = { workspace = true } # required to setup benchmarks
+rand = { workspace = true }      # required to setup benchmarks
+
+
+
+
+[features]
+default = ["full"]               # TODO desable full during release
+full = ["unittest"]
+unittest = ["dep:links_testing"] 
 
 
 [[bench]]
@@ -39,3 +49,8 @@ harness = false
 [[bench]]
 name = "framer_sync_nonblocking_bench"
 harness = false
+
+[[bench]]
+name = "messender_sync_blocking_bench"
+harness = false
+required-features  = ["unittest" ]

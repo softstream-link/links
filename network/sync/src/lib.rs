@@ -2,5 +2,5 @@ pub mod connect;
 pub mod prelude;
 pub mod scheduler;
 
-#[cfg(test)]
+#[cfg(feature = "unittest")]
 pub mod unittest;

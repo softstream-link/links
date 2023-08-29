@@ -7,16 +7,14 @@ edition = "2021"
 
 [dependencies]
 bytes = { workspace = true }
-byteserde = { workspace = true } # required to do serialization and deserialization
 num-format = { workspace = true }
 log = { workspace = true }
 
+byteserde = { workspace = true } # TODO should be eliminated once trait Messenger is moved to tempalte serializization
+
+
 [dev-dependencies]
 env_logger = { workspace = true }
-
+links_testing = { workspace = true }
 byteserde_types = { workspace = true }  # required to setup unit test models
 byteserde_derive = { workspace = true } # required to setup unit test models
-
-links_testing = { workspace = true }
-
-

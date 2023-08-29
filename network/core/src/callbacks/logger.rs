@@ -79,7 +79,6 @@ impl<M: Messenger> CallbackSendRecv<M> for LoggerCallback<M> {
 }
 
 #[cfg(test)]
-#[cfg(feature = "unittest")]
 mod test {
 
     use crate::unittest::setup::messenger::TestCltMsgProtocol;

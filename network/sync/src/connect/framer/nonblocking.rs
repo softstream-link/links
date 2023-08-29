@@ -123,7 +123,7 @@ impl Display for FrameWriter {
 }
 
 type FrameProcessor<F> = (FrameReader<F>, FrameWriter);
-pub fn into_frame_processor<F: Framer>(
+pub fn into_split_framer<F: Framer>(
     stream: TcpStream,
     reader_max_frame_size: usize,
 ) -> FrameProcessor<F> {
@@ -188,7 +188,7 @@ mod test {
                     let listener = TcpListener::bind(addr).unwrap();
                     let (stream, _) = listener.accept().unwrap();
                     let (mut reader, _) =
-                        into_frame_processor::<MsgFramer>(stream, TEST_SEND_FRAME_SIZE);
+                        into_split_framer::<MsgFramer>(stream, TEST_SEND_FRAME_SIZE);
                     info!("svc: reader: {}", reader);
                     let mut frame_recv_count = 0_usize;
                     loop {
@@ -216,7 +216,7 @@ mod test {
             .unwrap();
 
         // CONFIGUR clt
-        let (_, mut writer) = into_frame_processor::<MsgFramer>(
+        let (_, mut writer) = into_split_framer::<MsgFramer>(
             TcpStream::connect(addr).unwrap(),
             TEST_SEND_FRAME_SIZE,
         );

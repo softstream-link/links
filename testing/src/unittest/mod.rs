@@ -76,7 +76,7 @@ pub mod setup {
         }
     }
     pub mod model {
-        pub const TEXT_SIZE: usize = 20;
+        pub const TEXT_SIZE: usize = 127;
         use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
         use byteserde_types::prelude::*;
 
