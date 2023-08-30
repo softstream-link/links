@@ -87,6 +87,7 @@ fn send_random_frame(c: &mut Criterion) {
                 loop {
                     match writer.write_frame(random_frame) {
                         Ok(WriteStatus::Completed) => {
+                            frame_send_count += 1;
                             break;
                         }
                         Ok(WriteStatus::NotReady) => {
@@ -97,7 +98,6 @@ fn send_random_frame(c: &mut Criterion) {
                         }
                     }
                 }
-                frame_send_count += 1;
             })
         })
     });
