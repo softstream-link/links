@@ -105,7 +105,7 @@ fn send_random_frame(c: &mut Criterion) {
     drop(writer); // this will allow svc.join to complete
     let frame_recv_count = reader.join().unwrap();
     info!(
-        "send_count: {:?}, recv_count: {:?}",
+        "frame_send_count: {:?} = frame_recv_count: {:?}",
         frame_send_count.to_formatted_string(&Locale::en),
         frame_recv_count.to_formatted_string(&Locale::en)
     );
@@ -190,7 +190,7 @@ fn recv_random_frame(c: &mut Criterion) {
     drop(reader); // this will allow svc.join to complete
     let frame_send_count = writer.join().unwrap();
     info!(
-        "send_count: {:?}, recv_count: {:?}",
+        "frame_send_count: {:?} > frame_recv_count: {:?}",
         frame_send_count.to_formatted_string(&Locale::en),
         frame_recv_count.to_formatted_string(&Locale::en)
     );
@@ -295,7 +295,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
     drop(reader);
     svc.join().unwrap();
     info!(
-        "send_count: {:?}, recv_count: {:?}",
+        "frame_send_count: {:?} = frame_recv_count: {:?}",
         frame_send_count.to_formatted_string(&Locale::en),
         frame_recv_count.to_formatted_string(&Locale::en)
     );
