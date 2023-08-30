@@ -39,8 +39,10 @@ impl<F: Framer> FrameReader<F> {
             if let Some(bytes) = F::get_frame(&mut self.buffer) {
                 return Ok(ReadStatus::Completed(Some(bytes)));
             } else {
-                self.buffer.reserve(self.max_frame_size);
-
+                if self.buffer.capacity() < self.max_frame_size {
+                    self.buffer.reserve(self.max_frame_size);
+                }
+                // in non blocking mode this debug-assert can fail on linux unless the reserver is done conditionally
                 debug_assert_eq!(self.buffer.capacity(), self.max_frame_size);
 
                 let residual = self.buffer.len();
@@ -170,11 +172,9 @@ mod test {
     };
 
     use byteserde::utils::hex::to_hex_pretty;
-
-    use num_format::{Locale, ToFormattedString};
-
     use links_testing::unittest::setup;
     use log::{error, info};
+    use num_format::{Locale, ToFormattedString};
 
     #[test]
     fn test_reader() {
