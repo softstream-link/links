@@ -103,10 +103,12 @@ fn send_msg(c: &mut Criterion) {
     let id = format!("send_msg_as_sync_blocking TestCltMsg");
 
     let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+    let mut msg_send_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
                 writer.send(&msg).unwrap();
+                msg_send_count += 1;
             })
         })
     });
@@ -114,9 +116,11 @@ fn send_msg(c: &mut Criterion) {
     drop(writer); // this will allow svc.join to complete
     let msg_recv_count = reader.join().unwrap();
     info!(
-        "msg_recv_count: {:?}",
+        "msg_send_count: {:?}, msg_recv_count: {:?}",
+        msg_send_count.to_formatted_string(&Locale::en),
         msg_recv_count.to_formatted_string(&Locale::en)
     );
+    assert_eq!(msg_send_count, msg_recv_count);
 }
 
 fn recv_msg(c: &mut Criterion) {
@@ -167,10 +171,12 @@ fn recv_msg(c: &mut Criterion) {
     // info!("clt: reader: {}", reader);
 
     let id = format!("recv_msg_as_sync_blocking TestCltMsg");
+    let mut msg_recv_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
                 let _x = reader.recv().unwrap();
+                msg_recv_count += 1;
             })
         })
     });
@@ -178,11 +184,12 @@ fn recv_msg(c: &mut Criterion) {
     drop(reader); // this will allow svc.join to complete
     let msg_send_count = writer.join().unwrap();
     info!(
-        "msg_send_count: {:?}",
-        msg_send_count.to_formatted_string(&Locale::en)
+        "msg_send_count: {:?}, msg_recv_count: {:?}",
+        msg_send_count.to_formatted_string(&Locale::en),
+        msg_recv_count.to_formatted_string(&Locale::en)
     );
 
-    // assert!(frame_send_count > frame_recv_count);
+    assert!(msg_send_count > msg_recv_count);
 }
 
 fn round_trip_msg(c: &mut Criterion) {

@@ -129,7 +129,8 @@ mod test {
     use super::*;
     use std::{
         net::TcpListener,
-        thread::{self, sleep}, time::Duration,
+        thread::{self, sleep},
+        time::{Duration, Instant},
     };
 
     use links_testing::unittest::setup;
@@ -192,29 +193,34 @@ mod test {
             .unwrap();
 
         sleep(Duration::from_millis(100)); // allow the spawned to bind
-        // CONFIGUR clt
-        let (_, mut writer) = into_split_framer::<MsgFramer>(
-            TcpStream::connect(addr).unwrap(),
-            TEST_SEND_FRAME_SIZE,
-        );
+                                           // CONFIGUR clt
+        let (_, mut writer) =
+            into_split_framer::<MsgFramer>(TcpStream::connect(addr).unwrap(), TEST_SEND_FRAME_SIZE);
 
         info!("clt: {}", writer);
 
         let mut frame_send_count = 0_usize;
+        let start = Instant::now();
         for _ in 0..WRITE_N_TIMES {
             writer.write_frame(random_frame).unwrap();
             frame_send_count += 1;
         }
-        info!(
-            "frame_send_count: {}",
-            frame_send_count.to_formatted_string(&Locale::en)
-        );
+        let elapsed = start.elapsed();
+
         drop(writer);
         let frame_recv_count = svc.join().unwrap();
+
         info!(
-            "frame_recv_count: {}",
+            "frame_send_count: {}, frame_recv_count: {}",
+            frame_send_count.to_formatted_string(&Locale::en),
             frame_recv_count.to_formatted_string(&Locale::en)
         );
+        info!(
+            "per send elapsed: {:?}, total elapsed: {:?} ",
+            elapsed / WRITE_N_TIMES as u32,
+            elapsed
+        );
         assert_eq!(frame_send_count, frame_recv_count);
+        assert_eq!(frame_send_count, WRITE_N_TIMES);
     }
 }

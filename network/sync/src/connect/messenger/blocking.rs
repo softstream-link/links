@@ -100,7 +100,11 @@ where
 #[cfg(feature = "unittest")]
 mod test {
     use crate::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol};
-    use std::{net::TcpListener, thread::{Builder, sleep}, time::Duration};
+    use std::{
+        net::TcpListener,
+        thread::{sleep, Builder},
+        time::{Duration, Instant},
+    };
 
     use super::*;
     use links_testing::unittest::setup::{
@@ -108,68 +112,97 @@ mod test {
         model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug, TEST_MSG_FRAME_SIZE},
     };
     use log::info;
+    use num_format::{Locale, ToFormattedString};
 
     #[test]
     fn test_messenger() {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
 
+        const WRITE_N_TIMES: usize = 100_000;
         let inp_svc_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
-        let svc = Builder::new().name("Thread-Svc".to_owned()).spawn({
-            let inp_svc_msg = inp_svc_msg.clone();
-            move || {
-                let listener = TcpListener::bind(addr).unwrap();
-                let (stream, _) = listener.accept().unwrap();
-                let (mut recver, mut sender) =
-                    into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
-                        stream,
-                        ConId::svc(Some("unittest"), addr, None),
-                    );
-                info!("{} connected", sender);
-                let mut out_svc_msg: Option<TestCltMsg> = None;
-                loop {
-                    let opt = recver.recv().unwrap();
-                    match opt {
-                        Some(msg) => {
-                            out_svc_msg = Some(msg);
-                            sender.send(&inp_svc_msg).unwrap();
-                        }
-                        None => {
-                            info!("{} Connection Closed by Client", recver);
-                            break;
+
+        let svc = Builder::new()
+            .name("Thread-Svc".to_owned())
+            .spawn({
+                let inp_svc_msg = inp_svc_msg.clone();
+                move || {
+                    let (mut msg_sent, mut msg_recv) = (0_usize, 0_usize);
+                    let listener = TcpListener::bind(addr).unwrap();
+                    let (stream, _) = listener.accept().unwrap();
+                    let (mut recver, mut sender) =
+                        into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
+                            stream,
+                            ConId::svc(Some("unittest"), addr, None),
+                        );
+                    info!("{} connected", sender);
+                    loop {
+                        let opt = recver.recv().unwrap();
+                        match opt {
+                            Some(_) => {
+                                msg_recv += 1;
+                                sender.send(&inp_svc_msg).unwrap();
+                                msg_sent += 1;
+                            }
+                            None => {
+                                info!("{} Connection Closed by Client", recver);
+                                break;
+                            }
                         }
                     }
+                    (msg_sent, msg_recv)
                 }
-                out_svc_msg.unwrap()
-            }
-        }).unwrap();
+            })
+            .unwrap();
 
         sleep(Duration::from_millis(100)); // allow the spawned to bind
-        let inp_clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
-        let clt = Builder::new().name("Thread-Clt".to_owned()).spawn({
-            let inp_clt_msg = inp_clt_msg.clone();
-            move || {
-                
-                let stream = TcpStream::connect(addr).unwrap();
-                let (mut recver, mut sender) =
-                    into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
-                        stream,
-                        ConId::clt(Some("unittest"), None, addr),
-                    );
-                info!("{} connected", sender);
-                sender.send(&inp_clt_msg).unwrap();
-                let out_clt_msg = recver.recv().unwrap();
-                out_clt_msg.unwrap()
-            }
-        }).unwrap();
 
-        let out_clt_msg = clt.join().unwrap();
-        let out_svc_msg = svc.join().unwrap();
-        info!("inp_clt_msg: {:?}", inp_clt_msg);
-        info!("out_clt_msg: {:?}", out_clt_msg);
-        info!("inp_svc_msg: {:?}", inp_svc_msg);
-        info!("out_svc_msg: {:?}", out_svc_msg);
-        assert_eq!(inp_clt_msg, out_svc_msg);
-        assert_eq!(inp_svc_msg, out_clt_msg);
+        let inp_clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+        let clt = Builder::new()
+            .name("Thread-Clt".to_owned())
+            .spawn({
+                let inp_clt_msg = inp_clt_msg.clone();
+                move || {
+                    let (mut msg_sent, mut msg_recv) = (0, 0);
+                    let stream = TcpStream::connect(addr).unwrap();
+                    let (mut recver, mut sender) =
+                        into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
+                            stream,
+                            ConId::clt(Some("unittest"), None, addr),
+                        );
+                    info!("{} connected", sender);
+                    let start = Instant::now();
+                    for _ in 0..WRITE_N_TIMES {
+                        sender.send(&inp_clt_msg).unwrap();
+                        msg_sent += 1;
+                        let _x = recver.recv().unwrap().unwrap();
+                        msg_recv += 1;
+                    }
+                    (msg_sent, msg_recv, start.elapsed())
+                }
+            })
+            .unwrap();
+
+        let (clt_msg_sent, clt_msg_recv, elapsed) = clt.join().unwrap();
+        let (svc_msg_sent, svc_msg_recv) = svc.join().unwrap();
+        info!(
+            "clt_msg_sent: {}, clt_msg_recv: {}",
+            clt_msg_sent.to_formatted_string(&Locale::en),
+            clt_msg_recv.to_formatted_string(&Locale::en)
+        );
+        info!(
+            "svc_msg_sent: {}, svc_msg_recv: {}",
+            svc_msg_sent.to_formatted_string(&Locale::en),
+            svc_msg_recv.to_formatted_string(&Locale::en)
+        );
+        info!(
+            "per round trip elapsed: {:?}, total elapsed: {:?} ",
+            elapsed / WRITE_N_TIMES as u32,
+            elapsed
+        );
+
+        assert_eq!(clt_msg_sent, svc_msg_sent);
+        assert_eq!(clt_msg_recv, svc_msg_recv);
+        assert_eq!(clt_msg_sent, WRITE_N_TIMES);
     }
 }

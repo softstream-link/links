@@ -43,7 +43,7 @@ impl<F: Framer> FrameReader<F> {
                     self.buffer.reserve(self.max_frame_size);
                 }
                 // in non blocking mode this debug-assert can fail on linux unless the reserver is done conditionally
-                // this assert is here to ensure allocation is never required since after each frame is written here it is 
+                // this assert is here to ensure allocation is never required since after each frame is written here it is
                 // immediately read and converted into a message which means that the buffer space can be reclaimed before
                 // next read from socket and therefore no allocation is required.
                 debug_assert_eq!(self.buffer.capacity(), self.max_frame_size);
@@ -171,7 +171,7 @@ mod test {
     use std::{
         net::TcpListener,
         thread::{self, sleep},
-        time::Duration,
+        time::{Duration, Instant},
     };
 
     use byteserde::utils::hex::to_hex_pretty;
@@ -244,6 +244,7 @@ mod test {
         info!("clt: {}", writer);
 
         let mut frame_send_count = 0_usize;
+        let start = Instant::now();
         for _ in 0..WRITE_N_TIMES {
             loop {
                 match writer.write_frame(random_frame) {
@@ -261,17 +262,21 @@ mod test {
                 }
             }
         }
-        info!(
-            "frame_send_count: {}",
-            frame_send_count.to_formatted_string(&Locale::en)
-        );
+        let elapsed = start.elapsed();
 
         drop(writer);
         let frame_recv_count = svc.join().unwrap();
         info!(
-            "frame_recv_count: {}",
+            "frame_send_count: {}, frame_recv_count: {}",
+            frame_send_count.to_formatted_string(&Locale::en),
             frame_recv_count.to_formatted_string(&Locale::en)
         );
+        info!(
+            "per send elapsed: {:?}, total elapsed: {:?} ",
+            elapsed / WRITE_N_TIMES as u32,
+            elapsed
+        );
         assert_eq!(frame_send_count, frame_recv_count);
+        assert_eq!(frame_send_count, WRITE_N_TIMES);
     }
 }
