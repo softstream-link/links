@@ -86,7 +86,7 @@ impl FrameWriter {
     }
     #[inline]
     pub fn write_frame(&mut self, bytes: &[u8]) -> Result<(), Box<dyn Error>> {
-        self.writer.write_all(&bytes)?;
+        self.writer.write_all(bytes)?;
         self.writer.flush()?;
         Ok(())
     }

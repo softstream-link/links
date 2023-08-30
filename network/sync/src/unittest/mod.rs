@@ -9,10 +9,10 @@ pub mod setup {
         impl Framer for TestMsgFramer {
             fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
                 if bytes.len() < TEST_MSG_FRAME_SIZE {
-                    return None;
+                    None
                 } else {
                     let frame = bytes.split_to(TEST_MSG_FRAME_SIZE);
-                    return Some(frame.freeze());
+                    Some(frame.freeze())
                 }
             }
         }

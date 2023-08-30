@@ -75,7 +75,7 @@ impl<F: Framer> FrameReader<F> {
                         return Ok(ReadStatus::NotReady);
                     }
                     Err(e) => {
-                        return Err(format!("read error: {}", e.to_string()).into());
+                        return Err(format!("read error: {}", e).into());
                     }
                 }
             }
@@ -111,12 +111,12 @@ impl FrameWriter {
     }
     #[inline]
     pub fn write_frame(&mut self, bytes: &[u8]) -> Result<WriteStatus, Box<dyn Error>> {
-        match self.writer.write_all(&bytes) {
+        match self.writer.write_all(bytes) {
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 return Ok(WriteStatus::NotReady);
             }
             Err(e) => {
-                return Err(format!("write error: {}", e.to_string()).into());
+                return Err(format!("write error: {}", e).into());
             }
             Ok(_) => {}
         }
