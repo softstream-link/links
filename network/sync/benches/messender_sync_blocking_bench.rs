@@ -21,7 +21,7 @@ use num_format::{Locale, ToFormattedString};
 
 fn serialize_msg(c: &mut Criterion) {
     setup::log::configure_level(log::LevelFilter::Info);
-    let id = format!("serialize TestCltMsg"); //TODO add msg
+    let id = format!("serialize TestCltMsg");
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
@@ -100,7 +100,7 @@ fn send_msg(c: &mut Criterion) {
     );
     // info!("clt: writer: {}", writer);
 
-    let id = format!("send BLOCKING TestCltMsg");
+    let id = format!("send_msg_as_sync_blocking TestCltMsg");
 
     let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
     c.bench_function(id.as_str(), |b| {
@@ -166,7 +166,7 @@ fn recv_msg(c: &mut Criterion) {
     );
     // info!("clt: reader: {}", reader);
 
-    let id = format!("recv_msg BLOCKING TestCltMsg");
+    let id = format!("recv_msg_as_sync_blocking TestCltMsg");
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
@@ -237,7 +237,7 @@ fn round_trip_msg(c: &mut Criterion) {
     );
     // info!("clt: writer: {}", writer);
 
-    let id = format!("round_trip_msg BLOCKING",);
+    let id = format!("round_trip_msg_as_sync_blocking",);
     let mut msg_send_count = 0_u32;
     let mut msg_recv_count = 0_u32;
     let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));

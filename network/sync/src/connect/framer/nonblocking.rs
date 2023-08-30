@@ -43,6 +43,9 @@ impl<F: Framer> FrameReader<F> {
                     self.buffer.reserve(self.max_frame_size);
                 }
                 // in non blocking mode this debug-assert can fail on linux unless the reserver is done conditionally
+                // this assert is here to ensure allocation is never required since after each frame is written here it is 
+                // immediately read and converted into a message which means that the buffer space can be reclaimed before
+                // next read from socket and therefore no allocation is required.
                 debug_assert_eq!(self.buffer.capacity(), self.max_frame_size);
 
                 let residual = self.buffer.len();

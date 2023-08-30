@@ -77,7 +77,7 @@ fn send_random_frame(c: &mut Criterion) {
     // info!("clt: writer: {}", writer);
 
     let id = format!(
-        "send_random_frame NON-BLOCKING size: {} bytes",
+        "send_random_frame_as_sync_non-blocking size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
     let mut frame_send_count = 0_u32;
@@ -159,7 +159,7 @@ fn recv_random_frame(c: &mut Criterion) {
     // info!("clt: reader: {}", reader);
 
     let id = format!(
-        "recv_random_frame NON-BLOCKING size: {} bytes",
+        "recv_random_frame_as_sync_non-blocking size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
     let mut frame_recv_count = 0_u32;
@@ -248,7 +248,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
     // info!("clt: writer: {}", writer);
 
     let id = format!(
-        "round_trip_random_frame NON-BLOCKING size: {} bytes",
+        "round_trip_random_frame_as_sync_non-blocking size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
     let mut frame_send_count = 0_u32;

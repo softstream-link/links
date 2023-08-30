@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["full"]               # TODO desable all default features during release
+default = []               # TODO desable all default features during release
 full = ["unittest"]
 unittest = ["dep:links_testing"]
 
