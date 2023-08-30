@@ -57,7 +57,7 @@ fn send_random_frame(c: &mut Criterion) {
                             continue; // try reading again
                         }
                         Err(e) => {
-                            info!("Svc read_rame error: {}", e.to_string());
+                            info!("Svc read_frame, expected error: {}", e);
                             break;
                         }
                     }
@@ -94,7 +94,7 @@ fn send_random_frame(c: &mut Criterion) {
                             continue;
                         }
                         Err(e) => {
-                            panic!("clt: write_frame error: {}", e.to_string());
+                            panic!("clt: write_frame error: {}", e);
                         }
                     }
                 }
@@ -138,7 +138,7 @@ fn recv_random_frame(c: &mut Criterion) {
                             continue;
                         }
                         Err(e) => {
-                            info!("Svc write_frame, expected error: {}", e.to_string()); // not error as client will stop reading and drop
+                            info!("Svc write_frame, expected error: {}", e); // not error as client will stop reading and drop
                             break;
                         }
                     }
