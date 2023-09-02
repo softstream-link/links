@@ -35,6 +35,7 @@ impl<F: Framer, const MAX_MESSAGE_SIZE: usize> FrameReader<F, MAX_MESSAGE_SIZE> 
     }
     #[inline]
     pub fn read_frame(&mut self) -> Result<ReadStatus<Bytes>, Box<dyn Error>> {
+        #[allow(clippy::uninit_assumed_init)]
         let mut buf: [u8; MAX_MESSAGE_SIZE] = unsafe { MaybeUninit::uninit().assume_init() };
 
         match self.reader.read(&mut buf) {

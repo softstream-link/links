@@ -27,11 +27,12 @@ impl<F: Framer, const MAX_MESSAGE_SIZE: usize> FrameReader<F, MAX_MESSAGE_SIZE> 
             if let Some(bytes) = F::get_frame(&mut self.buffer) {
                 return Ok(Some(bytes));
             } else {
+                #[allow(clippy::uninit_assumed_init)]
                 let mut buf: [u8; MAX_MESSAGE_SIZE] =
                     unsafe { MaybeUninit::uninit().assume_init() };
                 match self.reader.read(&mut buf)? {
                     EOF => {
-                        if self.buffer.len() == 0 {
+                        if self.buffer.is_empty() {
                             return Ok(None);
                         } else {
                             return Err(format!(
