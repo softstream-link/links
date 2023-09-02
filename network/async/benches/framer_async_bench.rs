@@ -26,7 +26,7 @@ impl Framer for BenchMsgFramer {
     }
 }
 
-fn send_random_frame_block_on(c: &mut Criterion) {
+fn send_random_frame_as_asynch_block_on(c: &mut Criterion) {
     setup::log::configure_level(log::LevelFilter::Info);
     let svc_runtime = Builder::new_multi_thread().enable_all().build().unwrap();
     let clt_runtime = Builder::new_multi_thread().enable_all().build().unwrap();
@@ -75,7 +75,7 @@ fn send_random_frame_block_on(c: &mut Criterion) {
     let mut frame_send_count = 0_u32;
     let random_frame = random_bytes(BENCH_MAX_FRAME_SIZE);
     let id = format!(
-        "send_random_frame_block_on size: {} bytes",
+        "send_random_frame_as_async_block_on size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
     c.bench_function(id.as_str(), |b| {
@@ -274,7 +274,7 @@ criterion_group!(
     send_random_frame_as_async,
     recv_random_frame_as_async,
     round_trip_random_frame_as_async,
-    send_random_frame_block_on,
+    send_random_frame_as_asynch_block_on,
 );
 
 criterion_main!(benches);

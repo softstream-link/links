@@ -3,22 +3,21 @@ use byteserde::utils::hex::to_hex_pretty;
 use links_network_core::prelude::*;
 use std::fmt::Display;
 use std::io::{Read, Write};
+use std::mem::MaybeUninit;
 use std::os::fd::AsRawFd;
 use std::{error::Error, net::TcpStream};
 
 const EOF: usize = 0;
-pub struct FrameReader<F: Framer> {
+pub struct FrameReader<F: Framer, const MAX_MESSAGE_SIZE: usize> {
     reader: TcpStream,
     buffer: BytesMut,
-    max_frame_size: usize,
     phantom: std::marker::PhantomData<F>,
 }
-impl<F: Framer> FrameReader<F> {
-    pub fn with_max_frame_size(reader: TcpStream, max_frame_size: usize) -> FrameReader<F> {
+impl<F: Framer, const MAX_MESSAGE_SIZE: usize> FrameReader<F, MAX_MESSAGE_SIZE> {
+    pub fn new(reader: TcpStream) -> FrameReader<F, MAX_MESSAGE_SIZE> {
         Self {
             reader,
-            buffer: BytesMut::with_capacity(max_frame_size),
-            max_frame_size,
+            buffer: BytesMut::with_capacity(MAX_MESSAGE_SIZE),
             phantom: std::marker::PhantomData,
         }
     }
@@ -28,36 +27,30 @@ impl<F: Framer> FrameReader<F> {
             if let Some(bytes) = F::get_frame(&mut self.buffer) {
                 return Ok(Some(bytes));
             } else {
-                self.buffer.reserve(self.max_frame_size);
-
-                debug_assert_eq!(self.buffer.capacity(), self.max_frame_size);
-
-                let residual = self.buffer.len();
-                unsafe {
-                    self.buffer.set_len(self.buffer.capacity());
-                }
-                match self.reader.read(&mut self.buffer[residual..])? {
+                let mut buf: [u8; MAX_MESSAGE_SIZE] =
+                    unsafe { MaybeUninit::uninit().assume_init() };
+                match self.reader.read(&mut buf)? {
                     EOF => {
-                        if residual == 0 {
+                        if self.buffer.len() == 0 {
                             return Ok(None);
                         } else {
-                            unsafe { self.buffer.set_len(residual) };
                             return Err(format!(
-                                "connection reset by peer residual buf: \n{}",
+                                "connection reset by peer, residual buf: \n{}",
                                 to_hex_pretty(&self.buffer[..])
                             )
                             .into());
                         }
                     }
-                    len => unsafe {
-                        self.buffer.set_len(residual + len);
-                    },
+                    len => {
+                        self.buffer.extend_from_slice(&buf[..len]);
+                        continue;
+                    }
                 }
             }
         }
     }
 }
-impl<F: Framer> Display for FrameReader<F> {
+impl<F: Framer, const MAX_MESSAGE_SIZE: usize> Display for FrameReader<F, MAX_MESSAGE_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -107,11 +100,11 @@ impl Display for FrameWriter {
     }
 }
 
-type FrameProcessor<F> = (FrameReader<F>, FrameWriter);
-pub fn into_split_framer<F: Framer>(
+type FrameProcessor<F, const MAX_MESSAGE_SIZE: usize> =
+    (FrameReader<F, MAX_MESSAGE_SIZE>, FrameWriter);
+pub fn into_split_framer<F: Framer, const MAX_MESSAGE_SIZE: usize>(
     stream: TcpStream,
-    reader_max_frame_size: usize,
-) -> FrameProcessor<F> {
+) -> FrameProcessor<F, MAX_MESSAGE_SIZE> {
     let (reader, writer) = (
         stream
             .try_clone()
@@ -119,7 +112,7 @@ pub fn into_split_framer<F: Framer>(
         stream,
     );
     (
-        FrameReader::<F>::with_max_frame_size(reader, reader_max_frame_size),
+        FrameReader::<F, MAX_MESSAGE_SIZE>::new(reader),
         FrameWriter::new(writer),
     )
 }
@@ -154,8 +147,8 @@ mod test {
             }
         }
 
-        let random_frame = setup::data::random_bytes(TEST_SEND_FRAME_SIZE);
-        info!("sending_frame: \n{}", to_hex_pretty(random_frame));
+        let send_frame = setup::data::random_bytes(TEST_SEND_FRAME_SIZE);
+        info!("send_frame: \n{}", to_hex_pretty(send_frame));
 
         let addr = setup::net::rand_avail_addr_port();
 
@@ -167,7 +160,7 @@ mod test {
                     let listener = TcpListener::bind(addr).unwrap();
                     let (stream, _) = listener.accept().unwrap();
                     let (mut reader, _) =
-                        into_split_framer::<MsgFramer>(stream, TEST_SEND_FRAME_SIZE);
+                        into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(stream);
                     info!("svc: reader: {}", reader);
                     let mut frame_recv_count = 0_usize;
                     loop {
@@ -195,14 +188,14 @@ mod test {
         sleep(Duration::from_millis(100)); // allow the spawned to bind
                                            // CONFIGUR clt
         let (_, mut writer) =
-            into_split_framer::<MsgFramer>(TcpStream::connect(addr).unwrap(), TEST_SEND_FRAME_SIZE);
+            into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(TcpStream::connect(addr).unwrap());
 
         info!("clt: {}", writer);
 
         let mut frame_send_count = 0_usize;
         let start = Instant::now();
         for _ in 0..WRITE_N_TIMES {
-            writer.write_frame(random_frame).unwrap();
+            writer.write_frame(send_frame).unwrap();
             frame_send_count += 1;
         }
         let elapsed = start.elapsed();

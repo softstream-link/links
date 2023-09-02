@@ -37,14 +37,14 @@ impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> Display
 }
 pub struct MessageRecver<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> {
     con_id: ConId,
-    reader: FrameReader<M>,
+    reader: FrameReader<M, MAX_MESSAGE_SIZE>,
     phantom: std::marker::PhantomData<M>,
 }
 impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> MessageRecver<M, MAX_MESSAGE_SIZE> {
     pub fn new(stream: TcpStream, con_id: ConId) -> Self {
         Self {
             con_id,
-            reader: FrameReader::<M>::with_max_frame_size(stream, MAX_MESSAGE_SIZE), // TODO how to inject
+            reader: FrameReader::<M, MAX_MESSAGE_SIZE>::new(stream), // TODO how to inject
             phantom: std::marker::PhantomData,
         }
     }
