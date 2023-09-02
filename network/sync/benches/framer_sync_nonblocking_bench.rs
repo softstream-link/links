@@ -5,7 +5,6 @@ use std::{
 };
 
 use bytes::{Bytes, BytesMut};
-use byteserde::utils::hex::to_hex_pretty;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_network_core::prelude::Framer;
 use links_network_sync::connect::framer::nonblocking::{
