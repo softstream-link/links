@@ -6,6 +6,7 @@ members = [
     "protocols/ouch",
     "protocols/soupbintcp",
     "testing",
+    "experimentation",
 ]
 resolver = "2"
 

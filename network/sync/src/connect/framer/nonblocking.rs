@@ -1,9 +1,10 @@
-use std::{error::Error, fmt::Display, net::TcpStream};
-
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
 use links_network_core::prelude::Framer;
 use mio::net::TcpStream as TcpStreamMio;
+use std::mem::MaybeUninit;
+use std::{error::Error, fmt::Display, net::TcpStream};
+// use std::net::TcpStream as TcpStreamMio;
 use std::io::{Read, Write};
 use std::os::fd::AsRawFd;
 
@@ -18,71 +19,50 @@ pub enum WriteStatus {
     NotReady,
 }
 
-pub struct FrameReader<F: Framer> {
+// TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MESSAGE_SIZE generic as it can just be an non const arg to new
+pub struct FrameReader<F: Framer, const MAX_MESSAGE_SIZE: usize> {
     reader: TcpStreamMio,
     buffer: BytesMut,
-    max_frame_size: usize,
     phantom: std::marker::PhantomData<F>,
 }
-impl<F: Framer> FrameReader<F> {
-    pub fn with_max_frame_size(reader: TcpStreamMio, max_frame_size: usize) -> FrameReader<F> {
+impl<F: Framer, const MAX_MESSAGE_SIZE: usize> FrameReader<F, MAX_MESSAGE_SIZE> {
+    pub fn new(reader: TcpStreamMio) -> FrameReader<F, MAX_MESSAGE_SIZE> {
         Self {
             reader,
-            buffer: BytesMut::with_capacity(max_frame_size),
-            max_frame_size,
+            buffer: BytesMut::with_capacity(MAX_MESSAGE_SIZE),
             phantom: std::marker::PhantomData,
         }
     }
     #[inline]
     pub fn read_frame(&mut self) -> Result<ReadStatus<Bytes>, Box<dyn Error>> {
-        loop {
-            if let Some(bytes) = F::get_frame(&mut self.buffer) {
-                return Ok(ReadStatus::Completed(Some(bytes)));
-            } else {
-                if self.buffer.capacity() < self.max_frame_size {
-                    self.buffer.reserve(self.max_frame_size);
-                }
-                // in non blocking mode this debug-assert can fail on linux unless the reserver is done conditionally
-                // this assert is here to ensure allocation is never required since after each frame is written here it is
-                // immediately read and converted into a message which means that the buffer space can be reclaimed before
-                // next read from socket and therefore no allocation is required.
-                debug_assert_eq!(self.buffer.capacity(), self.max_frame_size);
+        let mut buf: [u8; MAX_MESSAGE_SIZE] = unsafe { MaybeUninit::uninit().assume_init() };
 
-                let residual = self.buffer.len();
-                unsafe {
-                    self.buffer.set_len(self.buffer.capacity());
-                }
-                match self.reader.read(&mut self.buffer[residual..]) {
-                    Ok(EOF) => {
-                        if residual == 0 {
-                            return Ok(ReadStatus::Completed(None));
-                        } else {
-                            unsafe { self.buffer.set_len(residual) };
-                            return Err(format!(
-                                "connection reset by peer residual buf: \n{}",
-                                to_hex_pretty(&self.buffer[..])
-                            )
-                            .into());
-                        }
-                    }
-                    Ok(len) => unsafe {
-                        self.buffer.set_len(residual + len);
-                    },
-                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                        unsafe {
-                            self.buffer.set_len(residual);
-                        }
-                        return Ok(ReadStatus::NotReady);
-                    }
-                    Err(e) => {
-                        return Err(format!("read error: {}", e).into());
-                    }
+        match self.reader.read(&mut buf) {
+            Ok(EOF) => {
+                if self.buffer.is_empty() {
+                    Ok(ReadStatus::Completed(None))
+                } else {
+                    let msg = format!(
+                        "connection reset by peer, residual buf:\n{}",
+                        to_hex_pretty(&self.buffer[..])
+                    );
+                    Err(msg.into())
                 }
             }
+            Ok(len) => {
+                self.buffer.extend_from_slice(&buf[..len]);
+                if let Some(bytes) = F::get_frame(&mut self.buffer) {
+                    Ok(ReadStatus::Completed(Some(bytes)))
+                } else {
+                    Ok(ReadStatus::NotReady)
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(ReadStatus::NotReady),
+            Err(e) => Err(format!("read error: {}", e).into()),
         }
     }
 }
-impl<F: Framer> Display for FrameReader<F> {
+impl<F: Framer, const MAX_MESSAGE_SIZE: usize> Display for FrameReader<F, MAX_MESSAGE_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -111,17 +91,32 @@ impl FrameWriter {
     }
     #[inline]
     pub fn write_frame(&mut self, bytes: &[u8]) -> Result<WriteStatus, Box<dyn Error>> {
-        match self.writer.write_all(bytes) {
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                return Ok(WriteStatus::NotReady);
+        let mut residual = bytes;
+        while !residual.is_empty() {
+            match self.writer.write(residual) {
+                // note: can't use write_all https://github.com/rust-lang/rust/issues/115451
+                #[rustfmt::skip]
+                Ok(0) => {
+                    let msg = format!("connection reset by peer, residual buf:\n{}", to_hex_pretty(residual));
+                    return Err(msg.into());
+                }
+                Ok(len) => {
+                    if len == residual.len() {
+                        return Ok(WriteStatus::Completed);
+                    } else {
+                        residual = &residual[len..];
+                    }
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    // repeteat untill frame is written entirely in busy loop
+                    continue;
+                }
+                Err(e) => {
+                    let msg = format!("write error: {}, residual:\n{}", e, to_hex_pretty(residual));
+                    return Err(msg.into());
+                }
             }
-            Err(e) => {
-                return Err(format!("write error: {}", e).into());
-            }
-            Ok(_) => {}
         }
-
-        self.writer.flush()?;
         Ok(WriteStatus::Completed)
     }
 }
@@ -141,11 +136,11 @@ impl Display for FrameWriter {
     }
 }
 
-type FrameProcessor<F> = (FrameReader<F>, FrameWriter);
-pub fn into_split_framer<F: Framer>(
+type FrameProcessor<F, const MAX_MESSAGE_SIZE: usize> =
+    (FrameReader<F, MAX_MESSAGE_SIZE>, FrameWriter);
+pub fn into_split_framer<F: Framer, const MAX_MESSAGE_SIZE: usize>(
     stream: TcpStream,
-    reader_max_frame_size: usize,
-) -> FrameProcessor<F> {
+) -> FrameProcessor<F, MAX_MESSAGE_SIZE> {
     stream
         .set_nonblocking(true)
         .expect("Failed to set_nonblocking on TcpStream");
@@ -160,7 +155,7 @@ pub fn into_split_framer<F: Framer>(
         TcpStreamMio::from_std(writer),
     );
     (
-        FrameReader::<F>::with_max_frame_size(reader, reader_max_frame_size),
+        FrameReader::<F, MAX_MESSAGE_SIZE>::new(reader),
         FrameWriter::new(writer),
     )
 }
@@ -183,7 +178,7 @@ mod test {
     fn test_reader() {
         setup::log::configure_level(log::LevelFilter::Info);
         const TEST_SEND_FRAME_SIZE: usize = 128;
-        const WRITE_N_TIMES: usize = 100_000;
+        const WRITE_N_TIMES: usize = 10_000_000;
         pub struct MsgFramer;
         impl Framer for MsgFramer {
             fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
@@ -196,8 +191,8 @@ mod test {
             }
         }
 
-        let random_frame = setup::data::random_bytes(TEST_SEND_FRAME_SIZE);
-        info!("sending_frame: \n{}", to_hex_pretty(random_frame));
+        let send_frame = setup::data::random_bytes(TEST_SEND_FRAME_SIZE);
+        info!("sending_frame: \n{}", to_hex_pretty(send_frame));
 
         let addr = setup::net::rand_avail_addr_port();
 
@@ -209,7 +204,7 @@ mod test {
                     let listener = TcpListener::bind(addr).unwrap();
                     let (stream, _) = listener.accept().unwrap();
                     let (mut reader, _) =
-                        into_split_framer::<MsgFramer>(stream, TEST_SEND_FRAME_SIZE);
+                        into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(stream);
                     info!("svc: reader: {}", reader);
                     let mut frame_recv_count = 0_usize;
                     loop {
@@ -219,8 +214,17 @@ mod test {
                                 info!("svc: read_frame is None, client closed connection");
                                 break;
                             }
-                            Ok(ReadStatus::Completed(Some(_))) => {
+                            Ok(ReadStatus::Completed(Some(recv_frame))) => {
                                 frame_recv_count += 1;
+                                let recv_frame = &recv_frame[..];
+                                assert_eq!(
+                                    send_frame,
+                                    recv_frame,
+                                    "send_frame: \n{}\nrecv_frame:\n{}\nframe_recv_count: {}",
+                                    to_hex_pretty(send_frame),
+                                    to_hex_pretty(recv_frame),
+                                    frame_recv_count
+                                );
                             }
                             Ok(ReadStatus::NotReady) => {
                                 continue; // try reading again
@@ -239,7 +243,7 @@ mod test {
         sleep(Duration::from_millis(100)); // allow the spawned to bind
                                            // CONFIGUR clt
         let (_, mut writer) =
-            into_split_framer::<MsgFramer>(TcpStream::connect(addr).unwrap(), TEST_SEND_FRAME_SIZE);
+            into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(TcpStream::connect(addr).unwrap());
 
         info!("clt: {}", writer);
 
@@ -247,7 +251,7 @@ mod test {
         let start = Instant::now();
         for _ in 0..WRITE_N_TIMES {
             loop {
-                match writer.write_frame(random_frame) {
+                match writer.write_frame(send_frame) {
                     Ok(WriteStatus::Completed) => {
                         frame_send_count += 1;
                         break;
@@ -256,8 +260,7 @@ mod test {
                         continue;
                     }
                     Err(e) => {
-                        error!("clt write_frame error: {}", e.to_string());
-                        break;
+                        panic!("clt write_frame error: {}", e.to_string());
                     }
                 }
             }

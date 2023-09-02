@@ -39,7 +39,7 @@ fn deserialize_msg(c: &mut Criterion) {
     let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
     let (buf, len) = TestCltMsgProtocol::serialize::<TEST_MSG_FRAME_SIZE>(&msg).unwrap();
     let buf = &buf[..len];
-    let id = format!("deserialize TestCltMsg"); //TODO add msg
+    let id = format!("deserialize TestCltMsg");
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({

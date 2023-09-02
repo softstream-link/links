@@ -29,7 +29,7 @@ impl Framer for BenchMsgFramer {
 
 fn send_random_frame(c: &mut Criterion) {
     setup::log::configure_level(log::LevelFilter::Info);
-    let random_frame = setup::data::random_bytes(BENCH_MAX_FRAME_SIZE);
+    let send_frame = setup::data::random_bytes(BENCH_MAX_FRAME_SIZE);
 
     let addr = setup::net::rand_avail_addr_port();
 
@@ -52,8 +52,9 @@ fn send_random_frame(c: &mut Criterion) {
                             info!("svc: read_frame is None, client closed connection");
                             break;
                         }
-                        Ok(Some(_)) => {
+                        Ok(Some(recv_frame)) => {
                             frame_recv_count += 1;
+                            assert_eq!(send_frame, recv_frame);
                         }
                         Err(e) => {
                             info!("Svc read_rame error: {}", e.to_string());
@@ -83,7 +84,7 @@ fn send_random_frame(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                writer.write_frame(random_frame).unwrap();
+                writer.write_frame(send_frame).unwrap();
                 frame_send_count += 1;
             })
         })
@@ -92,7 +93,7 @@ fn send_random_frame(c: &mut Criterion) {
     drop(writer); // this will allow svc.join to complete
     let frame_recv_count = reader.join().unwrap();
     info!(
-        "send_count: {:?}, recv_count: {:?}",
+        "frame_send_count: {:?} = frame_recv_count: {:?}",
         frame_send_count.to_formatted_string(&Locale::en),
         frame_recv_count.to_formatted_string(&Locale::en)
     );
@@ -102,7 +103,7 @@ fn send_random_frame(c: &mut Criterion) {
 
 fn recv_random_frame(c: &mut Criterion) {
     setup::log::configure_level(log::LevelFilter::Info);
-    let random_frame = setup::data::random_bytes(BENCH_MAX_FRAME_SIZE);
+    let send_frame = setup::data::random_bytes(BENCH_MAX_FRAME_SIZE);
     let addr = setup::net::rand_avail_addr_port();
 
     // CONFIGURE svc
@@ -118,15 +119,16 @@ fn recv_random_frame(c: &mut Criterion) {
                 // info!("svc: writer: {}", writer);
                 let mut frame_send_count = 0_u32;
                 loop {
-                    let res = writer.write_frame(random_frame);
+                    let res = writer.write_frame(send_frame);
                     match res {
-                        Ok(_) => {}
+                        Ok(()) => {
+                            frame_send_count += 1;
+                        }
                         Err(e) => {
                             info!("Svc write_frame, expected error: {}", e.to_string()); // not error as client will stop reading and drop
                             break;
                         }
                     }
-                    frame_send_count += 1;
                 }
                 frame_send_count
             }
@@ -159,9 +161,10 @@ fn recv_random_frame(c: &mut Criterion) {
     drop(reader); // this will allow svc.join to complete
     let frame_send_count = writer.join().unwrap();
     info!(
-        "send_count: {:?}, recv_count: {:?}",
+        "frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}",
         frame_send_count.to_formatted_string(&Locale::en),
-        frame_recv_count.to_formatted_string(&Locale::en)
+        frame_recv_count.to_formatted_string(&Locale::en),
+        (frame_send_count - frame_recv_count).to_formatted_string(&Locale::en),
     );
 
     assert!(frame_send_count > frame_recv_count);
@@ -169,7 +172,7 @@ fn recv_random_frame(c: &mut Criterion) {
 
 fn round_trip_random_frame(c: &mut Criterion) {
     setup::log::configure_level(log::LevelFilter::Info);
-    let random_frame = setup::data::random_bytes(BENCH_MAX_FRAME_SIZE);
+    let send_frame = setup::data::random_bytes(BENCH_MAX_FRAME_SIZE);
 
     let addr = setup::net::rand_avail_addr_port();
 
@@ -222,7 +225,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                writer.write_frame(random_frame).unwrap();
+                writer.write_frame(send_frame).unwrap();
                 frame_send_count += 1;
                 let res = reader.read_frame();
                 match res {
@@ -244,7 +247,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
     drop(reader);
     svc.join().unwrap();
     info!(
-        "send_count: {:?}, recv_count: {:?}",
+        "frame_send_count: {:?} = frame_recv_count: {:?}",
         frame_send_count.to_formatted_string(&Locale::en),
         frame_recv_count.to_formatted_string(&Locale::en)
     );
