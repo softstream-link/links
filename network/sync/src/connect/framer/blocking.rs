@@ -106,6 +106,10 @@ type FrameProcessor<F, const MAX_MESSAGE_SIZE: usize> =
 pub fn into_split_framer<F: Framer, const MAX_MESSAGE_SIZE: usize>(
     stream: TcpStream,
 ) -> FrameProcessor<F, MAX_MESSAGE_SIZE> {
+    // TODO  this causes performance to go from 800ns to 2.5µs
+    // stream
+    //     .set_nodelay(true)
+    //     .expect("Failed to set_nodelay on TcpStream");
     let (reader, writer) = (
         stream
             .try_clone()

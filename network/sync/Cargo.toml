@@ -49,6 +49,16 @@ name = "framer_sync_nonblocking_bench"
 harness = false
 
 [[bench]]
+name = "message_ser_des"
+harness = false
+required-features = ["unittest"]
+
+[[bench]]
 name = "messender_sync_blocking_bench"
+harness = false
+required-features = ["unittest"]
+
+[[bench]]
+name = "messender_sync_nonblocking_bench"
 harness = false
 required-features = ["unittest"]

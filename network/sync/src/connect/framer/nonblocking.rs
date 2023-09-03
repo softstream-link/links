@@ -136,8 +136,10 @@ impl FrameWriter {
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                     if bytes.len() == residual.len() {
                         // no bytes where written so Just report back NotReady
+                        // println!("write_frame: WouldBlock NotReady");
                         return Ok(WriteStatus::NotReady);
                     } else {
+                        // println!("write_frame: WouldBlock Continue");
                         // some bytes where written have to finish and report back Completed or Error
                         continue;
                     }
@@ -175,9 +177,10 @@ pub fn into_split_framer<F: Framer, const MAX_MESSAGE_SIZE: usize>(
     stream
         .set_nonblocking(true)
         .expect("Failed to set_nonblocking on TcpStream");
-    stream
-        .set_nodelay(true)
-        .expect("Failed to set_nodelay on TcpStream");
+    // TODO this causes performance to go from 800ns to 2.6µs
+    // stream
+    //     .set_nodelay(true)
+    //     .expect("Failed to set_nodelay on TcpStream");
     let (reader, writer) = (
         stream
             .try_clone()

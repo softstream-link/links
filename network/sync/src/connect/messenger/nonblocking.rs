@@ -54,6 +54,7 @@ impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> MessageRecver<M, MAX_MESSAG
             phantom: std::marker::PhantomData,
         }
     }
+    #[inline]
     pub fn recv(&mut self) -> Result<ReadStatus<M::RecvT>, Box<dyn Error>> {
         let status = self.reader.read_frame()?;
         match status {
@@ -94,9 +95,10 @@ where
     stream
         .set_nonblocking(true)
         .expect("Failed to set nonblocking on TcpStream");
-    stream
-        .set_nodelay(true)
-        .expect("Failed to set_nodelay on TcpStream");
+    // TODO this causes performance to go from 800ns to 2.5µs
+    // stream
+    //     .set_nodelay(true)
+    //     .expect("Failed to set_nodelay on TcpStream");
     let (reader, writer) = (
         stream
             .try_clone()
