@@ -174,7 +174,6 @@ fn round_trip_msg(c: &mut Criterion) {
 
     // CONFIGUR clt
     let stream = TcpStream::connect(addr).unwrap();
-    stream.set_nodelay(true).unwrap();
     let (mut reader, mut writer) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
         stream,
         ConId::clt(Some("unittest"), None, addr),

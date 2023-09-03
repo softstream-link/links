@@ -181,7 +181,6 @@ fn round_trip_random_frame(c: &mut Criterion) {
             move || {
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
-                stream.set_nodelay(true).unwrap();
                 let (mut reader, mut writer) =
                     into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(stream);
                 // info!("svc: reader: {}", reader);
@@ -209,7 +208,6 @@ fn round_trip_random_frame(c: &mut Criterion) {
 
     // CONFIGUR clt
     let stream = TcpStream::connect(addr).unwrap();
-    stream.set_nodelay(true).unwrap();
     let (mut reader, mut writer) =
         into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(stream);
     // info!("clt: writer: {}", writer);
