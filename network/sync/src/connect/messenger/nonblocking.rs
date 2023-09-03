@@ -91,6 +91,12 @@ pub fn into_split_messenger<M, const MAX_MESSAGE_SIZE: usize>(
 where
     M: MessengerNew,
 {
+    stream
+        .set_nonblocking(true)
+        .expect("Failed to set nonblocking on TcpStream");
+    stream
+        .set_nodelay(true)
+        .expect("Failed to set_nodelay on TcpStream");
     let (reader, writer) = (
         stream
             .try_clone()
@@ -110,7 +116,6 @@ where
 #[cfg(feature = "unittest")]
 mod test {
     use std::{
-        io::Read,
         thread::{sleep, Builder},
         time::{Duration, Instant},
     };
@@ -118,7 +123,7 @@ mod test {
     use links_network_core::prelude::ConId;
     use links_testing::unittest::setup::{self, model::*};
     use log::info;
-    use num_format::{ToFormattedString, Locale};
+    use num_format::{Locale, ToFormattedString};
 
     use crate::{
         connect::{
@@ -134,12 +139,10 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
         const WRITE_N_TIMES: usize = 100_000;
 
-        let inp_svc_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
-
         let svc = Builder::new()
             .name("Thread-Svc".to_owned())
             .spawn(move || {
-                let inp_svc_msg = inp_svc_msg.clone();
+                let inp_svc_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
                 let (mut msg_sent_count, mut msg_recv_count) = (0_usize, 0_usize);
                 let listener = std::net::TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
@@ -152,7 +155,7 @@ mod test {
 
                 while let Ok(status) = recver.recv() {
                     match status {
-                        ReadStatus::Completed(Some(_msg)) => {
+                        ReadStatus::Completed(Some(_recv_msg)) => {
                             msg_recv_count += 1;
                             while let WriteStatus::NotReady = sender.send(&inp_svc_msg).unwrap() {}
                             msg_sent_count += 1;

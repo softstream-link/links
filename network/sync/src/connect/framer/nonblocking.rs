@@ -175,6 +175,9 @@ pub fn into_split_framer<F: Framer, const MAX_MESSAGE_SIZE: usize>(
     stream
         .set_nonblocking(true)
         .expect("Failed to set_nonblocking on TcpStream");
+    stream
+        .set_nodelay(true)
+        .expect("Failed to set_nodelay on TcpStream");
     let (reader, writer) = (
         stream
             .try_clone()
