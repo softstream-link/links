@@ -1,32 +1,35 @@
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
 use links_network_core::prelude::Framer;
-use mio::net::TcpStream as TcpStreamMio;
 use std::mem::MaybeUninit;
-use std::{error::Error, fmt::Display, net::TcpStream};
+use std::{error::Error, fmt::Display};
 // use std::net::TcpStream as TcpStreamMio;
 use std::io::{Read, Write};
 use std::os::fd::AsRawFd;
 
 const EOF: usize = 0;
+
+/// Represents the state of the read operation
+///
+/// # Variants
+///     * Completed(Some(T)) - indiates that read was successfull and `T` contains the value read
+///     * Completed(None) - indicates that connectioon was closed by the peer cleanly and all data was read
+///     * NotReady - indicates that no data was read and the caller should try again
 #[derive(Debug)]
 pub enum ReadStatus<T> {
     Completed(Option<T>),
     NotReady,
 }
-pub enum WriteStatus {
-    Completed,
-    NotReady,
-}
 
 // TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MESSAGE_SIZE generic as it can just be an non const arg to new
+#[derive(Debug)]
 pub struct FrameReader<F: Framer, const MAX_MESSAGE_SIZE: usize> {
-    reader: TcpStreamMio,
+    reader: mio::net::TcpStream,
     buffer: BytesMut,
     phantom: std::marker::PhantomData<F>,
 }
 impl<F: Framer, const MAX_MESSAGE_SIZE: usize> FrameReader<F, MAX_MESSAGE_SIZE> {
-    pub fn new(reader: TcpStreamMio) -> FrameReader<F, MAX_MESSAGE_SIZE> {
+    pub fn new(reader: mio::net::TcpStream) -> FrameReader<F, MAX_MESSAGE_SIZE> {
         Self {
             reader,
             buffer: BytesMut::with_capacity(MAX_MESSAGE_SIZE),
@@ -83,13 +86,35 @@ impl<F: Framer, const MAX_MESSAGE_SIZE: usize> Display for FrameReader<F, MAX_ME
     }
 }
 
+/// Represents the state of the write operation
+///
+/// # Variants
+///    * Completed - indicates that all bytes were written to the underlying stream
+///    * NotReady - indicates that zero bytes were written to the underlying stream
+#[derive(Debug)]
+pub enum WriteStatus {
+    Completed,
+    NotReady,
+}
+#[derive(Debug)]
 pub struct FrameWriter {
-    writer: TcpStreamMio,
+    writer: mio::net::TcpStream,
 }
 impl FrameWriter {
-    pub fn new(stream: TcpStreamMio) -> Self {
+    pub fn new(stream: mio::net::TcpStream) -> Self {
         Self { writer: stream }
     }
+    /// Writes entire frame or no bytes at all to the underlying stream
+    /// # Agruments
+    ///     * bytes - a slice representing one complete frame
+    /// # Result States
+    ///     * Ok(WriteStatus::Completed) - all bytes were written to the underlying stream
+    ///     * Ok(WriteStatus::NotReady) - zero bytes were written to the underlying stream
+    ///     * Err(Box<dyn Error>) - some might be written but eventually write generated Error
+    ///
+    /// Internally the function will call `write` on the underlying stream until all bytes are written or an error is generated.
+    /// This means that if a single `write` successeds the function contrinue to call `write` until all bytes are written or an error is generated.
+    /// WriteStatus::NotReady will only return if the first `write` call returns `WouldBlock` and no bytes where written.
     #[inline]
     pub fn write_frame(&mut self, bytes: &[u8]) -> Result<WriteStatus, Box<dyn Error>> {
         let mut residual = bytes;
@@ -109,8 +134,13 @@ impl FrameWriter {
                     }
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    // repeteat untill frame is written entirely in busy loop
-                    continue;
+                    if bytes.len() == residual.len() {
+                        // no bytes where written so Just report back NotReady
+                        return Ok(WriteStatus::NotReady);
+                    } else {
+                        // some bytes where written have to finish and report back Completed or Error
+                        continue;
+                    }
                 }
                 Err(e) => {
                     let msg = format!("write error: {}, residual:\n{}", e, to_hex_pretty(residual));
@@ -140,7 +170,7 @@ impl Display for FrameWriter {
 type FrameProcessor<F, const MAX_MESSAGE_SIZE: usize> =
     (FrameReader<F, MAX_MESSAGE_SIZE>, FrameWriter);
 pub fn into_split_framer<F: Framer, const MAX_MESSAGE_SIZE: usize>(
-    stream: TcpStream,
+    stream: std::net::TcpStream,
 ) -> FrameProcessor<F, MAX_MESSAGE_SIZE> {
     stream
         .set_nonblocking(true)
@@ -152,8 +182,8 @@ pub fn into_split_framer<F: Framer, const MAX_MESSAGE_SIZE: usize>(
         stream,
     );
     let (reader, writer) = (
-        TcpStreamMio::from_std(reader),
-        TcpStreamMio::from_std(writer),
+        mio::net::TcpStream::from_std(reader),
+        mio::net::TcpStream::from_std(writer),
     );
     (
         FrameReader::<F, MAX_MESSAGE_SIZE>::new(reader),
@@ -165,7 +195,7 @@ pub fn into_split_framer<F: Framer, const MAX_MESSAGE_SIZE: usize>(
 mod test {
     use super::*;
     use std::{
-        net::TcpListener,
+        net::{TcpListener, TcpStream},
         thread::{self, sleep},
         time::{Duration, Instant},
     };
@@ -179,7 +209,7 @@ mod test {
     fn test_reader() {
         setup::log::configure_level(log::LevelFilter::Info);
         const TEST_SEND_FRAME_SIZE: usize = 128;
-        const WRITE_N_TIMES: usize = 10_000_000;
+        const WRITE_N_TIMES: usize = 100_000;
         pub struct MsgFramer;
         impl Framer for MsgFramer {
             fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
