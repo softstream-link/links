@@ -16,7 +16,6 @@ use links_testing::unittest::setup::{
     model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
 };
 use log::{error, info};
-use nix::sys::socket::{setsockopt, sockopt::ReusePort};
 use num_format::{Locale, ToFormattedString};
 
 fn send_msg(c: &mut Criterion) {
@@ -29,7 +28,6 @@ fn send_msg(c: &mut Criterion) {
         .name("Thread-Svc".to_owned())
         .spawn(move || {
             let listener = TcpListener::bind(addr).unwrap();
-            setsockopt(&listener, ReusePort, &true).unwrap();
             let (stream, _) = listener.accept().unwrap();
             let (mut reader, _) = into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
                 stream,
@@ -88,7 +86,6 @@ fn recv_msg(c: &mut Criterion) {
         .spawn(move || {
             let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
             let listener = TcpListener::bind(addr).unwrap();
-            setsockopt(&listener, ReusePort, &true).unwrap();
             let (stream, _) = listener.accept().unwrap();
             let (_, mut writer) = into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
                 stream,
@@ -144,9 +141,9 @@ fn round_trip_msg(c: &mut Criterion) {
         .name("Thread-Svc".to_owned())
         .spawn({
             move || {
+                let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
-                stream.set_nodelay(true).unwrap();
                 let (mut reader, mut writer) =
                     into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
                         stream,
@@ -161,8 +158,6 @@ fn round_trip_msg(c: &mut Criterion) {
                             break;
                         }
                         Ok(Some(_)) => {
-                            let msg =
-                                TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
                             writer.send(&msg).unwrap();
                         }
                         Err(e) => {
@@ -195,17 +190,13 @@ fn round_trip_msg(c: &mut Criterion) {
             black_box({
                 writer.send(&msg).unwrap();
                 msg_send_count += 1;
-                let res = reader.recv();
 
-                match res {
-                    Ok(None) => {
-                        panic!("clt: recv is None, server closed connection");
+                match reader.recv().unwrap() {
+                    None => {
+                        panic!("{} Server Closed Connection", reader);
                     }
-                    Ok(Some(_)) => {
+                    Some(_) => {
                         msg_recv_count += 1;
-                    }
-                    Err(e) => {
-                        panic!("clt: recv error: {}", e.to_string());
                     }
                 }
             })
