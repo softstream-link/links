@@ -5,7 +5,7 @@ use std::{
 };
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::prelude::ConId;
+use links_network_core::prelude::{ConId, RecvMsgBlocking, SendMsgBlocking};
 use links_network_sync::{
     connect::messenger::blocking::into_split_messenger,
     unittest::setup::messenger::TestCltMsgProtocol,

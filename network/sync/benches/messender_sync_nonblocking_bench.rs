@@ -5,12 +5,9 @@ use std::{
 };
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::prelude::ConId;
+use links_network_core::prelude::{ConId, RecvMsgNonBlocking, SendMsgNonBlocking, ReadStatus, WriteStatus};
 use links_network_sync::{
-    connect::{
-        framer::nonblocking::{ReadStatus, WriteStatus},
-        messenger::nonblocking::into_split_messenger,
-    },
+    connect::messenger::nonblocking::into_split_messenger,
     unittest::setup::messenger::TestCltMsgProtocol,
     unittest::setup::{framer::TEST_MSG_FRAME_SIZE, messenger::TestSvcMsgProtocol},
 };
@@ -143,7 +140,7 @@ fn recv_msg(c: &mut Criterion) {
     drop(reader); // this will allow svc.join to complete
     let msg_send_count = writer.join().unwrap();
     info!(
-        "msg_send_count: {:?}, msg_recv_count: {:?}",
+        "msg_send_count: {:?} > msg_recv_count: {:?}",
         msg_send_count.to_formatted_string(&Locale::en),
         msg_recv_count.to_formatted_string(&Locale::en)
     );
@@ -206,8 +203,19 @@ fn round_trip_msg(c: &mut Criterion) {
                 while let WriteStatus::NotReady = writer.send(&msg).unwrap() {}
                 msg_send_count += 1;
 
-                while let ReadStatus::NotReady = reader.recv().unwrap() {}
-                msg_recv_count += 1;
+                loop {
+                    match reader.recv().unwrap() {
+                        ReadStatus::Completed(Some(_msg)) => {
+                            msg_recv_count += 1;
+                            break;
+                        }
+                        ReadStatus::Completed(None) => {
+                            panic!("{} Connection Closed by Server", reader);
+                            // break;
+                        }
+                        ReadStatus::NotReady => continue,
+                    }
+                }
             })
         })
     });

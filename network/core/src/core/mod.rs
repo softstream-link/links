@@ -1,12 +1,11 @@
 pub mod conid;
 pub mod counters;
+pub mod messenger;
 
-use std::{error::Error, fmt::Debug};
+use std::fmt::Debug;
 
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
-
-// use crate::prelude::*;
 
 /// Provides a function that is meant to determine when enough bytes are available to make up a single complete message/frame.
 pub trait Framer {
@@ -29,14 +28,4 @@ pub trait Framer {
 pub trait Messenger: Debug+Send+Sync+'static {
     type SendT: ByteDeserializeSlice<Self::SendT>+ByteSerializeStack+Debug+Clone+PartialEq+Send+Sync+'static;
     type RecvT: ByteDeserializeSlice<Self::RecvT>+ByteSerializeStack+Debug+Clone+PartialEq+Send+Sync+'static;
-}
-
-// TODO rename to Messenger or add to prelude
-pub trait MessengerNew: Framer {
-    // const MAX_MESSAGE_SIZE_ASSOSIATED: usize = 128;
-    type SendT: Debug+Clone+PartialEq;
-    type RecvT: Debug+Clone+PartialEq;
-    // fn serialize(msg: &mut Self::SendT) -> Result<([u8; Self::MAX_MESSAGE_SIZE_ASSOSIATED], usize), Box<dyn Error>>;
-    fn serialize<const MAX_MESSAGE_SIZE: usize>(msg: &Self::SendT) -> Result<([u8; MAX_MESSAGE_SIZE], usize), Box<dyn Error>>;
-    fn deserialize(frame: &[u8]) -> Result<Self::RecvT, Box<dyn Error>>;
 }

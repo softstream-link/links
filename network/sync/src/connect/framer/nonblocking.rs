@@ -1,6 +1,6 @@
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
-use links_network_core::prelude::Framer;
+use links_network_core::prelude::{Framer, ReadStatus, WriteStatus};
 use std::mem::MaybeUninit;
 use std::{error::Error, fmt::Display};
 // use std::net::TcpStream as TcpStreamMio;
@@ -9,17 +9,7 @@ use std::os::fd::AsRawFd;
 
 const EOF: usize = 0;
 
-/// Represents the state of the read operation
-///
-/// # Variants
-///     * Completed(Some(T)) - indiates that read was successfull and `T` contains the value read
-///     * Completed(None) - indicates that connectioon was closed by the peer cleanly and all data was read
-///     * NotReady - indicates that no data was read and the caller should try again
-#[derive(Debug)]
-pub enum ReadStatus<T> {
-    Completed(Option<T>),
-    NotReady,
-}
+
 
 // TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MESSAGE_SIZE generic as it can just be an non const arg to new
 #[derive(Debug)]
@@ -86,16 +76,7 @@ impl<F: Framer, const MAX_MESSAGE_SIZE: usize> Display for FrameReader<F, MAX_ME
     }
 }
 
-/// Represents the state of the write operation
-///
-/// # Variants
-///    * Completed - indicates that all bytes were written to the underlying stream
-///    * NotReady - indicates that zero bytes were written to the underlying stream
-#[derive(Debug)]
-pub enum WriteStatus {
-    Completed,
-    NotReady,
-}
+
 #[derive(Debug)]
 pub struct FrameWriter {
     writer: mio::net::TcpStream,

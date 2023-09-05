@@ -1,6 +1,9 @@
 use std::{any::type_name, error::Error, fmt::Display, net::TcpStream};
 
-use links_network_core::{core::MessengerNew, prelude::ConId};
+use links_network_core::{
+    prelude::ConId,
+    prelude::{MessengerNew, RecvMsgBlocking, SendMsgBlocking},
+};
 
 use crate::connect::framer::{blocking::FrameReader, blocking::FrameWriter};
 
@@ -17,12 +20,18 @@ impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> MessageSender<M, MAX_MESSAG
             phantom: std::marker::PhantomData,
         }
     }
-    pub fn send(&mut self, msg: &M::SendT) -> Result<(), Box<dyn Error>> {
+}
+impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> SendMsgBlocking<M>
+    for MessageSender<M, MAX_MESSAGE_SIZE>
+{
+    #[inline]
+    fn send(&mut self, msg: &M::SendT) -> Result<(), Box<dyn Error>> {
         let (bytes, size) = M::serialize::<MAX_MESSAGE_SIZE>(msg)?;
         self.writer.write_frame(&bytes[..size])?;
         Ok(())
     }
 }
+
 impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> Display
     for MessageSender<M, MAX_MESSAGE_SIZE>
 {
@@ -48,7 +57,12 @@ impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> MessageRecver<M, MAX_MESSAG
             phantom: std::marker::PhantomData,
         }
     }
-    pub fn recv(&mut self) -> Result<Option<M::RecvT>, Box<dyn Error>> {
+}
+impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> RecvMsgBlocking<M>
+    for MessageRecver<M, MAX_MESSAGE_SIZE>
+{
+    #[inline]
+    fn recv(&mut self) -> Result<Option<M::RecvT>, Box<dyn Error>> {
         let opt_bytes = self.reader.read_frame()?;
         match opt_bytes {
             Some(frame) => {

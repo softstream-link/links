@@ -1,8 +1,10 @@
 use std::{any::type_name, error::Error, fmt::Display};
 
-use links_network_core::prelude::{ConId, MessengerNew};
+use links_network_core::prelude::{
+    ConId, MessengerNew, ReadStatus, RecvMsgNonBlocking, SendMsgNonBlocking, WriteStatus,
+};
 
-use crate::connect::framer::nonblocking::{FrameReader, FrameWriter, ReadStatus, WriteStatus};
+use crate::connect::framer::nonblocking::{FrameReader, FrameWriter};
 
 pub struct MessageSender<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> {
     con_id: ConId,
@@ -17,12 +19,15 @@ impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> MessageSender<M, MAX_MESSAG
             phantom: std::marker::PhantomData,
         }
     }
-
+}
+impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> SendMsgNonBlocking<M>
+    for MessageSender<M, MAX_MESSAGE_SIZE>
+{
     /// Will Serialize the message using [MessengerNew] and send it over the wire as a single frame
     /// If the underlying socket is not ready to write, it will return [WriteStatus::NotReady] while
     /// also guaranteeing that non of the serialized bytes where sent. The user shall try again later in that case.
     #[inline]
-    pub fn send(&mut self, msg: &M::SendT) -> Result<WriteStatus, Box<dyn Error>> {
+    fn send(&mut self, msg: &M::SendT) -> Result<WriteStatus, Box<dyn Error>> {
         // TODO allow send of a frame so that the retry does not incur the cost of serialization
         let (bytes, size) = M::serialize::<MAX_MESSAGE_SIZE>(msg)?;
         self.writer.write_frame(&bytes[..size])
@@ -54,8 +59,12 @@ impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> MessageRecver<M, MAX_MESSAG
             phantom: std::marker::PhantomData,
         }
     }
+}
+impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> RecvMsgNonBlocking<M>
+    for MessageRecver<M, MAX_MESSAGE_SIZE>
+{
     #[inline]
-    pub fn recv(&mut self) -> Result<ReadStatus<M::RecvT>, Box<dyn Error>> {
+    fn recv(&mut self) -> Result<ReadStatus<M::RecvT>, Box<dyn Error>> {
         let status = self.reader.read_frame()?;
         match status {
             ReadStatus::Completed(Some(frame)) => {
@@ -122,16 +131,13 @@ mod test {
         time::{Duration, Instant},
     };
 
-    use links_network_core::prelude::ConId;
+    use links_network_core::prelude::{ConId, ReadStatus, WriteStatus, RecvMsgNonBlocking, SendMsgNonBlocking};
     use links_testing::unittest::setup::{self, model::*};
     use log::info;
     use num_format::{Locale, ToFormattedString};
 
     use crate::{
-        connect::{
-            framer::nonblocking::{ReadStatus, WriteStatus},
-            messenger::nonblocking::into_split_messenger,
-        },
+        connect::messenger::nonblocking::into_split_messenger,
         unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol},
     };
 

@@ -6,10 +6,8 @@ use std::{
 
 use bytes::{Bytes, BytesMut};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::prelude::Framer;
-use links_network_sync::connect::framer::nonblocking::{
-    into_split_framer, ReadStatus, WriteStatus,
-};
+use links_network_core::prelude::{Framer, ReadStatus, WriteStatus};
+use links_network_sync::connect::framer::nonblocking::into_split_framer;
 use links_testing::unittest::setup;
 use log::{error, info};
 use num_format::{Locale, ToFormattedString};
