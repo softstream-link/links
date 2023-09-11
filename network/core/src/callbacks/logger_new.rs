@@ -72,7 +72,7 @@ impl<M: MessengerNew> CallbackSend<M> for LoggerCallbackNew<M> {
         if !log_enabled!(self.level_recv) {
             return;
         }
-        let text = format!("LoggerCallback::on_recv {} {:?}", con_id, msg);
+        let text = format!("LoggerCallback::on_send {} {:?}", con_id, msg);
         match self.level_recv {
             Level::Error => error!("{}", text),
             Level::Warn => warn!("{}", text),

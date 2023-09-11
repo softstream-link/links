@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{error::Error, sync::Arc, time::Duration};
 
 use links_network_core::prelude::{CallbackSendRecvNew, LoggerCallbackNew, MessengerNew};
 use links_network_sync::{
@@ -8,10 +8,13 @@ use links_network_sync::{
         messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
     },
 };
-use links_testing::unittest::setup;
+use links_testing::unittest::setup::{
+    self,
+    model::{TestCltMsg, TestCltMsgDebug},
+};
 use log::info;
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     setup::log::configure();
     let (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after) = setup();
 
@@ -25,7 +28,7 @@ fn main() {
 
     info!("svc: {}", svc);
 
-    let clt_initiator = Clt::<TestCltMsgProtocol, _, TEST_MSG_FRAME_SIZE>::connect(
+    let mut clt_initiator = Clt::<TestCltMsgProtocol, _, TEST_MSG_FRAME_SIZE>::connect(
         addr,
         timeout,
         retry_after,
@@ -38,7 +41,11 @@ fn main() {
     let clt_acceptor = svc.accept_busywait(timeout).unwrap();
     info!("clt_acceptor: {}", clt_acceptor);
 
-    
+    let mut clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+    clt_initiator.send_busywait(&mut clt_msg)?;
+    // clt_acceptor.recv_busywait()?;
+
+    Ok(())
 }
 
 fn setup<MSvc: MessengerNew, MClt: MessengerNew>() -> (

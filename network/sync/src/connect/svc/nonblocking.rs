@@ -23,12 +23,12 @@ use slab::Slab;
 use crate::connect::clt::nonblocking::{Clt, CltRecver, CltSender};
 
 #[derive(Debug)]
-pub struct SvcRecver<M: MessengerNew+'static, CRecv: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
-    rx_recver: Receiver<CltRecver<M, CRecv, MAX_MSG_SIZE>>,
-    svc_recvers: Slab<CltRecver<M, CRecv, MAX_MSG_SIZE>>,
+pub struct SvcRecver<M: MessengerNew+'static, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
+    rx_recver: Receiver<CltRecver<M, C, MAX_MSG_SIZE>>,
+    svc_recvers: Slab<CltRecver<M, C, MAX_MSG_SIZE>>,
 }
-impl<M: MessengerNew, CRecv: CallbackRecv<M>, const MAX_MSG_SIZE: usize>
-    SvcRecver<M, CRecv, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize>
+    SvcRecver<M, C, MAX_MSG_SIZE>
 {
     #[inline]
     fn service_once_rx_queue(&mut self) -> Result<(), Box<dyn Error>> {
@@ -74,8 +74,8 @@ impl<M: MessengerNew, CRecv: CallbackRecv<M>, const MAX_MSG_SIZE: usize>
         Ok(())
     }
 }
-impl<M: MessengerNew, CRecv: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
-    for SvcRecver<M, CRecv, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
+    for SvcRecver<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Box<dyn Error>> {
         self.service_once_rx_queue()?;
@@ -83,8 +83,8 @@ impl<M: MessengerNew, CRecv: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBloc
         Ok(ServiceLoopStatus::Continue)
     }
 }
-impl<M: MessengerNew, CRecv: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
-    for SvcRecver<M, CRecv, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
+    for SvcRecver<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -102,12 +102,12 @@ impl<M: MessengerNew, CRecv: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
 }
 
 #[derive(Debug)]
-pub struct SvcSender<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize> {
-    rx_sender: Receiver<CltSender<M, CSend, MAX_MSG_SIZE>>,
-    svc_senders: Slab<CltSender<M, CSend, MAX_MSG_SIZE>>,
+pub struct SvcSender<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> {
+    rx_sender: Receiver<CltSender<M, C, MAX_MSG_SIZE>>,
+    svc_senders: Slab<CltSender<M, C, MAX_MSG_SIZE>>,
 }
-impl<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize>
-    SvcSender<M, CSend, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize>
+    SvcSender<M, C, MAX_MSG_SIZE>
 {
     #[inline]
     fn service_once_rx_queue(&mut self) -> Result<(), Box<dyn Error>> {
@@ -128,8 +128,8 @@ impl<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize>
         }
     }
 }
-impl<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
-    for SvcSender<M, CSend, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
+    for SvcSender<M, C, MAX_MSG_SIZE>
 {
     #[inline]
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Box<dyn Error>> {
@@ -137,8 +137,8 @@ impl<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize> NonBloc
         Ok(ServiceLoopStatus::Continue)
     }
 }
-impl<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
-    for SvcSender<M, CSend, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
+    for SvcSender<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -167,7 +167,7 @@ pub struct SvcAcceptor<
     con_id: ConId,
 }
 
-impl<M: MessengerNew+'static, C: CallbackSendRecvNew<M>+'static, const MAX_MSG_SIZE: usize>
+impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
     AcceptCltBusyWait<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn accept_busywait(
@@ -189,7 +189,7 @@ impl<M: MessengerNew+'static, C: CallbackSendRecvNew<M>+'static, const MAX_MSG_S
         }
     }
 }
-impl<M: MessengerNew+'static, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
+impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Box<dyn Error>> {
@@ -213,7 +213,7 @@ impl<M: MessengerNew+'static, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usi
     }
 }
 
-impl<M: MessengerNew+'static, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
+impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
     NonBlockingServiceLoop for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Box<dyn Error>> {
@@ -250,7 +250,7 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
     pub fn bind(
         addr: &str,
         callback: Arc<C>,
-        max_connections: usize,
+        max_connections: usize, // TODO this arg needs better name
         name: Option<&str>,
     ) -> Result<Self, Box<dyn Error>> {
         let listener = std::net::TcpListener::bind(addr)?;
@@ -308,7 +308,7 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
         self.acceptor.accept_busywait(timeout)
     }
 }
-impl<M: MessengerNew+'static, C: CallbackSendRecvNew<M>+'static, const MAX_MSG_SIZE: usize>
+impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
 {
     fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Box<dyn Error>> {

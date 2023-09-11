@@ -18,15 +18,15 @@ use log::debug;
 use crate::connect::messenger::nonblocking::{into_split_messenger, MessageRecver, MessageSender};
 
 #[derive(Debug)]
-pub struct CltSender<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize> {
+pub struct CltSender<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> {
     msg_sender: MessageSender<M, MAX_MSG_SIZE>,
-    callback: Arc<CSend>,
+    callback: Arc<C>,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize>
-    CltSender<M, CSend, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize>
+    CltSender<M, C, MAX_MSG_SIZE>
 {
-    pub fn new(sender: MessageSender<M, MAX_MSG_SIZE>, callback: Arc<CSend>) -> Self {
+    pub fn new(sender: MessageSender<M, MAX_MSG_SIZE>, callback: Arc<C>) -> Self {
         Self {
             msg_sender: sender,
             callback,
@@ -34,8 +34,8 @@ impl<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize>
         }
     }
 }
-impl<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBlockingMut<M>
-    for CltSender<M, CSend, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBlockingMut<M>
+    for CltSender<M, C, MAX_MSG_SIZE>
 {
     ///
     #[inline(always)]
@@ -47,8 +47,8 @@ impl<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsg
         self.msg_sender.send_nonblocking(msg)
     }
 }
-impl<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgBusyWaitMut<M>
-    for CltSender<M, CSend, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgBusyWaitMut<M>
+    for CltSender<M, C, MAX_MSG_SIZE>
 {
     #[inline(always)]
     fn send_busywait(
@@ -59,8 +59,8 @@ impl<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsg
         self.msg_sender.send_busywait(msg)
     }
 }
-impl<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
-    for CltSender<M, CSend, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
+    for CltSender<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = std::any::type_name::<M>()
@@ -76,15 +76,15 @@ impl<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
 }
 
 #[derive(Debug)]
-pub struct CltRecver<M: MessengerNew, CRecv: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
+pub struct CltRecver<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
     msg_recver: MessageRecver<M, MAX_MSG_SIZE>,
-    callback: Arc<CRecv>,
+    callback: Arc<C>,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: MessengerNew, CRecv: CallbackRecv<M>, const MAX_MSG_SIZE: usize>
-    CltRecver<M, CRecv, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize>
+    CltRecver<M, C, MAX_MSG_SIZE>
 {
-    pub fn new(recver: MessageRecver<M, MAX_MSG_SIZE>, callback: Arc<CRecv>) -> Self {
+    pub fn new(recver: MessageRecver<M, MAX_MSG_SIZE>, callback: Arc<C>) -> Self {
         Self {
             msg_recver: recver,
             callback,
@@ -92,8 +92,8 @@ impl<M: MessengerNew, CRecv: CallbackRecv<M>, const MAX_MSG_SIZE: usize>
         }
     }
 }
-impl<M: MessengerNew, CRecv: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
-    for CltRecver<M, CRecv, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
+    for CltRecver<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Box<dyn Error>> {
         let msg = self.msg_recver.recv()?;
@@ -107,8 +107,8 @@ impl<M: MessengerNew, CRecv: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBloc
         }
     }
 }
-impl<M: MessengerNew, CRecv: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
-    for CltRecver<M, CRecv, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
+    for CltRecver<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = std::any::type_name::<M>()
