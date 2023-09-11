@@ -13,7 +13,10 @@ use crate::{
     core::nonblocking::{AcceptCltBusyWait, AcceptCltNonBlocking},
     prelude_nonblocking::*,
 };
-use links_network_core::prelude::{CallbackRecv, CallbackSend, ConId, MessengerNew};
+use links_network_core::{
+    callbacks::CallbackSendRecvNew,
+    prelude::{CallbackRecv, CallbackSend, ConId, MessengerNew},
+};
 use log::{debug, info, log_enabled, warn};
 use slab::Slab;
 
@@ -154,37 +157,23 @@ impl<M: MessengerNew, CSend: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
 #[derive(Debug)]
 pub struct SvcAcceptor<
     M: MessengerNew+'static,
-    CRecv: CallbackRecv<M>+'static,
-    CSend: CallbackSend<M>+'static,
+    C: CallbackSendRecvNew<M>+'static,
     const MAX_MSG_SIZE: usize,
 > {
-    tx_recver: Sender<CltRecver<M, CRecv, MAX_MSG_SIZE>>,
-    tx_sender: Sender<CltSender<M, CSend, MAX_MSG_SIZE>>,
+    tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
+    tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>,
     listener: mio::net::TcpListener,
-    callback_recv: Arc<CRecv>,
-    callback_send: Arc<CSend>,
+    callback: Arc<C>,
     con_id: ConId,
 }
-impl<
-        M: MessengerNew+'static,
-        CRecv: CallbackRecv<M>+'static,
-        CSend: CallbackSend<M>+'static,
-        const MAX_MSG_SIZE: usize,
-    > SvcAcceptor<M, CRecv, CSend, MAX_MSG_SIZE>
-{
-}
-impl<
-        M: MessengerNew+'static,
-        CRecv: CallbackRecv<M>+'static,
-        CSend: CallbackSend<M>+'static,
-        const MAX_MSG_SIZE: usize,
-    > AcceptCltBusyWait<M, CRecv, CSend, MAX_MSG_SIZE>
-    for SvcAcceptor<M, CRecv, CSend, MAX_MSG_SIZE>
+
+impl<M: MessengerNew+'static, C: CallbackSendRecvNew<M>+'static, const MAX_MSG_SIZE: usize>
+    AcceptCltBusyWait<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn accept_busywait(
         &self,
         timeout: Duration,
-    ) -> Result<Clt<M, CRecv, CSend, MAX_MSG_SIZE>, Box<dyn Error>> {
+    ) -> Result<Clt<M, C, MAX_MSG_SIZE>, Box<dyn Error>> {
         let now = Instant::now();
         loop {
             let clt = self.accept_nonblocking()?;
@@ -200,17 +189,10 @@ impl<
         }
     }
 }
-impl<
-        M: MessengerNew+'static,
-        CRecv: CallbackRecv<M>+'static,
-        CSend: CallbackSend<M>+'static,
-        const MAX_MSG_SIZE: usize,
-    > AcceptCltNonBlocking<M, CRecv, CSend, MAX_MSG_SIZE>
-    for SvcAcceptor<M, CRecv, CSend, MAX_MSG_SIZE>
+impl<M: MessengerNew+'static, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
+    AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
-    fn accept_nonblocking(
-        &self,
-    ) -> Result<Option<Clt<M, CRecv, CSend, MAX_MSG_SIZE>>, Box<dyn Error>> {
+    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Box<dyn Error>> {
         match self.listener.accept() {
             Ok((stream, addr)) => {
                 // TODO add rate limiter
@@ -218,11 +200,10 @@ impl<
                 let mut con_id = self.con_id.clone();
                 con_id.set_peer(addr);
                 info!("{} Accepted", con_id);
-                let clt = Clt::<_, _, _, MAX_MSG_SIZE>::from_stream(
+                let clt = Clt::<_, _, MAX_MSG_SIZE>::from_stream(
                     stream,
                     con_id.clone(),
-                    self.callback_recv.clone(),
-                    self.callback_send.clone(),
+                    self.callback.clone(),
                 );
                 Ok(Some(clt))
             }
@@ -232,12 +213,8 @@ impl<
     }
 }
 
-impl<
-        M: MessengerNew+'static,
-        CRecv: CallbackRecv<M>+'static,
-        CSend: CallbackSend<M>+'static,
-        const MAX_MSG_SIZE: usize,
-    > NonBlockingServiceLoop for SvcAcceptor<M, CRecv, CSend, MAX_MSG_SIZE>
+impl<M: MessengerNew+'static, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
+    NonBlockingServiceLoop for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Box<dyn Error>> {
         if let Some(clt) = self.accept_nonblocking()? {
@@ -248,12 +225,8 @@ impl<
         Ok(ServiceLoopStatus::Continue)
     }
 }
-impl<
-        M: MessengerNew,
-        CRecv: CallbackRecv<M>,
-        CSend: CallbackSend<M>,
-        const MAX_MSG_SIZE: usize,
-    > Display for SvcAcceptor<M, CRecv, CSend, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> Display
+    for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} SvcAcceptor", self.con_id)
@@ -263,26 +236,20 @@ impl<
 #[derive(Debug)]
 pub struct Svc<
     M: MessengerNew+'static,
-    CRecv: CallbackRecv<M>+'static,
-    CSend: CallbackSend<M>+'static,
+    C: CallbackSendRecvNew<M>+'static,
     const MAX_MSG_SIZE: usize,
 > {
-    acceptor: SvcAcceptor<M, CRecv, CSend, MAX_MSG_SIZE>,
-    svc_recver: SvcRecver<M, CRecv, MAX_MSG_SIZE>,
-    svc_sender: SvcSender<M, CSend, MAX_MSG_SIZE>,
+    acceptor: SvcAcceptor<M, C, MAX_MSG_SIZE>,
+    svc_recver: SvcRecver<M, C, MAX_MSG_SIZE>,
+    svc_sender: SvcSender<M, C, MAX_MSG_SIZE>,
 }
 
-impl<
-        M: MessengerNew,
-        CRecv: CallbackRecv<M>,
-        CSend: CallbackSend<M>,
-        const MAX_MSG_SIZE: usize,
-    > Svc<M, CRecv, CSend, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
+    Svc<M, C, MAX_MSG_SIZE>
 {
     pub fn bind(
         addr: &str,
-        callback_recv: Arc<CRecv>,
-        callback_send: Arc<CSend>,
+        callback: Arc<C>,
         max_connections: usize,
         name: Option<&str>,
     ) -> Result<Self, Box<dyn Error>> {
@@ -297,8 +264,7 @@ impl<
             tx_recver,
             tx_sender,
             listener,
-            callback_recv,
-            callback_send,
+            callback,
             con_id: ConId::svc(name, addr, None),
         };
         let svc_recver = SvcRecver {
@@ -325,27 +291,33 @@ impl<
     pub fn split_into(
         self,
     ) -> (
-        SvcAcceptor<M, CRecv, CSend, MAX_MSG_SIZE>,
-        SvcRecver<M, CRecv, MAX_MSG_SIZE>,
-        SvcSender<M, CSend, MAX_MSG_SIZE>,
+        SvcAcceptor<M, C, MAX_MSG_SIZE>,
+        SvcRecver<M, C, MAX_MSG_SIZE>,
+        SvcSender<M, C, MAX_MSG_SIZE>,
     ) {
         (self.acceptor, self.svc_recver, self.svc_sender)
     }
-
-    pub fn accept_busy_wait(
+}
+impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
+    AcceptCltBusyWait<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
+{
+    fn accept_busywait(
         &self,
         timeout: Duration,
-    ) -> Result<Clt<M, CRecv, CSend, MAX_MSG_SIZE>, Box<dyn Error>> {
+    ) -> Result<Clt<M, C, MAX_MSG_SIZE>, Box<dyn Error>> {
         self.acceptor.accept_busywait(timeout)
     }
 }
+impl<M: MessengerNew+'static, C: CallbackSendRecvNew<M>+'static, const MAX_MSG_SIZE: usize>
+    AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
+{
+    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Box<dyn Error>> {
+        self.acceptor.accept_nonblocking()
+    }
+}
 
-impl<
-        M: MessengerNew,
-        CRecv: CallbackRecv<M>,
-        CSend: CallbackSend<M>,
-        const MAX_MSG_SIZE: usize,
-    > NonBlockingServiceLoop for Svc<M, CRecv, CSend, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
+    for Svc<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Box<dyn Error>> {
         let _ = self.acceptor.service_once()?;
@@ -355,12 +327,8 @@ impl<
     }
 }
 
-impl<
-        M: MessengerNew,
-        CRecv: CallbackRecv<M>,
-        CSend: CallbackSend<M>,
-        const MAX_MSG_SIZE: usize,
-    > Display for Svc<M, CRecv, CSend, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> Display
+    for Svc<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -394,14 +362,9 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
 
         let callback = LoggerCallbackNew::<TestSvcMsgProtocol>::new_ref();
-        let svc = Svc::<_, _, _, TEST_MSG_FRAME_SIZE>::bind(
-            addr,
-            callback.clone(),
-            callback.clone(),
-            2,
-            Some("unittest"),
-        )
-        .unwrap();
+        let svc =
+            Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback.clone(), 2, Some("unittest"))
+                .unwrap();
         info!("svc: {}", svc);
     }
     #[test]
@@ -410,9 +373,8 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
         let max_connections = 2;
 
-        let mut svc = Svc::<_, _, _, TEST_MSG_FRAME_SIZE>::bind(
+        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
             addr,
-            DevNullCallbackNew::<TestSvcMsgProtocol>::new_ref(),
             DevNullCallbackNew::<TestSvcMsgProtocol>::new_ref(),
             max_connections,
             Some("unittest"),
@@ -422,11 +384,10 @@ mod test {
 
         let mut clts = vec![];
         for i in 0..max_connections * 2 {
-            let clt = Clt::<_, _, _, TEST_MSG_FRAME_SIZE>::connect(
+            let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
                 addr,
                 std::time::Duration::from_millis(50),
                 std::time::Duration::from_millis(10),
-                DevNullCallbackNew::<TestCltMsgProtocol>::new_ref(),
                 DevNullCallbackNew::<TestCltMsgProtocol>::new_ref(),
                 Some("unittest"),
             )
@@ -450,21 +411,15 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
 
         let callback = LoggerCallbackNew::<TestSvcMsgProtocol>::new_ref();
-        let mut svc = Svc::<_, _, _, TEST_MSG_FRAME_SIZE>::bind(
-            addr,
-            callback.clone(),
-            callback.clone(),
-            1,
-            Some("unittest"),
-        )
-        .unwrap();
+        let mut svc =
+            Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback.clone(), 1, Some("unittest"))
+                .unwrap();
         info!("svc: {}", svc);
 
-        let clt = Clt::<_, _, _, TEST_MSG_FRAME_SIZE>::connect(
+        let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr,
             std::time::Duration::from_millis(50),
             std::time::Duration::from_millis(10),
-            callback.clone(),
             callback.clone(),
             Some("unittest"),
         )

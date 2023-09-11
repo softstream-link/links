@@ -1,6 +1,6 @@
 use std::{error::Error, time::Duration};
 
-use links_network_core::prelude::{CallbackRecv, CallbackSend, MessengerNew};
+use links_network_core::prelude::{CallbackSendRecvNew, MessengerNew};
 
 use crate::connect::clt::nonblocking::Clt;
 
@@ -75,27 +75,16 @@ pub trait SendMsgBusyWaitMut<M: MessengerNew> {
 
 pub trait AcceptCltNonBlocking<
     M: MessengerNew,
-    CRecv: CallbackRecv<M>,
-    CSend: CallbackSend<M>,
+    C: CallbackSendRecvNew<M>,
     const MAX_MSG_SIZE: usize,
 >
 {
-    fn accept_nonblocking(
-        &self,
-    ) -> Result<Option<Clt<M, CRecv, CSend, MAX_MSG_SIZE>>, Box<dyn Error>>;
+    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Box<dyn Error>>;
 }
 
-pub trait AcceptCltBusyWait<
-    M: MessengerNew,
-    CRecv: CallbackRecv<M>,
-    CSend: CallbackSend<M>,
-    const MAX_MSG_SIZE: usize,
->
-{
-    fn accept_busywait(
-        &self,
-        timeout: Duration,
-    ) -> Result<Clt<M, CRecv, CSend, MAX_MSG_SIZE>, Box<dyn Error>>;
+pub trait AcceptCltBusyWait<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> {
+    fn accept_busywait(&self, timeout: Duration)
+        -> Result<Clt<M, C, MAX_MSG_SIZE>, Box<dyn Error>>;
 }
 
 // ---- Service Loop ----
