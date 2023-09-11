@@ -18,7 +18,7 @@ pub trait CallbackSendRecv<M: Messenger>: Debug+Display+Send+Sync+'static {
 
 pub trait CallbackRecv<M: MessengerNew>: Debug {
     #[allow(unused_variables)]
-    fn on_recv(&self, con_id: &ConId, msg: M::RecvT);
+    fn on_recv(&self, con_id: &ConId, msg: &M::RecvT);
 }
 
 pub trait CallbackSend<M: MessengerNew>: Debug {

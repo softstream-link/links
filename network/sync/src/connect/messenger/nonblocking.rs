@@ -72,10 +72,11 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> MessageRecver<M, MAX_MSG_SIZE> 
         }
     }
 }
-#[rustfmt::skip]
-impl<M: MessengerNew, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M> for MessageRecver<M, MAX_MSG_SIZE>{
-    #[inline]
-    fn recv(&mut self) -> Result<ReadStatus<M::RecvT>, Box<dyn Error>> {
+impl<M: MessengerNew, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
+    for MessageRecver<M, MAX_MSG_SIZE>
+{
+    #[inline(always)]
+    fn recv_nonblocking(&mut self) -> Result<ReadStatus<M::RecvT>, Box<dyn Error>> {
         let status = self.frm_reader.read_frame()?;
         match status {
             ReadStatus::Completed(Some(frame)) => {
@@ -84,6 +85,19 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M> for Messa
             }
             ReadStatus::Completed(None) => Ok(ReadStatus::Completed(None)),
             ReadStatus::WouldBlock => Ok(ReadStatus::WouldBlock),
+        }
+    }
+}
+impl<M: MessengerNew, const MAX_MSG_SIZE: usize> RecvMsgBusyWait<M>
+    for MessageRecver<M, MAX_MSG_SIZE>
+{
+    #[inline(always)]
+    fn recv_busywait(&mut self) -> Result<Option<<M as MessengerNew>::RecvT>, Box<dyn Error>> {
+        loop {
+            match self.recv_nonblocking()? {
+                ReadStatus::Completed(opt) => return Ok(opt),
+                ReadStatus::WouldBlock => continue,
+            }
         }
     }
 }
@@ -98,8 +112,10 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> Display for MessageRecver<M, MA
     }
 }
 
-#[rustfmt::skip]
-pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (MessageRecver<M, MAX_MSG_SIZE>, MessageSender<M, MAX_MSG_SIZE>);
+pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (
+    MessageRecver<M, MAX_MSG_SIZE>,
+    MessageSender<M, MAX_MSG_SIZE>,
+);
 
 pub fn into_split_messenger<M: MessengerNew, const MAX_MSG_SIZE: usize>(
     stream: std::net::TcpStream,
@@ -173,11 +189,13 @@ mod test {
                     );
                 info!("{} connected", sender);
 
-                while let Ok(status) = recver.recv() {
+                while let Ok(status) = recver.recv_nonblocking() {
                     match status {
                         ReadStatus::Completed(Some(_recv_msg)) => {
                             msg_recv_count += 1;
-                            while let WriteStatus::WouldBlock = sender.send_nonblocking(&inp_svc_msg).unwrap() {
+                            while let WriteStatus::WouldBlock =
+                                sender.send_nonblocking(&inp_svc_msg).unwrap()
+                            {
                             }
                             msg_sent_count += 1;
                         }
@@ -208,9 +226,11 @@ mod test {
 
                 let start = Instant::now();
                 for _ in 0..WRITE_N_TIMES {
-                    while let WriteStatus::WouldBlock = sender.send_nonblocking(&inp_clt_msg).unwrap() {}
+                    while let WriteStatus::WouldBlock =
+                        sender.send_nonblocking(&inp_clt_msg).unwrap()
+                    {}
                     msg_sent_count += 1;
-                    while let ReadStatus::WouldBlock = recver.recv().unwrap() {}
+                    while let ReadStatus::WouldBlock = recver.recv_nonblocking().unwrap() {}
                     msg_recv_count += 1;
                 }
 

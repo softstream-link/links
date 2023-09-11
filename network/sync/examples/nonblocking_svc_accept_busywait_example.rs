@@ -32,18 +32,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         addr,
         timeout,
         retry_after,
-        clt_callback,
-        name,
+        clt_callback.clone(),
+        name.clone(),
     )
     .unwrap();
     info!("clt_initiator: {}", clt_initiator);
 
-    let clt_acceptor = svc.accept_busywait(timeout).unwrap();
+    let mut clt_acceptor = svc.accept_busywait(timeout).unwrap();
     info!("clt_acceptor: {}", clt_acceptor);
 
-    let mut clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
-    clt_initiator.send_busywait(&mut clt_msg)?;
-    // clt_acceptor.recv_busywait()?;
+    let mut clt_initiator_send_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+    clt_initiator.send_busywait(&mut clt_initiator_send_msg)?;
+    let clt_acceptor_recv_msg = clt_acceptor.recv_busywait()?.unwrap();
+
+    assert_eq!(clt_initiator_send_msg, clt_acceptor_recv_msg);
 
     Ok(())
 }
@@ -61,7 +63,7 @@ fn setup<MSvc: MessengerNew, MClt: MessengerNew>() -> (
     let svc_callback = LoggerCallbackNew::<MSvc>::new_ref();
     let clt_callback = LoggerCallbackNew::<MClt>::new_ref();
     let name = Some("example");
-    let max_connections = 2;
+    let max_connections = 0;
     let timeout = Duration::from_micros(1_000);
     let retry_after = Duration::from_micros(100);
     (

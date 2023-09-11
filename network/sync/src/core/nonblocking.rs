@@ -9,9 +9,9 @@ use crate::connect::clt::nonblocking::Clt;
 /// Represents the state of a non-blocking read operation
 ///
 /// # Variants
-///     * [ReadStatus::Completed(Some(T))] - indiates that read was successfull and `T` contains the value read
-///     * [ReadStatus::Completed(None)] - indicates that connectioon was closed by the peer cleanly and all data was read
-///     * [`ReadStatus::WouldBlock`] - indicates that no data was read and the caller should try again
+/// * [ReadStatus::Completed(Some(T))] - indiates that read was successfull and `T` contains the value read
+/// * [ReadStatus::Completed(None)] - indicates that connectioon was closed by the peer cleanly and all data was read
+/// * [ReadStatus::WouldBlock] - indicates that no data was read and the caller should try again
 #[derive(Debug)]
 pub enum ReadStatus<T> {
     Completed(Option<T>),
@@ -19,8 +19,15 @@ pub enum ReadStatus<T> {
 }
 
 pub trait RecvMsgNonBlocking<M: MessengerNew> {
-    /// Each call to this function
-    fn recv(&mut self) -> Result<ReadStatus<M::RecvT>, Box<dyn Error>>;
+    /// Will attempt to read a message from the stream. Each call to this method will
+    /// attemp to read data from the stream via system call and if sufficient number of bytes were read to
+    /// make a single frame it will attempt to deserialize it into a message and return it
+    fn recv_nonblocking(&mut self) -> Result<ReadStatus<M::RecvT>, Box<dyn Error>>;
+}
+
+pub trait RecvMsgBusyWait<M: MessengerNew> {
+    /// Will attempt to read a message from the stream untill there is enough bytes to make a single frame, EOF is reached or Error.
+    fn recv_busywait(&mut self) -> Result<Option<M::RecvT>, Box<dyn Error>>;
 }
 
 // ---- Sender ----

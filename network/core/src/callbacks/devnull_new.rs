@@ -36,7 +36,7 @@ impl<M: MessengerNew> Display for DevNullCallbackNew<M> {
 impl<M: MessengerNew> CallbackSendRecvNew<M> for DevNullCallbackNew<M> {}
 impl<M: MessengerNew> CallbackRecv<M> for DevNullCallbackNew<M> {
     #[allow(unused_variables)]
-    fn on_recv(&self, con_id: &ConId, msg: <M as MessengerNew>::RecvT) {}
+    fn on_recv(&self, con_id: &ConId, msg: &<M as MessengerNew>::RecvT) {}
 }
 impl<M: MessengerNew> CallbackSend<M> for DevNullCallbackNew<M> {
     #[allow(unused_variables)]

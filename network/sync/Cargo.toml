@@ -71,5 +71,5 @@ harness = false
 
 
 [[example]]
-name = "svc_nonblocking_direct_stream_example"
+name = "nonblocking_svc_accept_busywait_example"
 required-features = ["full"]

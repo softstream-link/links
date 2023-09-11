@@ -42,7 +42,7 @@ fn send_msg(c: &mut Criterion) {
             // info!("svc: reader: {}", reader);
             let mut frame_recv_count = 0_u32;
             loop {
-                let status = reader.recv().unwrap();
+                let status = reader.recv_nonblocking().unwrap();
                 match status {
                     ReadStatus::Completed(Some(_)) => {
                         frame_recv_count += 1;
@@ -135,7 +135,7 @@ fn recv_msg(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                while let ReadStatus::WouldBlock = reader.recv().unwrap() {}
+                while let ReadStatus::WouldBlock = reader.recv_nonblocking().unwrap() {}
                 msg_recv_count += 1;
             })
         })
@@ -171,7 +171,7 @@ fn round_trip_msg(c: &mut Criterion) {
                         ConId::svc(Some("unittest"), addr, None),
                     );
                 // info!("svc: reader: {}", reader);
-                while let Ok(status) = reader.recv() {
+                while let Ok(status) = reader.recv_nonblocking() {
                     match status {
                         ReadStatus::Completed(Some(_msg)) => {
                             while let WriteStatus::WouldBlock = writer.send_nonblocking(&msg).unwrap() {}
@@ -208,7 +208,7 @@ fn round_trip_msg(c: &mut Criterion) {
                 msg_send_count += 1;
 
                 loop {
-                    match reader.recv().unwrap() {
+                    match reader.recv_nonblocking().unwrap() {
                         ReadStatus::Completed(Some(_msg)) => {
                             msg_recv_count += 1;
                             break;
