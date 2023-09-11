@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["full"]               # TODO desable all default features during release
+default = ["full"]                     # TODO desable all default features during release
 full = ["unittest"]
 unittest = ["dep:links_testing"]
 
@@ -22,7 +22,9 @@ links_network_core = { workspace = true } # traits
 
 log = { workspace = true }
 
-byteserde = { workspace = true } # required to do serialization and deserialization
+slab = { workspace = true } # slab allocator
+
+byteserde = { workspace = true } # byteserde::utils::hex::to_hex_pretty
 
 
 links_testing = { workspace = true, optional = true } # benchmarks
@@ -62,3 +64,12 @@ required-features = ["unittest"]
 name = "messender_sync_nonblocking_bench"
 harness = false
 required-features = ["unittest"]
+
+[[bench]]
+name = "channel_rx_tx"
+harness = false
+
+
+[[example]]
+name = "svc_nonblocking_direct_stream_example"
+required-features = ["full"]

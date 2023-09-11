@@ -5,11 +5,15 @@ use std::{
 };
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::prelude::{ConId, RecvMsgNonBlocking, SendMsgNonBlocking, ReadStatus, WriteStatus};
+use links_network_core::prelude::ConId;
 use links_network_sync::{
-    connect::messenger::nonblocking::into_split_messenger,
-    unittest::setup::messenger::TestCltMsgProtocol,
-    unittest::setup::{framer::TEST_MSG_FRAME_SIZE, messenger::TestSvcMsgProtocol},
+    prelude_nonblocking::{
+        into_split_messenger, ReadStatus, RecvMsgNonBlocking, SendMsgNonBlocking, WriteStatus,
+    },
+    unittest::setup::{
+        framer::TEST_MSG_FRAME_SIZE,
+        messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
+    },
 };
 use links_testing::unittest::setup::{
     self,
@@ -47,7 +51,7 @@ fn send_msg(c: &mut Criterion) {
                         info!("svc: read_frame is None, client closed connection");
                         break;
                     }
-                    ReadStatus::NotReady => continue,
+                    ReadStatus::WouldBlock => continue,
                 }
             }
             frame_recv_count
@@ -70,7 +74,7 @@ fn send_msg(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                while let WriteStatus::NotReady = writer.send(&msg).unwrap() {}
+                while let WriteStatus::WouldBlock = writer.send_nonblocking(&msg).unwrap() {}
                 msg_send_count += 1;
             })
         })
@@ -105,9 +109,9 @@ fn recv_msg(c: &mut Criterion) {
             );
             // info!("svc: writer: {}", writer);
             let mut frame_send_count = 0_u32;
-            while let Ok(status) = writer.send(&msg) {
+            while let Ok(status) = writer.send_nonblocking(&msg) {
                 match status {
-                    WriteStatus::NotReady => continue,
+                    WriteStatus::WouldBlock => continue,
                     WriteStatus::Completed => {
                         frame_send_count += 1;
                     }
@@ -131,7 +135,7 @@ fn recv_msg(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                while let ReadStatus::NotReady = reader.recv().unwrap() {}
+                while let ReadStatus::WouldBlock = reader.recv().unwrap() {}
                 msg_recv_count += 1;
             })
         })
@@ -170,13 +174,13 @@ fn round_trip_msg(c: &mut Criterion) {
                 while let Ok(status) = reader.recv() {
                     match status {
                         ReadStatus::Completed(Some(_msg)) => {
-                            while let WriteStatus::NotReady = writer.send(&msg).unwrap() {}
+                            while let WriteStatus::WouldBlock = writer.send_nonblocking(&msg).unwrap() {}
                         }
                         ReadStatus::Completed(None) => {
                             info!("{} Connection Closed by Client", reader);
                             break;
                         }
-                        ReadStatus::NotReady => continue,
+                        ReadStatus::WouldBlock => continue,
                     }
                 }
             }
@@ -200,7 +204,7 @@ fn round_trip_msg(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                while let WriteStatus::NotReady = writer.send(&msg).unwrap() {}
+                while let WriteStatus::WouldBlock = writer.send_nonblocking(&msg).unwrap() {}
                 msg_send_count += 1;
 
                 loop {
@@ -213,7 +217,7 @@ fn round_trip_msg(c: &mut Criterion) {
                             panic!("{} Connection Closed by Server", reader);
                             // break;
                         }
-                        ReadStatus::NotReady => continue,
+                        ReadStatus::WouldBlock => continue,
                     }
                 }
             })

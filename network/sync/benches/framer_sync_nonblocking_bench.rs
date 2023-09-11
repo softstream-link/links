@@ -1,16 +1,16 @@
+use bytes::{Bytes, BytesMut};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use links_network_core::prelude::Framer;
+use links_network_sync::connect::framer::nonblocking::into_split_framer;
+use links_network_sync::prelude_nonblocking::{ReadStatus, WriteStatus};
+use links_testing::unittest::setup;
+use log::{error, info};
+use num_format::{Locale, ToFormattedString};
 use std::{
     net::{TcpListener, TcpStream},
     thread::{self, sleep},
     time::Duration,
 };
-
-use bytes::{Bytes, BytesMut};
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::prelude::{Framer, ReadStatus, WriteStatus};
-use links_network_sync::connect::framer::nonblocking::into_split_framer;
-use links_testing::unittest::setup;
-use log::{error, info};
-use num_format::{Locale, ToFormattedString};
 
 const BENCH_MAX_FRAME_SIZE: usize = 128;
 pub struct BenchMsgFramer;
@@ -53,7 +53,7 @@ fn send_random_frame(c: &mut Criterion) {
                             assert_eq!(send_frame, &recv_frame[..]);
                             continue;
                         }
-                        Ok(ReadStatus::NotReady) => {
+                        Ok(ReadStatus::WouldBlock) => {
                             // info!("svc: read_frame Not Ready {}", frame_recv_count);
                             continue; // try reading again
                         }
@@ -90,7 +90,7 @@ fn send_random_frame(c: &mut Criterion) {
                             frame_send_count += 1;
                             break;
                         }
-                        Ok(WriteStatus::NotReady) => {
+                        Ok(WriteStatus::WouldBlock) => {
                             continue;
                         }
                         Err(e) => {
@@ -134,7 +134,7 @@ fn recv_random_frame(c: &mut Criterion) {
                         Ok(WriteStatus::Completed) => {
                             frame_send_count += 1;
                         }
-                        Ok(WriteStatus::NotReady) => {
+                        Ok(WriteStatus::WouldBlock) => {
                             continue;
                         }
                         Err(e) => {
@@ -170,7 +170,7 @@ fn recv_random_frame(c: &mut Criterion) {
                             frame_recv_count += 1;
                             break;
                         }
-                        Ok(ReadStatus::NotReady) => {
+                        Ok(ReadStatus::WouldBlock) => {
                             continue;
                         }
                         Ok(ReadStatus::Completed(None)) => {
@@ -223,7 +223,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
                         Ok(ReadStatus::Completed(Some(recv_frame))) => {
                             writer.write_frame(&recv_frame).unwrap();
                         }
-                        Ok(ReadStatus::NotReady) => {
+                        Ok(ReadStatus::WouldBlock) => {
                             continue; // try reading again
                         }
                         Err(e) => {
@@ -259,7 +259,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
                             frame_send_count += 1;
                             break;
                         }
-                        Ok(WriteStatus::NotReady) => {
+                        Ok(WriteStatus::WouldBlock) => {
                             continue;
                         }
                         Err(e) => {
@@ -276,7 +276,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
                             frame_recv_count += 1;
                             break;
                         }
-                        Ok(ReadStatus::NotReady) => {
+                        Ok(ReadStatus::WouldBlock) => {
                             continue;
                         }
                         Err(e) => {

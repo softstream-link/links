@@ -10,3 +10,5 @@ publish = false
 bytes = "1.4"
 mio = {version = "0.8", features = ["os-poll" , "net"]}
 rand = "0.8"
+links_testing = { workspace = true }
+log = { workspace = true }

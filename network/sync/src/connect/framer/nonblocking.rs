@@ -1,35 +1,33 @@
+use crate::prelude_nonblocking::*;
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
-use links_network_core::prelude::{Framer, ReadStatus, WriteStatus};
+use links_network_core::prelude::Framer;
 use std::mem::MaybeUninit;
 use std::{error::Error, fmt::Display};
-// use std::net::TcpStream as TcpStreamMio;
 use std::io::{Read, Write};
 use std::os::fd::AsRawFd;
 
 const EOF: usize = 0;
 
-
-
-// TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MESSAGE_SIZE generic as it can just be an non const arg to new
+// TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MSG_SIZE generic as it can just be an non const arg to new
 #[derive(Debug)]
-pub struct FrameReader<F: Framer, const MAX_MESSAGE_SIZE: usize> {
+pub struct FrameReader<F: Framer, const MAX_MSG_SIZE: usize> {
     reader: mio::net::TcpStream,
     buffer: BytesMut,
     phantom: std::marker::PhantomData<F>,
 }
-impl<F: Framer, const MAX_MESSAGE_SIZE: usize> FrameReader<F, MAX_MESSAGE_SIZE> {
-    pub fn new(reader: mio::net::TcpStream) -> FrameReader<F, MAX_MESSAGE_SIZE> {
+impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
+    pub fn new(reader: mio::net::TcpStream) -> FrameReader<F, MAX_MSG_SIZE> {
         Self {
             reader,
-            buffer: BytesMut::with_capacity(MAX_MESSAGE_SIZE),
+            buffer: BytesMut::with_capacity(MAX_MSG_SIZE),
             phantom: std::marker::PhantomData,
         }
     }
     #[inline]
     pub fn read_frame(&mut self) -> Result<ReadStatus<Bytes>, Box<dyn Error>> {
         #[allow(clippy::uninit_assumed_init)]
-        let mut buf: [u8; MAX_MESSAGE_SIZE] = unsafe { MaybeUninit::uninit().assume_init() };
+        let mut buf: [u8; MAX_MSG_SIZE] = unsafe { MaybeUninit::uninit().assume_init() };
 
         match self.reader.read(&mut buf) {
             Ok(EOF) => {
@@ -48,15 +46,15 @@ impl<F: Framer, const MAX_MESSAGE_SIZE: usize> FrameReader<F, MAX_MESSAGE_SIZE> 
                 if let Some(bytes) = F::get_frame(&mut self.buffer) {
                     Ok(ReadStatus::Completed(Some(bytes)))
                 } else {
-                    Ok(ReadStatus::NotReady)
+                    Ok(ReadStatus::WouldBlock)
                 }
             }
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(ReadStatus::NotReady),
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(ReadStatus::WouldBlock),
             Err(e) => Err(format!("read error: {}", e).into()),
         }
     }
 }
-impl<F: Framer, const MAX_MESSAGE_SIZE: usize> Display for FrameReader<F, MAX_MESSAGE_SIZE> {
+impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -75,7 +73,6 @@ impl<F: Framer, const MAX_MESSAGE_SIZE: usize> Display for FrameReader<F, MAX_ME
         )
     }
 }
-
 
 #[derive(Debug)]
 pub struct FrameWriter {
@@ -118,7 +115,7 @@ impl FrameWriter {
                     if bytes.len() == residual.len() {
                         // no bytes where written so Just report back NotReady
                         // println!("write_frame: WouldBlock NotReady");
-                        return Ok(WriteStatus::NotReady);
+                        return Ok(WriteStatus::WouldBlock);
                     } else {
                         // println!("write_frame: WouldBlock Continue");
                         // some bytes where written have to finish and report back Completed or Error
@@ -150,11 +147,10 @@ impl Display for FrameWriter {
     }
 }
 
-type FrameProcessor<F, const MAX_MESSAGE_SIZE: usize> =
-    (FrameReader<F, MAX_MESSAGE_SIZE>, FrameWriter);
-pub fn into_split_framer<F: Framer, const MAX_MESSAGE_SIZE: usize>(
+type FrameProcessor<F, const MAX_MSG_SIZE: usize> = (FrameReader<F, MAX_MSG_SIZE>, FrameWriter);
+pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
     stream: std::net::TcpStream,
-) -> FrameProcessor<F, MAX_MESSAGE_SIZE> {
+) -> FrameProcessor<F, MAX_MSG_SIZE> {
     stream
         .set_nonblocking(true)
         .expect("Failed to set_nonblocking on TcpStream");
@@ -173,7 +169,7 @@ pub fn into_split_framer<F: Framer, const MAX_MESSAGE_SIZE: usize>(
         mio::net::TcpStream::from_std(writer),
     );
     (
-        FrameReader::<F, MAX_MESSAGE_SIZE>::new(reader),
+        FrameReader::<F, MAX_MSG_SIZE>::new(reader),
         FrameWriter::new(writer),
     )
 }
@@ -244,7 +240,7 @@ mod test {
                                     frame_recv_count
                                 );
                             }
-                            Ok(ReadStatus::NotReady) => {
+                            Ok(ReadStatus::WouldBlock) => {
                                 continue; // try reading again
                             }
                             Err(e) => {
@@ -274,7 +270,7 @@ mod test {
                         frame_send_count += 1;
                         break;
                     }
-                    Ok(WriteStatus::NotReady) => {
+                    Ok(WriteStatus::WouldBlock) => {
                         continue;
                     }
                     Err(e) => {

@@ -55,4 +55,6 @@ lazy_static = "1.4.0"
 # bechmarking only
 criterion = { version= "0.5", features = ["async_tokio", "async_futures"]}
 
+# collections
+slab = "0.4"
 
