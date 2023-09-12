@@ -107,7 +107,7 @@ impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgBusy
 {
     #[inline(always)]
     fn recv_busywait(&mut self) -> Result<Option<<M as MessengerNew>::RecvT>, Box<dyn Error>> {
-        match self.msg_recver.recv_busywait()?{
+        match self.msg_recver.recv_busywait()? {
             Some(msg) => {
                 self.callback.on_recv(&self.msg_recver.con_id, &msg);
                 Ok(Some(msg))
@@ -229,8 +229,6 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> Recv
         self.clt_recver.recv_busywait()
     }
 }
-
-// impl<M: MessengerNew, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M> for MessageSender<M, MAX_MSG_SIZE>{
 impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> Display
     for Clt<M, C, MAX_MSG_SIZE>
 {

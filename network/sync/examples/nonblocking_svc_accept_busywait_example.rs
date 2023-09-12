@@ -15,6 +15,13 @@ use links_testing::unittest::setup::{
 use log::info;
 
 fn main() -> Result<(), Box<dyn Error>> {
+    run()
+}
+#[test]
+fn test() -> Result<(), Box<dyn Error>> {
+    run()
+}
+fn run() -> Result<(), Box<dyn Error>> {
     setup::log::configure();
     let (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after) = setup();
 

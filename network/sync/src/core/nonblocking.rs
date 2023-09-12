@@ -1,4 +1,7 @@
-use std::{error::Error, time::Duration};
+use std::{
+    error::Error,
+    time::{Duration, Instant},
+};
 
 use links_network_core::prelude::{CallbackSendRecvNew, MessengerNew};
 
@@ -23,6 +26,25 @@ pub trait RecvMsgNonBlocking<M: MessengerNew> {
     /// attemp to read data from the stream via system call and if sufficient number of bytes were read to
     /// make a single frame it will attempt to deserialize it into a message and return it
     fn recv_nonblocking(&mut self) -> Result<ReadStatus<M::RecvT>, Box<dyn Error>>;
+    /// Will call [recv_nonblocking] untill it returns [ReadStatus::Completed] or
+    /// will return [Err] if the call to [recv_nonblocking] returns [ReadStatus::WouldBlock] after the timeout
+    fn recv_busywait_timeout(
+        &mut self,
+        timeout: Duration,
+    ) -> Result<Option<M::RecvT>, Box<dyn Error>> {
+        let start = Instant::now();
+        loop {
+            match self.recv_nonblocking()? {
+                ReadStatus::Completed(Some(msg)) => return Ok(Some(msg)),
+                ReadStatus::Completed(None) => return Ok(None),
+                ReadStatus::WouldBlock => {
+                    if start.elapsed() > timeout {
+                        return Err(format!("Recv timeout: {:?}", timeout).into());
+                    }
+                }
+            }
+        }
+    }
 }
 
 pub trait RecvMsgBusyWait<M: MessengerNew> {
@@ -47,8 +69,8 @@ pub trait SendMsgNonBlockingMut<M: MessengerNew> {
     /// The call will internally serialize the msg and attempt to write the resulting bytes into a stream.
     /// If there was a successfull attempt which wrote some bytes from serialized message
     /// into the stream but the write was only partial then the call will buzy wait until all of
-    /// remaining bytes were written before returning [WriteStatus::Completed]
-    /// [WriteStatus::NotReady] is returned only if the attemp did not write any bytes to the stream
+    /// remaining bytes were written before returning [WriteStatus::Completed].
+    /// [WriteStatus::WouldBlock] is returned only if the attemp did not write any bytes to the stream
     /// after the first attempt
     ///
     /// # Note
@@ -58,15 +80,55 @@ pub trait SendMsgNonBlockingMut<M: MessengerNew> {
     /// * if your implementation is logging or using a callback to propagate/collect all sent messages then it will be
     /// logged / called back twice
     fn send_nonblocking(&mut self, msg: &mut M::SendT) -> Result<WriteStatus, Box<dyn Error>>;
+    
+    /// Calls [send_nonblocking] untill it returns [WriteStatus::Completed] or
+    /// will return [Err] if the call to [send_nonblocking] returns [WriteStatus::WouldBlock] after the timeout
+    fn send_nonblocking_timeout(
+        &mut self,
+        msg: &mut M::SendT,
+        timeout: Duration,
+    ) -> Result<(), Box<dyn Error>> {
+        let start = Instant::now();
+        loop {
+            match self.send_nonblocking(msg)? {
+                WriteStatus::Completed => return Ok(()),
+                WriteStatus::WouldBlock => {
+                    if start.elapsed() > timeout {
+                        return Err(format!("Send timeout: {:?}", timeout).into());
+                    }
+                }
+            }
+        }
+    }
 }
 
 pub trait SendMsgNonBlocking<M: MessengerNew> {
     /// If there was a successfull attempt to write any bytes from serialized message
     /// into the stream but the write was only partial then the call shall buzy wait until all
-    /// remaining bytes were written before returning [WriteStatus::Completed]
-    /// [WriteStatus::NotReady] is returned only if the attemp did not write any bytes to the stream
+    /// remaining bytes were written before returning [WriteStatus::Completed].
+    /// [WriteStatus::WouldBlock] is returned only if the attemp did not write any bytes to the stream
     /// after the first attempt
     fn send_nonblocking(&mut self, msg: &M::SendT) -> Result<WriteStatus, Box<dyn Error>>;
+    
+    /// Calls [send_nonblocking] untill it returns [WriteStatus::Completed] or
+    /// will return [Err] if the call to [send_nonblocking] returns [WriteStatus::WouldBlock] after the timeout
+    fn send_nonblocking_timeout(
+        &mut self,
+        msg: &M::SendT,
+        timeout: Duration,
+    ) -> Result<(), Box<dyn Error>> {
+        let start = Instant::now();
+        loop {
+            match self.send_nonblocking(msg)? {
+                WriteStatus::Completed => return Ok(()),
+                WriteStatus::WouldBlock => {
+                    if start.elapsed() > timeout {
+                        return Err(format!("Send timeout: {:?}", timeout).into());
+                    }
+                }
+            }
+        }
+    }
 }
 
 pub trait SendMsgBusyWaitMut<M: MessengerNew> {
