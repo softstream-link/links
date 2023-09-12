@@ -80,10 +80,10 @@ pub trait SendMsgNonBlockingMut<M: MessengerNew> {
     /// * if your implementation is logging or using a callback to propagate/collect all sent messages then it will be
     /// logged / called back twice
     fn send_nonblocking(&mut self, msg: &mut M::SendT) -> Result<WriteStatus, Box<dyn Error>>;
-    
+
     /// Calls [send_nonblocking] untill it returns [WriteStatus::Completed] or
     /// will return [Err] if the call to [send_nonblocking] returns [WriteStatus::WouldBlock] after the timeout
-    fn send_nonblocking_timeout(
+    fn send_busywait_timeout(
         &mut self,
         msg: &mut M::SendT,
         timeout: Duration,
@@ -109,7 +109,7 @@ pub trait SendMsgNonBlocking<M: MessengerNew> {
     /// [WriteStatus::WouldBlock] is returned only if the attemp did not write any bytes to the stream
     /// after the first attempt
     fn send_nonblocking(&mut self, msg: &M::SendT) -> Result<WriteStatus, Box<dyn Error>>;
-    
+
     /// Calls [send_nonblocking] untill it returns [WriteStatus::Completed] or
     /// will return [Err] if the call to [send_nonblocking] returns [WriteStatus::WouldBlock] after the timeout
     fn send_nonblocking_timeout(
@@ -148,12 +148,28 @@ pub trait AcceptCltNonBlocking<
     const MAX_MSG_SIZE: usize,
 >
 {
+    /// Will attempt to accept a new connection. If there is a new connection it will return [Some(Clt)].
+    /// Otherwise it will return [None] if there are no new connections to accept.
     fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Box<dyn Error>>;
-}
 
-pub trait AcceptCltBusyWait<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> {
-    fn accept_busywait(&self, timeout: Duration)
-        -> Result<Clt<M, C, MAX_MSG_SIZE>, Box<dyn Error>>;
+    /// Will call [accept_nonblocking] untill it returns [Some(Clt)] or
+    /// will return [Err] if the call to [accept_nonblocking] returns [None] after the timeout
+    fn accept_busywait_timeout(
+        &self,
+        timeout: Duration,
+    ) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Box<dyn Error>> {
+        let start = Instant::now();
+        loop {
+            match self.accept_nonblocking()? {
+                Some(clt) => return Ok(Some(clt)),
+                None => {
+                    if start.elapsed() > timeout {
+                        return Err(format!("Accept timeout: {:?}", timeout).into());
+                    }
+                }
+            }
+        }
+    }
 }
 
 // ---- Service Loop ----

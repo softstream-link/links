@@ -6,13 +6,9 @@ use std::{
         mpsc::{channel, Receiver, Sender},
         Arc,
     },
-    time::{Duration, Instant},
 };
 
-use crate::{
-    core::nonblocking::{AcceptCltBusyWait, AcceptCltNonBlocking},
-    prelude_nonblocking::*,
-};
+use crate::{core::nonblocking::AcceptCltNonBlocking, prelude_nonblocking::*};
 use links_network_core::{
     callbacks::CallbackSendRecvNew,
     prelude::{CallbackRecv, CallbackSend, ConId, MessengerNew},
@@ -27,9 +23,7 @@ pub struct SvcRecver<M: MessengerNew+'static, C: CallbackRecv<M>, const MAX_MSG_
     rx_recver: Receiver<CltRecver<M, C, MAX_MSG_SIZE>>,
     svc_recvers: Slab<CltRecver<M, C, MAX_MSG_SIZE>>,
 }
-impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize>
-    SvcRecver<M, C, MAX_MSG_SIZE>
-{
+impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> SvcRecver<M, C, MAX_MSG_SIZE> {
     #[inline]
     fn service_once_rx_queue(&mut self) -> Result<(), Box<dyn Error>> {
         match self.rx_recver.try_recv() {
@@ -106,9 +100,7 @@ pub struct SvcSender<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: us
     rx_sender: Receiver<CltSender<M, C, MAX_MSG_SIZE>>,
     svc_senders: Slab<CltSender<M, C, MAX_MSG_SIZE>>,
 }
-impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize>
-    SvcSender<M, C, MAX_MSG_SIZE>
-{
+impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SvcSender<M, C, MAX_MSG_SIZE> {
     #[inline]
     fn service_once_rx_queue(&mut self) -> Result<(), Box<dyn Error>> {
         match self.rx_sender.try_recv() {
@@ -166,29 +158,6 @@ pub struct SvcAcceptor<
     callback: Arc<C>,
     con_id: ConId,
 }
-
-impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
-    AcceptCltBusyWait<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
-{
-    fn accept_busywait(
-        &self,
-        timeout: Duration,
-    ) -> Result<Clt<M, C, MAX_MSG_SIZE>, Box<dyn Error>> {
-        let now = Instant::now();
-        loop {
-            let clt = self.accept_nonblocking()?;
-            match clt {
-                Some(clt) => return Ok(clt),
-                None => {
-                    if now.elapsed() > timeout {
-                        return Err(format!("accept timeout: {:?}", timeout).into());
-                    }
-                    continue;
-                }
-            }
-        }
-    }
-}
 impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
@@ -213,8 +182,8 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
     }
 }
 
-impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
-    NonBlockingServiceLoop for SvcAcceptor<M, C, MAX_MSG_SIZE>
+impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
+    for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Box<dyn Error>> {
         if let Some(clt) = self.accept_nonblocking()? {
@@ -296,16 +265,6 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
         SvcSender<M, C, MAX_MSG_SIZE>,
     ) {
         (self.acceptor, self.svc_recver, self.svc_sender)
-    }
-}
-impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
-    AcceptCltBusyWait<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
-{
-    fn accept_busywait(
-        &self,
-        timeout: Duration,
-    ) -> Result<Clt<M, C, MAX_MSG_SIZE>, Box<dyn Error>> {
-        self.acceptor.accept_busywait(timeout)
     }
 }
 impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>

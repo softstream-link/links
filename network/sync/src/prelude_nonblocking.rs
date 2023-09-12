@@ -1,7 +1,7 @@
 pub use crate::connect::clt::nonblocking::Clt;
 pub use crate::connect::svc::nonblocking::Svc;
 
-pub use crate::core::nonblocking::{AcceptCltBusyWait, AcceptCltNonBlocking};
+pub use crate::core::nonblocking::AcceptCltNonBlocking;
 pub use crate::core::nonblocking::{NonBlockingServiceLoop, ServiceLoopStatus};
 pub use crate::core::nonblocking::{ReadStatus, WriteStatus};
 pub use crate::core::nonblocking::{RecvMsgBusyWait, RecvMsgNonBlocking};
