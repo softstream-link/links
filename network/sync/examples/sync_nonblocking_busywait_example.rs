@@ -1,11 +1,11 @@
 use std::{
     error::Error,
     sync::Arc,
-    thread::{spawn, Builder},
+    thread::Builder,
     time::{Duration, Instant},
 };
 
-use links_network_core::prelude::{CallbackSendRecvNew, LoggerCallbackNew, MessengerNew, DevNullCallbackNew};
+use links_network_core::prelude::{CallbackSendRecvNew, DevNullCallbackNew, MessengerNew};
 use links_network_sync::{
     prelude_nonblocking::*,
     unittest::setup::{
@@ -15,9 +15,10 @@ use links_network_sync::{
 };
 use links_testing::unittest::setup::{
     self,
-    model::{TestCltMsg, TestCltMsgDebug},
+    model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
 };
-use log::{info, Level};
+use log::info;
+use num_format::{ToFormattedString, Locale};
 
 fn main() -> Result<(), Box<dyn Error>> {
     run()
@@ -63,28 +64,42 @@ fn run() -> Result<(), Box<dyn Error>> {
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
+            let mut clt_acceptor_send_msg =
+                TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Client Msg"));
             let mut msg_recv_count = 0_usize;
             loop {
-                match clt_acceptor.recv_nonblocking() {
-                    Ok(ReadStatus::Completed(Some(_recv_msg))) => {
-                        msg_recv_count += 1;
-                    }
-                    Ok(ReadStatus::Completed(None)) => {
-                        info!(
-                            "Connection Closed by clt_initiator clt_acceptor: {}",
-                            clt_acceptor
-                        );
-                        break;
-                    }
-                    Ok(ReadStatus::WouldBlock) => continue,
-                    Err(err) => {
-                        panic!(
-                            "Connection Closed by clt_initiator, clt_acceptor: {}, err: {}",
-                            clt_acceptor, err
-                        );
-                    }
+                if let Some(_msg) = clt_acceptor.recv_busywait().unwrap() {
+                    msg_recv_count += 1;
+                    clt_acceptor
+                        .send_busywait(&mut clt_acceptor_send_msg)
+                        .unwrap();
+                    continue;
+                }else {
+                    break;
                 }
             }
+            // loop {
+            //     match clt_acceptor.recv_nonblocking() {
+            //         Ok(ReadStatus::Completed(Some(_recv_msg))) => {
+            //             msg_recv_count += 1;
+            //             clt_acceptor.send_busywait(&mut clt_acceptor_send_msg).unwrap();
+            //         }
+            //         Ok(ReadStatus::Completed(None)) => {
+            //             info!(
+            //                 "Connection Closed by clt_initiator clt_acceptor: {}",
+            //                 clt_acceptor
+            //             );
+            //             break;
+            //         }
+            //         Ok(ReadStatus::WouldBlock) => continue,
+            //         Err(err) => {
+            //             panic!(
+            //                 "Connection Closed by clt_initiator, clt_acceptor: {}, err: {}",
+            //                 clt_acceptor, err
+            //             );
+            //         }
+            //     }
+            // }
             msg_recv_count
         })
         .unwrap();
@@ -92,14 +107,16 @@ fn run() -> Result<(), Box<dyn Error>> {
     let now = Instant::now();
     for _ in 0..WRITE_N_TIMES {
         clt_initiator.send_busywait(&mut clt_initiator_send_msg)?;
+        let _msg = clt_initiator.recv_busywait().unwrap().unwrap();
     }
     let elapsed = now.elapsed();
 
     drop(clt_initiator); // close the connection and allow the acceptor to exit
     let msg_recv_count = clt_acceptor_jh.join().unwrap();
     info!(
-        "msg_recv_count: {}, per/write {:?}, total: {:?}",
-        msg_recv_count,
+        "msg_send_count: {}, msg_recv_count: {}, per/write {:?}, total: {:?}",
+        WRITE_N_TIMES.to_formatted_string(&Locale::en),
+        msg_recv_count.to_formatted_string(&Locale::en),
         elapsed / WRITE_N_TIMES as u32,
         elapsed
     );

@@ -77,5 +77,5 @@ harness = false
 
 
 [[example]]
-name = "nonblocking_busywait_example"
+name = "sync_nonblocking_busywait_example"
 required-features = ["full"]

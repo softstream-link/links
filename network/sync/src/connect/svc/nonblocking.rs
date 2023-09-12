@@ -3,7 +3,7 @@ use std::{
     io::{Error, ErrorKind},
     os::fd::{FromRawFd, IntoRawFd},
     sync::{
-        mpsc::{channel, Receiver, Sender, TrySendError},
+        mpsc::{channel, Receiver, Sender},
         Arc,
     },
 };
@@ -54,6 +54,10 @@ impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> SvcRecver<M
                     break;
                 }
                 Err(e) => {
+                    warn!(
+                        "recver #{} is dead {} and will be dropped.  error: {}",
+                        key, clt, e
+                    );
                     dead_connection = true;
                     dead_key = key;
                     break;
