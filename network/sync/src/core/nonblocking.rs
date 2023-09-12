@@ -1,5 +1,5 @@
 use std::{
-    error::Error,
+    io::{Error, ErrorKind},
     time::{Duration, Instant},
 };
 
@@ -25,13 +25,10 @@ pub trait RecvMsgNonBlocking<M: MessengerNew> {
     /// Will attempt to read a message from the stream. Each call to this method will
     /// attemp to read data from the stream via system call and if sufficient number of bytes were read to
     /// make a single frame it will attempt to deserialize it into a message and return it
-    fn recv_nonblocking(&mut self) -> Result<ReadStatus<M::RecvT>, Box<dyn Error>>;
+    fn recv_nonblocking(&mut self) -> Result<ReadStatus<M::RecvT>, Error>;
     /// Will call [recv_nonblocking] untill it returns [ReadStatus::Completed] or
     /// will return [Err] if the call to [recv_nonblocking] returns [ReadStatus::WouldBlock] after the timeout
-    fn recv_busywait_timeout(
-        &mut self,
-        timeout: Duration,
-    ) -> Result<Option<M::RecvT>, Box<dyn Error>> {
+    fn recv_busywait_timeout(&mut self, timeout: Duration) -> Result<Option<M::RecvT>, Error> {
         let start = Instant::now();
         loop {
             match self.recv_nonblocking()? {
@@ -39,7 +36,10 @@ pub trait RecvMsgNonBlocking<M: MessengerNew> {
                 ReadStatus::Completed(None) => return Ok(None),
                 ReadStatus::WouldBlock => {
                     if start.elapsed() > timeout {
-                        return Err(format!("Recv timeout: {:?}", timeout).into());
+                        return Err(Error::new(
+                            ErrorKind::TimedOut,
+                            format!("Recv timeout: {:?}", timeout),
+                        ));
                     }
                 }
             }
@@ -49,7 +49,7 @@ pub trait RecvMsgNonBlocking<M: MessengerNew> {
 
 pub trait RecvMsgBusyWait<M: MessengerNew> {
     /// Will attempt to read a message from the stream untill there is enough bytes to make a single frame, EOF is reached or Error.
-    fn recv_busywait(&mut self) -> Result<Option<M::RecvT>, Box<dyn Error>>;
+    fn recv_busywait(&mut self) -> Result<Option<M::RecvT>, Error>;
 }
 
 // ---- Sender ----
@@ -79,7 +79,7 @@ pub trait SendMsgNonBlockingMut<M: MessengerNew> {
     /// * if your implementation is in fact modifying the msg then this modification will be repeated
     /// * if your implementation is logging or using a callback to propagate/collect all sent messages then it will be
     /// logged / called back twice
-    fn send_nonblocking(&mut self, msg: &mut M::SendT) -> Result<WriteStatus, Box<dyn Error>>;
+    fn send_nonblocking(&mut self, msg: &mut M::SendT) -> Result<WriteStatus, Error>;
 
     /// Calls [send_nonblocking] untill it returns [WriteStatus::Completed] or
     /// will return [Err] if the call to [send_nonblocking] returns [WriteStatus::WouldBlock] after the timeout
@@ -87,14 +87,17 @@ pub trait SendMsgNonBlockingMut<M: MessengerNew> {
         &mut self,
         msg: &mut M::SendT,
         timeout: Duration,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), Error> {
         let start = Instant::now();
         loop {
             match self.send_nonblocking(msg)? {
                 WriteStatus::Completed => return Ok(()),
                 WriteStatus::WouldBlock => {
                     if start.elapsed() > timeout {
-                        return Err(format!("Send timeout: {:?}", timeout).into());
+                        return Err(Error::new(
+                            ErrorKind::TimedOut,
+                            format!("Send timeout: {:?}", timeout),
+                        ));
                     }
                 }
             }
@@ -108,22 +111,21 @@ pub trait SendMsgNonBlocking<M: MessengerNew> {
     /// remaining bytes were written before returning [WriteStatus::Completed].
     /// [WriteStatus::WouldBlock] is returned only if the attemp did not write any bytes to the stream
     /// after the first attempt
-    fn send_nonblocking(&mut self, msg: &M::SendT) -> Result<WriteStatus, Box<dyn Error>>;
+    fn send_nonblocking(&mut self, msg: &M::SendT) -> Result<WriteStatus, Error>;
 
     /// Calls [send_nonblocking] untill it returns [WriteStatus::Completed] or
     /// will return [Err] if the call to [send_nonblocking] returns [WriteStatus::WouldBlock] after the timeout
-    fn send_nonblocking_timeout(
-        &mut self,
-        msg: &M::SendT,
-        timeout: Duration,
-    ) -> Result<(), Box<dyn Error>> {
+    fn send_nonblocking_timeout(&mut self, msg: &M::SendT, timeout: Duration) -> Result<(), Error> {
         let start = Instant::now();
         loop {
             match self.send_nonblocking(msg)? {
                 WriteStatus::Completed => return Ok(()),
                 WriteStatus::WouldBlock => {
                     if start.elapsed() > timeout {
-                        return Err(format!("Send timeout: {:?}", timeout).into());
+                        return Err(Error::new(
+                            ErrorKind::TimedOut,
+                            format!("Send timeout: {:?}", timeout),
+                        ));
                     }
                 }
             }
@@ -137,7 +139,7 @@ pub trait SendMsgBusyWaitMut<M: MessengerNew> {
     /// # Note
     /// * objective of this method is to not let kernel block this thread in the rate event it needs to pause writing to the stream and
     /// instead of blocking and unloading the thread from CPU it will instea busy wait untill operation succeeds
-    fn send_busywait(&mut self, msg: &mut M::SendT) -> Result<(), Box<dyn Error>>;
+    fn send_busywait(&mut self, msg: &mut M::SendT) -> Result<(), Error>;
 }
 
 // ---- Acceptor ----
@@ -150,21 +152,24 @@ pub trait AcceptCltNonBlocking<
 {
     /// Will attempt to accept a new connection. If there is a new connection it will return [Some(Clt)].
     /// Otherwise it will return [None] if there are no new connections to accept.
-    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Box<dyn Error>>;
+    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error>;
 
     /// Will call [accept_nonblocking] untill it returns [Some(Clt)] or
     /// will return [Err] if the call to [accept_nonblocking] returns [None] after the timeout
     fn accept_busywait_timeout(
         &self,
         timeout: Duration,
-    ) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Box<dyn Error>> {
+    ) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
         let start = Instant::now();
         loop {
             match self.accept_nonblocking()? {
                 Some(clt) => return Ok(Some(clt)),
                 None => {
                     if start.elapsed() > timeout {
-                        return Err(format!("Accept timeout: {:?}", timeout).into());
+                        return Err(Error::new(
+                            ErrorKind::TimedOut,
+                            format!("Accept timeout: {:?}", timeout),
+                        ));
                     }
                 }
             }
@@ -180,5 +185,5 @@ pub enum ServiceLoopStatus {
     Stop,
 }
 pub trait NonBlockingServiceLoop {
-    fn service_once(&mut self) -> Result<ServiceLoopStatus, Box<dyn Error>>;
+    fn service_once(&mut self) -> Result<ServiceLoopStatus, Error>;
 }

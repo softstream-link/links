@@ -1,4 +1,4 @@
-use std::{any::type_name, error::Error, fmt::Display};
+use std::{any::type_name, fmt::Display, io::Error};
 
 use crate::connect::framer::nonblocking::{FrameReader, FrameWriter};
 use crate::prelude_nonblocking::*;
@@ -7,7 +7,7 @@ use links_network_core::prelude::{ConId, MessengerNew};
 #[derive(Debug)]
 pub struct MessageSender<M: MessengerNew, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
-    frm_writer: FrameWriter,
+    pub(crate) frm_writer: FrameWriter,
     phantom: std::marker::PhantomData<M>,
 }
 impl<M: MessengerNew, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
@@ -25,7 +25,7 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M> for Messa
     /// If the underlying socket is not ready to write, it will return [WriteStatus::NotReady] while
     /// also guaranteeing that non of the serialized bytes where sent. The user shall try again later in that case.
     #[inline(always)]
-    fn send_nonblocking(&mut self, msg: &M::SendT) -> Result<WriteStatus, Box<dyn Error>> {
+    fn send_nonblocking(&mut self, msg: &M::SendT) -> Result<WriteStatus, Error> {
         let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
         self.frm_writer.write_frame(&bytes[..size])
     }
@@ -34,13 +34,10 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> SendMsgBusyWaitMut<M>
     for MessageSender<M, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn send_busywait(
-        &mut self,
-        msg: &mut <M as MessengerNew>::SendT,
-    ) -> Result<(), Box<dyn Error>> {
+    fn send_busywait(&mut self, msg: &mut <M as MessengerNew>::SendT) -> Result<(), Error> {
         let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
         while let WriteStatus::WouldBlock = self.frm_writer.write_frame(&bytes[..size])? {
-            // busy wait tuntill write_frame returns WriteStatus::Completed
+            // busy wait untill write_frame returns WriteStatus::Completed
             continue;
         }
         Ok(())
@@ -60,7 +57,7 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MA
 #[derive(Debug)]
 pub struct MessageRecver<M: MessengerNew, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
-    frm_reader: FrameReader<M, MAX_MSG_SIZE>,
+    pub(crate) frm_reader: FrameReader<M, MAX_MSG_SIZE>,
     phantom: std::marker::PhantomData<M>,
 }
 impl<M: MessengerNew, const MAX_MSG_SIZE: usize> MessageRecver<M, MAX_MSG_SIZE> {
@@ -76,7 +73,7 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
     for MessageRecver<M, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn recv_nonblocking(&mut self) -> Result<ReadStatus<M::RecvT>, Box<dyn Error>> {
+    fn recv_nonblocking(&mut self) -> Result<ReadStatus<M::RecvT>, Error> {
         let status = self.frm_reader.read_frame()?;
         match status {
             ReadStatus::Completed(Some(frame)) => {
@@ -92,7 +89,7 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> RecvMsgBusyWait<M>
     for MessageRecver<M, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn recv_busywait(&mut self) -> Result<Option<<M as MessengerNew>::RecvT>, Box<dyn Error>> {
+    fn recv_busywait(&mut self) -> Result<Option<<M as MessengerNew>::RecvT>, Error> {
         loop {
             match self.recv_nonblocking()? {
                 ReadStatus::Completed(opt) => return Ok(opt),

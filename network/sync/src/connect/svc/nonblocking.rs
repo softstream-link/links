@@ -1,9 +1,9 @@
 use std::{
-    error::Error,
     fmt::Display,
+    io::{Error, ErrorKind},
     os::fd::{FromRawFd, IntoRawFd},
     sync::{
-        mpsc::{channel, Receiver, Sender},
+        mpsc::{channel, Receiver, Sender, TrySendError},
         Arc,
     },
 };
@@ -13,7 +13,7 @@ use links_network_core::{
     callbacks::CallbackSendRecvNew,
     prelude::{CallbackRecv, CallbackSend, ConId, MessengerNew},
 };
-use log::{debug, info, log_enabled, warn};
+use log::{debug, log_enabled, warn};
 use slab::Slab;
 
 use crate::connect::clt::nonblocking::{Clt, CltRecver, CltSender};
@@ -25,7 +25,7 @@ pub struct SvcRecver<M: MessengerNew+'static, C: CallbackRecv<M>, const MAX_MSG_
 }
 impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> SvcRecver<M, C, MAX_MSG_SIZE> {
     #[inline]
-    fn service_once_rx_queue(&mut self) -> Result<(), Box<dyn Error>> {
+    fn service_once_rx_queue(&mut self) -> Result<(), Error> {
         match self.rx_recver.try_recv() {
             Ok(recver) => {
                 if self.svc_recvers.len() < self.svc_recvers.capacity() {
@@ -39,11 +39,11 @@ impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> SvcRecver<M
                 Ok(())
             }
             Err(std::sync::mpsc::TryRecvError::Empty) => Ok(()),
-            Err(e) => Err(e.into()),
+            Err(e) => Err(Error::new(ErrorKind::Other, e)),
         }
     }
     #[inline]
-    fn service_once_recvers(&mut self) -> Result<(), Box<dyn Error>> {
+    fn service_once_recvers(&mut self) -> Result<(), Error> {
         let (mut dead_key, mut dead_connection) = (0, false);
         for (key, clt) in self.svc_recvers.iter_mut() {
             match clt.service_once() {
@@ -71,7 +71,7 @@ impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> SvcRecver<M
 impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
     for SvcRecver<M, C, MAX_MSG_SIZE>
 {
-    fn service_once(&mut self) -> Result<ServiceLoopStatus, Box<dyn Error>> {
+    fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
         self.service_once_rx_queue()?;
         self.service_once_recvers()?;
         Ok(ServiceLoopStatus::Continue)
@@ -102,7 +102,7 @@ pub struct SvcSender<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: us
 }
 impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SvcSender<M, C, MAX_MSG_SIZE> {
     #[inline]
-    fn service_once_rx_queue(&mut self) -> Result<(), Box<dyn Error>> {
+    fn service_once_rx_queue(&mut self) -> Result<(), Error> {
         match self.rx_sender.try_recv() {
             Ok(sender) => {
                 if self.svc_senders.len() < self.svc_senders.capacity() {
@@ -116,7 +116,7 @@ impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SvcSender<M
                 Ok(())
             }
             Err(std::sync::mpsc::TryRecvError::Empty) => Ok(()),
-            Err(e) => Err(e.into()),
+            Err(e) => Err(Error::new(ErrorKind::Other, e)),
         }
     }
 }
@@ -124,7 +124,7 @@ impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> NonBlocking
     for SvcSender<M, C, MAX_MSG_SIZE>
 {
     #[inline]
-    fn service_once(&mut self) -> Result<ServiceLoopStatus, Box<dyn Error>> {
+    fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
         self.service_once_rx_queue()?;
         Ok(ServiceLoopStatus::Continue)
     }
@@ -161,14 +161,16 @@ pub struct SvcAcceptor<
 impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
-    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Box<dyn Error>> {
+    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
         match self.listener.accept() {
             Ok((stream, addr)) => {
                 // TODO add rate limiter
                 let stream = unsafe { std::net::TcpStream::from_raw_fd(stream.into_raw_fd()) };
                 let mut con_id = self.con_id.clone();
                 con_id.set_peer(addr);
-                info!("{} Accepted", con_id);
+                if log_enabled!(log::Level::Debug) {
+                    debug!("{} Accepted", con_id);
+                }
                 let clt = Clt::<_, _, MAX_MSG_SIZE>::from_stream(
                     stream,
                     con_id.clone(),
@@ -177,7 +179,7 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
                 Ok(Some(clt))
             }
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(None),
-            Err(e) => Err(e.into()),
+            Err(e) => Err(e),
         }
     }
 }
@@ -185,11 +187,15 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
 impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
     for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
-    fn service_once(&mut self) -> Result<ServiceLoopStatus, Box<dyn Error>> {
+    fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
         if let Some(clt) = self.accept_nonblocking()? {
             let (recver, sender) = clt.into_split();
-            self.tx_recver.send(recver)?;
-            self.tx_sender.send(sender)?;
+            if let Err(e) = self.tx_recver.send(recver) {
+                return Err(Error::new(ErrorKind::Other, e.to_string()));
+            }
+            if let Err(e) = self.tx_sender.send(sender) {
+                return Err(Error::new(ErrorKind::Other, e.to_string()));
+            }
         }
         Ok(ServiceLoopStatus::Continue)
     }
@@ -221,7 +227,7 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
         callback: Arc<C>,
         max_connections: usize, // TODO this arg needs better name
         name: Option<&str>,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self, Error> {
         let listener = std::net::TcpListener::bind(addr)?;
         listener.set_nonblocking(true)?;
 
@@ -270,7 +276,7 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
 impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
 {
-    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Box<dyn Error>> {
+    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
         self.acceptor.accept_nonblocking()
     }
 }
@@ -278,7 +284,7 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
 impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
     for Svc<M, C, MAX_MSG_SIZE>
 {
-    fn service_once(&mut self) -> Result<ServiceLoopStatus, Box<dyn Error>> {
+    fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
         let _ = self.acceptor.service_once()?;
         let _ = self.svc_recver.service_once()?;
         let _ = self.svc_sender.service_once()?;
@@ -301,12 +307,15 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> Disp
 #[cfg(test)]
 #[cfg(any(test, feature = "unittest"))]
 mod test {
+    use std::io::ErrorKind;
+
     use crate::prelude_nonblocking::*;
     use links_network_core::callbacks::{
         devnull_new::DevNullCallbackNew, logger_new::LoggerCallbackNew,
     };
-    use links_testing::unittest::setup;
-    use log::{info, LevelFilter};
+    use links_testing::unittest::setup::model::TestSvcMsg;
+    use links_testing::unittest::setup::{self, model::TestSvcMsgDebug};
+    use log::{info, warn, LevelFilter};
 
     use crate::{
         connect::clt::nonblocking::Clt,
@@ -366,7 +375,7 @@ mod test {
     }
     #[test]
     fn test_svc_clt_connected() {
-        setup::log::configure();
+        setup::log::configure_level(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
 
         let callback = LoggerCallbackNew::<TestSvcMsgProtocol>::new_ref();
@@ -386,5 +395,18 @@ mod test {
         info!("clt: {}", clt);
 
         svc.service_once().unwrap();
+        info!("svc: {}", svc);
+        assert_eq!(svc.clients_len(), (1, 1));
+
+        let (clt_recv, mut clt_send) = clt.into_split();
+
+        // drop clt_recv and ensure that clt_sender has broken pipe
+        drop(clt_recv);
+
+        let mut clt_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Client Msg"));
+        let err = clt_send.send_busywait(&mut clt_msg).unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+        warn!("{}", err);
     }
 }
