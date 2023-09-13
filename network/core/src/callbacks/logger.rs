@@ -8,15 +8,15 @@ use log::{debug, error, info, log_enabled, trace, warn, Level};
 
 use crate::prelude::*;
 
-use super::CallbackSendRecv;
+use super::CallbackSendRecvOld;
 
 #[derive(Debug)]
-pub struct LoggerCallback<M: Messenger> {
+pub struct LoggerCallback<M: MessengerOld> {
     level_recv: Level,
     level_send: Level,
     p1: std::marker::PhantomData<M>,
 }
-impl<M: Messenger> Default for LoggerCallback<M> {
+impl<M: MessengerOld> Default for LoggerCallback<M> {
     fn default() -> Self {
         Self {
             level_recv: Level::Info,
@@ -26,7 +26,7 @@ impl<M: Messenger> Default for LoggerCallback<M> {
     }
 }
 
-impl<M: Messenger> LoggerCallback<M> {
+impl<M: MessengerOld> LoggerCallback<M> {
     pub fn new(level_recv: Level, level_send: Level) -> Self {
         Self {
             level_recv,
@@ -39,7 +39,7 @@ impl<M: Messenger> LoggerCallback<M> {
     }
 }
 
-impl<M: Messenger> Display for LoggerCallback<M> {
+impl<M: MessengerOld> Display for LoggerCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -49,7 +49,7 @@ impl<M: Messenger> Display for LoggerCallback<M> {
     }
 }
 
-impl<M: Messenger> CallbackSendRecv<M> for LoggerCallback<M> {
+impl<M: MessengerOld> CallbackSendRecvOld<M> for LoggerCallback<M> {
     fn on_recv(&self, con_id: &ConId, msg: M::RecvT) {
         if !log_enabled!(self.level_recv) {
             return;

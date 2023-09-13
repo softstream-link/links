@@ -6,10 +6,10 @@ use std::{
 };
 
 use chrono::{DateTime, Local};
-use links_network_core::prelude::{ConId, Entry, Messenger};
+use links_network_core::prelude::{ConId, Entry, MessengerOld};
 use tokio::{runtime::Runtime, task::yield_now};
 
-use links_network_core::prelude::{CallbackEvent, CallbackSendRecv, Dir};
+use links_network_core::prelude::{CallbackEvent, CallbackSendRecvOld, Dir};
 
 pub type EventStoreAsyncRef<T> = Arc<EventStoreAsync<T>>;
 
@@ -217,7 +217,7 @@ impl<T: Debug+Clone+Send+Sync+'static> Display for EventStoreAsync<T> {
 pub struct EventStoreCallback<INTO, M>
 where
     INTO: From<M::RecvT>+From<M::SendT>+Debug+Clone+Send+Sync+'static,
-    M: Messenger,
+    M: MessengerOld,
 {
     store: EventStoreAsyncRef<INTO>,
     phantom: std::marker::PhantomData<M>,
@@ -225,7 +225,7 @@ where
 impl<INTO, M> EventStoreCallback<INTO, M>
 where
     INTO: From<M::RecvT>+From<M::SendT>+Debug+Clone+Send+Sync+'static,
-    M: Messenger,
+    M: MessengerOld,
 {
     pub fn new(store: EventStoreAsyncRef<INTO>) -> Self {
         Self {
@@ -243,7 +243,7 @@ where
 impl<INTO, M> Default for EventStoreCallback<INTO, M>
 where
     INTO: From<M::RecvT>+From<M::SendT>+Debug+Clone+Send+Sync+'static,
-    M: Messenger,
+    M: MessengerOld,
 {
     fn default() -> Self {
         Self {
@@ -255,7 +255,7 @@ where
 impl<INTO, M> CallbackEvent<INTO, M> for EventStoreCallback<INTO, M>
 where
     INTO: From<M::RecvT>+From<M::SendT>+Debug+Clone+Send+Sync+'static,
-    M: Messenger,
+    M: MessengerOld,
 {
     fn on_event(&self, cond_id: &ConId, event: Dir<INTO>) {
         self.store.push(Entry {
@@ -269,23 +269,23 @@ where
 impl<INTO, M> Display for EventStoreCallback<INTO, M>
 where
     INTO: From<M::RecvT>+From<M::SendT>+Debug+Clone+Send+Sync+'static,
-    M: Messenger,
+    M: MessengerOld,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "EventStoreCallback->")?;
         Display::fmt(&self.store, f)
     }
 }
-impl<INTO, M> CallbackSendRecv<M> for EventStoreCallback<INTO, M>
+impl<INTO, M> CallbackSendRecvOld<M> for EventStoreCallback<INTO, M>
 where
     INTO: From<M::RecvT>+From<M::SendT>+Debug+Clone+Send+Sync+'static,
-    M: Messenger,
+    M: MessengerOld,
 {
-    fn on_recv(&self, con_id: &ConId, msg: <M as Messenger>::RecvT) {
+    fn on_recv(&self, con_id: &ConId, msg: <M as MessengerOld>::RecvT) {
         let entry = msg.into();
         self.on_event(con_id, Dir::Recv(entry));
     }
-    fn on_send(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {
+    fn on_send(&self, con_id: &ConId, msg: &<M as MessengerOld>::SendT) {
         let entry = msg.clone().into();
         self.on_event(con_id, Dir::Send(entry));
     }

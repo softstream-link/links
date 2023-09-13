@@ -5,17 +5,20 @@ edition = "2021"
 
 [features]
 default = ["full"]                     # TODO desable all default features during release
-full = ["unittest"]
+full = ["unittest", "blocking", "nonblocking"]
+blocking = []
+nonblocking = ["dep:mio"]
 unittest = ["dep:links_testing"]
 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# networking
-mio = { workspace = true } # epoll wrapper
+# networking nonblocking
+mio = { workspace = true, optional = true} # epoll wrapper
 nix = { workspace = true } # libc wrapper
 
+# blocking & nonblocking
 bytes = { workspace = true } # read buffer
 
 links_network_core = { workspace = true } # traits
@@ -24,10 +27,11 @@ log = { workspace = true }
 
 slab = { workspace = true } # slab allocator
 
-byteserde = { workspace = true } # byteserde::utils::hex::to_hex_pretty
+byteserde = { workspace = true } # byteserde::utils::hex::to_hex_pretty #TODO move to seperate crate
 
 
-links_testing = { workspace = true, optional = true } # benchmarks
+links_testing = { workspace = true, optional = true } # benchmarks & testing only
+
 [dev-dependencies]
 links_testing = { workspace = true } # tests
 

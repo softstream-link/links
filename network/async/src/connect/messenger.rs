@@ -6,7 +6,7 @@ use std::{
 };
 
 use byteserde::prelude::{from_slice, to_bytes_stack};
-use links_network_core::prelude::{ConId, Framer, Messenger};
+use links_network_core::prelude::{ConId, Framer, MessengerOld};
 use log::warn;
 use tokio::{
     net::{
@@ -22,12 +22,12 @@ pub type MsgRecverRef<P, F> = Arc<Mutex<MessageRecver<P, F>>>;
 pub type MsgSenderRef<P, const MMS: usize> = Arc<Mutex<MessageSender<P, MMS>>>;
 
 #[derive(Debug)]
-pub struct MessageSender<M: Messenger, const MMS: usize> {
+pub struct MessageSender<M: MessengerOld, const MMS: usize> {
     con_id: ConId,
     writer: FrameWriter,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: Messenger, const MMS: usize> MessageSender<M, MMS> {
+impl<M: MessengerOld, const MMS: usize> MessageSender<M, MMS> {
     pub fn new(writer: OwnedWriteHalf, con_id: ConId) -> Self {
         Self {
             con_id,
@@ -41,7 +41,7 @@ impl<M: Messenger, const MMS: usize> MessageSender<M, MMS> {
         Ok(())
     }
 }
-impl<M: Messenger, const MMS: usize> Display for MessageSender<M, MMS> {
+impl<M: MessengerOld, const MMS: usize> Display for MessageSender<M, MMS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
         write!(f, "{:?} MessageSender<{}, {}>", self.con_id, name, MMS)
@@ -49,12 +49,12 @@ impl<M: Messenger, const MMS: usize> Display for MessageSender<M, MMS> {
 }
 
 #[derive(Debug)]
-pub struct MessageRecver<M: Messenger, F: Framer> {
+pub struct MessageRecver<M: MessengerOld, F: Framer> {
     con_id: ConId,
     reader: FrameReader<F>,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: Messenger, F: Framer> MessageRecver<M, F> {
+impl<M: MessengerOld, F: Framer> MessageRecver<M, F> {
     pub fn with_max_frame_size(
         reader: OwnedReadHalf,
         reader_max_frame_size: usize,
@@ -83,7 +83,7 @@ impl<M: Messenger, F: Framer> MessageRecver<M, F> {
         }
     }
 }
-impl<M: Messenger, F: Framer> Display for MessageRecver<M, F> {
+impl<M: MessengerOld, F: Framer> Display for MessageRecver<M, F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
         write!(f, "{:?} MessageRecver<{}>", self.con_id, name)
@@ -93,7 +93,7 @@ impl<M: Messenger, F: Framer> Display for MessageRecver<M, F> {
 #[rustfmt::skip]
 type MessageProcessor<M, const MMS: usize, F> = (MessageSender<M, MMS>, MessageRecver<M, F>);
 
-pub fn into_split_messenger<M: Messenger, const MMS: usize, F: Framer>(
+pub fn into_split_messenger<M: MessengerOld, const MMS: usize, F: Framer>(
     stream: TcpStream,
     con_id: ConId,
 ) -> MessageProcessor<M, MMS, F> {

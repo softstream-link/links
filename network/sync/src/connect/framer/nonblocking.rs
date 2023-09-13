@@ -1,13 +1,16 @@
-use crate::prelude_nonblocking::*;
+use crate::prelude_nonblocking::{ReadStatus, WriteStatus};
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
 use links_network_core::prelude::Framer;
-use log::{debug, log_enabled};
-use std::fmt::Display;
-use std::io::{Error, ErrorKind, Read, Write};
+use std::{
+    fmt::Display,
+    io::{Error, ErrorKind, Read, Write},
+};
+
 use std::mem::MaybeUninit;
 use std::os::fd::AsRawFd;
 
+use log::{debug, info, log_enabled};
 const EOF: usize = 0;
 
 // TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MSG_SIZE generic as it can just be an non const arg to new
@@ -80,10 +83,10 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SI
                 .unwrap_or("Unknown"),
             self.stream_reader
                 .local_addr()
-                .expect("could not get reader's local address"),
+                .expect("could not get FrameReader's local address"),
             self.stream_reader
                 .peer_addr()
-                .expect("could not get reader's peer address"),
+                .expect("could not get FrameReader's peer address"),
             self.stream_reader.as_raw_fd(),
         )
     }
@@ -170,10 +173,10 @@ impl Display for FrameWriter {
             "FrameWriter {{ {:?}->{:?}, fd: {} }}",
             self.stream_writer
                 .local_addr()
-                .expect("could not get reader's local address"),
+                .expect("could not get FrameReader's local address"),
             self.stream_writer
                 .peer_addr()
-                .expect("could not get reader's peer address"),
+                .expect("could not get FrameReader's peer address"),
             self.stream_writer.as_raw_fd(),
         )
     }
@@ -186,10 +189,6 @@ pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
     stream
         .set_nonblocking(true)
         .expect("Failed to set_nonblocking on TcpStream");
-    // TODO this causes performance to go from 800ns to 2.6µs
-    // stream
-    //     .set_nodelay(true)
-    //     .expect("Failed to set_nodelay on TcpStream");
     let (reader, writer) = (
         stream
             .try_clone()
@@ -200,6 +199,7 @@ pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
         mio::net::TcpStream::from_std(reader),
         mio::net::TcpStream::from_std(writer),
     );
+
     (
         FrameReader::<F, MAX_MSG_SIZE>::new(reader),
         FrameWriter::new(writer),
@@ -208,14 +208,17 @@ pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use std::{
         net::{TcpListener, TcpStream},
         thread::{self, sleep},
         time::{Duration, Instant},
     };
 
+    use crate::prelude_nonblocking::*;
+
+    use bytes::{Bytes, BytesMut};
     use byteserde::utils::hex::to_hex_pretty;
+    use links_network_core::prelude::Framer;
     use links_testing::unittest::setup;
     use log::{error, info};
     use num_format::{Locale, ToFormattedString};
@@ -249,7 +252,8 @@ mod test {
                 move || {
                     let listener = TcpListener::bind(addr).unwrap();
                     let (stream, _) = listener.accept().unwrap();
-                    let (mut reader, _) =
+                    // keep _writer because if you drop it the reader connection will also be closed
+                    let (mut reader, _writer) =
                         into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(stream);
                     info!("svc: reader: {}", reader);
                     let mut frame_recv_count = 0_usize;
@@ -287,11 +291,13 @@ mod test {
             .unwrap();
 
         sleep(Duration::from_millis(100)); // allow the spawned to bind
-                                           // CONFIGUR clt
-        let (_, mut writer) =
+
+        // CONFIGUR clt
+        // keep _reader as if you drop it the writer connection will also be closed
+        let (_reader, mut writer) =
             into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(TcpStream::connect(addr).unwrap());
 
-        info!("clt: {}", writer);
+        info!("clt: writer: {}", writer);
 
         let mut frame_send_count = 0_usize;
         let start = Instant::now();

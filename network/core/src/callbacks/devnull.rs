@@ -6,13 +6,13 @@ use std::{
 
 use crate::prelude::*;
 
-use super::CallbackSendRecv;
+use super::CallbackSendRecvOld;
 
 #[derive(Debug)]
-pub struct DevNullCallback<M: Messenger> {
+pub struct DevNullCallback<M: MessengerOld> {
     p1: std::marker::PhantomData<M>,
 }
-impl<M: Messenger> Default for DevNullCallback<M> {
+impl<M: MessengerOld> Default for DevNullCallback<M> {
     fn default() -> Self {
         Self {
             p1: std::marker::PhantomData,
@@ -20,19 +20,19 @@ impl<M: Messenger> Default for DevNullCallback<M> {
     }
 }
 
-impl<M: Messenger> DevNullCallback<M> {
+impl<M: MessengerOld> DevNullCallback<M> {
     pub fn new_ref() -> Arc<Self> {
         Arc::new(Self::default())
     }
 }
 
-impl<M: Messenger> Display for DevNullCallback<M> {
+impl<M: MessengerOld> Display for DevNullCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "DevNullCallback")
     }
 }
 
-impl<M: Messenger> CallbackSendRecv<M> for DevNullCallback<M> {
+impl<M: MessengerOld> CallbackSendRecvOld<M> for DevNullCallback<M> {
     fn on_recv(&self, _con_id: &ConId, _msg: M::RecvT) {}
     fn on_send(&self, _con_id: &ConId, _msg: &M::SendT) {}
 }

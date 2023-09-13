@@ -3,9 +3,39 @@ use std::{
     time::{Duration, Instant},
 };
 
-use links_network_core::prelude::{CallbackSendRecvNew, MessengerNew};
+use links_network_core::prelude::{CallbackSendRecv, Messenger};
 
-use crate::connect::clt::nonblocking::Clt;
+use crate::prelude_nonblocking::Clt;
+
+// ---- Acceptor ----
+
+pub trait AcceptCltNonBlocking<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> {
+    /// Will attempt to accept a new connection. If there is a new connection it will return [Some(Clt)].
+    /// Otherwise it will return [None] if there are no new connections to accept.
+    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error>;
+
+    /// Will call [accept_nonblocking] untill it returns [Some(Clt)] or
+    /// will return [Err] if the call to [accept_nonblocking] returns [None] after the timeout
+    fn accept_busywait_timeout(
+        &self,
+        timeout: Duration,
+    ) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
+        let start = Instant::now();
+        loop {
+            match self.accept_nonblocking()? {
+                Some(clt) => return Ok(Some(clt)),
+                None => {
+                    if start.elapsed() > timeout {
+                        return Err(Error::new(
+                            ErrorKind::TimedOut,
+                            format!("Accept timeout: {:?}", timeout),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+}
 
 // ---- Recver ----
 
@@ -21,7 +51,7 @@ pub enum ReadStatus<T> {
     WouldBlock,
 }
 
-pub trait RecvMsgNonBlocking<M: MessengerNew> {
+pub trait RecvMsgNonBlocking<M: Messenger> {
     /// Will attempt to read a message from the stream. Each call to this method will
     /// attemp to read data from the stream via system call and if sufficient number of bytes were read to
     /// make a single frame it will attempt to deserialize it into a message and return it
@@ -47,7 +77,7 @@ pub trait RecvMsgNonBlocking<M: MessengerNew> {
     }
 }
 
-pub trait RecvMsgBusyWait<M: MessengerNew> {
+pub trait RecvMsgBusyWait<M: Messenger> {
     /// Will attempt to read a message from the stream untill there is enough bytes to make a single frame, EOF is reached or Error.
     fn recv_busywait(&mut self) -> Result<Option<M::RecvT>, Error>;
 }
@@ -65,7 +95,7 @@ pub enum WriteStatus {
     WouldBlock,
 }
 
-pub trait SendMsgNonBlockingMut<M: MessengerNew> {
+pub trait SendMsgNonBlockingMut<M: Messenger> {
     /// The call will internally serialize the msg and attempt to write the resulting bytes into a stream.
     /// If there was a successfull attempt which wrote some bytes from serialized message
     /// into the stream but the write was only partial then the call will buzy wait until all of
@@ -105,7 +135,7 @@ pub trait SendMsgNonBlockingMut<M: MessengerNew> {
     }
 }
 
-pub trait SendMsgNonBlocking<M: MessengerNew> {
+pub trait SendMsgNonBlocking<M: Messenger> {
     /// If there was a successfull attempt to write any bytes from serialized message
     /// into the stream but the write was only partial then the call shall buzy wait until all
     /// remaining bytes were written before returning [WriteStatus::Completed].
@@ -133,48 +163,13 @@ pub trait SendMsgNonBlocking<M: MessengerNew> {
     }
 }
 
-pub trait SendMsgBusyWaitMut<M: MessengerNew> {
+pub trait SendMsgBusyWaitMut<M: Messenger> {
     /// The call will internally serialize the msg and will busy wait untill all of the bytes were written
     /// into the stream. You should never have to retry this call as it will always return [Ok(())] or non recoverable [Err]
     /// # Note
     /// * objective of this method is to not let kernel block this thread in the rate event it needs to pause writing to the stream and
     /// instead of blocking and unloading the thread from CPU it will instea busy wait untill operation succeeds
     fn send_busywait(&mut self, msg: &mut M::SendT) -> Result<(), Error>;
-}
-
-// ---- Acceptor ----
-
-pub trait AcceptCltNonBlocking<
-    M: MessengerNew,
-    C: CallbackSendRecvNew<M>,
-    const MAX_MSG_SIZE: usize,
->
-{
-    /// Will attempt to accept a new connection. If there is a new connection it will return [Some(Clt)].
-    /// Otherwise it will return [None] if there are no new connections to accept.
-    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error>;
-
-    /// Will call [accept_nonblocking] untill it returns [Some(Clt)] or
-    /// will return [Err] if the call to [accept_nonblocking] returns [None] after the timeout
-    fn accept_busywait_timeout(
-        &self,
-        timeout: Duration,
-    ) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
-        let start = Instant::now();
-        loop {
-            match self.accept_nonblocking()? {
-                Some(clt) => return Ok(Some(clt)),
-                None => {
-                    if start.elapsed() > timeout {
-                        return Err(Error::new(
-                            ErrorKind::TimedOut,
-                            format!("Accept timeout: {:?}", timeout),
-                        ));
-                    }
-                }
-            }
-        }
-    }
 }
 
 // ---- Service Loop ----

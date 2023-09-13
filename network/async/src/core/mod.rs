@@ -5,7 +5,7 @@ use std::{error::Error, future::Future, time::Duration};
 use crate::prelude::*;
 
 use links_network_core::prelude::{
-    CallbackSendRecv, ConId, EventIntervalTracker, Framer, Messenger,
+    CallbackSendRecvOld, ConId, EventIntervalTracker, Framer, MessengerOld,
 };
 
 /// This trait brings the Framer and Messenger traits together as well as provides a series of functions
@@ -16,7 +16,7 @@ use links_network_core::prelude::{
 /// needs to have own protocol instance.
 ///  
 #[allow(unused_variables)]
-pub trait Protocol: Clone+Messenger+Framer+Send+Sync+'static {
+pub trait Protocol: Clone+MessengerOld+Framer+Send+Sync+'static {
     /// Provides a protocol specific implementation of the connection status by analyzing packets going
     /// through the connection
     fn is_connected(&self, timeout: Option<Duration>) -> impl Future<Output=bool>+'_ {
@@ -34,7 +34,7 @@ pub trait Protocol: Clone+Messenger+Framer+Send+Sync+'static {
     fn handshake<
         's,
         P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-        C: CallbackSendRecv<P>,
+        C: CallbackSendRecvOld<P>,
         const MMS: usize,
     >(
         &'s self,
@@ -45,7 +45,7 @@ pub trait Protocol: Clone+Messenger+Framer+Send+Sync+'static {
 
     fn keep_alive_loop<
         P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-        C: CallbackSendRecv<P>,
+        C: CallbackSendRecvOld<P>,
         const MMS: usize,
     >(
         &self,

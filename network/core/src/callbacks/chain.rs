@@ -3,19 +3,19 @@ use std::{
     sync::Arc,
 };
 
-use crate::core::Messenger;
+use crate::core::MessengerOld;
 use crate::prelude::*;
 
-use super::CallbackSendRecv;
+use super::CallbackSendRecvOld;
 
-pub type Chain<M> = Vec<Arc<dyn CallbackSendRecv<M>>>;
+pub type Chain<M> = Vec<Arc<dyn CallbackSendRecvOld<M>>>;
 
 #[derive(Debug)]
-pub struct ChainCallback<M: Messenger> {
+pub struct ChainCallback<M: MessengerOld> {
     chain: Chain<M>,
 }
 
-impl<M: Messenger> ChainCallback<M> {
+impl<M: MessengerOld> ChainCallback<M> {
     pub fn new(chain: Chain<M>) -> Self {
         Self { chain }
     }
@@ -23,12 +23,12 @@ impl<M: Messenger> ChainCallback<M> {
         Arc::new(Self::new(chain))
     }
 }
-impl<M: Messenger> Display for ChainCallback<M> {
+impl<M: MessengerOld> Display for ChainCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ChainCallback<{}>", self.chain.len())
     }
 }
-impl<M: Messenger> CallbackSendRecv<M> for ChainCallback<M> {
+impl<M: MessengerOld> CallbackSendRecvOld<M> for ChainCallback<M> {
     fn on_recv(&self, con_id: &ConId, msg: M::RecvT) {
         for callback in self.chain.iter() {
             callback.on_recv(con_id, msg.clone());

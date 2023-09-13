@@ -7,12 +7,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::prelude_nonblocking::*;
-
+use crate::prelude_blocking::{
+    into_split_messenger, MessageRecver, MessageSender, SendMsg, SendMsgMut,
+};
 use links_network_core::prelude::{CallbackRecv, CallbackSend, CallbackSendRecv, ConId, Messenger};
 use log::debug;
-
-use crate::prelude_nonblocking::{into_split_messenger, MessageRecver, MessageSender};
 
 #[derive(Debug)]
 pub struct CltRecver<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
@@ -26,47 +25,6 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> CltRecver<M, C
             msg_recver: recver,
             callback,
             phantom: std::marker::PhantomData,
-        }
-    }
-}
-impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
-    for CltRecver<M, C, MAX_MSG_SIZE>
-{
-    #[inline(always)]
-    fn recv_nonblocking(&mut self) -> Result<ReadStatus<M::RecvT>, Error> {
-        match self.msg_recver.recv_nonblocking()? {
-            ReadStatus::Completed(Some(msg)) => {
-                self.callback.on_recv(&self.msg_recver.con_id, &msg);
-                Ok(ReadStatus::Completed(Some(msg)))
-            }
-            ReadStatus::Completed(None) => Ok(ReadStatus::Completed(None)),
-            ReadStatus::WouldBlock => Ok(ReadStatus::WouldBlock),
-        }
-    }
-}
-impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgBusyWait<M>
-    for CltRecver<M, C, MAX_MSG_SIZE>
-{
-    #[inline(always)]
-    fn recv_busywait(&mut self) -> Result<Option<<M as Messenger>::RecvT>, Error> {
-        match self.msg_recver.recv_busywait()? {
-            Some(msg) => {
-                self.callback.on_recv(&self.msg_recver.con_id, &msg);
-                Ok(Some(msg))
-            }
-            None => Ok(None),
-        }
-    }
-}
-impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
-    for CltRecver<M, C, MAX_MSG_SIZE>
-{
-    fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
-        match self.msg_recver.recv_nonblocking()? {
-            ReadStatus::WouldBlock | ReadStatus::Completed(Some(_)) => {
-                Ok(ServiceLoopStatus::Continue)
-            }
-            ReadStatus::Completed(None) => Ok(ServiceLoopStatus::Stop),
         }
     }
 }
@@ -101,25 +59,12 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> CltSender<M, C
         }
     }
 }
-impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBlockingMut<M>
+impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgMut<M>
     for CltSender<M, C, MAX_MSG_SIZE>
 {
-    #[inline(always)]
-    fn send_nonblocking(
-        &mut self,
-        msg: &mut <M as Messenger>::SendT,
-    ) -> Result<WriteStatus, Error> {
+    fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<(), Error> {
         self.callback.on_send(&self.msg_sender.con_id, msg);
-        self.msg_sender.send_nonblocking(msg)
-    }
-}
-impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgBusyWaitMut<M>
-    for CltSender<M, C, MAX_MSG_SIZE>
-{
-    #[inline(always)]
-    fn send_busywait(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<(), Error> {
-        self.callback.on_send(&self.msg_sender.con_id, msg);
-        self.msg_sender.send_busywait(msg)
+        self.msg_sender.send(msg)
     }
 }
 impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
@@ -166,6 +111,7 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Clt<M, C, 
                 }
             }
         }
+
         let msg = format!("{:?} connect timeout: {:?}", con_id, timeout);
         Err(Error::new(std::io::ErrorKind::TimedOut, msg))
     }
@@ -179,49 +125,6 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Clt<M, C, 
     }
     pub fn into_split(self) -> (CltRecver<M, C, MAX_MSG_SIZE>, CltSender<M, C, MAX_MSG_SIZE>) {
         (self.clt_recver, self.clt_sender)
-    }
-}
-
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> SendMsgNonBlockingMut<M>
-    for Clt<M, C, MAX_MSG_SIZE>
-{
-    #[inline(always)]
-    fn send_nonblocking(
-        &mut self,
-        msg: &mut <M as Messenger>::SendT,
-    ) -> Result<WriteStatus, Error> {
-        self.clt_sender.send_nonblocking(msg)
-    }
-}
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> SendMsgBusyWaitMut<M>
-    for Clt<M, C, MAX_MSG_SIZE>
-{
-    #[inline(always)]
-    fn send_busywait(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<(), Error> {
-        self.clt_sender.send_busywait(msg)
-    }
-}
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
-    for Clt<M, C, MAX_MSG_SIZE>
-{
-    #[inline(always)]
-    fn recv_nonblocking(&mut self) -> Result<ReadStatus<<M as Messenger>::RecvT>, Error> {
-        self.clt_recver.recv_nonblocking()
-    }
-}
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgBusyWait<M>
-    for Clt<M, C, MAX_MSG_SIZE>
-{
-    #[inline(always)]
-    fn recv_busywait(&mut self) -> Result<Option<<M as Messenger>::RecvT>, Error> {
-        self.clt_recver.recv_busywait()
-    }
-}
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display
-    for Clt<M, C, MAX_MSG_SIZE>
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Clt<{}, {}>", self.clt_recver, self.clt_sender)
     }
 }
 

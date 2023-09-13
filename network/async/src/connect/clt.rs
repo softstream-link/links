@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::prelude::*;
-use links_network_core::prelude::{CallbackSendRecv, ConId};
+use links_network_core::prelude::{CallbackSendRecvOld, ConId};
 use log::{debug, error};
 use tokio::net::TcpStream;
 
@@ -18,7 +18,7 @@ use super::messenger::{into_split_messenger, MsgRecverRef, MsgSenderRef};
 use tokio::{spawn, time::sleep};
 
 #[derive(Debug)]
-pub struct CltSenderAsync<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
+pub struct CltSenderAsync<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> {
     con_id: ConId,
     sender: MsgSenderRef<P, MMS>,
     callback: Arc<C>,
@@ -27,7 +27,7 @@ pub struct CltSenderAsync<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize>
     // callback: CallbackRef<M>, // TODO can't be fixed for now.
     // pub type CallbackRef<M> = Arc<Mutex<impl Callback<M>>>; // impl Trait` in type aliases is unstable see issue #63063 <https://github.com/rust-lang/rust/issues/63063>
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> CltSenderAsync<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> CltSenderAsync<P, C, MMS> {
     pub async fn send(&self, msg: &mut P::SendT) -> Result<(), Box<dyn Error+Send+Sync>> {
         if let Some(protocol) = &self.protocol {
             protocol.on_send(&self.con_id, msg);
@@ -50,7 +50,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> CltSenderAsync<P, C,
         &self.con_id
     }
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for CltSenderAsync<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display for CltSenderAsync<P, C, MMS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg_name = type_name::<P>().split("::").last().unwrap_or("Unknown");
         let clb_name = type_name::<C>()
@@ -67,7 +67,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for CltSende
         )
     }
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Drop for CltSenderAsync<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Drop for CltSenderAsync<P, C, MMS> {
     fn drop(&mut self) {
         for (idx, handle) in self.abort_handles.iter().enumerate() {
             debug!("{} {} change name aborting receiver", self, idx); // TODO change name of message
@@ -78,11 +78,11 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Drop for CltSenderAs
 }
 
 #[derive(Debug)]
-pub struct CltSenderSync<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
+pub struct CltSenderSync<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> {
     clt: CltSenderAsync<P, C, MMS>,
     runtime: Arc<Runtime>,
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> CltSenderSync<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> CltSenderSync<P, C, MMS> {
     pub fn send(&self, msg: &mut P::SendT) -> Result<(), Box<dyn Error+Send+Sync>> {
         self.runtime.block_on(self.clt.send(msg))
     }
@@ -93,21 +93,21 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> CltSenderSync<P, C, 
         self.clt.con_id()
     }
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for CltSenderSync<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display for CltSenderSync<P, C, MMS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.clt)
     }
 }
 
 #[derive(Debug)]
-pub struct Clt<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
+pub struct Clt<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> {
     con_id: ConId,
     recver: MsgRecverRef<P, P>,
     sender: MsgSenderRef<P, MMS>,
     callback: Arc<C>,
     protocol: Option<Arc<P>>,
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Clt<P, C, MMS> {
     pub fn connect_sync(
         addr: &str,
         timeout: Duration,
@@ -286,7 +286,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Clt<P, C, MMS> {
         &self.con_id
     }
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for Clt<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display for Clt<P, C, MMS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let hdl_name = type_name::<P>().split("::").last().unwrap_or("Unknown");
         let clb_name = type_name::<C>().split("::").last().unwrap_or("Unknown");
@@ -297,7 +297,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for Clt<P, C
         )
     }
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Drop for Clt<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Drop for Clt<P, C, MMS> {
     fn drop(&mut self) {
         debug!("{} receiver stopped", self);
     }

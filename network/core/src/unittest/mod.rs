@@ -43,11 +43,11 @@ pub mod setup {
 
         use crate::prelude::*;
         use links_testing::unittest::setup::model::*;
-        impl Messenger for TestSvcMsgProtocol {
+        impl MessengerOld for TestSvcMsgProtocol {
             type SendT = TestSvcMsg;
             type RecvT = TestCltMsg;
         }
-        impl Messenger for TestCltMsgProtocol {
+        impl MessengerOld for TestCltMsgProtocol {
             type SendT = TestCltMsg;
             type RecvT = TestSvcMsg;
         }

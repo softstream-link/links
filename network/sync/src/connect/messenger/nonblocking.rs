@@ -1,16 +1,18 @@
 use std::{any::type_name, fmt::Display, io::Error};
 
-use crate::connect::framer::nonblocking::{FrameReader, FrameWriter};
-use crate::prelude_nonblocking::*;
-use links_network_core::prelude::{ConId, MessengerNew};
+use crate::prelude_nonblocking::{
+    FrameReader, FrameWriter, ReadStatus, RecvMsgBusyWait, RecvMsgNonBlocking, SendMsgBusyWaitMut,
+    SendMsgNonBlocking, WriteStatus,
+};
+use links_network_core::prelude::{ConId, Messenger};
 
 #[derive(Debug)]
-pub struct MessageSender<M: MessengerNew, const MAX_MSG_SIZE: usize> {
+pub struct MessageSender<M: Messenger, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
     pub(crate) frm_writer: FrameWriter,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: MessengerNew, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
+impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
     pub fn new(stream: mio::net::TcpStream, con_id: ConId) -> Self {
         Self {
             con_id,
@@ -20,7 +22,7 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> 
     }
 }
 #[rustfmt::skip]
-impl<M: MessengerNew, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M> for MessageSender<M, MAX_MSG_SIZE>{
+impl<M: Messenger, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M> for MessageSender<M, MAX_MSG_SIZE>{
     /// Will Serialize the message using [MessengerNew] and send it over the wire as a single frame
     /// If the underlying socket is not ready to write, it will return [WriteStatus::NotReady] while
     /// also guaranteeing that non of the serialized bytes where sent. The user shall try again later in that case.
@@ -30,11 +32,11 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M> for Messa
         self.frm_writer.write_frame(&bytes[..size])
     }
 }
-impl<M: MessengerNew, const MAX_MSG_SIZE: usize> SendMsgBusyWaitMut<M>
+impl<M: Messenger, const MAX_MSG_SIZE: usize> SendMsgBusyWaitMut<M>
     for MessageSender<M, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn send_busywait(&mut self, msg: &mut <M as MessengerNew>::SendT) -> Result<(), Error> {
+    fn send_busywait(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<(), Error> {
         let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
         while let WriteStatus::WouldBlock = self.frm_writer.write_frame(&bytes[..size])? {
             // busy wait untill write_frame returns WriteStatus::Completed
@@ -43,7 +45,7 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> SendMsgBusyWaitMut<M>
         Ok(())
     }
 }
-impl<M: MessengerNew, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MAX_MSG_SIZE> {
+impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msger = type_name::<M>().split("::").last().unwrap_or("Unknown");
         write!(
@@ -55,12 +57,12 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MA
 }
 
 #[derive(Debug)]
-pub struct MessageRecver<M: MessengerNew, const MAX_MSG_SIZE: usize> {
+pub struct MessageRecver<M: Messenger, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
     pub(crate) frm_reader: FrameReader<M, MAX_MSG_SIZE>,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: MessengerNew, const MAX_MSG_SIZE: usize> MessageRecver<M, MAX_MSG_SIZE> {
+impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageRecver<M, MAX_MSG_SIZE> {
     pub fn new(stream: mio::net::TcpStream, con_id: ConId) -> Self {
         Self {
             con_id,
@@ -69,7 +71,7 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> MessageRecver<M, MAX_MSG_SIZE> 
         }
     }
 }
-impl<M: MessengerNew, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
+impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
     for MessageRecver<M, MAX_MSG_SIZE>
 {
     #[inline(always)]
@@ -85,11 +87,11 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
         }
     }
 }
-impl<M: MessengerNew, const MAX_MSG_SIZE: usize> RecvMsgBusyWait<M>
+impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvMsgBusyWait<M>
     for MessageRecver<M, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn recv_busywait(&mut self) -> Result<Option<<M as MessengerNew>::RecvT>, Error> {
+    fn recv_busywait(&mut self) -> Result<Option<<M as Messenger>::RecvT>, Error> {
         loop {
             match self.recv_nonblocking()? {
                 ReadStatus::Completed(opt) => return Ok(opt),
@@ -98,7 +100,7 @@ impl<M: MessengerNew, const MAX_MSG_SIZE: usize> RecvMsgBusyWait<M>
         }
     }
 }
-impl<M: MessengerNew, const MAX_MSG_SIZE: usize> Display for MessageRecver<M, MAX_MSG_SIZE> {
+impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageRecver<M, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
         write!(
@@ -114,7 +116,7 @@ pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (
     MessageSender<M, MAX_MSG_SIZE>,
 );
 
-pub fn into_split_messenger<M: MessengerNew, const MAX_MSG_SIZE: usize>(
+pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
     stream: std::net::TcpStream,
     con_id: ConId,
 ) -> MessageProcessor<M, MAX_MSG_SIZE> {
@@ -156,15 +158,12 @@ mod test {
     };
 
     use crate::prelude_nonblocking::*;
+    use crate::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol};
+    
     use links_network_core::prelude::ConId;
     use links_testing::unittest::setup::{self, model::*};
     use log::info;
     use num_format::{Locale, ToFormattedString};
-
-    use crate::{
-        connect::messenger::nonblocking::into_split_messenger,
-        unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol},
-    };
 
     #[test]
     fn test_messenger() {

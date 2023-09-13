@@ -54,7 +54,7 @@ where
     }
 }
 
-impl<SendPayload, RecvPayload> Messenger for SBCltAdminProtocol<SendPayload, RecvPayload>
+impl<SendPayload, RecvPayload> MessengerOld for SBCltAdminProtocol<SendPayload, RecvPayload>
 where 
     SendPayload: ByteDeserializeSlice<SendPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
     RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
@@ -71,7 +71,7 @@ where
     async fn handshake<
         's,
         P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-        C: CallbackSendRecv<P>,
+        C: CallbackSendRecvOld<P>,
         const MMS: usize,
     >(
         &'s self,
@@ -92,7 +92,7 @@ where
 
     async fn keep_alive_loop<
         P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-        C: CallbackSendRecv<P>,
+        C: CallbackSendRecvOld<P>,
         const MMS: usize,
     >(
         &self,

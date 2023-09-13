@@ -44,7 +44,7 @@ pub mod setup {
         use links_network_core::prelude::*;
         use links_testing::unittest::setup::model::*;
 
-        impl MessengerNew for TestSvcMsgProtocol {
+        impl Messenger for TestSvcMsgProtocol {
             type SendT = TestSvcMsg;
             type RecvT = TestCltMsg;
 
@@ -64,7 +64,7 @@ pub mod setup {
                 }
             }
         }
-        impl MessengerNew for TestCltMsgProtocol {
+        impl Messenger for TestCltMsgProtocol {
             type SendT = TestCltMsg;
             type RecvT = TestSvcMsg;
             #[inline(always)]

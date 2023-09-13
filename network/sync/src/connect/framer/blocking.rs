@@ -5,9 +5,11 @@ use std::fmt::Display;
 use std::io::{Read, Write};
 use std::mem::MaybeUninit;
 use std::os::fd::AsRawFd;
-use std::{error::Error, net::TcpStream};
+use std::{io::Error, net::TcpStream};
 
 const EOF: usize = 0;
+
+#[derive(Debug)]
 pub struct FrameReader<F: Framer, const MAX_MESSAGE_SIZE: usize> {
     reader: TcpStream,
     buffer: BytesMut,
@@ -22,7 +24,7 @@ impl<F: Framer, const MAX_MESSAGE_SIZE: usize> FrameReader<F, MAX_MESSAGE_SIZE> 
         }
     }
     #[inline]
-    pub fn read_frame(&mut self) -> Result<Option<Bytes>, Box<dyn Error>> {
+    pub fn read_frame(&mut self) -> Result<Option<Bytes>, Error> {
         loop {
             if let Some(bytes) = F::get_frame(&mut self.buffer) {
                 return Ok(Some(bytes));
@@ -35,11 +37,11 @@ impl<F: Framer, const MAX_MESSAGE_SIZE: usize> FrameReader<F, MAX_MESSAGE_SIZE> 
                         if self.buffer.is_empty() {
                             return Ok(None);
                         } else {
-                            return Err(format!(
+                            let msg = format!(
                                 "connection reset by peer, residual buf: \n{}",
                                 to_hex_pretty(&self.buffer[..])
-                            )
-                            .into());
+                            );
+                            return Err(Error::new(std::io::ErrorKind::ConnectionReset, msg));
                         }
                     }
                     len => {
@@ -71,6 +73,7 @@ impl<F: Framer, const MAX_MESSAGE_SIZE: usize> Display for FrameReader<F, MAX_ME
     }
 }
 
+#[derive(Debug)]
 pub struct FrameWriter {
     writer: TcpStream,
 }
@@ -79,7 +82,7 @@ impl FrameWriter {
         Self { writer: stream }
     }
     #[inline]
-    pub fn write_frame(&mut self, bytes: &[u8]) -> Result<(), Box<dyn Error>> {
+    pub fn write_frame(&mut self, bytes: &[u8]) -> Result<(), Error> {
         self.writer.write_all(bytes)?;
         self.writer.flush()?;
         Ok(())
@@ -106,10 +109,6 @@ type FrameProcessor<F, const MAX_MESSAGE_SIZE: usize> =
 pub fn into_split_framer<F: Framer, const MAX_MESSAGE_SIZE: usize>(
     stream: TcpStream,
 ) -> FrameProcessor<F, MAX_MESSAGE_SIZE> {
-    // TODO  this causes performance to go from 800ns to 2.5µs
-    // stream
-    //     .set_nodelay(true)
-    //     .expect("Failed to set_nodelay on TcpStream");
     let (reader, writer) = (
         stream
             .try_clone()
@@ -124,16 +123,22 @@ pub fn into_split_framer<F: Framer, const MAX_MESSAGE_SIZE: usize>(
 
 #[cfg(test)]
 mod test {
-    use super::*;
+
     use std::{
-        net::TcpListener,
+        net::{TcpListener, TcpStream},
         thread::{self, sleep},
         time::{Duration, Instant},
     };
+    
+    use crate::prelude_blocking::*;
 
+    use bytes::{Bytes, BytesMut};
+    use byteserde::utils::hex::to_hex_pretty;
+    use links_network_core::prelude::Framer;
     use links_testing::unittest::setup;
     use log::{error, info};
     use num_format::{Locale, ToFormattedString};
+
 
     #[test]
     fn test_reader() {

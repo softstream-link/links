@@ -1,7 +1,7 @@
 use std::{sync::Arc, thread::Builder, time::Duration};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::prelude::{CallbackSendRecvNew, DevNullCallbackNew, MessengerNew};
+use links_network_core::prelude::{CallbackSendRecv, DevNullCallbackNew, Messenger};
 use links_network_sync::{
     prelude_nonblocking::*,
     unittest::setup::{
@@ -16,10 +16,10 @@ use links_testing::unittest::setup::{
 use log::info;
 use num_format::{Locale, ToFormattedString};
 
-fn setup<MSvc: MessengerNew, MClt: MessengerNew>() -> (
+fn setup<MSvc: Messenger, MClt: Messenger>() -> (
     &'static str,
-    Arc<impl CallbackSendRecvNew<MSvc>>,
-    Arc<impl CallbackSendRecvNew<MClt>>,
+    Arc<impl CallbackSendRecv<MSvc>>,
+    Arc<impl CallbackSendRecv<MClt>>,
     usize,
     Option<&'static str>,
     Duration,

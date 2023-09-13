@@ -1,8 +1,8 @@
 use std::{fmt::{Debug, Display}, time::{Instant, SystemTime}};
 
-use crate::prelude::{Messenger, ConId};
+use crate::prelude::{MessengerOld, ConId};
 
-use super::CallbackSendRecv;
+use super::CallbackSendRecvOld;
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -19,7 +19,7 @@ impl<T> Dir<T> {
     }
 }
 
-pub trait CallbackEvent<T, M: Messenger>: CallbackSendRecv<M>
+pub trait CallbackEvent<T, M: MessengerOld>: CallbackSendRecvOld<M>
 where T: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync+'static
 {
     fn on_event(&self, cond_id: &ConId, event: Dir<T>);

@@ -8,22 +8,20 @@ use std::{
     },
 };
 
-use crate::{core::nonblocking::AcceptCltNonBlocking, prelude_nonblocking::*};
+use crate::prelude_nonblocking::*;
 use links_network_core::{
-    callbacks::CallbackSendRecvNew,
-    prelude::{CallbackRecv, CallbackSend, ConId, MessengerNew},
+    callbacks::CallbackSendRecv,
+    prelude::{CallbackRecv, CallbackSend, ConId, Messenger},
 };
 use log::{debug, log_enabled, warn};
 use slab::Slab;
 
-use crate::connect::clt::nonblocking::{Clt, CltRecver, CltSender};
-
 #[derive(Debug)]
-pub struct SvcRecver<M: MessengerNew+'static, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
+pub struct SvcRecver<M: Messenger+'static, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
     rx_recver: Receiver<CltRecver<M, C, MAX_MSG_SIZE>>,
     svc_recvers: Slab<CltRecver<M, C, MAX_MSG_SIZE>>,
 }
-impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> SvcRecver<M, C, MAX_MSG_SIZE> {
+impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> SvcRecver<M, C, MAX_MSG_SIZE> {
     #[inline]
     fn service_once_rx_queue(&mut self) -> Result<(), Error> {
         match self.rx_recver.try_recv() {
@@ -72,7 +70,7 @@ impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> SvcRecver<M
         Ok(())
     }
 }
-impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
+impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
     for SvcRecver<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
@@ -81,7 +79,7 @@ impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlocking
         Ok(ServiceLoopStatus::Continue)
     }
 }
-impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
+impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
     for SvcRecver<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -100,11 +98,11 @@ impl<M: MessengerNew, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
 }
 
 #[derive(Debug)]
-pub struct SvcSender<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> {
+pub struct SvcSender<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> {
     rx_sender: Receiver<CltSender<M, C, MAX_MSG_SIZE>>,
     svc_senders: Slab<CltSender<M, C, MAX_MSG_SIZE>>,
 }
-impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SvcSender<M, C, MAX_MSG_SIZE> {
+impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SvcSender<M, C, MAX_MSG_SIZE> {
     #[inline]
     fn service_once_rx_queue(&mut self) -> Result<(), Error> {
         match self.rx_sender.try_recv() {
@@ -124,7 +122,7 @@ impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SvcSender<M
         }
     }
 }
-impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
+impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
     for SvcSender<M, C, MAX_MSG_SIZE>
 {
     #[inline]
@@ -133,7 +131,7 @@ impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> NonBlocking
         Ok(ServiceLoopStatus::Continue)
     }
 }
-impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
+impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
     for SvcSender<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -152,8 +150,8 @@ impl<M: MessengerNew, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
 }
 #[derive(Debug)]
 pub struct SvcAcceptor<
-    M: MessengerNew+'static,
-    C: CallbackSendRecvNew<M>+'static,
+    M: Messenger+'static,
+    C: CallbackSendRecv<M>+'static,
     const MAX_MSG_SIZE: usize,
 > {
     tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
@@ -162,7 +160,7 @@ pub struct SvcAcceptor<
     callback: Arc<C>,
     con_id: ConId,
 }
-impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
+impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
@@ -188,7 +186,7 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
     }
 }
 
-impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
+impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
     for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
@@ -204,7 +202,7 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> NonB
         Ok(ServiceLoopStatus::Continue)
     }
 }
-impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> Display
+impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display
     for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -213,19 +211,13 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> Disp
 }
 
 #[derive(Debug)]
-pub struct Svc<
-    M: MessengerNew+'static,
-    C: CallbackSendRecvNew<M>+'static,
-    const MAX_MSG_SIZE: usize,
-> {
+pub struct Svc<M: Messenger+'static, C: CallbackSendRecv<M>+'static, const MAX_MSG_SIZE: usize> {
     acceptor: SvcAcceptor<M, C, MAX_MSG_SIZE>,
-    svc_recver: SvcRecver<M, C, MAX_MSG_SIZE>,
-    svc_sender: SvcSender<M, C, MAX_MSG_SIZE>,
+    recver: SvcRecver<M, C, MAX_MSG_SIZE>,
+    sender: SvcSender<M, C, MAX_MSG_SIZE>,
 }
 
-impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
-    Svc<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Svc<M, C, MAX_MSG_SIZE> {
     pub fn bind(
         addr: &str,
         callback: Arc<C>,
@@ -256,16 +248,13 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
         };
         Ok(Self {
             acceptor,
-            svc_recver,
-            svc_sender,
+            recver: svc_recver,
+            sender: svc_sender,
         })
     }
 
     pub fn clients_len(&self) -> (usize, usize) {
-        (
-            self.svc_recver.svc_recvers.len(),
-            self.svc_sender.svc_senders.len(),
-        )
+        (self.recver.svc_recvers.len(), self.sender.svc_senders.len())
     }
     pub fn split_into(
         self,
@@ -274,10 +263,10 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
         SvcRecver<M, C, MAX_MSG_SIZE>,
         SvcSender<M, C, MAX_MSG_SIZE>,
     ) {
-        (self.acceptor, self.svc_recver, self.svc_sender)
+        (self.acceptor, self.recver, self.sender)
     }
 }
-impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
+impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
 {
     fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
@@ -285,25 +274,25 @@ impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize>
     }
 }
 
-impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
+impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
     for Svc<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
         let _ = self.acceptor.service_once()?;
-        let _ = self.svc_recver.service_once()?;
-        let _ = self.svc_sender.service_once()?;
+        let _ = self.recver.service_once()?;
+        let _ = self.sender.service_once()?;
         Ok(ServiceLoopStatus::Continue)
     }
 }
 
-impl<M: MessengerNew, C: CallbackSendRecvNew<M>, const MAX_MSG_SIZE: usize> Display
+impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display
     for Svc<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{} Svc<{}, {}, {}>",
-            self.acceptor.con_id, self.acceptor, self.svc_recver, self.svc_sender
+            self.acceptor.con_id, self.acceptor, self.recver, self.sender
         )
     }
 }

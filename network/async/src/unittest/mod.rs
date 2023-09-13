@@ -1,7 +1,7 @@
 pub mod setup {
 
     pub mod protocol {
-        use links_network_core::prelude::{CallbackSendRecv, Framer, Messenger};
+        use links_network_core::prelude::{CallbackSendRecvOld, Framer, MessengerOld};
         use links_testing::unittest::setup::model::*;
 
         use std::{error::Error, time::Duration};
@@ -25,7 +25,7 @@ pub mod setup {
         pub const HBEAT_INTERVAL: Duration = Duration::from_millis(500);
         #[derive(Debug, Clone, PartialEq)]
         pub struct TestCltMsgProtocol;
-        impl Messenger for TestCltMsgProtocol {
+        impl MessengerOld for TestCltMsgProtocol {
             type SendT = TestCltMsg;
             type RecvT = TestSvcMsg;
         }
@@ -37,7 +37,7 @@ pub mod setup {
 
         #[derive(Debug, Clone, PartialEq)]
         pub struct TestSvcMsgProtocol;
-        impl Messenger for TestSvcMsgProtocol {
+        impl MessengerOld for TestSvcMsgProtocol {
             type SendT = TestSvcMsg;
             type RecvT = TestCltMsg;
         }
@@ -51,7 +51,7 @@ pub mod setup {
             async fn handshake<
                 's,
                 P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-                C: CallbackSendRecv<P>,
+                C: CallbackSendRecvOld<P>,
                 const MMS: usize,
             >(
                 &'s self,
@@ -66,7 +66,7 @@ pub mod setup {
             }
             async fn keep_alive_loop<
                 P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-                C: CallbackSendRecv<P>,
+                C: CallbackSendRecvOld<P>,
                 const MMS: usize,
             >(
                 &self,
@@ -84,7 +84,7 @@ pub mod setup {
             async fn handshake<
                 's,
                 P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-                C: CallbackSendRecv<P>,
+                C: CallbackSendRecvOld<P>,
                 const MMS: usize,
             >(
                 &'s self,
@@ -106,7 +106,7 @@ pub mod setup {
             }
             async fn keep_alive_loop<
                 P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-                C: CallbackSendRecv<P>,
+                C: CallbackSendRecvOld<P>,
                 const MMS: usize,
             >(
                 &self,

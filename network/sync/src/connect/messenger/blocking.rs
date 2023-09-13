@@ -1,18 +1,16 @@
-use std::{any::type_name, error::Error, fmt::Display, net::TcpStream};
+use std::{any::type_name, fmt::Display, io::Error, net::TcpStream};
 
-use links_network_core::{
-    prelude::ConId,
-    prelude::{MessengerNew, RecvMsgBlocking, SendMsgBlocking},
-};
+use links_network_core::prelude::{ConId, Messenger};
 
-use crate::connect::framer::{blocking::FrameReader, blocking::FrameWriter};
+use crate::prelude_blocking::{FrameReader, FrameWriter, RecvMsg, SendMsg};
 
-pub struct MessageSender<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> {
-    con_id: ConId,
+#[derive(Debug)]
+pub struct MessageSender<M: Messenger, const MAX_MESSAGE_SIZE: usize> {
+    pub(crate) con_id: ConId,
     writer: FrameWriter,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> MessageSender<M, MAX_MESSAGE_SIZE> {
+impl<M: Messenger, const MAX_MESSAGE_SIZE: usize> MessageSender<M, MAX_MESSAGE_SIZE> {
     pub fn new(stream: TcpStream, con_id: ConId) -> Self {
         Self {
             con_id,
@@ -21,20 +19,18 @@ impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> MessageSender<M, MAX_MESSAG
         }
     }
 }
-impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> SendMsgBlocking<M>
+impl<M: Messenger, const MAX_MESSAGE_SIZE: usize> SendMsg<M>
     for MessageSender<M, MAX_MESSAGE_SIZE>
 {
     #[inline]
-    fn send(&mut self, msg: &M::SendT) -> Result<(), Box<dyn Error>> {
+    fn send(&mut self, msg: &M::SendT) -> Result<(), Error> {
         let (bytes, size) = M::serialize::<MAX_MESSAGE_SIZE>(msg)?;
         self.writer.write_frame(&bytes[..size])?;
         Ok(())
     }
 }
 
-impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> Display
-    for MessageSender<M, MAX_MESSAGE_SIZE>
-{
+impl<M: Messenger, const MAX_MESSAGE_SIZE: usize> Display for MessageSender<M, MAX_MESSAGE_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
         write!(
@@ -44,12 +40,13 @@ impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> Display
         )
     }
 }
-pub struct MessageRecver<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> {
-    con_id: ConId,
+#[derive(Debug)]
+pub struct MessageRecver<M: Messenger, const MAX_MESSAGE_SIZE: usize> {
+    pub(crate) con_id: ConId,
     reader: FrameReader<M, MAX_MESSAGE_SIZE>,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> MessageRecver<M, MAX_MESSAGE_SIZE> {
+impl<M: Messenger, const MAX_MESSAGE_SIZE: usize> MessageRecver<M, MAX_MESSAGE_SIZE> {
     pub fn new(stream: TcpStream, con_id: ConId) -> Self {
         Self {
             con_id,
@@ -58,11 +55,11 @@ impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> MessageRecver<M, MAX_MESSAG
         }
     }
 }
-impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> RecvMsgBlocking<M>
+impl<M: Messenger, const MAX_MESSAGE_SIZE: usize> RecvMsg<M>
     for MessageRecver<M, MAX_MESSAGE_SIZE>
 {
     #[inline]
-    fn recv(&mut self) -> Result<Option<M::RecvT>, Box<dyn Error>> {
+    fn recv(&mut self) -> Result<Option<M::RecvT>, Error> {
         let opt_bytes = self.reader.read_frame()?;
         match opt_bytes {
             Some(frame) => {
@@ -73,9 +70,7 @@ impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> RecvMsgBlocking<M>
         }
     }
 }
-impl<M: MessengerNew, const MAX_MESSAGE_SIZE: usize> Display
-    for MessageRecver<M, MAX_MESSAGE_SIZE>
-{
+impl<M: Messenger, const MAX_MESSAGE_SIZE: usize> Display for MessageRecver<M, MAX_MESSAGE_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
         write!(
@@ -96,7 +91,7 @@ pub fn into_split_messenger<M, const MAX_MESSAGE_SIZE: usize>(
     con_id: ConId,
 ) -> MessageProcessor<M, MAX_MESSAGE_SIZE>
 where
-    M: MessengerNew,
+    M: Messenger,
 {
     let (reader, writer) = (
         stream
@@ -113,14 +108,17 @@ where
 #[cfg(test)]
 #[cfg(feature = "unittest")]
 mod test {
-    use crate::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol};
+
     use std::{
-        net::TcpListener,
+        net::{TcpListener, TcpStream},
         thread::{sleep, Builder},
         time::{Duration, Instant},
     };
 
-    use super::*;
+    use crate::prelude_blocking::*;
+    use crate::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol};
+
+    use links_network_core::prelude::ConId;
     use links_testing::unittest::setup::{
         self,
         model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug, TEST_MSG_FRAME_SIZE},

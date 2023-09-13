@@ -7,15 +7,15 @@ use log::{debug, error, info, log_enabled, trace, warn, Level};
 
 use crate::prelude::*;
 
-use super::CallbackSendRecvNew;
+use super::CallbackSendRecv;
 
 #[derive(Debug, Clone)]
-pub struct LoggerCallbackNew<M: MessengerNew> {
+pub struct LoggerCallbackNew<M: Messenger> {
     level_recv: Level,
     level_send: Level,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: MessengerNew> Default for LoggerCallbackNew<M> {
+impl<M: Messenger> Default for LoggerCallbackNew<M> {
     fn default() -> Self {
         Self {
             level_recv: Level::Info,
@@ -25,7 +25,7 @@ impl<M: MessengerNew> Default for LoggerCallbackNew<M> {
     }
 }
 
-impl<M: MessengerNew> LoggerCallbackNew<M> {
+impl<M: Messenger> LoggerCallbackNew<M> {
     pub fn with_level(level_recv: Level, level_send: Level) -> Self {
         Self {
             level_recv,
@@ -41,7 +41,7 @@ impl<M: MessengerNew> LoggerCallbackNew<M> {
     }
 }
 
-impl<M: MessengerNew> Display for LoggerCallbackNew<M> {
+impl<M: Messenger> Display for LoggerCallbackNew<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -51,9 +51,9 @@ impl<M: MessengerNew> Display for LoggerCallbackNew<M> {
     }
 }
 
-impl<M: MessengerNew> CallbackSendRecvNew<M> for LoggerCallbackNew<M> {}
-impl<M: MessengerNew> CallbackRecv<M> for LoggerCallbackNew<M> {
-    fn on_recv(&self, con_id: &ConId, msg: &<M as MessengerNew>::RecvT) {
+impl<M: Messenger> CallbackSendRecv<M> for LoggerCallbackNew<M> {}
+impl<M: Messenger> CallbackRecv<M> for LoggerCallbackNew<M> {
+    fn on_recv(&self, con_id: &ConId, msg: &<M as Messenger>::RecvT) {
         if !log_enabled!(self.level_recv) {
             return;
         }
@@ -67,8 +67,8 @@ impl<M: MessengerNew> CallbackRecv<M> for LoggerCallbackNew<M> {
         }
     }
 }
-impl<M: MessengerNew> CallbackSend<M> for LoggerCallbackNew<M> {
-    fn on_send(&self, con_id: &ConId, msg: &mut <M as MessengerNew>::SendT) {
+impl<M: Messenger> CallbackSend<M> for LoggerCallbackNew<M> {
+    fn on_send(&self, con_id: &ConId, msg: &mut <M as Messenger>::SendT) {
         if !log_enabled!(self.level_recv) {
             return;
         }

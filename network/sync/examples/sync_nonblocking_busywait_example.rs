@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use links_network_core::prelude::{CallbackSendRecvNew, DevNullCallbackNew, MessengerNew};
+use links_network_core::prelude::{CallbackSendRecv, DevNullCallbackNew, Messenger};
 use links_network_sync::{
     prelude_nonblocking::*,
     unittest::setup::{
@@ -18,7 +18,7 @@ use links_testing::unittest::setup::{
     model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
 };
 use log::info;
-use num_format::{ToFormattedString, Locale};
+use num_format::{Locale, ToFormattedString};
 
 fn main() -> Result<(), Box<dyn Error>> {
     run()
@@ -74,32 +74,10 @@ fn run() -> Result<(), Box<dyn Error>> {
                         .send_busywait(&mut clt_acceptor_send_msg)
                         .unwrap();
                     continue;
-                }else {
+                } else {
                     break;
                 }
             }
-            // loop {
-            //     match clt_acceptor.recv_nonblocking() {
-            //         Ok(ReadStatus::Completed(Some(_recv_msg))) => {
-            //             msg_recv_count += 1;
-            //             clt_acceptor.send_busywait(&mut clt_acceptor_send_msg).unwrap();
-            //         }
-            //         Ok(ReadStatus::Completed(None)) => {
-            //             info!(
-            //                 "Connection Closed by clt_initiator clt_acceptor: {}",
-            //                 clt_acceptor
-            //             );
-            //             break;
-            //         }
-            //         Ok(ReadStatus::WouldBlock) => continue,
-            //         Err(err) => {
-            //             panic!(
-            //                 "Connection Closed by clt_initiator, clt_acceptor: {}, err: {}",
-            //                 clt_acceptor, err
-            //             );
-            //         }
-            //     }
-            // }
             msg_recv_count
         })
         .unwrap();
@@ -124,10 +102,10 @@ fn run() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn setup<MSvc: MessengerNew, MClt: MessengerNew>() -> (
+fn setup<MSvc: Messenger, MClt: Messenger>() -> (
     &'static str,
-    Arc<impl CallbackSendRecvNew<MSvc>>,
-    Arc<impl CallbackSendRecvNew<MClt>>,
+    Arc<impl CallbackSendRecv<MSvc>>,
+    Arc<impl CallbackSendRecv<MClt>>,
     usize,
     Option<&'static str>,
     Duration,

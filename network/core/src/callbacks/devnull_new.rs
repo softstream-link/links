@@ -5,13 +5,13 @@ use std::{
 
 use crate::prelude::*;
 
-use super::CallbackSendRecvNew;
+use super::CallbackSendRecv;
 
 #[derive(Debug, Clone)]
-pub struct DevNullCallbackNew<M: MessengerNew> {
+pub struct DevNullCallbackNew<M: Messenger> {
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: MessengerNew> Default for DevNullCallbackNew<M> {
+impl<M: Messenger> Default for DevNullCallbackNew<M> {
     fn default() -> Self {
         Self {
             phantom: std::marker::PhantomData,
@@ -19,13 +19,13 @@ impl<M: MessengerNew> Default for DevNullCallbackNew<M> {
     }
 }
 
-impl<M: MessengerNew> DevNullCallbackNew<M> {
+impl<M: Messenger> DevNullCallbackNew<M> {
     pub fn new_ref() -> Arc<Self> {
         Arc::new(Self::default())
     }
 }
 
-impl<M: MessengerNew> Display for DevNullCallbackNew<M> {
+impl<M: Messenger> Display for DevNullCallbackNew<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -33,16 +33,16 @@ impl<M: MessengerNew> Display for DevNullCallbackNew<M> {
         )
     }
 }
-impl<M: MessengerNew> CallbackSendRecvNew<M> for DevNullCallbackNew<M> {}
-impl<M: MessengerNew> CallbackRecv<M> for DevNullCallbackNew<M> {
+impl<M: Messenger> CallbackSendRecv<M> for DevNullCallbackNew<M> {}
+impl<M: Messenger> CallbackRecv<M> for DevNullCallbackNew<M> {
     #[allow(unused_variables)]
     #[inline(always)]
-    fn on_recv(&self, con_id: &ConId, msg: &<M as MessengerNew>::RecvT) {}
+    fn on_recv(&self, con_id: &ConId, msg: &<M as Messenger>::RecvT) {}
 }
-impl<M: MessengerNew> CallbackSend<M> for DevNullCallbackNew<M> {
+impl<M: Messenger> CallbackSend<M> for DevNullCallbackNew<M> {
     #[allow(unused_variables)]
     #[inline(always)]
-    fn on_send(&self, con_id: &ConId, msg: &mut <M as MessengerNew>::SendT) {}
+    fn on_send(&self, con_id: &ConId, msg: &mut <M as Messenger>::SendT) {}
 }
 
 // #[cfg(test)]

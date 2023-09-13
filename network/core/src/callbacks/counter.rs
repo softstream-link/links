@@ -6,19 +6,19 @@ use std::{
     },
 };
 
-use crate::core::Messenger;
+use crate::core::MessengerOld;
 use crate::prelude::*;
 use num_format::{Locale, ToFormattedString};
 
-use super::CallbackSendRecv;
+use super::CallbackSendRecvOld;
 
 #[derive(Debug)]
-pub struct CounterCallback<M: Messenger> {
+pub struct CounterCallback<M: MessengerOld> {
     sent: AtomicUsize,
     recv: AtomicUsize,
     p1: std::marker::PhantomData<M>,
 }
-impl<M: Messenger> Default for CounterCallback<M> {
+impl<M: MessengerOld> Default for CounterCallback<M> {
     fn default() -> Self {
         Self {
             sent: Default::default(),
@@ -28,13 +28,13 @@ impl<M: Messenger> Default for CounterCallback<M> {
     }
 }
 
-impl<M: Messenger> CounterCallback<M> {
+impl<M: MessengerOld> CounterCallback<M> {
     pub fn new_ref() -> Arc<Self> {
         Arc::new(Self::default())
     }
 }
 
-impl<M: Messenger> Display for CounterCallback<M> {
+impl<M: MessengerOld> Display for CounterCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -49,7 +49,7 @@ impl<M: Messenger> Display for CounterCallback<M> {
     }
 }
 
-impl<M: Messenger> CallbackSendRecv<M> for CounterCallback<M> {
+impl<M: MessengerOld> CallbackSendRecvOld<M> for CounterCallback<M> {
     fn on_recv(&self, _con_id: &ConId, _msg: M::RecvT) {
         self.recv.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }

@@ -3,7 +3,7 @@ use std::{
 };
 
 use crate::prelude::*;
-use links_network_core::prelude::{CallbackSendRecv, ConId};
+use links_network_core::prelude::{CallbackSendRecvOld, ConId};
 use log::{debug, error, warn};
 use tokio::{net::TcpListener, runtime::Runtime, sync::Mutex, task::AbortHandle};
 
@@ -12,12 +12,12 @@ use super::clt::{Clt, CltSenderAsync};
 pub type SvcSendersRef<P, C, const MMS: usize> = Arc<Mutex<VecDeque<CltSenderAsync<P, C, MMS>>>>;
 
 #[derive(Debug)]
-pub struct SvcSenderAsync<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
+pub struct SvcSenderAsync<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> {
     con_id: ConId,
     senders: SvcSendersRef<P, C, MMS>,
     acceptor_abort_handle: AbortHandle,
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> SvcSenderAsync<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> SvcSenderAsync<P, C, MMS> {
     pub async fn is_accepted(&self) -> bool {
         let senders = self.senders.lock().await;
         !senders.is_empty()
@@ -61,7 +61,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> SvcSenderAsync<P, C,
         &self.con_id
     }
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for SvcSenderAsync<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display for SvcSenderAsync<P, C, MMS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use futures::executor::block_on;
         let clts = block_on(self.senders.lock())
@@ -89,7 +89,7 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for SvcSende
         write!(f, "{}", name)
     }
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Drop for SvcSenderAsync<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Drop for SvcSenderAsync<P, C, MMS> {
     fn drop(&mut self) {
         debug!("{} aborting acceptor queue", self);
         self.acceptor_abort_handle.abort();
@@ -97,11 +97,11 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Drop for SvcSenderAs
 }
 
 #[derive(Debug)]
-pub struct SvcSenderSync<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
+pub struct SvcSenderSync<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> {
     svc: SvcSenderAsync<P, C, MMS>,
     runtime: Arc<Runtime>,
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> SvcSenderSync<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> SvcSenderSync<P, C, MMS> {
     pub fn is_accepted(&self) -> bool {
         self.runtime.block_on(self.svc.is_accepted())
     }
@@ -115,17 +115,17 @@ impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> SvcSenderSync<P, C, 
         self.svc.con_id()
     }
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Display for SvcSenderSync<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display for SvcSenderSync<P, C, MMS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.svc)
     }
 }
 
 #[derive(Debug)]
-pub struct Svc<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> {
+pub struct Svc<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> {
     phantom: std::marker::PhantomData<(P, C)>,
 }
-impl<P: Protocol, C: CallbackSendRecv<P>, const MMS: usize> Svc<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Svc<P, C, MMS> {
     pub fn bind_sync(
         addr: &str,
         callback: Arc<C>,
