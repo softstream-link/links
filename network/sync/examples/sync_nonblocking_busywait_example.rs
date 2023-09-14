@@ -56,7 +56,7 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let mut clt_initiator_send_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
     clt_initiator.send_busywait_timeout(&mut clt_initiator_send_msg, timeout)?;
-    let clt_acceptor_recv_msg = clt_acceptor.recv_busywait_timeout(timeout)?.unwrap();
+    let clt_acceptor_recv_msg = clt_acceptor.recv_busywait_timeout(timeout)?.unwrap().unwrap();
 
     assert_eq!(clt_initiator_send_msg, clt_acceptor_recv_msg);
 

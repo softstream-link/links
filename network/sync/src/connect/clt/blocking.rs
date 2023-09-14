@@ -83,11 +83,11 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
     }
 }
 
+#[derive(Debug)]
 pub struct Clt<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> {
     clt_recver: CltRecver<M, C, MAX_MSG_SIZE>,
     clt_sender: CltSender<M, C, MAX_MSG_SIZE>,
 }
-
 impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Clt<M, C, MAX_MSG_SIZE> {
     pub fn connect(
         addr: &str,
@@ -96,7 +96,7 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Clt<M, C, 
         callback: Arc<C>,
         name: Option<&str>,
     ) -> Result<Self, Error> {
-        assert!(timeout > retry_after);
+        assert!(timeout > retry_after, "timeout: {:?}, retry_after: {:?}", timeout, retry_after);
         let now = Instant::now();
         let con_id = ConId::clt(name, None, addr);
         while now.elapsed() < timeout {
@@ -127,6 +127,15 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Clt<M, C, 
         (self.clt_recver, self.clt_sender)
     }
 }
+impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display for Clt<M, C, MAX_MSG_SIZE> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = std::any::type_name::<M>()
+            .split("::")
+            .last()
+            .unwrap_or("Unknown");
+        write!(f, "Clt<{}, {}, {}>", self.clt_recver.msg_recver.con_id, name, MAX_MSG_SIZE)
+    }
+}
 
 #[cfg(test)]
 #[cfg(feature = "unittest")]
@@ -135,6 +144,7 @@ mod test {
     use crate::unittest::setup::framer::{TestCltMsgProtocol, TEST_MSG_FRAME_SIZE};
     use links_network_core::callbacks::logger_new::LoggerCallbackNew;
     use links_testing::unittest::setup;
+    use log::info;
 
     #[test]
     fn test_clt_not_connected() {
@@ -148,6 +158,7 @@ mod test {
             callback,
             Some("unittest"),
         );
+        info!("res: {:?}", res);
         assert!(res.is_err());
     }
 }

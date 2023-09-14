@@ -1,8 +1,8 @@
 pub use crate::core::nonblocking::AcceptCltNonBlocking;
+pub use crate::core::nonblocking::RecvMsgNonBlocking;
+pub use crate::core::nonblocking::SendMsgNonBlockingMut;
 pub use crate::core::nonblocking::{NonBlockingServiceLoop, ServiceLoopStatus};
 pub use crate::core::nonblocking::{ReadStatus, WriteStatus};
-pub use crate::core::nonblocking::{RecvMsgBusyWait, RecvMsgNonBlocking};
-pub use crate::core::nonblocking::{SendMsgBusyWaitMut, SendMsgNonBlocking, SendMsgNonBlockingMut};
 
 pub use crate::connect::framer::nonblocking::{into_split_framer, FrameReader, FrameWriter};
 

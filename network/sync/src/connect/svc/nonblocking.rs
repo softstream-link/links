@@ -148,6 +148,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
         )
     }
 }
+
 #[derive(Debug)]
 pub struct SvcAcceptor<
     M: Messenger+'static,
@@ -303,19 +304,16 @@ mod test {
     use std::io::ErrorKind;
 
     use crate::prelude_nonblocking::*;
-    use links_network_core::callbacks::{
-        devnull_new::DevNullCallbackNew, logger_new::LoggerCallbackNew,
+    use links_network_core::prelude::{DevNullCallbackNew, LoggerCallbackNew};
+    use links_testing::unittest::setup::{
+        self,
+        model::{TestSvcMsg, TestSvcMsgDebug},
     };
-    use links_testing::unittest::setup::model::TestSvcMsg;
-    use links_testing::unittest::setup::{self, model::TestSvcMsgDebug};
     use log::{info, warn, LevelFilter};
 
-    use crate::{
-        connect::clt::nonblocking::Clt,
-        unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE},
+    use crate::unittest::setup::framer::{
+        TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE,
     };
-
-    use super::Svc;
 
     #[test]
     fn test_svc_not_connected() {
@@ -347,8 +345,8 @@ mod test {
         for i in 0..max_connections * 2 {
             let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
                 addr,
-                std::time::Duration::from_millis(50),
-                std::time::Duration::from_millis(10),
+                setup::net::default_connect_timeout(),
+                setup::net::default_connect_retry_after(),
                 DevNullCallbackNew::<TestCltMsgProtocol>::new_ref(),
                 Some("unittest"),
             )
@@ -379,8 +377,8 @@ mod test {
 
         let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr,
-            std::time::Duration::from_millis(50),
-            std::time::Duration::from_millis(10),
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
             callback.clone(),
             Some("unittest"),
         )

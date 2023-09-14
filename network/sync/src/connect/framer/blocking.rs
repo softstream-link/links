@@ -57,17 +57,19 @@ impl<F: Framer, const MAX_MESSAGE_SIZE: usize> Display for FrameReader<F, MAX_ME
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "FrameReader<{}> {{ {:?}->{:?}, fd: {} }}",
+            "FrameReader<{}> {{ {}->{}, fd: {} }}",
             std::any::type_name::<F>()
                 .split("::")
                 .last()
                 .unwrap_or("Unknown"),
-            self.reader
-                .local_addr()
-                .expect("could not get reader's local address"),
-            self.reader
-                .peer_addr()
-                .expect("could not get reader's peer address"),
+            match self.reader.local_addr() {
+                Ok(addr) => format!("{:?}", addr),
+                Err(_) => "disconnected".to_owned(),
+            },
+            match self.reader.peer_addr() {
+                Ok(addr) => format!("{:?}", addr),
+                Err(_) => "disconnected".to_owned(),
+            },
             self.reader.as_raw_fd(),
         )
     }
@@ -92,13 +94,15 @@ impl Display for FrameWriter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "FrameWriter {{ {:?}->{:?}, fd: {} }}",
-            self.writer
-                .local_addr()
-                .expect("could not get reader's local address"),
-            self.writer
-                .peer_addr()
-                .expect("could not get reader's peer address"),
+            "FrameWriter {{ {}->{}, fd: {} }}",
+            match self.writer.local_addr() {
+                Ok(addr) => format!("{:?}", addr),
+                Err(_) => "disconnected".to_owned(),
+            },
+            match self.writer.peer_addr() {
+                Ok(addr) => format!("{:?}", addr),
+                Err(_) => "disconnected".to_owned(),
+            },
             self.writer.as_raw_fd(),
         )
     }
@@ -129,7 +133,7 @@ mod test {
         thread::{self, sleep},
         time::{Duration, Instant},
     };
-    
+
     use crate::prelude_blocking::*;
 
     use bytes::{Bytes, BytesMut};
@@ -138,7 +142,6 @@ mod test {
     use links_testing::unittest::setup;
     use log::{error, info};
     use num_format::{Locale, ToFormattedString};
-
 
     #[test]
     fn test_reader() {

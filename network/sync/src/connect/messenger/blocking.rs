@@ -5,12 +5,12 @@ use links_network_core::prelude::{ConId, Messenger};
 use crate::prelude_blocking::{FrameReader, FrameWriter, RecvMsg, SendMsg};
 
 #[derive(Debug)]
-pub struct MessageSender<M: Messenger, const MAX_MESSAGE_SIZE: usize> {
+pub struct MessageSender<M: Messenger, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
     writer: FrameWriter,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: Messenger, const MAX_MESSAGE_SIZE: usize> MessageSender<M, MAX_MESSAGE_SIZE> {
+impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
     pub fn new(stream: TcpStream, con_id: ConId) -> Self {
         Self {
             con_id,
@@ -19,45 +19,43 @@ impl<M: Messenger, const MAX_MESSAGE_SIZE: usize> MessageSender<M, MAX_MESSAGE_S
         }
     }
 }
-impl<M: Messenger, const MAX_MESSAGE_SIZE: usize> SendMsg<M>
-    for MessageSender<M, MAX_MESSAGE_SIZE>
+impl<M: Messenger, const MAX_MSG_SIZE: usize> SendMsg<M>
+    for MessageSender<M, MAX_MSG_SIZE>
 {
     #[inline]
     fn send(&mut self, msg: &M::SendT) -> Result<(), Error> {
-        let (bytes, size) = M::serialize::<MAX_MESSAGE_SIZE>(msg)?;
+        let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
         self.writer.write_frame(&bytes[..size])?;
         Ok(())
     }
 }
 
-impl<M: Messenger, const MAX_MESSAGE_SIZE: usize> Display for MessageSender<M, MAX_MESSAGE_SIZE> {
+impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
         write!(
             f,
             "{:?} MessageSender<{}, {}>",
-            self.con_id, name, MAX_MESSAGE_SIZE
+            self.con_id, name, MAX_MSG_SIZE
         )
     }
 }
 #[derive(Debug)]
-pub struct MessageRecver<M: Messenger, const MAX_MESSAGE_SIZE: usize> {
+pub struct MessageRecver<M: Messenger, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
-    reader: FrameReader<M, MAX_MESSAGE_SIZE>,
+    reader: FrameReader<M, MAX_MSG_SIZE>,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: Messenger, const MAX_MESSAGE_SIZE: usize> MessageRecver<M, MAX_MESSAGE_SIZE> {
+impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageRecver<M, MAX_MSG_SIZE> {
     pub fn new(stream: TcpStream, con_id: ConId) -> Self {
         Self {
             con_id,
-            reader: FrameReader::<M, MAX_MESSAGE_SIZE>::new(stream),
+            reader: FrameReader::<M, MAX_MSG_SIZE>::new(stream),
             phantom: std::marker::PhantomData,
         }
     }
 }
-impl<M: Messenger, const MAX_MESSAGE_SIZE: usize> RecvMsg<M>
-    for MessageRecver<M, MAX_MESSAGE_SIZE>
-{
+impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvMsg<M> for MessageRecver<M, MAX_MSG_SIZE> {
     #[inline]
     fn recv(&mut self) -> Result<Option<M::RecvT>, Error> {
         let opt_bytes = self.reader.read_frame()?;
@@ -70,29 +68,28 @@ impl<M: Messenger, const MAX_MESSAGE_SIZE: usize> RecvMsg<M>
         }
     }
 }
-impl<M: Messenger, const MAX_MESSAGE_SIZE: usize> Display for MessageRecver<M, MAX_MESSAGE_SIZE> {
+impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageRecver<M, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
         write!(
             f,
             "{:?} MessageRecver<{}, {}>",
-            self.con_id, name, MAX_MESSAGE_SIZE
+            self.con_id, name, MAX_MSG_SIZE
         )
     }
 }
 
-pub type MessageProcessor<M, const MAX_MESSAGE_SIZE: usize> = (
-    MessageRecver<M, MAX_MESSAGE_SIZE>,
-    MessageSender<M, MAX_MESSAGE_SIZE>,
+pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (
+    MessageRecver<M, MAX_MSG_SIZE>,
+    MessageSender<M, MAX_MSG_SIZE>,
 );
 
-pub fn into_split_messenger<M, const MAX_MESSAGE_SIZE: usize>(
+pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
     stream: TcpStream,
-    con_id: ConId,
-) -> MessageProcessor<M, MAX_MESSAGE_SIZE>
-where
-    M: Messenger,
-{
+    mut con_id: ConId,
+) -> MessageProcessor<M, MAX_MSG_SIZE> {
+    con_id.set_local(stream.local_addr().unwrap());
+    con_id.set_peer(stream.peer_addr().unwrap());
     let (reader, writer) = (
         stream
             .try_clone()
@@ -100,8 +97,8 @@ where
         stream,
     );
     (
-        MessageRecver::<M, MAX_MESSAGE_SIZE>::new(reader, con_id.clone()),
-        MessageSender::<M, MAX_MESSAGE_SIZE>::new(writer, con_id),
+        MessageRecver::<M, MAX_MSG_SIZE>::new(reader, con_id.clone()),
+        MessageSender::<M, MAX_MSG_SIZE>::new(writer, con_id.clone()),
     )
 }
 

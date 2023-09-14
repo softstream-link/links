@@ -1,9 +1,8 @@
 use std::{any::type_name, fmt::Display, io::Error};
 
-use crate::prelude_nonblocking::{
-    FrameReader, FrameWriter, ReadStatus, RecvMsgBusyWait, RecvMsgNonBlocking, SendMsgBusyWaitMut,
-    SendMsgNonBlocking, WriteStatus,
-};
+use crate::{prelude_nonblocking::{
+    FrameReader, FrameWriter, ReadStatus, RecvMsgNonBlocking, WriteStatus,
+}, core::nonblocking::SendMsgNonBlocking};
 use links_network_core::prelude::{ConId, Messenger};
 
 #[derive(Debug)]
@@ -30,19 +29,6 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M> for MessageS
     fn send_nonblocking(&mut self, msg: &M::SendT) -> Result<WriteStatus, Error> {
         let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
         self.frm_writer.write_frame(&bytes[..size])
-    }
-}
-impl<M: Messenger, const MAX_MSG_SIZE: usize> SendMsgBusyWaitMut<M>
-    for MessageSender<M, MAX_MSG_SIZE>
-{
-    #[inline(always)]
-    fn send_busywait(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<(), Error> {
-        let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
-        while let WriteStatus::WouldBlock = self.frm_writer.write_frame(&bytes[..size])? {
-            // busy wait untill write_frame returns WriteStatus::Completed
-            continue;
-        }
-        Ok(())
     }
 }
 impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MAX_MSG_SIZE> {
@@ -87,19 +73,6 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
         }
     }
 }
-impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvMsgBusyWait<M>
-    for MessageRecver<M, MAX_MSG_SIZE>
-{
-    #[inline(always)]
-    fn recv_busywait(&mut self) -> Result<Option<<M as Messenger>::RecvT>, Error> {
-        loop {
-            match self.recv_nonblocking()? {
-                ReadStatus::Completed(opt) => return Ok(opt),
-                ReadStatus::WouldBlock => continue,
-            }
-        }
-    }
-}
 impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageRecver<M, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
@@ -118,18 +91,13 @@ pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (
 
 pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
     stream: std::net::TcpStream,
-    con_id: ConId,
+    mut con_id: ConId,
 ) -> MessageProcessor<M, MAX_MSG_SIZE> {
     stream
         .set_nonblocking(true)
         .expect("Failed to set nonblocking on TcpStream");
-    // TODO this causes performance to go from 800ns to 2.5µs
-    // stream
-    //     .set_nodelay(true)
-    //     .expect("Failed to set_nodelay on TcpStream");
-
-    let mut con_id = con_id.clone();
     con_id.set_local(stream.local_addr().unwrap());
+    con_id.set_peer(stream.peer_addr().unwrap());
     let (reader, writer) = (
         stream
             .try_clone()
@@ -137,15 +105,13 @@ pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
         stream,
     );
 
+    let (reader, writer) = (
+        mio::net::TcpStream::from_std(reader),
+        mio::net::TcpStream::from_std(writer),
+    );
     (
-        MessageRecver::<M, MAX_MSG_SIZE>::new(
-            mio::net::TcpStream::from_std(reader),
-            con_id.clone(),
-        ),
-        MessageSender::<M, MAX_MSG_SIZE>::new(
-            mio::net::TcpStream::from_std(writer),
-            con_id.clone(),
-        ),
+        MessageRecver::<M, MAX_MSG_SIZE>::new(reader, con_id.clone()),
+        MessageSender::<M, MAX_MSG_SIZE>::new(writer, con_id.clone()),
     )
 }
 
@@ -157,9 +123,9 @@ mod test {
         time::{Duration, Instant},
     };
 
-    use crate::prelude_nonblocking::*;
+    use crate::{prelude_nonblocking::*, core::nonblocking::SendMsgNonBlocking};
     use crate::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol};
-    
+
     use links_network_core::prelude::ConId;
     use links_testing::unittest::setup::{self, model::*};
     use log::info;

@@ -10,7 +10,7 @@ use std::{
 use std::mem::MaybeUninit;
 use std::os::fd::AsRawFd;
 
-use log::{debug, info, log_enabled};
+use log::{debug, log_enabled};
 const EOF: usize = 0;
 
 // TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MSG_SIZE generic as it can just be an non const arg to new
@@ -76,17 +76,19 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SI
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "FrameReader<{}> {{ {:?}->{:?}, fd: {} }}",
+            "FrameReader<{}> {{ {}->{}, fd: {} }}",
             std::any::type_name::<F>()
                 .split("::")
                 .last()
                 .unwrap_or("Unknown"),
-            self.stream_reader
-                .local_addr()
-                .expect("could not get FrameReader's local address"),
-            self.stream_reader
-                .peer_addr()
-                .expect("could not get FrameReader's peer address"),
+            match self.stream_reader.local_addr() {
+                Ok(addr) => format!("{:?}", addr),
+                Err(_) => "disconnected".to_owned(),
+            },
+            match self.stream_reader.peer_addr() {
+                Ok(addr) => format!("{:?}", addr),
+                Err(_) => "disconnected".to_owned(),
+            },
             self.stream_reader.as_raw_fd(),
         )
     }
@@ -170,19 +172,27 @@ impl Display for FrameWriter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "FrameWriter {{ {:?}->{:?}, fd: {} }}",
-            self.stream_writer
-                .local_addr()
-                .expect("could not get FrameReader's local address"),
-            self.stream_writer
-                .peer_addr()
-                .expect("could not get FrameReader's peer address"),
+            "FrameWriter {{ {}->{}, fd: {} }}",
+            match self.stream_writer.local_addr() {
+                Ok(addr) => format!("{:?}", addr),
+                Err(_) => "disconnected".to_owned(),
+            },
+            match self.stream_writer.peer_addr() {
+                Ok(addr) => format!("{:?}", addr),
+                Err(_) => "disconnected".to_owned(),
+            },
             self.stream_writer.as_raw_fd(),
         )
     }
 }
 
 type FrameProcessor<F, const MAX_MSG_SIZE: usize> = (FrameReader<F, MAX_MSG_SIZE>, FrameWriter);
+/// Crates a [FrameReader] and [FrameWriter] from a [std::net::TcpStream] by clonning it and converting the understaing stream to a [mio::net::TcpStream]
+/// # Returns
+///   * [FrameReader] - a nonblocking FrameReader
+///   * [FrameWriter] - a nonblocking FrameWriter
+/// # Important
+/// If either the [FrameReader] or [FrameWriter] are dropped the underlying stream will be shutdown and all actions on the remainging stream will fail
 pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
     stream: std::net::TcpStream,
 ) -> FrameProcessor<F, MAX_MSG_SIZE> {
