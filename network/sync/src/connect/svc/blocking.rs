@@ -26,11 +26,10 @@ pub struct SvcAcceptor<
     callback: Arc<C>,
     con_id: ConId,
 }
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> AcceptClt<M, C, MAX_MSG_SIZE>
-    for SvcAcceptor<M, C, MAX_MSG_SIZE>
+impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize>
+    SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn accept(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error> {
-        self.listener.set_nonblocking(false)?;
         match self.listener.accept() {
             Ok((stream, addr)) => {
                 // TODO add rate limiter
@@ -47,6 +46,27 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> AcceptClt<
                 Ok(clt)
             }
             Err(e) => Err(e),
+        }
+    }
+}
+impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> AcceptClt<M, C, MAX_MSG_SIZE>
+    for SvcAcceptor<M, C, MAX_MSG_SIZE>
+{
+    fn accept(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error> {
+        self.listener.set_nonblocking(false)?;
+        SvcAcceptor::accept(&self)
+    }
+    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
+        self.listener.set_nonblocking(true)?;
+        match SvcAcceptor::accept(&self) {
+            Ok(clt) => Ok(Some(clt)),
+            Err(e) => {
+                if e.kind() == ErrorKind::WouldBlock {
+                    Ok(None)
+                } else {
+                    Err(e)
+                }
+            }
         }
     }
 }
@@ -219,6 +239,9 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> AcceptClt<
     fn accept(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error> {
         self.acceptor.accept()
     }
+    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
+        self.acceptor.accept_nonblocking()
+    }
 }
 impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display
     for Svc<M, C, MAX_MSG_SIZE>
@@ -235,6 +258,7 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display
 #[cfg(test)]
 #[cfg(any(test, feature = "unittest"))]
 mod test {
+
     use links_network_core::prelude::{DevNullCallbackNew, LoggerCallbackNew};
     use links_testing::unittest::setup;
     use log::info;
@@ -272,6 +296,12 @@ mod test {
         )
         .unwrap();
         info!("svc: {}", svc);
+        let res_accept_nonblocking = svc.accept_nonblocking();
+        info!("res_accept_nonblocking: {:?}", res_accept_nonblocking);
+        assert!(match res_accept_nonblocking {
+            Ok(None) => true,
+            _ => false,
+        });
 
         let clt_initiator = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr,

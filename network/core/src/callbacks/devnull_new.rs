@@ -42,7 +42,7 @@ impl<M: Messenger> CallbackRecv<M> for DevNullCallbackNew<M> {
 impl<M: Messenger> CallbackSend<M> for DevNullCallbackNew<M> {
     #[allow(unused_variables)]
     #[inline(always)]
-    fn on_send(&self, con_id: &ConId, msg: &mut <M as Messenger>::SendT) {}
+    fn on_sent(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {}
 }
 
 // #[cfg(test)]

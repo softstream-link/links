@@ -7,9 +7,7 @@ use std::{
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_network_core::prelude::ConId;
 use links_network_sync::{
-    prelude_nonblocking::{
-        into_split_messenger, ReadStatus, RecvMsgNonBlocking, SendMsgNonBlocking, WriteStatus,
-    },
+    prelude_nonblocking::{into_split_messenger, ReadStatus, RecvMsgNonBlocking, WriteStatus},
     unittest::setup::{
         framer::TEST_MSG_FRAME_SIZE,
         messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
@@ -174,7 +172,9 @@ fn round_trip_msg(c: &mut Criterion) {
                 while let Ok(status) = reader.recv_nonblocking() {
                     match status {
                         ReadStatus::Completed(Some(_msg)) => {
-                            while let WriteStatus::WouldBlock = writer.send_nonblocking(&msg).unwrap() {}
+                            while let WriteStatus::WouldBlock =
+                                writer.send_nonblocking(&msg).unwrap()
+                            {}
                         }
                         ReadStatus::Completed(None) => {
                             info!("{} Connection Closed by Client", reader);

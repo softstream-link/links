@@ -68,7 +68,7 @@ impl<M: Messenger> CallbackRecv<M> for LoggerCallbackNew<M> {
     }
 }
 impl<M: Messenger> CallbackSend<M> for LoggerCallbackNew<M> {
-    fn on_send(&self, con_id: &ConId, msg: &mut <M as Messenger>::SendT) {
+    fn on_sent(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {
         if !log_enabled!(self.level_recv) {
             return;
         }

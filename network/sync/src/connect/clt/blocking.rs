@@ -7,8 +7,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::prelude_blocking::{
-    into_split_messenger, MessageRecver, MessageSender, SendMsg, SendMsgMut,
+use crate::{
+    core::blocking::RecvMsg,
+    prelude_blocking::{into_split_messenger, MessageRecver, MessageSender, SendMsg},
 };
 use links_network_core::prelude::{CallbackRecv, CallbackSend, CallbackSendRecv, ConId, Messenger};
 use log::debug;
@@ -25,6 +26,20 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> CltRecver<M, C
             msg_recver: recver,
             callback,
             phantom: std::marker::PhantomData,
+        }
+    }
+}
+impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsg<M>
+    for CltRecver<M, C, MAX_MSG_SIZE>
+{
+    #[inline(always)]
+    fn recv(&mut self) -> Result<Option<M::RecvT>, Error> {
+        match self.msg_recver.recv()? {
+            Some(msg) => {
+                self.callback.on_recv(&self.msg_recver.con_id, &msg);
+                Ok(Some(msg))
+            }
+            None => Ok(None),
         }
     }
 }
@@ -59,12 +74,21 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> CltSender<M, C
         }
     }
 }
-impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgMut<M>
+impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsg<M>
     for CltSender<M, C, MAX_MSG_SIZE>
 {
     fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<(), Error> {
         self.callback.on_send(&self.msg_sender.con_id, msg);
-        self.msg_sender.send(msg)
+        match self.msg_sender.send(msg) {
+            Ok(()) => {
+                self.callback.on_sent(&self.msg_sender.con_id, msg);
+                Ok(())
+            }
+            Err(e) => {
+                self.callback.on_fail(&self.msg_sender.con_id, msg, &e);
+                Err(e)
+            }
+        }
     }
 }
 impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
@@ -96,7 +120,12 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Clt<M, C, 
         callback: Arc<C>,
         name: Option<&str>,
     ) -> Result<Self, Error> {
-        assert!(timeout > retry_after, "timeout: {:?}, retry_after: {:?}", timeout, retry_after);
+        assert!(
+            timeout > retry_after,
+            "timeout: {:?}, retry_after: {:?}",
+            timeout,
+            retry_after
+        );
         let now = Instant::now();
         let con_id = ConId::clt(name, None, addr);
         while now.elapsed() < timeout {
@@ -127,13 +156,36 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Clt<M, C, 
         (self.clt_recver, self.clt_sender)
     }
 }
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display for Clt<M, C, MAX_MSG_SIZE> {
+impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> SendMsg<M>
+    for Clt<M, C, MAX_MSG_SIZE>
+{
+    #[inline(always)]
+    fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<(), Error> {
+        self.clt_sender.send(msg)
+    }
+}
+
+impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> RecvMsg<M>
+    for Clt<M, C, MAX_MSG_SIZE>
+{
+    #[inline(always)]
+    fn recv(&mut self) -> Result<Option<M::RecvT>, Error> {
+        self.clt_recver.recv()
+    }
+}
+impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display
+    for Clt<M, C, MAX_MSG_SIZE>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = std::any::type_name::<M>()
             .split("::")
             .last()
             .unwrap_or("Unknown");
-        write!(f, "Clt<{}, {}, {}>", self.clt_recver.msg_recver.con_id, name, MAX_MSG_SIZE)
+        write!(
+            f,
+            "Clt<{}, {}, {}>",
+            self.clt_recver.msg_recver.con_id, name, MAX_MSG_SIZE
+        )
     }
 }
 

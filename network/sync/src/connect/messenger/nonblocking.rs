@@ -1,8 +1,13 @@
-use std::{any::type_name, fmt::Display, io::Error};
+use std::{
+    any::type_name,
+    fmt::Display,
+    io::Error,
+    time::{Duration, Instant},
+};
 
-use crate::{prelude_nonblocking::{
+use crate::prelude_nonblocking::{
     FrameReader, FrameWriter, ReadStatus, RecvMsgNonBlocking, WriteStatus,
-}, core::nonblocking::SendMsgNonBlocking};
+};
 use links_network_core::prelude::{ConId, Messenger};
 
 #[derive(Debug)]
@@ -19,18 +24,49 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
             phantom: std::marker::PhantomData,
         }
     }
-}
-#[rustfmt::skip]
-impl<M: Messenger, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M> for MessageSender<M, MAX_MSG_SIZE>{
-    /// Will Serialize the message using [MessengerNew] and send it over the wire as a single frame
-    /// If the underlying socket is not ready to write, it will return [WriteStatus::NotReady] while
-    /// also guaranteeing that non of the serialized bytes where sent. The user shall try again later in that case.
+    /// If there was a successfull attempt to write any bytes from serialized message
+    /// into the stream but the write was only partial then the call shall buzy wait until all
+    /// remaining bytes were written before returning [WriteStatus::Completed].
+    /// [WriteStatus::WouldBlock] is returned only if the attemp did not write any bytes to the stream
+    /// after the first attempt
     #[inline(always)]
-    fn send_nonblocking(&mut self, msg: &M::SendT) -> Result<WriteStatus, Error> {
+    pub fn send_nonblocking(&mut self, msg: &M::SendT) -> Result<WriteStatus, Error> {
         let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
         self.frm_writer.write_frame(&bytes[..size])
     }
+
+    /// Will call [send_nonblocking] untill it returns [WriteStatus::Completed] or [WriteStatus::WouldBlock] after the timeoutok,
+    #[inline(always)]
+    pub fn send_nonblocking_timeout(
+        &mut self,
+        msg: &M::SendT,
+        timeout: Duration,
+    ) -> Result<WriteStatus, Error> {
+        let start = Instant::now();
+        let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
+        loop {
+            match self.frm_writer.write_frame(&bytes[..size])? {
+                WriteStatus::Completed => return Ok(WriteStatus::Completed),
+                WriteStatus::WouldBlock => {
+                    if start.elapsed() > timeout {
+                        return Ok(WriteStatus::WouldBlock);
+                    }
+                }
+            }
+        }
+    }
+    /// will busywait block on [send_nonblocking] untill it returns [WriteStatus::Completed]
+    #[inline(always)]
+    pub fn send_busywait(&mut self, msg: &M::SendT) -> Result<(), Error> {
+        loop {
+            match self.send_nonblocking(msg)? {
+                WriteStatus::Completed => return Ok(()),
+                WriteStatus::WouldBlock => continue,
+            }
+        }
+    }
 }
+
 impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msger = type_name::<M>().split("::").last().unwrap_or("Unknown");
@@ -115,6 +151,10 @@ pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
     )
 }
 
+/// # Warning!!!
+/// This is not a public trait as it [send_nonblocking] implementaiton requires special consideration if it involves modification of state as it is expected
+/// to be called repetedly to recover from [WriteStatus::WouldBlock]
+
 #[cfg(test)]
 #[cfg(feature = "unittest")]
 mod test {
@@ -123,7 +163,7 @@ mod test {
         time::{Duration, Instant},
     };
 
-    use crate::{prelude_nonblocking::*, core::nonblocking::SendMsgNonBlocking};
+    use crate::prelude_nonblocking::*;
     use crate::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol};
 
     use links_network_core::prelude::ConId;

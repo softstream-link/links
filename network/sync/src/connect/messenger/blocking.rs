@@ -2,7 +2,7 @@ use std::{any::type_name, fmt::Display, io::Error, net::TcpStream};
 
 use links_network_core::prelude::{ConId, Messenger};
 
-use crate::prelude_blocking::{FrameReader, FrameWriter, RecvMsg, SendMsg};
+use crate::prelude_blocking::{FrameReader, FrameWriter, RecvMsg};
 
 #[derive(Debug)]
 pub struct MessageSender<M: Messenger, const MAX_MSG_SIZE: usize> {
@@ -18,12 +18,8 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
             phantom: std::marker::PhantomData,
         }
     }
-}
-impl<M: Messenger, const MAX_MSG_SIZE: usize> SendMsg<M>
-    for MessageSender<M, MAX_MSG_SIZE>
-{
-    #[inline]
-    fn send(&mut self, msg: &M::SendT) -> Result<(), Error> {
+    #[inline(always)]
+    pub fn send(&mut self, msg: &M::SendT) -> Result<(), Error> {
         let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
         self.writer.write_frame(&bytes[..size])?;
         Ok(())

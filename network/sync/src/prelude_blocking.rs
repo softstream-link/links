@@ -1,6 +1,6 @@
 pub use crate::core::blocking::AcceptClt;
 pub use crate::core::blocking::RecvMsg;
-pub use crate::core::blocking::{SendMsg, SendMsgMut};
+pub use crate::core::blocking::SendMsg;
 
 pub use crate::connect::framer::blocking::{into_split_framer, FrameReader, FrameWriter};
 

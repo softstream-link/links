@@ -108,13 +108,13 @@ impl FrameWriter {
     /// # Agruments
     ///     * bytes - a slice representing one complete frame
     /// # Result States
-    ///     * Ok(WriteStatus::Completed) - all bytes were written to the underlying stream
-    ///     * Ok(WriteStatus::NotReady) - zero bytes were written to the underlying stream
-    ///     * Err(Box<dyn Error>) - some might be written but eventually write generated Error
+    ///    * [Ok(WriteStatus::Completed)] - all bytes were written to the underlying stream
+    ///    * [Ok(WriteStatus::WouldBlock)] - zero bytes were written to the underlying stream
+    ///    * [Err(Error)] - some might be written but eventually write generated Error
     ///
     /// Internally the function will call `write` on the underlying stream until all bytes are written or an error is generated.
     /// This means that if a single `write` successeds the function contrinue to call `write` until all bytes are written or an error is generated.
-    /// WriteStatus::NotReady will only return if the first `write` call returns `WouldBlock` and no bytes where written.
+    /// [WriteStatus::WouldBlock] will only return if the first socket `write` fails with [ErrorKind::WouldBlock] and no bytes where written.
     #[inline]
     pub fn write_frame(&mut self, bytes: &[u8]) -> Result<WriteStatus, Error> {
         let mut residual = bytes;
