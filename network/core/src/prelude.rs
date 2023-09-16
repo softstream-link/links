@@ -29,7 +29,7 @@ pub use crate::core::counters::EventIntervalTracker;
 // callbacks new
 pub use crate::callbacks::CallbackRecv;
 pub use crate::callbacks::CallbackSend;
-pub use crate::callbacks::CallbackSendRecv;
+pub use crate::callbacks::CallbackRecvSend;
 
 pub use crate::callbacks::devnull_new::DevNullCallbackNew;
 pub use crate::callbacks::logger_new::LoggerCallbackNew;

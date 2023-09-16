@@ -10,5 +10,7 @@ pub use crate::connect::messenger::nonblocking::{
     into_split_messenger, MessageRecver, MessageSender,
 };
 
+pub use crate::connect::pool::nonblocking::{PoolRecver, PoolSender, ConnectionPool};
+
 pub use crate::connect::clt::nonblocking::{Clt, CltRecver, CltSender};
 pub use crate::connect::svc::nonblocking::Svc;

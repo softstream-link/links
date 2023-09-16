@@ -7,7 +7,7 @@ use log::{debug, error, info, log_enabled, trace, warn, Level};
 
 use crate::prelude::*;
 
-use super::CallbackSendRecv;
+use super::CallbackRecvSend;
 
 #[derive(Debug, Clone)]
 pub struct LoggerCallbackNew<M: Messenger> {
@@ -51,7 +51,7 @@ impl<M: Messenger> Display for LoggerCallbackNew<M> {
     }
 }
 
-impl<M: Messenger> CallbackSendRecv<M> for LoggerCallbackNew<M> {}
+impl<M: Messenger> CallbackRecvSend<M> for LoggerCallbackNew<M> {}
 impl<M: Messenger> CallbackRecv<M> for LoggerCallbackNew<M> {
     fn on_recv(&self, con_id: &ConId, msg: &<M as Messenger>::RecvT) {
         if !log_enabled!(self.level_recv) {
@@ -69,11 +69,11 @@ impl<M: Messenger> CallbackRecv<M> for LoggerCallbackNew<M> {
 }
 impl<M: Messenger> CallbackSend<M> for LoggerCallbackNew<M> {
     fn on_sent(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {
-        if !log_enabled!(self.level_recv) {
+        if !log_enabled!(self.level_send) {
             return;
         }
-        let text = format!("LoggerCallback::on_send {} {:?}", con_id, msg);
-        match self.level_recv {
+        let text = format!("LoggerCallback::on_sent {} {:?}", con_id, msg);
+        match self.level_send {
             Level::Error => error!("{}", text),
             Level::Warn => warn!("{}", text),
             Level::Info => info!("{}", text),

@@ -3,13 +3,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-use links_network_core::prelude::{CallbackSendRecv, Messenger};
+use links_network_core::prelude::{CallbackRecvSend, Messenger};
 
 use crate::prelude_blocking::Clt;
 
 // ----- Acceptor -----
 
-pub trait AcceptClt<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> {
+pub trait AcceptClt<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
     /// Blocking accept
     fn accept(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error>;
     /// Non-blocking accept

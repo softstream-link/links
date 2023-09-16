@@ -1,6 +1,6 @@
 use bytes::{Bytes, BytesMut};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::prelude::Framer;
+use links_network_core::prelude::{ConId, Framer};
 use links_network_sync::connect::framer::nonblocking::into_split_framer;
 use links_network_sync::prelude_nonblocking::{ReadStatus, WriteStatus};
 use links_testing::unittest::setup;
@@ -38,8 +38,10 @@ fn send_random_frame(c: &mut Criterion) {
             move || {
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
-                let (mut reader, _) =
-                    into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(stream);
+                let (mut reader, _) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
+                    ConId::svc(Some("benchmark"), addr, None),
+                    stream,
+                );
                 let mut frame_recv_count = 0_u32;
                 loop {
                     match reader.read_frame() {
@@ -72,6 +74,7 @@ fn send_random_frame(c: &mut Criterion) {
 
     // CONFIGUR clt
     let (_, mut writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
+        ConId::clt(Some("benchmark"), None, addr),
         TcpStream::connect(addr).unwrap(),
     );
     // info!("clt: writer: {}", writer);
@@ -125,8 +128,10 @@ fn recv_random_frame(c: &mut Criterion) {
             move || {
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
-                let (_, mut writer) =
-                    into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(stream);
+                let (_, mut writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
+                    ConId::svc(Some("benchmark"), addr, None),
+                    stream,
+                );
                 // info!("svc: writer: {}", writer);
                 let mut frame_send_count = 0_u32;
                 loop {
@@ -152,6 +157,7 @@ fn recv_random_frame(c: &mut Criterion) {
 
     // CONFIGUR clt
     let (mut reader, _) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
+        ConId::clt(Some("benchmark"), None, addr),
         TcpStream::connect(addr).unwrap(),
     );
     // info!("clt: reader: {}", reader);
@@ -211,7 +217,10 @@ fn round_trip_random_frame(c: &mut Criterion) {
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
                 let (mut reader, mut writer) =
-                    into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(stream);
+                    into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
+                        ConId::svc(Some("benchmark"), addr, None),
+                        stream,
+                    );
                 // info!("svc: reader: {}", reader);
                 loop {
                     let res = reader.read_frame();
@@ -240,8 +249,10 @@ fn round_trip_random_frame(c: &mut Criterion) {
 
     // CONFIGUR clt
     let stream = TcpStream::connect(addr).unwrap();
-    let (mut reader, mut writer) =
-        into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(stream);
+    let (mut reader, mut writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
+        ConId::clt(Some("benchmark"), None, addr),
+        stream,
+    );
     // info!("clt: writer: {}", writer);
 
     let id = format!(

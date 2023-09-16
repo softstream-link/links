@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use links_network_core::prelude::{CallbackSendRecv, DevNullCallbackNew, Messenger};
+use links_network_core::prelude::{CallbackRecvSend, DevNullCallbackNew, Messenger};
 use links_network_sync::{
     prelude_nonblocking::*,
     unittest::setup::{
@@ -104,8 +104,8 @@ fn run() -> Result<(), Box<dyn Error>> {
 
 fn setup<MSvc: Messenger, MClt: Messenger>() -> (
     &'static str,
-    Arc<impl CallbackSendRecv<MSvc>>,
-    Arc<impl CallbackSendRecv<MClt>>,
+    Arc<impl CallbackRecvSend<MSvc>>,
+    Arc<impl CallbackRecvSend<MClt>>,
     usize,
     Option<&'static str>,
     Duration,

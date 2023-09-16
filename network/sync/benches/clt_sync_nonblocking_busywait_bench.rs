@@ -1,7 +1,7 @@
 use std::{sync::Arc, thread::Builder, time::Duration};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::prelude::{CallbackSendRecv, DevNullCallbackNew, Messenger};
+use links_network_core::prelude::{CallbackRecvSend, DevNullCallbackNew, Messenger};
 use links_network_sync::{
     prelude_nonblocking::*,
     unittest::setup::{
@@ -18,8 +18,8 @@ use num_format::{Locale, ToFormattedString};
 
 fn setup<MSvc: Messenger, MClt: Messenger>() -> (
     &'static str,
-    Arc<impl CallbackSendRecv<MSvc>>,
-    Arc<impl CallbackSendRecv<MClt>>,
+    Arc<impl CallbackRecvSend<MSvc>>,
+    Arc<impl CallbackRecvSend<MClt>>,
     usize,
     Option<&'static str>,
     Duration,

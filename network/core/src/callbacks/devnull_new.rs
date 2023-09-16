@@ -5,7 +5,7 @@ use std::{
 
 use crate::prelude::*;
 
-use super::CallbackSendRecv;
+use super::CallbackRecvSend;
 
 #[derive(Debug, Clone)]
 pub struct DevNullCallbackNew<M: Messenger> {
@@ -33,7 +33,7 @@ impl<M: Messenger> Display for DevNullCallbackNew<M> {
         )
     }
 }
-impl<M: Messenger> CallbackSendRecv<M> for DevNullCallbackNew<M> {}
+impl<M: Messenger> CallbackRecvSend<M> for DevNullCallbackNew<M> {}
 impl<M: Messenger> CallbackRecv<M> for DevNullCallbackNew<M> {
     #[allow(unused_variables)]
     #[inline(always)]

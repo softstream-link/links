@@ -11,7 +11,7 @@ use crate::{
     core::blocking::RecvMsg,
     prelude_blocking::{into_split_messenger, MessageRecver, MessageSender, SendMsg},
 };
-use links_network_core::prelude::{CallbackRecv, CallbackSend, CallbackSendRecv, ConId, Messenger};
+use links_network_core::prelude::{CallbackRecv, CallbackSend, CallbackRecvSend, ConId, Messenger};
 use log::debug;
 
 #[derive(Debug)]
@@ -108,11 +108,11 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
 }
 
 #[derive(Debug)]
-pub struct Clt<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> {
+pub struct Clt<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
     clt_recver: CltRecver<M, C, MAX_MSG_SIZE>,
     clt_sender: CltSender<M, C, MAX_MSG_SIZE>,
 }
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Clt<M, C, MAX_MSG_SIZE> {
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Clt<M, C, MAX_MSG_SIZE> {
     pub fn connect(
         addr: &str,
         timeout: Duration,
@@ -156,7 +156,7 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Clt<M, C, 
         (self.clt_recver, self.clt_sender)
     }
 }
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> SendMsg<M>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsg<M>
     for Clt<M, C, MAX_MSG_SIZE>
 {
     #[inline(always)]
@@ -165,7 +165,7 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> SendMsg<M>
     }
 }
 
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> RecvMsg<M>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvMsg<M>
     for Clt<M, C, MAX_MSG_SIZE>
 {
     #[inline(always)]
@@ -173,7 +173,7 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> RecvMsg<M>
         self.clt_recver.recv()
     }
 }
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     for Clt<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

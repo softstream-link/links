@@ -12,15 +12,13 @@ use links_network_core::prelude::{ConId, Messenger};
 
 #[derive(Debug)]
 pub struct MessageSender<M: Messenger, const MAX_MSG_SIZE: usize> {
-    pub(crate) con_id: ConId,
     pub(crate) frm_writer: FrameWriter,
     phantom: std::marker::PhantomData<M>,
 }
 impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
-    pub fn new(stream: mio::net::TcpStream, con_id: ConId) -> Self {
+    pub fn new(con_id: ConId, stream: mio::net::TcpStream) -> Self {
         Self {
-            con_id,
-            frm_writer: FrameWriter::new(stream),
+            frm_writer: FrameWriter::new(con_id, stream),
             phantom: std::marker::PhantomData,
         }
     }
@@ -73,22 +71,20 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MAX_M
         write!(
             f,
             "{} MessageSender<{}, {}>",
-            self.con_id, msger, MAX_MSG_SIZE
+            self.frm_writer.con_id, msger, MAX_MSG_SIZE
         )
     }
 }
 
 #[derive(Debug)]
 pub struct MessageRecver<M: Messenger, const MAX_MSG_SIZE: usize> {
-    pub(crate) con_id: ConId,
     pub(crate) frm_reader: FrameReader<M, MAX_MSG_SIZE>,
     phantom: std::marker::PhantomData<M>,
 }
 impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageRecver<M, MAX_MSG_SIZE> {
-    pub fn new(stream: mio::net::TcpStream, con_id: ConId) -> Self {
+    pub fn new(con_id: ConId, stream: mio::net::TcpStream) -> Self {
         Self {
-            con_id,
-            frm_reader: FrameReader::<M, MAX_MSG_SIZE>::new(stream),
+            frm_reader: FrameReader::<M, MAX_MSG_SIZE>::new(con_id, stream),
             phantom: std::marker::PhantomData,
         }
     }
@@ -115,7 +111,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageRecver<M, MAX_M
         write!(
             f,
             "{} MessageRecver<{}, {}>",
-            self.con_id, name, MAX_MSG_SIZE
+            self.frm_reader.con_id, name, MAX_MSG_SIZE
         )
     }
 }
@@ -126,8 +122,8 @@ pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (
 );
 
 pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
-    stream: std::net::TcpStream,
     mut con_id: ConId,
+    stream: std::net::TcpStream,
 ) -> MessageProcessor<M, MAX_MSG_SIZE> {
     stream
         .set_nonblocking(true)
@@ -146,8 +142,8 @@ pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
         mio::net::TcpStream::from_std(writer),
     );
     (
-        MessageRecver::<M, MAX_MSG_SIZE>::new(reader, con_id.clone()),
-        MessageSender::<M, MAX_MSG_SIZE>::new(writer, con_id.clone()),
+        MessageRecver::<M, MAX_MSG_SIZE>::new(con_id.clone(), reader),
+        MessageSender::<M, MAX_MSG_SIZE>::new(con_id, writer),
     )
 }
 
@@ -186,8 +182,8 @@ mod test {
                 let (stream, _) = listener.accept().unwrap();
                 let (mut recver, mut sender) =
                     into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
-                        stream,
                         ConId::svc(Some("unittest"), addr, None),
+                        stream,
                     );
                 info!("{} connected", sender);
 
@@ -222,8 +218,8 @@ mod test {
                 let stream = std::net::TcpStream::connect(addr).unwrap();
                 let (mut recver, mut sender) =
                     into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
-                        stream,
                         ConId::clt(Some("unittest"), None, addr),
+                        stream,
                     );
 
                 let start = Instant::now();

@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-use links_network_core::prelude::{CallbackRecv, CallbackSend, CallbackSendRecv, ConId, Messenger};
+use links_network_core::prelude::{CallbackRecv, CallbackSend, CallbackRecvSend, ConId, Messenger};
 use log::{debug, log_enabled, warn};
 use slab::Slab;
 
@@ -17,7 +17,7 @@ use crate::prelude_blocking::{AcceptClt, Clt, CltRecver, CltSender};
 #[derive(Debug)]
 pub struct SvcAcceptor<
     M: Messenger+'static,
-    C: CallbackSendRecv<M>+'static,
+    C: CallbackRecvSend<M>+'static,
     const MAX_MSG_SIZE: usize,
 > {
     tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
@@ -26,7 +26,7 @@ pub struct SvcAcceptor<
     callback: Arc<C>,
     con_id: ConId,
 }
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn accept(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error> {
@@ -49,7 +49,7 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize>
         }
     }
 }
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> AcceptClt<M, C, MAX_MSG_SIZE>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> AcceptClt<M, C, MAX_MSG_SIZE>
     for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn accept(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error> {
@@ -70,7 +70,7 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> AcceptClt<
         }
     }
 }
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -193,12 +193,12 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
     }
 }
 
-pub struct Svc<M: Messenger+'static, C: CallbackSendRecv<M>+'static, const MAX_MSG_SIZE: usize> {
+pub struct Svc<M: Messenger+'static, C: CallbackRecvSend<M>+'static, const MAX_MSG_SIZE: usize> {
     acceptor: SvcAcceptor<M, C, MAX_MSG_SIZE>,
     recver: SvcRecver<M, C, MAX_MSG_SIZE>,
     sender: SvcSender<M, C, MAX_MSG_SIZE>,
 }
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Svc<M, C, MAX_MSG_SIZE> {
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, MAX_MSG_SIZE> {
     pub fn bind(
         addr: &str,
         callback: Arc<C>,
@@ -233,7 +233,7 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
         })
     }
 }
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> AcceptClt<M, C, MAX_MSG_SIZE>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> AcceptClt<M, C, MAX_MSG_SIZE>
     for Svc<M, C, MAX_MSG_SIZE>
 {
     fn accept(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error> {
@@ -243,7 +243,7 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> AcceptClt<
         self.acceptor.accept_nonblocking()
     }
 }
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     for Svc<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

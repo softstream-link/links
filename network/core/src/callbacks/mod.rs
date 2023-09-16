@@ -39,4 +39,4 @@ pub trait CallbackSend<M: Messenger>: Debug {
     fn on_sent(&self, con_id: &ConId, msg: &M::SendT);
 }
 
-pub trait CallbackSendRecv<M: Messenger>: CallbackRecv<M>+CallbackSend<M> {}
+pub trait CallbackRecvSend<M: Messenger>: CallbackRecv<M>+CallbackSend<M> {}

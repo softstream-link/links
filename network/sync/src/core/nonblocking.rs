@@ -3,18 +3,19 @@ use std::{
     time::{Duration, Instant},
 };
 
-use links_network_core::prelude::{CallbackSendRecv, Messenger};
+use links_network_core::prelude::{CallbackRecvSend, Messenger};
 
 use crate::prelude_nonblocking::Clt;
 
 // ---- Acceptor ----
 
+#[derive(Debug, PartialEq)]
 pub enum AcceptStatus<T> {
     Accepted(Option<T>),
     WouldBlock,
 }
 
-pub trait AcceptCltNonBlocking<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> {
+pub trait AcceptCltNonBlocking<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
     // fn accept_nonblockings(&self) -> Result<(), Error>;
 
     /// Will attempt to accept a new connection. If there is a new connection it will return [Some(Clt)].
@@ -61,7 +62,7 @@ pub trait AcceptCltNonBlocking<M: Messenger, C: CallbackSendRecv<M>, const MAX_M
 /// * [ReadStatus::Completed(Some(T))] - indiates that read was successfull and `T` contains the value read
 /// * [ReadStatus::Completed(None)] - indicates that connectioon was closed by the peer cleanly and all data was read
 /// * [ReadStatus::WouldBlock] - indicates that no data was read and the caller should try again
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ReadStatus<T> {
     Completed(Option<T>),
     WouldBlock,
@@ -128,7 +129,7 @@ pub trait RecvMsgNonBlocking<M: Messenger> {
 /// # Variants
 ///    * [WriteStatus::Completed] - indicates that all bytes were written to the underlying stream
 ///    * [WriteStatus::WouldBlock] - indicates that zero bytes were written to the underlying stream
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum WriteStatus {
     Completed,
     WouldBlock,
@@ -144,6 +145,7 @@ pub trait SendMsgNonBlocking<M: Messenger> {
     fn send_nonblocking(&mut self, msg: &mut M::SendT) -> Result<WriteStatus, Error>;
 
     /// Will call [send_nonblocking] untill it returns [WriteStatus::Completed]
+    #[inline(always)]
     fn send_busywait(&mut self, msg: &mut M::SendT) -> Result<(), Error> {
         loop {
             match self.send_nonblocking(msg)? {

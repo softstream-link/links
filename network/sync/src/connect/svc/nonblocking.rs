@@ -2,157 +2,20 @@ use std::{
     fmt::Display,
     io::{Error, ErrorKind},
     os::fd::{FromRawFd, IntoRawFd},
-    sync::{
-        mpsc::{channel, Receiver, Sender},
-        Arc,
-    },
+    sync::{mpsc::Sender, Arc},
 };
 
 use crate::prelude_nonblocking::*;
 use links_network_core::{
-    callbacks::CallbackSendRecv,
-    prelude::{CallbackRecv, CallbackSend, ConId, Messenger},
+    callbacks::CallbackRecvSend,
+    prelude::{ConId, Messenger},
 };
-use log::{debug, log_enabled, warn};
-use slab::Slab;
-
-#[derive(Debug)]
-pub struct SvcRecver<M: Messenger+'static, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
-    rx_recver: Receiver<CltRecver<M, C, MAX_MSG_SIZE>>,
-    svc_recvers: Slab<CltRecver<M, C, MAX_MSG_SIZE>>,
-}
-impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> SvcRecver<M, C, MAX_MSG_SIZE> {
-    #[inline]
-    fn service_once_rx_queue(&mut self) -> Result<(), Error> {
-        match self.rx_recver.try_recv() {
-            Ok(recver) => {
-                if self.svc_recvers.len() < self.svc_recvers.capacity() {
-                    if log_enabled!(log::Level::Debug) {
-                        debug!("Adding recver: {} to {}", recver, self);
-                    }
-                    self.svc_recvers.insert(recver);
-                } else {
-                    warn!("Dropping recver: {}, {} at capacity", recver, self,);
-                }
-                Ok(())
-            }
-            Err(std::sync::mpsc::TryRecvError::Empty) => Ok(()),
-            Err(e) => Err(Error::new(ErrorKind::Other, e)),
-        }
-    }
-    #[inline]
-    fn service_once_recvers(&mut self) -> Result<(), Error> {
-        let (mut dead_key, mut dead_connection) = (0, false);
-        for (key, clt) in self.svc_recvers.iter_mut() {
-            match clt.service_once() {
-                Ok(ServiceLoopStatus::Continue) => {}
-                Ok(ServiceLoopStatus::Stop) => {
-                    dead_connection = true;
-                    dead_key = key;
-                    break;
-                }
-                Err(e) => {
-                    warn!(
-                        "recver #{} is dead {} and will be dropped.  error: {}",
-                        key, clt, e
-                    );
-                    dead_connection = true;
-                    dead_key = key;
-                    break;
-                }
-            };
-        }
-        // TODO fix this so that we only iterate each clt once
-        if dead_connection {
-            self.svc_recvers.remove(dead_key);
-            self.service_once_recvers()?;
-        }
-        Ok(())
-    }
-}
-impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
-    for SvcRecver<M, C, MAX_MSG_SIZE>
-{
-    fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
-        self.service_once_rx_queue()?;
-        self.service_once_recvers()?;
-        Ok(ServiceLoopStatus::Continue)
-    }
-}
-impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
-    for SvcRecver<M, C, MAX_MSG_SIZE>
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "SvcRecver<{} of {} [{}]>",
-            self.svc_recvers.len(),
-            self.svc_recvers.capacity(),
-            self.svc_recvers
-                .iter()
-                .map(|(_, clt)| format!("{}", clt))
-                .collect::<Vec<_>>()
-                .join(","),
-        )
-    }
-}
-
-#[derive(Debug)]
-pub struct SvcSender<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> {
-    rx_sender: Receiver<CltSender<M, C, MAX_MSG_SIZE>>,
-    svc_senders: Slab<CltSender<M, C, MAX_MSG_SIZE>>,
-}
-impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SvcSender<M, C, MAX_MSG_SIZE> {
-    #[inline]
-    fn service_once_rx_queue(&mut self) -> Result<(), Error> {
-        match self.rx_sender.try_recv() {
-            Ok(sender) => {
-                if self.svc_senders.len() < self.svc_senders.capacity() {
-                    if log_enabled!(log::Level::Debug) {
-                        debug!("Adding sender: {} to {}", sender, self);
-                    }
-                    self.svc_senders.insert(sender);
-                } else {
-                    warn!("Dropping sender: {}, {} at capacity", sender, self);
-                }
-                Ok(())
-            }
-            Err(std::sync::mpsc::TryRecvError::Empty) => Ok(()),
-            Err(e) => Err(Error::new(ErrorKind::Other, e)),
-        }
-    }
-}
-impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
-    for SvcSender<M, C, MAX_MSG_SIZE>
-{
-    #[inline]
-    fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
-        self.service_once_rx_queue()?;
-        Ok(ServiceLoopStatus::Continue)
-    }
-}
-impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
-    for SvcSender<M, C, MAX_MSG_SIZE>
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "SvcSender<{} of {} [{}]>",
-            self.svc_senders.len(),
-            self.svc_senders.capacity(),
-            self.svc_senders
-                .iter()
-                .map(|(_, clt)| format!("{}", clt))
-                .collect::<Vec<_>>()
-                .join(","),
-        )
-    }
-}
+use log::{debug, log_enabled};
 
 #[derive(Debug)]
 pub struct SvcAcceptor<
     M: Messenger+'static,
-    C: CallbackSendRecv<M>+'static,
+    C: CallbackRecvSend<M>+'static,
     const MAX_MSG_SIZE: usize,
 > {
     tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
@@ -161,7 +24,7 @@ pub struct SvcAcceptor<
     callback: Arc<C>,
     con_id: ConId,
 }
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
@@ -187,7 +50,7 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize>
     }
 }
 
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
     for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
@@ -203,7 +66,7 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> NonBlockin
         Ok(ServiceLoopStatus::Continue)
     }
 }
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -212,13 +75,12 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display
 }
 
 #[derive(Debug)]
-pub struct Svc<M: Messenger+'static, C: CallbackSendRecv<M>+'static, const MAX_MSG_SIZE: usize> {
+pub struct Svc<M: Messenger+'static, C: CallbackRecvSend<M>+'static, const MAX_MSG_SIZE: usize> {
     acceptor: SvcAcceptor<M, C, MAX_MSG_SIZE>,
-    recver: SvcRecver<M, C, MAX_MSG_SIZE>,
-    sender: SvcSender<M, C, MAX_MSG_SIZE>,
+    pool_recver: PoolRecver<M, C, MAX_MSG_SIZE>,
+    pool_sender: PoolSender<M, C, MAX_MSG_SIZE>,
 }
-
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Svc<M, C, MAX_MSG_SIZE> {
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, MAX_MSG_SIZE> {
     pub fn bind(
         addr: &str,
         callback: Arc<C>,
@@ -228,8 +90,9 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
         let listener = std::net::TcpListener::bind(addr)?;
         listener.set_nonblocking(true)?;
 
-        let (tx_recver, rx_recver) = channel();
-        let (tx_sender, rx_sender) = channel();
+        let pool = ConnectionPool::<M, C, MAX_MSG_SIZE>::new(max_connections);
+        let ((tx_recver, tx_sender), (svc_recver, svc_sender)) = pool.into_split();
+
         let listener = mio::net::TcpListener::from_std(listener);
 
         let acceptor = SvcAcceptor {
@@ -239,61 +102,69 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
             callback,
             con_id: ConId::svc(name, addr, None),
         };
-        let svc_recver = SvcRecver {
-            rx_recver,
-            svc_recvers: Slab::with_capacity(max_connections),
-        };
-        let svc_sender = SvcSender {
-            rx_sender,
-            svc_senders: Slab::with_capacity(max_connections),
-        };
+
         Ok(Self {
             acceptor,
-            recver: svc_recver,
-            sender: svc_sender,
+            pool_recver: svc_recver,
+            pool_sender: svc_sender,
         })
     }
 
     pub fn clients_len(&self) -> (usize, usize) {
-        (self.recver.svc_recvers.len(), self.sender.svc_senders.len())
+        (self.pool_recver.len(), self.pool_sender.len())
     }
     pub fn split_into(
         self,
     ) -> (
         SvcAcceptor<M, C, MAX_MSG_SIZE>,
-        SvcRecver<M, C, MAX_MSG_SIZE>,
-        SvcSender<M, C, MAX_MSG_SIZE>,
+        PoolRecver<M, C, MAX_MSG_SIZE>,
+        PoolSender<M, C, MAX_MSG_SIZE>,
     ) {
-        (self.acceptor, self.recver, self.sender)
+        (self.acceptor, self.pool_recver, self.pool_sender)
     }
 }
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
 {
     fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
         self.acceptor.accept_nonblocking()
     }
 }
-
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M>
+    for Svc<M, C, MAX_MSG_SIZE>
+{
+    fn send_nonblocking(
+        &mut self,
+        msg: &mut <M as Messenger>::SendT,
+    ) -> Result<WriteStatus, Error> {
+        self.pool_sender.send_nonblocking(msg)
+    }
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
+    for Svc<M, C, MAX_MSG_SIZE>
+{
+    fn recv_nonblocking(&mut self) -> Result<ReadStatus<<M as Messenger>::RecvT>, Error> {
+        self.pool_recver.recv_nonblocking()
+    }
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
     for Svc<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
         let _ = self.acceptor.service_once()?;
-        let _ = self.recver.service_once()?;
-        let _ = self.sender.service_once()?;
+        let _ = self.pool_recver.service_once()?;
+        let _ = self.pool_sender.service_once()?;
         Ok(ServiceLoopStatus::Continue)
     }
 }
-
-impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     for Svc<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{} Svc<{}, {}, {}>",
-            self.acceptor.con_id, self.acceptor, self.recver, self.sender
+            self.acceptor.con_id, self.acceptor, self.pool_recver, self.pool_sender
         )
     }
 }
@@ -301,15 +172,15 @@ impl<M: Messenger, C: CallbackSendRecv<M>, const MAX_MSG_SIZE: usize> Display
 #[cfg(test)]
 #[cfg(any(test, feature = "unittest"))]
 mod test {
-    use std::io::ErrorKind;
+    use std::{io::ErrorKind, thread::sleep, time::Duration};
 
     use crate::prelude_nonblocking::*;
     use links_network_core::prelude::{DevNullCallbackNew, LoggerCallbackNew};
     use links_testing::unittest::setup::{
         self,
-        model::{TestSvcMsg, TestSvcMsgDebug},
+        model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
     };
-    use log::{info, warn, LevelFilter};
+    use log::{info, Level, LevelFilter};
 
     use crate::unittest::setup::framer::{
         TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE,
@@ -369,17 +240,20 @@ mod test {
         setup::log::configure_level(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
 
-        let callback = LoggerCallbackNew::<TestSvcMsgProtocol>::new_ref();
-        let mut svc =
-            Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback.clone(), 1, Some("unittest"))
-                .unwrap();
+        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
+            addr,
+            LoggerCallbackNew::<TestSvcMsgProtocol>::with_level_ref(Level::Info, Level::Debug),
+            1,
+            Some("unittest"),
+        )
+        .unwrap();
         info!("svc: {}", svc);
 
-        let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+        let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
-            callback.clone(),
+            LoggerCallbackNew::<TestCltMsgProtocol>::with_level_ref(Level::Info, Level::Debug),
             Some("unittest"),
         )
         .unwrap();
@@ -389,15 +263,113 @@ mod test {
         info!("svc: {}", svc);
         assert_eq!(svc.clients_len(), (1, 1));
 
-        let (clt_recv, mut clt_send) = clt.into_split();
+        let mut clt_msg_inp = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+        let mut svc_msg_inp = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
+        info!("--------- PRE SPLIT ---------");
+        clt.send_busywait(&mut clt_msg_inp).unwrap();
+        let svc_msg_out = svc.recv_busywait().unwrap().unwrap();
+        // info!("clt_msg_inp: {:?}", clt_msg_inp);
+        // info!("svc_msg_out: {:?}", svc_msg_out);
+        assert_eq!(clt_msg_inp, svc_msg_out);
 
+        info!("--------- SVC SPLIT POOL ---------");
+        let (_svc_acceptor, mut pool_recver, mut pool_sender) = svc.split_into();
+        clt.send_busywait(&mut clt_msg_inp).unwrap();
+        let svc_msg_out = pool_recver.recv_busywait().unwrap().unwrap();
+        // info!("clt_msg_inp: {:?}", clt_msg_inp);
+        // info!("svc_msg_out: {:?}", svc_msg_out);
+        assert_eq!(clt_msg_inp, svc_msg_out);
+
+        info!("--------- CLT SPLIT DIRECT ---------");
+        let (clt_recv, mut clt_send) = clt.into_split();
+        clt_send.send_busywait(&mut clt_msg_inp).unwrap();
+        let svc_msg_out = pool_recver.recv_busywait().unwrap().unwrap();
+        // info!("svc_msg_out: {:?}", svc_msg_out);
+        // info!("clt_msg_inp: {:?}", clt_msg_inp);
+        assert_eq!(svc_msg_out, clt_msg_inp);
+
+        // info!("--------- SVC DROP HALF ---------");
+        // drop(pool_recver);
+        // let res = pool_sender.send_nonblocking(&mut svc_msg_inp);
+        // info!("pool_sender res: {}", res.as_ref().unwrap_err());
+        // assert_eq!(pool_sender.len(), 0);
+        // assert_eq!(res.unwrap_err().kind(), ErrorKind::BrokenPipe);
+
+        info!("--------- CLT DROP HALF ---------");
         // drop clt_recv and ensure that clt_sender has broken pipe
         drop(clt_recv);
+        let res = clt_send.send_nonblocking(&mut clt_msg_inp);
 
-        let mut clt_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Client Msg"));
-        let err = clt_send.send_busywait(&mut clt_msg).unwrap_err();
+        info!("clt_send res: {}", res.as_ref().unwrap_err());
+        assert_eq!(res.unwrap_err().kind(), ErrorKind::BrokenPipe);
 
-        assert_eq!(err.kind(), ErrorKind::BrokenPipe);
-        warn!("{}", err);
+        
+
+        // let status = pool_recver.recv_nonblocking().unwrap(); // dont' busywait as clt_send is dropped
+        // info!("pool_recver status: {:?}", status);
+        // assert_eq!(status, ReadStatus::WouldBlock);
+
+        // drop(pool_recver);
+        // let clt = pool_sender.next_sender_mut().unwrap();
+        // info!("clt: {:?}", clt.msg_sender.frm_writer);
+        // let status = pool_sender.send_nonblocking(&mut svc_msg_inp).unwrap();
+        // info! {"pool_sender status: {:?}", status};
+        // // // assert_eq!(status, WriteStatus::WouldBlock);
+    }
+
+    #[test]
+    fn test_slab() {
+        setup::log::configure();
+        let mut sl = slab::Slab::<&str>::with_capacity(3);
+        assert_eq!(sl.len(), 0);
+        let k = sl.insert("one");
+        info!("k: {}", k);
+        let k = sl.insert("two");
+        info!("k: {}", k);
+        let k = sl.insert("three");
+        info!("k: {}", k);
+
+        info!("sl: {:?}", sl);
+        for (k, v) in sl.iter() {
+            info!("k: {}, v: {}", k, v);
+        }
+        info!("=============");
+        sl.remove(1);
+
+        info!("sl: {:?}", sl);
+        for (k, v) in sl.iter() {
+            info!("k: {}, v: {}", k, v);
+        }
+        info!("=============");
+
+        if let Some(v) = sl.get_mut(0) {
+            info!("0  v: {}", v);
+        }
+
+        if let Some((k, v)) = sl.iter_mut().nth(0) {
+            info!("0 k: {}, v: {}", k, v);
+        }
+        if let Some((k, v)) = sl.iter_mut().nth(1) {
+            info!("1 k: {}, v: {}", k, v);
+        }
+
+        if let Some((k, v)) = sl.iter_mut().nth(2) {
+            info!("2 k: {}, v: {}", k, v);
+        }
+        // let rm = sl.get(1);
+        // info!("rm: {:?}", rm);
+
+        // let k = sl.insert("two");
+        // info!("k: {}", k);
+
+        // fn t<T>(x: T) {
+        //     let name = type_name::<T>();
+        //     println!("{}", name);
+        // }
+        // let x = (0..3).into_iter().cycle();
+        // t(x);
+        // for i in x {
+        //     info!("i: {}", i);
+        // }
     }
 }
