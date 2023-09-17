@@ -117,7 +117,7 @@ fn setup<MSvc: Messenger, MClt: Messenger>() -> (
     let svc_callback = DevNullCallbackNew::<MSvc>::new_ref();
     let clt_callback = DevNullCallbackNew::<MClt>::new_ref();
     let name = Some("example");
-    let max_connections = 0;
+    let max_connections = 1; // TODO make this NonZeroUsize as CicleIterator fails if if max_connections is 0 of fix CicleIterator
     let timeout = Duration::from_micros(1_000);
     let retry_after = Duration::from_micros(100);
     (

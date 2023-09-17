@@ -7,7 +7,7 @@ use std::{
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_network_core::prelude::ConId;
 use links_network_sync::{
-    prelude_nonblocking::{into_split_messenger, ReadStatus, RecvMsgNonBlocking, WriteStatus},
+    prelude_nonblocking::{into_split_messenger, RecvStatus, RecvMsgNonBlocking, SendStatus},
     unittest::setup::{
         framer::TEST_MSG_FRAME_SIZE,
         messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
@@ -42,14 +42,14 @@ fn send_msg(c: &mut Criterion) {
             loop {
                 let status = reader.recv_nonblocking().unwrap();
                 match status {
-                    ReadStatus::Completed(Some(_)) => {
+                    RecvStatus::Completed(Some(_)) => {
                         frame_recv_count += 1;
                     }
-                    ReadStatus::Completed(None) => {
+                    RecvStatus::Completed(None) => {
                         info!("svc: read_frame is None, client closed connection");
                         break;
                     }
-                    ReadStatus::WouldBlock => continue,
+                    RecvStatus::WouldBlock => continue,
                 }
             }
             frame_recv_count
@@ -72,7 +72,7 @@ fn send_msg(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                while let WriteStatus::WouldBlock = writer.send_nonblocking(&msg).unwrap() {}
+                while let SendStatus::WouldBlock = writer.send_nonblocking(&msg).unwrap() {}
                 msg_send_count += 1;
             })
         })
@@ -109,8 +109,8 @@ fn recv_msg(c: &mut Criterion) {
             let mut frame_send_count = 0_u32;
             while let Ok(status) = writer.send_nonblocking(&msg) {
                 match status {
-                    WriteStatus::WouldBlock => continue,
-                    WriteStatus::Completed => {
+                    SendStatus::WouldBlock => continue,
+                    SendStatus::Completed => {
                         frame_send_count += 1;
                     }
                 }
@@ -133,7 +133,7 @@ fn recv_msg(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                while let ReadStatus::WouldBlock = reader.recv_nonblocking().unwrap() {}
+                while let RecvStatus::WouldBlock = reader.recv_nonblocking().unwrap() {}
                 msg_recv_count += 1;
             })
         })
@@ -171,16 +171,16 @@ fn round_trip_msg(c: &mut Criterion) {
                 // info!("svc: reader: {}", reader);
                 while let Ok(status) = reader.recv_nonblocking() {
                     match status {
-                        ReadStatus::Completed(Some(_msg)) => {
-                            while let WriteStatus::WouldBlock =
+                        RecvStatus::Completed(Some(_msg)) => {
+                            while let SendStatus::WouldBlock =
                                 writer.send_nonblocking(&msg).unwrap()
                             {}
                         }
-                        ReadStatus::Completed(None) => {
+                        RecvStatus::Completed(None) => {
                             info!("{} Connection Closed by Client", reader);
                             break;
                         }
-                        ReadStatus::WouldBlock => continue,
+                        RecvStatus::WouldBlock => continue,
                     }
                 }
             }
@@ -204,20 +204,20 @@ fn round_trip_msg(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                while let WriteStatus::WouldBlock = writer.send_nonblocking(&msg).unwrap() {}
+                while let SendStatus::WouldBlock = writer.send_nonblocking(&msg).unwrap() {}
                 msg_send_count += 1;
 
                 loop {
                     match reader.recv_nonblocking().unwrap() {
-                        ReadStatus::Completed(Some(_msg)) => {
+                        RecvStatus::Completed(Some(_msg)) => {
                             msg_recv_count += 1;
                             break;
                         }
-                        ReadStatus::Completed(None) => {
+                        RecvStatus::Completed(None) => {
                             panic!("{} Connection Closed by Server", reader);
                             // break;
                         }
-                        ReadStatus::WouldBlock => continue,
+                        RecvStatus::WouldBlock => continue,
                     }
                 }
             })

@@ -1,4 +1,4 @@
-use crate::prelude_nonblocking::{ReadStatus, WriteStatus};
+use crate::prelude_nonblocking::{RecvStatus, SendStatus};
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
 use links_network_core::prelude::{ConId, Framer};
@@ -31,14 +31,14 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
         }
     }
     #[inline]
-    pub fn read_frame(&mut self) -> Result<ReadStatus<Bytes>, Error> {
+    pub fn read_frame(&mut self) -> Result<RecvStatus<Bytes>, Error> {
         #[allow(clippy::uninit_assumed_init)]
         let mut buf: [u8; MAX_MSG_SIZE] = unsafe { MaybeUninit::uninit().assume_init() };
 
         match self.stream_reader.read(&mut buf) {
             Ok(EOF) => {
                 if self.buffer.is_empty() {
-                    Ok(ReadStatus::Completed(None))
+                    Ok(RecvStatus::Completed(None))
                 } else {
                     let msg = format!(
                         "{} FrameReader::read_frame connection reset by peer, residual buf:\n{}",
@@ -51,12 +51,12 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             Ok(len) => {
                 self.buffer.extend_from_slice(&buf[..len]);
                 if let Some(bytes) = F::get_frame(&mut self.buffer) {
-                    Ok(ReadStatus::Completed(Some(bytes)))
+                    Ok(RecvStatus::Completed(Some(bytes)))
                 } else {
-                    Ok(ReadStatus::WouldBlock)
+                    Ok(RecvStatus::WouldBlock)
                 }
             }
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(ReadStatus::WouldBlock),
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(RecvStatus::WouldBlock),
             Err(e) => {
                 let msg = format!(
                     "{} FrameReader::read_frame error: {} residual buf:\n{}",
@@ -128,7 +128,7 @@ impl FrameWriter {
     /// This means that if a single `write` successeds the function contrinue to call `write` until all bytes are written or an error is generated.
     /// [WriteStatus::WouldBlock] will only return if the first socket `write` fails with [ErrorKind::WouldBlock] and no bytes where written.
     #[inline]
-    pub fn write_frame(&mut self, bytes: &[u8]) -> Result<WriteStatus, Error> {
+    pub fn write_frame(&mut self, bytes: &[u8]) -> Result<SendStatus, Error> {
         let mut residual = bytes;
         while !residual.is_empty() {
             match self.stream_writer.write(residual) {
@@ -140,7 +140,7 @@ impl FrameWriter {
                 }
                 Ok(len) => {
                     if len == residual.len() {
-                        return Ok(WriteStatus::Completed);
+                        return Ok(SendStatus::Completed);
                     } else {
                         residual = &residual[len..];
                         continue;
@@ -150,7 +150,7 @@ impl FrameWriter {
                     if bytes.len() == residual.len() {
                         // no bytes where written so Just report back NotReady
                         // println!("write_frame: WouldBlock NotReady");
-                        return Ok(WriteStatus::WouldBlock);
+                        return Ok(SendStatus::WouldBlock);
                     } else {
                         // println!("write_frame: WouldBlock Continue");
                         // some bytes where written have to finish and report back Completed or Error
@@ -168,7 +168,7 @@ impl FrameWriter {
                 }
             }
         }
-        Ok(WriteStatus::Completed)
+        Ok(SendStatus::Completed)
     }
 }
 impl Drop for FrameWriter {
@@ -296,11 +296,11 @@ mod test {
                         loop {
                             let res = reader.read_frame();
                             match res {
-                                Ok(ReadStatus::Completed(None)) => {
+                                Ok(RecvStatus::Completed(None)) => {
                                     info!("svc: read_frame is None, client closed connection");
                                     break;
                                 }
-                                Ok(ReadStatus::Completed(Some(recv_frame))) => {
+                                Ok(RecvStatus::Completed(Some(recv_frame))) => {
                                     frame_recv_count += 1;
                                     let recv_frame = &recv_frame[..];
                                     assert_eq!(
@@ -312,7 +312,7 @@ mod test {
                                         frame_recv_count
                                     );
                                 }
-                                Ok(ReadStatus::WouldBlock) => {
+                                Ok(RecvStatus::WouldBlock) => {
                                     continue; // try reading again
                                 }
                                 Err(e) => {
@@ -344,11 +344,11 @@ mod test {
         for _ in 0..WRITE_N_TIMES {
             loop {
                 match writer.write_frame(send_frame) {
-                    Ok(WriteStatus::Completed) => {
+                    Ok(SendStatus::Completed) => {
                         frame_send_count += 1;
                         break;
                     }
-                    Ok(WriteStatus::WouldBlock) => {
+                    Ok(SendStatus::WouldBlock) => {
                         continue;
                     }
                     Err(e) => {

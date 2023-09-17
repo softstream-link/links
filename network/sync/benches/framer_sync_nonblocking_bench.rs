@@ -2,7 +2,7 @@ use bytes::{Bytes, BytesMut};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_network_core::prelude::{ConId, Framer};
 use links_network_sync::connect::framer::nonblocking::into_split_framer;
-use links_network_sync::prelude_nonblocking::{ReadStatus, WriteStatus};
+use links_network_sync::prelude_nonblocking::{RecvStatus, SendStatus};
 use links_testing::unittest::setup;
 use log::{error, info};
 use num_format::{Locale, ToFormattedString};
@@ -45,17 +45,17 @@ fn send_random_frame(c: &mut Criterion) {
                 let mut frame_recv_count = 0_u32;
                 loop {
                     match reader.read_frame() {
-                        Ok(ReadStatus::Completed(None)) => {
+                        Ok(RecvStatus::Completed(None)) => {
                             info!("svc: read_frame is None, clt CLEAN connection close");
                             break;
                         }
-                        Ok(ReadStatus::Completed(Some(recv_frame))) => {
+                        Ok(RecvStatus::Completed(Some(recv_frame))) => {
                             frame_recv_count += 1;
                             // info!("svc: read_frame: {:?}, frame_recv_count: {}", &recv_frame[..], frame_recv_count);
                             assert_eq!(send_frame, &recv_frame[..]);
                             continue;
                         }
-                        Ok(ReadStatus::WouldBlock) => {
+                        Ok(RecvStatus::WouldBlock) => {
                             // info!("svc: read_frame Not Ready {}", frame_recv_count);
                             continue; // try reading again
                         }
@@ -89,11 +89,11 @@ fn send_random_frame(c: &mut Criterion) {
             black_box({
                 loop {
                     match writer.write_frame(send_frame) {
-                        Ok(WriteStatus::Completed) => {
+                        Ok(SendStatus::Completed) => {
                             frame_send_count += 1;
                             break;
                         }
-                        Ok(WriteStatus::WouldBlock) => {
+                        Ok(SendStatus::WouldBlock) => {
                             continue;
                         }
                         Err(e) => {
@@ -136,10 +136,10 @@ fn recv_random_frame(c: &mut Criterion) {
                 let mut frame_send_count = 0_u32;
                 loop {
                     match writer.write_frame(send_frame) {
-                        Ok(WriteStatus::Completed) => {
+                        Ok(SendStatus::Completed) => {
                             frame_send_count += 1;
                         }
-                        Ok(WriteStatus::WouldBlock) => {
+                        Ok(SendStatus::WouldBlock) => {
                             continue;
                         }
                         Err(e) => {
@@ -172,14 +172,14 @@ fn recv_random_frame(c: &mut Criterion) {
             black_box({
                 loop {
                     match reader.read_frame() {
-                        Ok(ReadStatus::Completed(Some(_))) => {
+                        Ok(RecvStatus::Completed(Some(_))) => {
                             frame_recv_count += 1;
                             break;
                         }
-                        Ok(ReadStatus::WouldBlock) => {
+                        Ok(RecvStatus::WouldBlock) => {
                             continue;
                         }
-                        Ok(ReadStatus::Completed(None)) => {
+                        Ok(RecvStatus::Completed(None)) => {
                             panic!("clt: read_frame is None, server closed connection");
                         }
                         Err(e) => {
@@ -225,14 +225,14 @@ fn round_trip_random_frame(c: &mut Criterion) {
                 loop {
                     let res = reader.read_frame();
                     match res {
-                        Ok(ReadStatus::Completed(None)) => {
+                        Ok(RecvStatus::Completed(None)) => {
                             info!("svc: read_frame is None, client closed connection");
                             break;
                         }
-                        Ok(ReadStatus::Completed(Some(recv_frame))) => {
+                        Ok(RecvStatus::Completed(Some(recv_frame))) => {
                             writer.write_frame(&recv_frame).unwrap();
                         }
-                        Ok(ReadStatus::WouldBlock) => {
+                        Ok(RecvStatus::WouldBlock) => {
                             continue; // try reading again
                         }
                         Err(e) => {
@@ -266,11 +266,11 @@ fn round_trip_random_frame(c: &mut Criterion) {
             black_box({
                 loop {
                     match writer.write_frame(send_frame) {
-                        Ok(WriteStatus::Completed) => {
+                        Ok(SendStatus::Completed) => {
                             frame_send_count += 1;
                             break;
                         }
-                        Ok(WriteStatus::WouldBlock) => {
+                        Ok(SendStatus::WouldBlock) => {
                             continue;
                         }
                         Err(e) => {
@@ -280,14 +280,14 @@ fn round_trip_random_frame(c: &mut Criterion) {
                 }
                 loop {
                     match reader.read_frame() {
-                        Ok(ReadStatus::Completed(None)) => {
+                        Ok(RecvStatus::Completed(None)) => {
                             panic!("clt: read_frame is None, server closed connection");
                         }
-                        Ok(ReadStatus::Completed(Some(_))) => {
+                        Ok(RecvStatus::Completed(Some(_))) => {
                             frame_recv_count += 1;
                             break;
                         }
-                        Ok(ReadStatus::WouldBlock) => {
+                        Ok(RecvStatus::WouldBlock) => {
                             continue;
                         }
                         Err(e) => {

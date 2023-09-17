@@ -115,14 +115,14 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBloc
     /// Will round robin available recvers. If the recver connection is dead it will be removed and next recver will be tried.
     /// If all recvers are exhausted the rx_queue will be checked to see if a new recver is available.
     #[inline]
-    fn recv_nonblocking(&mut self) -> Result<ReadStatus<M::RecvT>, Error> {
+    fn recv_nonblocking(&mut self) -> Result<RecvStatus<M::RecvT>, Error> {
         if let Some((key, clt)) = self.next_recver() {
             match clt.recv_nonblocking() {
-                Ok(ReadStatus::Completed(Some(msg))) => {
-                    return Ok(ReadStatus::Completed(Some(msg)))
+                Ok(RecvStatus::Completed(Some(msg))) => {
+                    return Ok(RecvStatus::Completed(Some(msg)))
                 }
-                Ok(ReadStatus::WouldBlock) => return Ok(ReadStatus::WouldBlock),
-                Ok(ReadStatus::Completed(None)) => {
+                Ok(RecvStatus::WouldBlock) => return Ok(RecvStatus::WouldBlock),
+                Ok(RecvStatus::Completed(None)) => {
                     info!(
                         "recver #{} Connection reset by peer, clean. {} and will be dropped",
                         key, self
@@ -143,7 +143,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBloc
         if self.service_once_rx_queue()? {
             self.recv_nonblocking()
         } else {
-            Ok(ReadStatus::WouldBlock)
+            Ok(RecvStatus::WouldBlock)
         }
     }
 }
@@ -246,11 +246,11 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBloc
     fn send_nonblocking(
         &mut self,
         msg: &mut <M as Messenger>::SendT,
-    ) -> Result<WriteStatus, Error> {
+    ) -> Result<SendStatus, Error> {
         if let Some((key, clt)) = self.next_key_sender_mut() {
             match clt.send_nonblocking(msg) {
-                Ok(WriteStatus::Completed) => return Ok(WriteStatus::Completed),
-                Ok(WriteStatus::WouldBlock) => return Ok(WriteStatus::WouldBlock),
+                Ok(SendStatus::Completed) => return Ok(SendStatus::Completed),
+                Ok(SendStatus::WouldBlock) => return Ok(SendStatus::WouldBlock),
                 Err(e) => {
                     let msg = format!(
                         "sender #{} is dead {} and will be dropped.  error: ({})",
@@ -265,7 +265,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBloc
         if self.service_once_rx_queue()? {
             self.send_nonblocking(msg)
         } else {
-            return Ok(WriteStatus::WouldBlock);
+            return Ok(SendStatus::WouldBlock);
         }
     }
 }

@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::prelude_nonblocking::{
-    FrameReader, FrameWriter, ReadStatus, RecvMsgNonBlocking, WriteStatus,
+    FrameReader, FrameWriter, RecvStatus, RecvMsgNonBlocking, SendStatus,
 };
 use links_network_core::prelude::{ConId, Messenger};
 
@@ -28,7 +28,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
     /// [WriteStatus::WouldBlock] is returned only if the attemp did not write any bytes to the stream
     /// after the first attempt
     #[inline(always)]
-    pub fn send_nonblocking(&mut self, msg: &M::SendT) -> Result<WriteStatus, Error> {
+    pub fn send_nonblocking(&mut self, msg: &M::SendT) -> Result<SendStatus, Error> {
         let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
         self.frm_writer.write_frame(&bytes[..size])
     }
@@ -39,15 +39,15 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
         &mut self,
         msg: &M::SendT,
         timeout: Duration,
-    ) -> Result<WriteStatus, Error> {
+    ) -> Result<SendStatus, Error> {
         let start = Instant::now();
         let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
         loop {
             match self.frm_writer.write_frame(&bytes[..size])? {
-                WriteStatus::Completed => return Ok(WriteStatus::Completed),
-                WriteStatus::WouldBlock => {
+                SendStatus::Completed => return Ok(SendStatus::Completed),
+                SendStatus::WouldBlock => {
                     if start.elapsed() > timeout {
-                        return Ok(WriteStatus::WouldBlock);
+                        return Ok(SendStatus::WouldBlock);
                     }
                 }
             }
@@ -58,8 +58,8 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
     pub fn send_busywait(&mut self, msg: &M::SendT) -> Result<(), Error> {
         loop {
             match self.send_nonblocking(msg)? {
-                WriteStatus::Completed => return Ok(()),
-                WriteStatus::WouldBlock => continue,
+                SendStatus::Completed => return Ok(()),
+                SendStatus::WouldBlock => continue,
             }
         }
     }
@@ -93,15 +93,15 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
     for MessageRecver<M, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn recv_nonblocking(&mut self) -> Result<ReadStatus<M::RecvT>, Error> {
+    fn recv_nonblocking(&mut self) -> Result<RecvStatus<M::RecvT>, Error> {
         let status = self.frm_reader.read_frame()?;
         match status {
-            ReadStatus::Completed(Some(frame)) => {
+            RecvStatus::Completed(Some(frame)) => {
                 let msg = M::deserialize(&frame)?;
-                Ok(ReadStatus::Completed(Some(msg)))
+                Ok(RecvStatus::Completed(Some(msg)))
             }
-            ReadStatus::Completed(None) => Ok(ReadStatus::Completed(None)),
-            ReadStatus::WouldBlock => Ok(ReadStatus::WouldBlock),
+            RecvStatus::Completed(None) => Ok(RecvStatus::Completed(None)),
+            RecvStatus::WouldBlock => Ok(RecvStatus::WouldBlock),
         }
     }
 }
@@ -189,19 +189,19 @@ mod test {
 
                 while let Ok(status) = recver.recv_nonblocking() {
                     match status {
-                        ReadStatus::Completed(Some(_recv_msg)) => {
+                        RecvStatus::Completed(Some(_recv_msg)) => {
                             msg_recv_count += 1;
-                            while let WriteStatus::WouldBlock =
+                            while let SendStatus::WouldBlock =
                                 sender.send_nonblocking(&inp_svc_msg).unwrap()
                             {
                             }
                             msg_sent_count += 1;
                         }
-                        ReadStatus::Completed(None) => {
+                        RecvStatus::Completed(None) => {
                             info!("{} Connection Closed by Client", recver);
                             break;
                         }
-                        ReadStatus::WouldBlock => continue,
+                        RecvStatus::WouldBlock => continue,
                     }
                 }
                 (msg_sent_count, msg_recv_count)
@@ -224,11 +224,11 @@ mod test {
 
                 let start = Instant::now();
                 for _ in 0..WRITE_N_TIMES {
-                    while let WriteStatus::WouldBlock =
+                    while let SendStatus::WouldBlock =
                         sender.send_nonblocking(&inp_clt_msg).unwrap()
                     {}
                     msg_sent_count += 1;
-                    while let ReadStatus::WouldBlock = recver.recv_nonblocking().unwrap() {}
+                    while let RecvStatus::WouldBlock = recver.recv_nonblocking().unwrap() {}
                     msg_recv_count += 1;
                 }
 

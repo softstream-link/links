@@ -81,5 +81,5 @@ harness = false
 
 
 [[example]]
-name = "sync_nonblocking_busywait_example"
+name = "sync_nonblocking_busywait_clt2clt_example"
 required-features = ["full"]

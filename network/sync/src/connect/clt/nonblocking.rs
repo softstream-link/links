@@ -8,8 +8,8 @@ use std::{
 };
 
 use crate::prelude_nonblocking::{
-    into_split_messenger, MessageRecver, MessageSender, NonBlockingServiceLoop, ReadStatus,
-    RecvMsgNonBlocking, SendMsgNonBlocking, ServiceLoopStatus, WriteStatus,
+    into_split_messenger, MessageRecver, MessageSender, NonBlockingServiceLoop, RecvStatus,
+    RecvMsgNonBlocking, SendMsgNonBlocking, ServiceLoopStatus, SendStatus,
 };
 use links_network_core::prelude::{CallbackRecv, CallbackRecvSend, CallbackSend, ConId, Messenger};
 use log::debug;
@@ -31,15 +31,15 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBloc
     for CltRecver<M, C, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn recv_nonblocking(&mut self) -> Result<ReadStatus<M::RecvT>, Error> {
+    fn recv_nonblocking(&mut self) -> Result<RecvStatus<M::RecvT>, Error> {
         match self.msg_recver.recv_nonblocking()? {
-            ReadStatus::Completed(Some(msg)) => {
+            RecvStatus::Completed(Some(msg)) => {
                 self.callback
                     .on_recv(&self.msg_recver.frm_reader.con_id, &msg);
-                Ok(ReadStatus::Completed(Some(msg)))
+                Ok(RecvStatus::Completed(Some(msg)))
             }
-            ReadStatus::Completed(None) => Ok(ReadStatus::Completed(None)),
-            ReadStatus::WouldBlock => Ok(ReadStatus::WouldBlock),
+            RecvStatus::Completed(None) => Ok(RecvStatus::Completed(None)),
+            RecvStatus::WouldBlock => Ok(RecvStatus::WouldBlock),
         }
     }
 }
@@ -48,10 +48,10 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingSer
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
         match self.recv_nonblocking()? {
-            ReadStatus::WouldBlock | ReadStatus::Completed(Some(_)) => {
+            RecvStatus::WouldBlock | RecvStatus::Completed(Some(_)) => {
                 Ok(ServiceLoopStatus::Continue)
             }
-            ReadStatus::Completed(None) => Ok(ServiceLoopStatus::Stop),
+            RecvStatus::Completed(None) => Ok(ServiceLoopStatus::Stop),
         }
     }
 }
@@ -91,23 +91,23 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBloc
     fn send_nonblocking(
         &mut self,
         msg: &mut <M as Messenger>::SendT,
-    ) -> Result<WriteStatus, Error> {
+    ) -> Result<SendStatus, Error> {
         self.callback
             .on_send(&self.msg_sender.frm_writer.con_id, msg);
 
         match self.msg_sender.send_nonblocking(msg) {
-            Ok(WriteStatus::Completed) => {
+            Ok(SendStatus::Completed) => {
                 self.callback
                     .on_sent(&self.msg_sender.frm_writer.con_id, msg);
-                Ok(WriteStatus::Completed)
+                Ok(SendStatus::Completed)
             }
-            Ok(WriteStatus::WouldBlock) => {
+            Ok(SendStatus::WouldBlock) => {
                 self.callback.on_fail(
                     &self.msg_sender.frm_writer.con_id,
                     msg,
                     &ErrorKind::WouldBlock.into(),
                 );
-                Ok(WriteStatus::WouldBlock)
+                Ok(SendStatus::WouldBlock)
             }
             Err(e) => {
                 self.callback
@@ -188,7 +188,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsgNon
     fn send_nonblocking(
         &mut self,
         msg: &mut <M as Messenger>::SendT,
-    ) -> Result<WriteStatus, Error> {
+    ) -> Result<SendStatus, Error> {
         self.clt_sender.send_nonblocking(msg)
     }
 }
@@ -196,7 +196,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvMsgNon
     for Clt<M, C, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn recv_nonblocking(&mut self) -> Result<ReadStatus<<M as Messenger>::RecvT>, Error> {
+    fn recv_nonblocking(&mut self) -> Result<RecvStatus<<M as Messenger>::RecvT>, Error> {
         self.clt_recver.recv_nonblocking()
     }
 }

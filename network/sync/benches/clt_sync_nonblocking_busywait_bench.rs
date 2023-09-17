@@ -66,17 +66,17 @@ fn send_msg(c: &mut Criterion) {
             let mut clt_acceptor_msg_recv_count = 0_usize;
             loop {
                 match clt_acceptor.recv_nonblocking() {
-                    Ok(ReadStatus::Completed(Some(_recv_msg))) => {
+                    Ok(RecvStatus::Completed(Some(_recv_msg))) => {
                         clt_acceptor_msg_recv_count += 1;
                     }
-                    Ok(ReadStatus::Completed(None)) => {
+                    Ok(RecvStatus::Completed(None)) => {
                         info!(
                             "Connection Closed by clt_initiator clt_acceptor: {}",
                             clt_acceptor
                         );
                         break;
                     }
-                    Ok(ReadStatus::WouldBlock) => continue,
+                    Ok(RecvStatus::WouldBlock) => continue,
                     Err(err) => {
                         panic!(
                             "Connection Closed by clt_initiator, clt_acceptor: {}, err: {}",

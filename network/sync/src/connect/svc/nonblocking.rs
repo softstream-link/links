@@ -25,9 +25,25 @@ pub struct SvcAcceptor<
     con_id: ConId,
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
+    PublishAcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
+{
+    fn publish_accept_nonblocking(&self) -> Result<PublishAcceptStatus, Error> {
+        if let AcceptStatus::Accepted(clt) = self.accept_nonblocking()? {
+            let (recver, sender) = clt.into_split();
+            if let Err(e) = self.tx_recver.send(recver) {
+                return Err(Error::new(ErrorKind::Other, e.to_string()));
+            }
+            if let Err(e) = self.tx_sender.send(sender) {
+                return Err(Error::new(ErrorKind::Other, e.to_string()));
+            }
+        }
+        Ok(PublishAcceptStatus::Accepted)
+    }
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
-    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
+    fn accept_nonblocking(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
         match self.listener.accept() {
             Ok((stream, addr)) => {
                 // TODO add rate limiter
@@ -42,9 +58,9 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
                     con_id.clone(),
                     self.callback.clone(),
                 );
-                Ok(Some(clt))
+                Ok(AcceptStatus::Accepted(clt))
             }
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(None),
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(AcceptStatus::WouldBlock),
             Err(e) => Err(e),
         }
     }
@@ -54,15 +70,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> NonBlockin
     for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
-        if let Some(clt) = self.accept_nonblocking()? {
-            let (recver, sender) = clt.into_split();
-            if let Err(e) = self.tx_recver.send(recver) {
-                return Err(Error::new(ErrorKind::Other, e.to_string()));
-            }
-            if let Err(e) = self.tx_sender.send(sender) {
-                return Err(Error::new(ErrorKind::Other, e.to_string()));
-            }
-        }
+        self.publish_accept_nonblocking()?;
         Ok(ServiceLoopStatus::Continue)
     }
 }
@@ -126,24 +134,21 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
 {
-    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
+    fn accept_nonblocking(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
         self.acceptor.accept_nonblocking()
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M>
     for Svc<M, C, MAX_MSG_SIZE>
 {
-    fn send_nonblocking(
-        &mut self,
-        msg: &mut <M as Messenger>::SendT,
-    ) -> Result<WriteStatus, Error> {
+    fn send_nonblocking(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
         self.pool_sender.send_nonblocking(msg)
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
     for Svc<M, C, MAX_MSG_SIZE>
 {
-    fn recv_nonblocking(&mut self) -> Result<ReadStatus<<M as Messenger>::RecvT>, Error> {
+    fn recv_nonblocking(&mut self) -> Result<RecvStatus<<M as Messenger>::RecvT>, Error> {
         self.pool_recver.recv_nonblocking()
     }
 }
@@ -288,6 +293,7 @@ mod test {
         // info!("clt_msg_inp: {:?}", clt_msg_inp);
         assert_eq!(svc_msg_out, clt_msg_inp);
 
+        // TODO critical figre out why this assert does nto work
         // info!("--------- SVC DROP HALF ---------");
         // drop(pool_recver);
         // let res = pool_sender.send_nonblocking(&mut svc_msg_inp);
@@ -302,19 +308,6 @@ mod test {
 
         info!("clt_send res: {}", res.as_ref().unwrap_err());
         assert_eq!(res.unwrap_err().kind(), ErrorKind::BrokenPipe);
-
-        
-
-        // let status = pool_recver.recv_nonblocking().unwrap(); // dont' busywait as clt_send is dropped
-        // info!("pool_recver status: {:?}", status);
-        // assert_eq!(status, ReadStatus::WouldBlock);
-
-        // drop(pool_recver);
-        // let clt = pool_sender.next_sender_mut().unwrap();
-        // info!("clt: {:?}", clt.msg_sender.frm_writer);
-        // let status = pool_sender.send_nonblocking(&mut svc_msg_inp).unwrap();
-        // info! {"pool_sender status: {:?}", status};
-        // // // assert_eq!(status, WriteStatus::WouldBlock);
     }
 
     #[test]
