@@ -51,6 +51,10 @@ name = "framer_sync_blocking_bench"
 harness = false
 
 [[bench]]
+name = "sync_nonblocking_bench"
+harness = false
+
+[[bench]]
 name = "framer_sync_nonblocking_bench"
 harness = false
 
