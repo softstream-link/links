@@ -8,10 +8,10 @@ use std::{
 };
 
 use crate::prelude_nonblocking::{
-    into_split_messenger, MessageRecver, MessageSender, NonBlockingServiceLoop, RecvStatus,
-    RecvMsgNonBlocking, SendMsgNonBlocking, ServiceLoopStatus, SendStatus,
+    into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, MessageRecver,
+    MessageSender, Messenger, NonBlockingServiceLoop, RecvMsgNonBlocking, RecvStatus,
+    SendMsgNonBlocking, SendStatus, ServiceLoopStatus,
 };
-use links_network_core::prelude::{CallbackRecv, CallbackRecvSend, CallbackSend, ConId, Messenger};
 use log::debug;
 
 #[derive(Debug)]
@@ -88,10 +88,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBloc
     for CltSender<M, C, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn send_nonblocking(
-        &mut self,
-        msg: &mut <M as Messenger>::SendT,
-    ) -> Result<SendStatus, Error> {
+    fn send_nonblocking(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
         self.callback
             .on_send(&self.msg_sender.frm_writer.con_id, msg);
 
@@ -185,10 +182,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsgNon
     for Clt<M, C, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn send_nonblocking(
-        &mut self,
-        msg: &mut <M as Messenger>::SendT,
-    ) -> Result<SendStatus, Error> {
+    fn send_nonblocking(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
         self.clt_sender.send_nonblocking(msg)
     }
 }

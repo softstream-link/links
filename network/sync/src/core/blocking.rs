@@ -16,7 +16,7 @@ pub trait AcceptClt<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: us
     fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error>;
     /// Will call [accept_nonblocking] busywaiting untill it returns [Some(Clt)] or
     /// will return [Ok(None)] if the call to [accept_nonblocking] returns [None] after the timeout
-    
+
     fn accept_busywait_timeout(
         &self,
         timeout: Duration,
@@ -33,7 +33,7 @@ pub trait AcceptClt<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: us
             }
         }
     }
-    
+
     /// Will call [accept_nonblocking] while busywaiting untill it returns [Some(Clt)]
     fn accept_busywait(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error> {
         loop {

@@ -1,8 +1,9 @@
 use std::{
     error::Error,
+    io::ErrorKind,
     sync::Arc,
     thread::Builder,
-    time::{Duration, Instant}, io::ErrorKind,
+    time::{Duration, Instant},
 };
 
 use links_network_core::prelude::{CallbackRecvSend, DevNullCallback, Messenger};

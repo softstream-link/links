@@ -5,12 +5,19 @@ use std::{
     sync::{
         mpsc::{channel, Receiver, Sender},
         Arc,
-    }, 
+    },
 };
 
-use crate::{core::iter::CycleRange, prelude_nonblocking::*};
-use links_network_core::prelude::{CallbackRecv, CallbackRecvSend, CallbackSend, ConId, Messenger};
-use log::{debug, info, log_enabled, warn,};
+use crate::{
+    core::iter::CycleRange,
+    prelude_nonblocking::{
+        AcceptCltNonBlocking, AcceptStatus, CallbackRecv, CallbackRecvSend, CallbackSend, Clt,
+        CltRecver, CltSender, ConId, Messenger, NonBlockingServiceLoop, PoolAcceptCltNonBlocking,
+        PoolAcceptStatus, RecvMsgNonBlocking, RecvStatus, SendMsgNonBlocking, SendStatus,
+        ServiceLoopStatus,
+    },
+};
+use log::{debug, info, log_enabled, warn};
 use slab::Slab;
 
 pub struct ConnectionPool<
@@ -94,14 +101,6 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PoolRecver<M, 
             Err(e) => Err(Error::new(ErrorKind::Other, e)),
         }
     }
-    /// returns true if a recver was added but only runs if there are no recivers
-    #[inline]
-    fn service_once_rx_queue_if_empty(&mut self) -> Result<bool, Error> {
-        match self.recvers.is_empty() {
-            true => self.service_once_rx_queue(),
-            false => Ok(false),
-        }
-    }
     #[inline]
     fn next_key_recver_mut(&mut self) -> Option<(usize, &mut CltRecver<M, C, MAX_MSG_SIZE>)> {
         for _ in 0..self.recvers.len() {
@@ -120,46 +119,45 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBloc
     /// If all recvers are exhausted the rx_queue will be checked to see if a new recver is available.
     #[inline]
     fn recv_nonblocking(&mut self) -> Result<RecvStatus<M::RecvT>, Error> {
-        use RecvStatus::{Completed, WouldBlock};
         use log::Level::{Info, Warn};
-        match self.next_key_recver_mut(){
-            Some((key, clt)) =>  {
-                match clt.recv_nonblocking() {
-                    Ok(Completed(Some(msg))) => {
-                        return Ok(Completed(Some(msg)))
-                    }
-                    Ok(WouldBlock) => return Ok(WouldBlock),
-                    Ok(Completed(None)) => {
-                        let recver = self.recvers.remove(key);
-                        if log_enabled!(Info){
-                            info!(
+        use RecvStatus::{Completed, WouldBlock};
+        match self.next_key_recver_mut() {
+            Some((key, clt)) => match clt.recv_nonblocking() {
+                Ok(Completed(Some(msg))) => return Ok(Completed(Some(msg))),
+                Ok(WouldBlock) => return Ok(WouldBlock),
+                Ok(Completed(None)) => {
+                    let recver = self.recvers.remove(key);
+                    if log_enabled!(Info) {
+                        info!(
                                 "Connection reset by peer, clean. key: #{}, recver: {} and will be dropped, recvers: {}",
                                 key, recver, self
                             );
-                        }
-                        return Ok(Completed(None));
                     }
-                    Err(e) => {
-                        let recver = self.recvers.remove(key);
-                        if log_enabled!(Warn){
-                            warn!(
+                    return Ok(Completed(None));
+                }
+                Err(e) => {
+                    let recver = self.recvers.remove(key);
+                    if log_enabled!(Warn) {
+                        warn!(
                                 "Connection failed, {}. key: #{}, recver: {} and will be dropped.  recvers: {}",
-                                e, key, recver, self, 
+                                e, key, recver, self
                             );
-                        }
-                        return Err(e);
-                    }   
-            }},
+                    }
+                    return Err(e);
+                }
+            },
             None => {
                 // no recivers available try processing rx_queue
                 if self.service_once_rx_queue()? {
                     self.recv_nonblocking()
                 } else {
-                    Err(Error::new(ErrorKind::NotConnected, "Not Connected, 0 recvers available in the pool"))
+                    Err(Error::new(
+                        ErrorKind::NotConnected,
+                        "Not Connected, 0 recvers available in the pool",
+                    ))
                 }
             }
         }
-
     }
 }
 impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
@@ -227,13 +225,6 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> PoolSender<M, 
             Err(e) => Err(Error::new(ErrorKind::Other, e)),
         }
     }
-    #[inline]
-    fn service_once_rx_queue_if_empty(&mut self) -> Result<bool, Error> {
-        match self.senders.is_empty() {
-            true => self.service_once_rx_queue(),
-            false => Ok(false),
-        }
-    }
 
     #[inline]
     fn next_key_sender_mut(&mut self) -> Option<(usize, &mut CltSender<M, C, MAX_MSG_SIZE>)> {
@@ -253,8 +244,8 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBloc
     /// Each call to this method will use the next available sender by using round round on each subsequent call.
     /// if the are no senders available the rx_queue will be checked once and if a new sender is available it will be used.
     fn send_nonblocking(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
-        match self.next_key_sender_mut(){
-            Some((key, clt)) =>  {
+        match self.next_key_sender_mut() {
+            Some((key, clt)) => {
                 match clt.send_nonblocking(msg) {
                     Ok(SendStatus::Completed) => return Ok(SendStatus::Completed),
                     Ok(SendStatus::WouldBlock) => return Ok(SendStatus::WouldBlock),
@@ -267,13 +258,16 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBloc
                         return Err(Error::new(e.kind(), msg));
                     }
                 };
-            },
+            }
             None => {
                 // no senders available try processing rx_queue
                 if self.service_once_rx_queue()? {
                     self.send_nonblocking(msg)
                 } else {
-                    Err(Error::new(ErrorKind::NotConnected, "Not Connected, 0 senders available in the pool"))
+                    Err(Error::new(
+                        ErrorKind::NotConnected,
+                        "Not Connected, 0 senders available in the pool",
+                    ))
                 }
             }
         }
@@ -381,13 +375,15 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     }
 }
 
-
 #[cfg(test)]
-mod test{
-    use crate::{prelude_nonblocking::*, unittest::setup::framer::{TestSvcMsgProtocol,TestCltMsgProtocol, TEST_MSG_FRAME_SIZE}};
-    use links_testing::unittest::setup;
+mod test {
+    use crate::{
+        prelude_nonblocking::*,
+        unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE},
+    };
     use links_network_core::prelude::DevNullCallback;
-    use log::{LevelFilter, info};
+    use links_testing::unittest::setup;
+    use log::{info, LevelFilter};
 
     #[test]
     fn test_svc_clt_connected_svc_max_connections() {

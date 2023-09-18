@@ -16,4 +16,7 @@ pub use crate::connect::pool::nonblocking::{ConnectionPool, PoolAcceptor, PoolRe
 pub use crate::connect::clt::nonblocking::{Clt, CltRecver, CltSender};
 pub use crate::connect::svc::nonblocking::Svc;
 
-pub use links_network_core::prelude::{CallbackRecv, CallbackSend, CallbackRecvSend, LoggerCallback, DevNullCallback};
+pub use links_network_core::prelude::{
+    CallbackRecv, CallbackRecvSend, CallbackSend, DevNullCallback, LoggerCallback,
+};
+pub use links_network_core::prelude::{ConId, Framer, Messenger};

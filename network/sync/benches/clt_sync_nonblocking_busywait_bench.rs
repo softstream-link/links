@@ -60,7 +60,10 @@ fn send_msg(c: &mut Criterion) {
 
             info!("svc: {}", svc);
 
-            let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap_accepted();
+            let mut clt_acceptor = svc
+                .accept_busywait_timeout(timeout)
+                .unwrap()
+                .unwrap_accepted();
             info!("clt_acceptor: {}", clt_acceptor);
 
             let mut clt_acceptor_msg_recv_count = 0_usize;

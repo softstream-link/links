@@ -6,9 +6,8 @@ use std::{
 };
 
 use crate::prelude_nonblocking::{
-    FrameReader, FrameWriter, RecvMsgNonBlocking, RecvStatus, SendStatus,
+    ConId, FrameReader, FrameWriter, Messenger, RecvMsgNonBlocking, RecvStatus, SendStatus,
 };
-use links_network_core::prelude::{ConId, Messenger};
 
 #[derive(Debug)]
 pub struct MessageSender<M: Messenger, const MAX_MSG_SIZE: usize> {

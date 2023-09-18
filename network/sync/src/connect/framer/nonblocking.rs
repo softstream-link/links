@@ -1,9 +1,7 @@
-use crate::prelude_nonblocking::{RecvStatus, SendStatus};
+use crate::prelude_nonblocking::{ConId, Framer, RecvStatus, SendStatus};
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
-use links_network_core::prelude::{ConId, Framer};
 use std::{
-    any::type_name,
     fmt::Display,
     io::{Error, ErrorKind, Read, Write},
 };

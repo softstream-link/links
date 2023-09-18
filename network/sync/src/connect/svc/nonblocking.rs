@@ -1,16 +1,6 @@
-use std::{
-    fmt::Display,
-    io::{Error, ErrorKind},
-    os::fd::{FromRawFd, IntoRawFd},
-    sync::{mpsc::Sender, Arc},
-};
+use std::{fmt::Display, io::Error, sync::Arc};
 
 use crate::prelude_nonblocking::*;
-use links_network_core::{
-    callbacks::CallbackRecvSend,
-    prelude::{ConId, Messenger},
-};
-use log::{debug, log_enabled};
 
 #[derive(Debug)]
 pub struct Svc<M: Messenger+'static, C: CallbackRecvSend<M>+'static, const MAX_MSG_SIZE: usize> {

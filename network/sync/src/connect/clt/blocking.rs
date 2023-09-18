@@ -11,7 +11,7 @@ use crate::{
     core::blocking::RecvMsg,
     prelude_blocking::{into_split_messenger, MessageRecver, MessageSender, SendMsg},
 };
-use links_network_core::prelude::{CallbackRecv, CallbackSend, CallbackRecvSend, ConId, Messenger};
+use links_network_core::prelude::{CallbackRecv, CallbackRecvSend, CallbackSend, ConId, Messenger};
 use log::debug;
 
 #[derive(Debug)]

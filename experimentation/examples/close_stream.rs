@@ -4,7 +4,7 @@ use std::io::Error;
 use std::io::{Read, Write};
 
 use std::net::{TcpListener, TcpStream};
-use std::time::Duration;
+
 const EOF: usize = 0;
 fn read(stream: &mut TcpStream) -> Result<usize, Error> {
     let mut buf = [1; 10];
@@ -27,7 +27,6 @@ fn main() -> Result<(), Error> {
     let (mut svc_recv, _addr) = acp.accept()?;
     // let mut svc_send = svc_recv.try_clone()?;
 
-
     println!("clt: {:?}, svc: {:?}", clt, svc_recv);
 
     assert_ne!(write(&mut clt)?, EOF);
@@ -45,10 +44,10 @@ fn main() -> Result<(), Error> {
     // println!("svc: {:?}", svc);
     // Why does read immediatelly recognizes that client reset connection
     assert_eq!(read(&mut svc_recv)?, EOF); // pass - as expected - client disconnected
-    // drop(svc);
-    // svc_recv.shutdown(std::net::Shutdown::Write)?;
+                                           // drop(svc);
+                                           // svc_recv.shutdown(std::net::Shutdown::Write)?;
     assert_eq!(write(&mut svc_recv)?, EOF); // fail - NOT as expected - does not realize client disconnected
-    
+
     netstat("final");
 
     Ok(())

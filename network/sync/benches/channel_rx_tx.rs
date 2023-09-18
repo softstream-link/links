@@ -113,7 +113,7 @@ fn send_random_frame_as_sync_channel(c: &mut Criterion) {
         frame_recv_count.to_formatted_string(&Locale::en)
     );
 
-    assert_eq!(frame_send_count , frame_recv_count);
+    assert_eq!(frame_send_count, frame_recv_count);
 }
 
 criterion_group!(

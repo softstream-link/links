@@ -7,7 +7,7 @@ use std::{
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_network_core::prelude::ConId;
 use links_network_sync::{
-    prelude_nonblocking::{into_split_messenger, RecvStatus, RecvMsgNonBlocking, SendStatus},
+    prelude_nonblocking::{into_split_messenger, RecvMsgNonBlocking, RecvStatus, SendStatus},
     unittest::setup::{
         framer::TEST_MSG_FRAME_SIZE,
         messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},

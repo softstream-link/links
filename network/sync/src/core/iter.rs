@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 #[derive(Debug)]
-pub struct CycleRange {
+pub(crate) struct CycleRange {
     start: usize,
     end: usize,
     current: usize,

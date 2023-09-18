@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-use links_network_core::prelude::{CallbackRecv, CallbackSend, CallbackRecvSend, ConId, Messenger};
+use links_network_core::prelude::{CallbackRecv, CallbackRecvSend, CallbackSend, ConId, Messenger};
 use log::{debug, log_enabled, warn};
 use slab::Slab;
 
