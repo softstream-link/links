@@ -58,7 +58,7 @@ fn send_msg(c: &mut Criterion) {
             )
             .unwrap();
 
-            info!("svc: {}", svc);
+            // info!("svc: {}", svc);
 
             let mut clt_acceptor = svc
                 .accept_busywait_timeout(timeout)
@@ -102,7 +102,7 @@ fn send_msg(c: &mut Criterion) {
     .unwrap();
     info!("clt_initiator: {}", clt_initiator);
 
-    let id = format!("clt_send_msg_as_sync_non-blocking_busywait TestSvcMsg");
+    let id = format!("clt2clt_send_msg_as_sync_non-blocking_busywait TestSvcMsg");
     let mut clt_initiator_msg_send_count = 0_usize;
     let mut clt_initiator_send_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
     c.bench_function(id.as_str(), |b| {

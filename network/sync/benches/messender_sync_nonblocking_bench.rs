@@ -59,7 +59,7 @@ fn send_msg(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGUR clt
-    let (_, mut writer) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
+    let (_reader, mut writer) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
         ConId::clt(Some("unittest"), None, addr),
         TcpStream::connect(addr).unwrap(),
     );

@@ -13,7 +13,6 @@ use log::{debug, log_enabled};
 const EOF: usize = 0;
 
 // TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MSG_SIZE generic as it can just be an non const arg to new
-const FRAME_READER: &str = "FrameReader";
 
 #[derive(Debug)]
 pub struct FrameReader<F: Framer, const MAX_MSG_SIZE: usize> {
@@ -44,7 +43,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
                     Ok(RecvStatus::Completed(None))
                 } else {
                     let msg = format!(
-                        "{} {FRAME_READER}::read_frame connection reset by peer, residual buf:\n{}",
+                        "{} FrameReader::read_frame connection reset by peer, residual buf:\n{}",
                         self.con_id,
                         to_hex_pretty(&self.buffer[..])
                     );
@@ -63,7 +62,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             Err(e) => {
                 self.shutdown_write("read_frame error"); // remember to shutdown on both exception and on EOF
                 let msg = format!(
-                    "{} {FRAME_READER}::read_frame error: {} residual buf:\n{}",
+                    "{} FrameReader::read_frame error: {} residual buf:\n{}",
                     self.con_id,
                     e,
                     to_hex_pretty(&self.buffer[..])
@@ -73,6 +72,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             }
         }
     }
+    #[inline]
     fn shutdown_write(&mut self, reason: &str) {
         if log_enabled!(log::Level::Debug) {
             debug!("{}::shutdown, reason: {}", self, reason);
@@ -95,7 +95,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SI
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{FRAME_READER}<{}> {{ {}, addr: {}, peer: {}, fd: {} }}",
+            "FrameReader<{}> {{ {}, addr: {}, peer: {}, fd: {} }}",
             std::any::type_name::<F>()
                 .split("::")
                 .last()
@@ -114,7 +114,6 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SI
     }
 }
 
-const FRAME_WRITER: &str = "FrameWriter";
 #[derive(Debug)]
 pub struct FrameWriter {
     pub(crate) con_id: ConId,
@@ -161,10 +160,8 @@ impl FrameWriter {
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                     if bytes.len() == residual.len() {
                         // no bytes where written so Just report back NotReady
-                        // println!("write_frame: WouldBlock NotReady");
                         return Ok(SendStatus::WouldBlock);
                     } else {
-                        // println!("write_frame: WouldBlock Continue");
                         // some bytes where written have to finish and report back Completed or Error
                         continue;
                     }
@@ -172,7 +169,7 @@ impl FrameWriter {
                 Err(e) => {
                     self.shutdown_write("write_frame error"); // remember to shutdown on both exception and on EOF
                     let msg = format!(
-                        "{} {FRAME_WRITER}::writer_frame error: {}, residual:\n{}",
+                        "{} FrameWriter::writer_frame error: {}, residual:\n{}",
                         self.con_id,
                         e,
                         to_hex_pretty(residual)
@@ -207,7 +204,7 @@ impl Display for FrameWriter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{FRAME_WRITER} {{ {}, addr: {}, peer: {}, fd: {} }}",
+            "FrameWriter {{ {}, addr: {}, peer: {}, fd: {} }}",
             self.con_id,
             match self.stream_writer.local_addr() {
                 Ok(_) => "connected",
@@ -233,9 +230,7 @@ pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
     mut con_id: ConId,
     stream: std::net::TcpStream,
 ) -> FrameProcessor<F, MAX_MSG_SIZE> {
-    stream
-        .set_nonblocking(true)
-        .expect("Failed to set_nonblocking on TcpStream");
+    
     con_id.set_local(stream.local_addr().unwrap());
     con_id.set_peer(stream.peer_addr().unwrap());
     let (reader, writer) = (
@@ -244,6 +239,12 @@ pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
             .expect("Failed to try_clone TcpStream for FrameReader"),
         stream,
     );
+    reader
+        .set_nonblocking(true)
+        .expect("Failed to set_nonblocking on TcpStream");
+    writer
+        .set_nonblocking(true)
+        .expect("Failed to set_nonblocking on TcpStream");
     let (reader, writer) = (
         mio::net::TcpStream::from_std(reader),
         mio::net::TcpStream::from_std(writer),

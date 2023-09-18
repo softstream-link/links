@@ -129,9 +129,9 @@ pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
         .expect("Failed to set nonblocking on TcpStream");
 
     // TODO set_delay performance issues?
-    stream
-        .set_nodelay(true)
-        .expect("failed to set_nodelay=true");
+    // stream
+    //     .set_nodelay(true)
+    //     .expect("failed to set_nodelay=true");
     con_id.set_local(stream.local_addr().unwrap());
     con_id.set_peer(stream.peer_addr().unwrap());
     let (reader, writer) = (

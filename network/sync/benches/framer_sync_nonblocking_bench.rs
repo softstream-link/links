@@ -32,13 +32,13 @@ fn send_random_frame(c: &mut Criterion) {
     let addr = setup::net::rand_avail_addr_port();
 
     // CONFIGURE svc
-    let reader = thread::Builder::new()
+    let svc_reader = thread::Builder::new()
         .name("Thread-Svc".to_owned())
         .spawn({
             move || {
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
-                let (mut reader, _) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
+                let (mut reader, _writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
                     ConId::svc(Some("benchmark"), addr, None),
                     stream,
                 );
@@ -51,12 +51,10 @@ fn send_random_frame(c: &mut Criterion) {
                         }
                         Ok(RecvStatus::Completed(Some(recv_frame))) => {
                             frame_recv_count += 1;
-                            // info!("svc: read_frame: {:?}, frame_recv_count: {}", &recv_frame[..], frame_recv_count);
                             assert_eq!(send_frame, &recv_frame[..]);
                             continue;
                         }
                         Ok(RecvStatus::WouldBlock) => {
-                            // info!("svc: read_frame Not Ready {}", frame_recv_count);
                             continue; // try reading again
                         }
                         Err(e) => {
@@ -73,14 +71,14 @@ fn send_random_frame(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGUR clt
-    let (_, mut writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
+    let (_clt_reader, mut clt_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
         ConId::clt(Some("benchmark"), None, addr),
         TcpStream::connect(addr).unwrap(),
     );
     // info!("clt: writer: {}", writer);
 
     let id = format!(
-        "send_random_frame_as_sync_non-blocking size: {} bytes",
+        "framer_sync_nonblocking_send_random_frame size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
     let mut frame_send_count = 0_u32;
@@ -88,7 +86,7 @@ fn send_random_frame(c: &mut Criterion) {
         b.iter(|| {
             black_box({
                 loop {
-                    match writer.write_frame(send_frame) {
+                    match clt_writer.write_frame(send_frame) {
                         Ok(SendStatus::Completed) => {
                             frame_send_count += 1;
                             break;
@@ -105,8 +103,8 @@ fn send_random_frame(c: &mut Criterion) {
         })
     });
 
-    drop(writer); // this will allow svc.join to complete
-    let frame_recv_count = reader.join().unwrap();
+    drop(clt_writer); // this will allow svc.join to complete
+    let frame_recv_count = svc_reader.join().unwrap();
     info!(
         "frame_send_count: {:?} = frame_recv_count: {:?}",
         frame_send_count.to_formatted_string(&Locale::en),
@@ -122,13 +120,13 @@ fn recv_random_frame(c: &mut Criterion) {
     let addr = setup::net::rand_avail_addr_port();
 
     // CONFIGURE svc
-    let writer = thread::Builder::new()
+    let svc_writer = thread::Builder::new()
         .name("Thread-Svc".to_owned())
         .spawn({
             move || {
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
-                let (_, mut writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
+                let (_reader, mut writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
                     ConId::svc(Some("benchmark"), addr, None),
                     stream,
                 );
@@ -156,14 +154,14 @@ fn recv_random_frame(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGUR clt
-    let (mut reader, _) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
+    let (mut clt_reader, _clt_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
         ConId::clt(Some("benchmark"), None, addr),
         TcpStream::connect(addr).unwrap(),
     );
     // info!("clt: reader: {}", reader);
 
     let id = format!(
-        "recv_random_frame_as_sync_non-blocking size: {} bytes",
+        "framer_sync_nonblocking_recv_random_frame size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
     let mut frame_recv_count = 0_u32;
@@ -171,7 +169,7 @@ fn recv_random_frame(c: &mut Criterion) {
         b.iter(|| {
             black_box({
                 loop {
-                    match reader.read_frame() {
+                    match clt_reader.read_frame() {
                         Ok(RecvStatus::Completed(Some(_))) => {
                             frame_recv_count += 1;
                             break;
@@ -191,8 +189,8 @@ fn recv_random_frame(c: &mut Criterion) {
         })
     });
 
-    drop(reader); // this will allow svc.join to complete
-    let frame_send_count = writer.join().unwrap();
+    drop(clt_reader); // this will allow svc.join to complete
+    let frame_send_count = svc_writer.join().unwrap();
     info!(
         "frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}",
         frame_send_count.to_formatted_string(&Locale::en),
@@ -216,21 +214,21 @@ fn round_trip_random_frame(c: &mut Criterion) {
             move || {
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
-                let (mut reader, mut writer) =
+                let (mut svc_reader, mut svc_writer) =
                     into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
                         ConId::svc(Some("benchmark"), addr, None),
                         stream,
                     );
                 // info!("svc: reader: {}", reader);
                 loop {
-                    let res = reader.read_frame();
+                    let res = svc_reader.read_frame();
                     match res {
                         Ok(RecvStatus::Completed(None)) => {
                             info!("svc: read_frame is None, client closed connection");
                             break;
                         }
                         Ok(RecvStatus::Completed(Some(recv_frame))) => {
-                            writer.write_frame(&recv_frame).unwrap();
+                            svc_writer.write_frame(&recv_frame).unwrap();
                         }
                         Ok(RecvStatus::WouldBlock) => {
                             continue; // try reading again
@@ -249,14 +247,14 @@ fn round_trip_random_frame(c: &mut Criterion) {
 
     // CONFIGUR clt
     let stream = TcpStream::connect(addr).unwrap();
-    let (mut reader, mut writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
+    let (mut clt_reader, mut clt_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
         ConId::clt(Some("benchmark"), None, addr),
         stream,
     );
     // info!("clt: writer: {}", writer);
 
     let id = format!(
-        "round_trip_random_frame_as_sync_non-blocking size: {} bytes",
+        "framer_sync_nonblocking_round_trip_random_frame size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
     let mut frame_send_count = 0_u32;
@@ -265,7 +263,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
         b.iter(|| {
             black_box({
                 loop {
-                    match writer.write_frame(send_frame) {
+                    match clt_writer.write_frame(send_frame) {
                         Ok(SendStatus::Completed) => {
                             frame_send_count += 1;
                             break;
@@ -279,7 +277,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
                     }
                 }
                 loop {
-                    match reader.read_frame() {
+                    match clt_reader.read_frame() {
                         Ok(RecvStatus::Completed(None)) => {
                             panic!("clt: read_frame is None, server closed connection");
                         }
@@ -299,8 +297,8 @@ fn round_trip_random_frame(c: &mut Criterion) {
         })
     });
 
-    drop(writer); // this will allow svc.join to complete
-    drop(reader);
+    drop(clt_writer); // this will allow svc.join to complete
+    // drop(clt_reader);
     svc.join().unwrap();
     info!(
         "frame_send_count: {:?} = frame_recv_count: {:?}",

@@ -70,7 +70,7 @@ harness = false
 required-features = ["unittest"]
 
 [[bench]]
-name = "clt_sync_nonblocking_busywait_bench"
+name = "clt2clt_sync_nonblocking_busywait_bench"
 harness = false
 required-features = ["unittest"]
 
