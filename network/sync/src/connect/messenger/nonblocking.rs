@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::prelude_nonblocking::{
-    FrameReader, FrameWriter, RecvStatus, RecvMsgNonBlocking, SendStatus,
+    FrameReader, FrameWriter, RecvMsgNonBlocking, RecvStatus, SendStatus,
 };
 use links_network_core::prelude::{ConId, Messenger};
 
@@ -128,6 +128,11 @@ pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
     stream
         .set_nonblocking(true)
         .expect("Failed to set nonblocking on TcpStream");
+
+    // TODO set_delay performance issues?
+    stream
+        .set_nodelay(true)
+        .expect("failed to set_nodelay=true");
     con_id.set_local(stream.local_addr().unwrap());
     con_id.set_peer(stream.peer_addr().unwrap());
     let (reader, writer) = (
@@ -136,7 +141,14 @@ pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
             .expect("Failed to try_clone TcpStream for MessageRecver"),
         stream,
     );
+    // // TODO set_delay performance issues?
+    // reader
+    //     .set_nodelay(true)
+    //     .expect("failed to set_nodelay=true");
 
+    // writer
+    //     .set_nodelay(true)
+    //     .expect("failed to set_nodelay=true");
     let (reader, writer) = (
         mio::net::TcpStream::from_std(reader),
         mio::net::TcpStream::from_std(writer),

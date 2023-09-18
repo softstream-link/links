@@ -1,12 +1,16 @@
 use std::{
     fmt::Display,
     io::{Error, ErrorKind},
-    sync::mpsc::{channel, Receiver, Sender},
+    os::fd::{FromRawFd, IntoRawFd},
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Arc,
+    }, f32::consts::E,
 };
 
 use crate::{core::iter::CycleRange, prelude_nonblocking::*};
-use links_network_core::prelude::{CallbackRecv, CallbackRecvSend, CallbackSend, Messenger};
-use log::{debug, info, log_enabled, warn};
+use links_network_core::prelude::{CallbackRecv, CallbackRecvSend, CallbackSend, ConId, Messenger};
+use log::{debug, info, log_enabled, warn, Level};
 use slab::Slab;
 
 pub struct ConnectionPool<
@@ -73,7 +77,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PoolRecver<M, 
     }
     /// returns true if a recver was added
     #[inline]
-    fn service_once_rx_queue(&mut self) -> Result<bool, Error> {
+    pub(crate) fn service_once_rx_queue(&mut self) -> Result<bool, Error> {
         match self.rx_recver.try_recv() {
             Ok(recver) => {
                 if self.recvers.len() < self.recvers.capacity() {
@@ -99,7 +103,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PoolRecver<M, 
         }
     }
     #[inline]
-    fn next_recver(&mut self) -> Option<(usize, &mut CltRecver<M, C, MAX_MSG_SIZE>)> {
+    fn next_key_recver_mut(&mut self) -> Option<(usize, &mut CltRecver<M, C, MAX_MSG_SIZE>)> {
         for _ in 0..self.recvers.len() {
             let key = self.slab_keys.next();
             if self.recvers.contains(key) {
@@ -116,35 +120,46 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBloc
     /// If all recvers are exhausted the rx_queue will be checked to see if a new recver is available.
     #[inline]
     fn recv_nonblocking(&mut self) -> Result<RecvStatus<M::RecvT>, Error> {
-        if let Some((key, clt)) = self.next_recver() {
-            match clt.recv_nonblocking() {
-                Ok(RecvStatus::Completed(Some(msg))) => {
-                    return Ok(RecvStatus::Completed(Some(msg)))
+        use RecvStatus::{Completed, WouldBlock};
+        use log::Level::{Info, Warn};
+        match self.next_key_recver_mut(){
+            Some((key, clt)) =>  {
+                match clt.recv_nonblocking() {
+                    Ok(Completed(Some(msg))) => {
+                        return Ok(Completed(Some(msg)))
+                    }
+                    Ok(WouldBlock) => return Ok(WouldBlock),
+                    Ok(Completed(None)) => {
+                        let recver = self.recvers.remove(key);
+                        if log_enabled!(Info){
+                            info!(
+                                "Connection reset by peer, clean. key: #{}, recver: {} and will be dropped, recvers: {}",
+                                key, recver, self
+                            );
+                        }
+                        return Ok(Completed(None));
+                    }
+                    Err(e) => {
+                        let recver = self.recvers.remove(key);
+                        if log_enabled!(Warn){
+                            warn!(
+                                "Connection failed, {}. key: #{}, recver: {} and will be dropped.  recvers: {}",
+                                e, key, recver, self, 
+                            );
+                        }
+                        return Err(e);
+                    }   
+            }},
+            None => {
+                // no recivers available try processing rx_queue
+                if self.service_once_rx_queue()? {
+                    self.recv_nonblocking()
+                } else {
+                    Err(Error::new(ErrorKind::NotConnected, "No recvers available in the pool"))
                 }
-                Ok(RecvStatus::WouldBlock) => return Ok(RecvStatus::WouldBlock),
-                Ok(RecvStatus::Completed(None)) => {
-                    info!(
-                        "recver #{} Connection reset by peer, clean. {} and will be dropped",
-                        key, self
-                    );
-                    self.recvers.remove(key);
-                }
-                Err(e) => {
-                    warn!(
-                        "recver #{} Failed {} and will be dropped.  error: {}",
-                        key, self, e
-                    );
-                    self.recvers.remove(key);
-                }
-            };
+            }
         }
 
-        // if we are here it means the connection was droped and we shall check the queue once more and retry
-        if self.service_once_rx_queue()? {
-            self.recv_nonblocking()
-        } else {
-            Ok(RecvStatus::WouldBlock)
-        }
     }
 }
 impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
@@ -195,7 +210,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> PoolSender<M, 
         self.senders.is_empty()
     }
     #[inline]
-    fn service_once_rx_queue(&mut self) -> Result<bool, Error> {
+    pub(crate) fn service_once_rx_queue(&mut self) -> Result<bool, Error> {
         match self.rx_sender.try_recv() {
             Ok(sender) => {
                 if self.senders.len() < self.senders.capacity() {
@@ -220,12 +235,6 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> PoolSender<M, 
         }
     }
 
-    pub fn next_sender_mut(&mut self) -> Option<&mut CltSender<M, C, MAX_MSG_SIZE>> {
-        match self.next_key_sender_mut() {
-            Some((key, clt)) => Some(clt),
-            None => None,
-        }
-    }
     #[inline]
     fn next_key_sender_mut(&mut self) -> Option<(usize, &mut CltSender<M, C, MAX_MSG_SIZE>)> {
         // TODO can this be optimized
@@ -243,29 +252,30 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBloc
 {
     /// Each call to this method will use the next available sender by using round round on each subsequent call.
     /// if the are no senders available the rx_queue will be checked once and if a new sender is available it will be used.
-    fn send_nonblocking(
-        &mut self,
-        msg: &mut <M as Messenger>::SendT,
-    ) -> Result<SendStatus, Error> {
-        if let Some((key, clt)) = self.next_key_sender_mut() {
-            match clt.send_nonblocking(msg) {
-                Ok(SendStatus::Completed) => return Ok(SendStatus::Completed),
-                Ok(SendStatus::WouldBlock) => return Ok(SendStatus::WouldBlock),
-                Err(e) => {
-                    let msg = format!(
-                        "sender #{} is dead {} and will be dropped.  error: ({})",
-                        key, self, e
-                    );
-                    self.senders.remove(key);
-                    return Err(Error::new(e.kind(), msg));
+    fn send_nonblocking(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
+        match self.next_key_sender_mut(){
+            Some((key, clt)) =>  {
+                match clt.send_nonblocking(msg) {
+                    Ok(SendStatus::Completed) => return Ok(SendStatus::Completed),
+                    Ok(SendStatus::WouldBlock) => return Ok(SendStatus::WouldBlock),
+                    Err(e) => {
+                        let msg = format!(
+                            "sender #{} is dead {} and will be dropped.  error: ({})",
+                            key, self, e
+                        );
+                        self.senders.remove(key);
+                        return Err(Error::new(e.kind(), msg));
+                    }
+                };
+            },
+            None => {
+                // no senders available try processing rx_queue
+                if self.service_once_rx_queue()? {
+                    self.send_nonblocking(msg)
+                } else {
+                    Err(Error::new(ErrorKind::NotConnected, "No senders available in the pool"))
                 }
-            };
-        }
-        // if we are here it means the pool is empty and we shall check the queue once more and retry
-        if self.service_once_rx_queue()? {
-            self.send_nonblocking(msg)
-        } else {
-            return Ok(SendStatus::WouldBlock);
+            }
         }
     }
 }
@@ -293,5 +303,80 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
                 .collect::<Vec<_>>()
                 .join(","),
         )
+    }
+}
+
+#[derive(Debug)]
+pub struct PoolAcceptor<
+    M: Messenger+'static,
+    C: CallbackRecvSend<M>+'static,
+    const MAX_MSG_SIZE: usize,
+> {
+    pub(crate) tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
+    pub(crate) tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>,
+    pub(crate) listener: mio::net::TcpListener,
+    pub(crate) callback: Arc<C>,
+    pub(crate) con_id: ConId,
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
+    PoolAcceptor<M, C, MAX_MSG_SIZE>
+{
+    //TODO add new method and use it in svc/nonblocking.rs
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
+    PoolAcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for PoolAcceptor<M, C, MAX_MSG_SIZE>
+{
+    fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error> {
+        if let AcceptStatus::Accepted(clt) = self.accept_nonblocking()? {
+            let (recver, sender) = clt.into_split();
+            if let Err(e) = self.tx_recver.send(recver) {
+                return Err(Error::new(ErrorKind::Other, e.to_string()));
+            }
+            if let Err(e) = self.tx_sender.send(sender) {
+                return Err(Error::new(ErrorKind::Other, e.to_string()));
+            }
+        }
+        Ok(PoolAcceptStatus::Accepted)
+    }
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
+    AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for PoolAcceptor<M, C, MAX_MSG_SIZE>
+{
+    fn accept_nonblocking(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
+        match self.listener.accept() {
+            Ok((stream, addr)) => {
+                // TODO add rate limiter
+                let stream = unsafe { std::net::TcpStream::from_raw_fd(stream.into_raw_fd()) };
+                let mut con_id = self.con_id.clone();
+                con_id.set_peer(addr);
+                if log_enabled!(log::Level::Debug) {
+                    debug!("{} Accepted", con_id);
+                }
+                let clt = Clt::<_, _, MAX_MSG_SIZE>::from_stream(
+                    stream,
+                    con_id.clone(),
+                    self.callback.clone(),
+                );
+                Ok(AcceptStatus::Accepted(clt))
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(AcceptStatus::WouldBlock),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
+    for PoolAcceptor<M, C, MAX_MSG_SIZE>
+{
+    fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
+        self.pool_accept_nonblocking()?;
+        Ok(ServiceLoopStatus::Continue)
+    }
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
+    for PoolAcceptor<M, C, MAX_MSG_SIZE>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} PoolAcceptor", self.con_id)
     }
 }

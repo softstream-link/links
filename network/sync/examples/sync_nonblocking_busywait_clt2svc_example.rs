@@ -31,7 +31,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     setup::log::configure_level(log::LevelFilter::Info);
     let (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after) = setup();
 
-    let svc = Svc::<TestSvcMsgProtocol, _, TEST_MSG_FRAME_SIZE>::bind(
+    let mut svc = Svc::<TestSvcMsgProtocol, _, TEST_MSG_FRAME_SIZE>::bind(
         addr,
         svc_callback.clone(),
         max_connections,
@@ -41,7 +41,7 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     info!("svc: {}", svc);
 
-    let mut clt_initiator = Clt::<TestCltMsgProtocol, _, TEST_MSG_FRAME_SIZE>::connect(
+    let mut clt = Clt::<TestCltMsgProtocol, _, TEST_MSG_FRAME_SIZE>::connect(
         addr,
         timeout,
         retry_after,
@@ -49,55 +49,62 @@ fn run() -> Result<(), Box<dyn Error>> {
         name.clone(),
     )
     .unwrap();
-    info!("clt_initiator: {}", clt_initiator);
+    info!("clt: {}", clt);
 
-    let mut clt_acceptor = svc.accept_busywait_timeout(timeout)?.unwrap_accepted();
-    info!("clt_acceptor: {}", clt_acceptor);
+    svc.pool_accept_busywait_timeout(timeout)?.unwrap_accepted();
 
-    let mut clt_initiator_send_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
-    clt_initiator.send_busywait_timeout(&mut clt_initiator_send_msg, timeout)?;
-    let clt_acceptor_recv_msg = clt_acceptor.recv_busywait_timeout(timeout)?.unwrap_completed().unwrap();
+    info!("svc: {}", svc);
 
-    assert_eq!(clt_initiator_send_msg, clt_acceptor_recv_msg);
+    let mut clt_send_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+    clt.send_busywait_timeout(&mut clt_send_msg, timeout)?;
+    let svc_recv_msg = svc.recv_busywait()?.unwrap();
+
+    assert_eq!(clt_send_msg, svc_recv_msg);
 
     const WRITE_N_TIMES: usize = 100_000;
-    let clt_acceptor_jh = Builder::new()
-        .name("Acceptor-Thread".to_owned())
+    let svc_jh = Builder::new()
+        .name("Svc-Thread".to_owned())
         .spawn(move || {
-            let mut clt_acceptor_send_msg =
-                TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Client Msg"));
+            let mut svc_send_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Client Msg"));
             let mut msg_recv_count = 0_usize;
-            loop {
-                if let Some(_msg) = clt_acceptor.recv_busywait().unwrap() {
-                    msg_recv_count += 1;
-                    clt_acceptor
-                        .send_busywait(&mut clt_acceptor_send_msg)
-                        .unwrap();
-                    continue;
-                } else {
-                    break;
-                }
+
+            while let Ok(Some(_msg)) = svc.recv_busywait() {
+                msg_recv_count += 1;
+                svc.send_busywait(&mut svc_send_msg).unwrap();
             }
-            msg_recv_count
+            (msg_recv_count, svc)
         })
         .unwrap();
 
     let now = Instant::now();
     for _ in 0..WRITE_N_TIMES {
-        clt_initiator.send_busywait(&mut clt_initiator_send_msg)?;
-        let _msg = clt_initiator.recv_busywait().unwrap().unwrap();
+        clt.send_busywait(&mut clt_send_msg)?;
+        let _msg = clt.recv_busywait().unwrap().unwrap();
     }
     let elapsed = now.elapsed();
 
-    drop(clt_initiator); // close the connection and allow the acceptor to exit
-    let msg_recv_count = clt_acceptor_jh.join().unwrap();
+    drop(clt); // close the connection and allow the acceptor to exit
+
+    // VERIFY numbers of messages sent and received
+    let (msg_recv_count, mut svc) = svc_jh.join().unwrap();
     info!(
-        "msg_send_count: {}, msg_recv_count: {}, per/write {:?}, total: {:?}",
+        "msg_send_count: {}, msg_recv_count: {} , per/write {:?}, total: {:?}",
         WRITE_N_TIMES.to_formatted_string(&Locale::en),
         msg_recv_count.to_formatted_string(&Locale::en),
         elapsed / WRITE_N_TIMES as u32,
         elapsed
     );
+    assert_eq!(msg_recv_count, WRITE_N_TIMES);
+
+    // VERIFY svc interl pool returns None to all calls.
+    let recv_err = svc.recv_busywait().unwrap_err();
+    info!("svc: {}, err: {:?}", svc, recv_err);
+
+    let mut svc_send_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Client Msg"));
+    for _ in 0..5 {
+        let send_err = svc.send_busywait(&mut svc_send_msg);
+        info!("send_err: {:?}",  send_err);
+    }
 
     Ok(())
 }

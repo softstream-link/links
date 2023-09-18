@@ -10,25 +10,39 @@ use crate::prelude_nonblocking::Clt;
 // ---- Acceptor ----
 
 #[derive(Debug, PartialEq)]
-pub enum PublishAcceptStatus {
+pub enum PoolAcceptStatus {
     Accepted,
     WouldBlock,
 }
-pub trait PublishAcceptCltNonBlocking<
-    M: Messenger,
-    C: CallbackRecvSend<M>,
-    const MAX_MSG_SIZE: usize,
->: AcceptCltNonBlocking<M, C, MAX_MSG_SIZE>
+impl PoolAcceptStatus {
+    pub fn unwrap_accepted(self) -> () {
+        match self {
+            PoolAcceptStatus::Accepted => (),
+            PoolAcceptStatus::WouldBlock => panic!("PoolAcceptStatus::WouldBlock"),
+        }
+    }
+    pub fn is_accepted(&self) -> bool {
+        match self {
+            PoolAcceptStatus::Accepted => true,
+            PoolAcceptStatus::WouldBlock => false,
+        }
+    }
+    pub fn is_wouldblock(&self) -> bool {
+        !self.is_accepted()
+    }
+}
+pub trait PoolAcceptCltNonBlocking<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>:
+    AcceptCltNonBlocking<M, C, MAX_MSG_SIZE>
 {
-    fn publish_accept_nonblocking(&self) -> Result<PublishAcceptStatus, Error>;
-    fn publish_accept_busywait_timeout(
-        &self,
+    fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error>;
+    fn pool_accept_busywait_timeout(
+        &mut self,
         timeout: Duration,
-    ) -> Result<PublishAcceptStatus, Error> {
-        use PublishAcceptStatus::{Accepted, WouldBlock};
+    ) -> Result<PoolAcceptStatus, Error> {
+        use PoolAcceptStatus::{Accepted, WouldBlock};
         let start = Instant::now();
         loop {
-            match self.publish_accept_nonblocking()? {
+            match self.pool_accept_nonblocking()? {
                 Accepted => return Ok(Accepted),
                 WouldBlock => {
                     if start.elapsed() > timeout {
@@ -38,10 +52,10 @@ pub trait PublishAcceptCltNonBlocking<
             }
         }
     }
-    fn publish_accept_busywait(&self) -> Result<(), Error> {
-        use PublishAcceptStatus::{Accepted, WouldBlock};
+    fn pool_accept_busywait(&mut self) -> Result<(), Error> {
+        use PoolAcceptStatus::{Accepted, WouldBlock};
         loop {
-            match self.publish_accept_nonblocking()? {
+            match self.pool_accept_nonblocking()? {
                 Accepted => return Ok(()),
                 WouldBlock => continue,
             }
@@ -54,8 +68,8 @@ pub enum AcceptStatus<T> {
     Accepted(T),
     WouldBlock,
 }
-impl <T> AcceptStatus<T> {
-    pub fn unwrap(self) -> T{
+impl<T> AcceptStatus<T> {
+    pub fn unwrap_accepted(self) -> T {
         match self {
             AcceptStatus::Accepted(t) => t,
             AcceptStatus::WouldBlock => panic!("AcceptStatus::WouldBlock"),
@@ -119,7 +133,7 @@ pub enum RecvStatus<T> {
 
 impl<T> RecvStatus<T> {
     /// Will panic if the variant is [ReadStatus::WouldBlock], otherwise unwraps into [Option<T>] from [ReadStatus::Completed(Option<T>)]
-    pub fn unwrap(self) -> Option<T> {
+    pub fn unwrap_completed(self) -> Option<T> {
         match self {
             RecvStatus::Completed(o) => o,
             RecvStatus::WouldBlock => panic!("ReadStatus::WouldBlock"),
@@ -191,17 +205,6 @@ pub trait SendMsgNonBlocking<M: Messenger> {
     /// after the first attempt
     fn send_nonblocking(&mut self, msg: &mut M::SendT) -> Result<SendStatus, Error>;
 
-    /// Will call [send_nonblocking] untill it returns [WriteStatus::Completed]
-    #[inline(always)]
-    fn send_busywait(&mut self, msg: &mut M::SendT) -> Result<(), Error> {
-        loop {
-            match self.send_nonblocking(msg)? {
-                SendStatus::Completed => return Ok(()),
-                SendStatus::WouldBlock => continue,
-            }
-        }
-    }
-
     /// Will call [send_nonblocking] untill it returns [WriteStatus::Completed] or [WriteStatus::WouldBlock] after the timeoutok,
     #[inline(always)]
     fn send_busywait_timeout(
@@ -218,6 +221,17 @@ pub trait SendMsgNonBlocking<M: Messenger> {
                         return Ok(SendStatus::WouldBlock);
                     }
                 }
+            }
+        }
+    }
+    /// Will call [send_nonblocking] untill it returns [WriteStatus::Completed]
+    #[inline(always)]
+    fn send_busywait(&mut self, msg: &mut M::SendT) -> Result<SendStatus, Error> {
+        use SendStatus::{Completed, WouldBlock};
+        loop {
+            match self.send_nonblocking(msg)? {
+                Completed => return Ok(Completed),
+                WouldBlock => continue,
             }
         }
     }

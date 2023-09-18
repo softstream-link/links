@@ -13,78 +13,8 @@ use links_network_core::{
 use log::{debug, log_enabled};
 
 #[derive(Debug)]
-pub struct SvcAcceptor<
-    M: Messenger+'static,
-    C: CallbackRecvSend<M>+'static,
-    const MAX_MSG_SIZE: usize,
-> {
-    tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
-    tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>,
-    listener: mio::net::TcpListener,
-    callback: Arc<C>,
-    con_id: ConId,
-}
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    PublishAcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
-{
-    fn publish_accept_nonblocking(&self) -> Result<PublishAcceptStatus, Error> {
-        if let AcceptStatus::Accepted(clt) = self.accept_nonblocking()? {
-            let (recver, sender) = clt.into_split();
-            if let Err(e) = self.tx_recver.send(recver) {
-                return Err(Error::new(ErrorKind::Other, e.to_string()));
-            }
-            if let Err(e) = self.tx_sender.send(sender) {
-                return Err(Error::new(ErrorKind::Other, e.to_string()));
-            }
-        }
-        Ok(PublishAcceptStatus::Accepted)
-    }
-}
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
-{
-    fn accept_nonblocking(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
-        match self.listener.accept() {
-            Ok((stream, addr)) => {
-                // TODO add rate limiter
-                let stream = unsafe { std::net::TcpStream::from_raw_fd(stream.into_raw_fd()) };
-                let mut con_id = self.con_id.clone();
-                con_id.set_peer(addr);
-                if log_enabled!(log::Level::Debug) {
-                    debug!("{} Accepted", con_id);
-                }
-                let clt = Clt::<_, _, MAX_MSG_SIZE>::from_stream(
-                    stream,
-                    con_id.clone(),
-                    self.callback.clone(),
-                );
-                Ok(AcceptStatus::Accepted(clt))
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(AcceptStatus::WouldBlock),
-            Err(e) => Err(e),
-        }
-    }
-}
-
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
-    for SvcAcceptor<M, C, MAX_MSG_SIZE>
-{
-    fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
-        self.publish_accept_nonblocking()?;
-        Ok(ServiceLoopStatus::Continue)
-    }
-}
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
-    for SvcAcceptor<M, C, MAX_MSG_SIZE>
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} SvcAcceptor", self.con_id)
-    }
-}
-
-#[derive(Debug)]
 pub struct Svc<M: Messenger+'static, C: CallbackRecvSend<M>+'static, const MAX_MSG_SIZE: usize> {
-    acceptor: SvcAcceptor<M, C, MAX_MSG_SIZE>,
+    pool_acceptor: PoolAcceptor<M, C, MAX_MSG_SIZE>,
     pool_recver: PoolRecver<M, C, MAX_MSG_SIZE>,
     pool_sender: PoolSender<M, C, MAX_MSG_SIZE>,
 }
@@ -103,7 +33,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
 
         let listener = mio::net::TcpListener::from_std(listener);
 
-        let acceptor = SvcAcceptor {
+        let acceptor = PoolAcceptor {
             tx_recver,
             tx_sender,
             listener,
@@ -112,7 +42,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
         };
 
         Ok(Self {
-            acceptor,
+            pool_acceptor: acceptor,
             pool_recver: svc_recver,
             pool_sender: svc_sender,
         })
@@ -121,21 +51,34 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
     pub fn clients_len(&self) -> (usize, usize) {
         (self.pool_recver.len(), self.pool_sender.len())
     }
-    pub fn split_into(
+    pub fn into_split(
         self,
     ) -> (
-        SvcAcceptor<M, C, MAX_MSG_SIZE>,
+        PoolAcceptor<M, C, MAX_MSG_SIZE>,
         PoolRecver<M, C, MAX_MSG_SIZE>,
         PoolSender<M, C, MAX_MSG_SIZE>,
     ) {
-        (self.acceptor, self.pool_recver, self.pool_sender)
+        (self.pool_acceptor, self.pool_recver, self.pool_sender)
+    }
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
+    PoolAcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
+{
+    fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error> {
+        if let PoolAcceptStatus::Accepted = self.pool_acceptor.pool_accept_nonblocking()? {
+            self.pool_recver.service_once_rx_queue()?;
+            self.pool_sender.service_once_rx_queue()?;
+            Ok(PoolAcceptStatus::Accepted)
+        } else {
+            Ok(PoolAcceptStatus::WouldBlock)
+        }
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
 {
     fn accept_nonblocking(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
-        self.acceptor.accept_nonblocking()
+        self.pool_acceptor.accept_nonblocking()
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M>
@@ -156,7 +99,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> NonBlockin
     for Svc<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
-        let _ = self.acceptor.service_once()?;
+        let _ = self.pool_acceptor.service_once()?;
         let _ = self.pool_recver.service_once()?;
         let _ = self.pool_sender.service_once()?;
         Ok(ServiceLoopStatus::Continue)
@@ -168,8 +111,8 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} Svc<{}, {}, {}>",
-            self.acceptor.con_id, self.acceptor, self.pool_recver, self.pool_sender
+            "Svc<{}, {}, {}>",
+            self.pool_acceptor, self.pool_recver, self.pool_sender
         )
     }
 }
@@ -177,7 +120,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 #[cfg(test)]
 #[cfg(any(test, feature = "unittest"))]
 mod test {
-    use std::{io::ErrorKind, thread::sleep, time::Duration};
+    use std::io::ErrorKind;
 
     use crate::prelude_nonblocking::*;
     use links_network_core::prelude::{DevNullCallbackNew, LoggerCallbackNew};
@@ -278,7 +221,7 @@ mod test {
         assert_eq!(clt_msg_inp, svc_msg_out);
 
         info!("--------- SVC SPLIT POOL ---------");
-        let (_svc_acceptor, mut pool_recver, mut pool_sender) = svc.split_into();
+        let (_svc_acceptor, mut pool_recver, mut pool_sender) = svc.into_split();
         clt.send_busywait(&mut clt_msg_inp).unwrap();
         let svc_msg_out = pool_recver.recv_busywait().unwrap().unwrap();
         // info!("clt_msg_inp: {:?}", clt_msg_inp);

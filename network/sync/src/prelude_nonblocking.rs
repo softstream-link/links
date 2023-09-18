@@ -1,5 +1,5 @@
 pub use crate::core::nonblocking::{
-    AcceptCltNonBlocking, AcceptStatus, PublishAcceptCltNonBlocking, PublishAcceptStatus,
+    AcceptCltNonBlocking, AcceptStatus, PoolAcceptCltNonBlocking, PoolAcceptStatus,
 };
 pub use crate::core::nonblocking::{NonBlockingServiceLoop, ServiceLoopStatus};
 pub use crate::core::nonblocking::{RecvMsgNonBlocking, RecvStatus};
@@ -11,7 +11,7 @@ pub use crate::connect::messenger::nonblocking::{
     into_split_messenger, MessageRecver, MessageSender,
 };
 
-pub use crate::connect::pool::nonblocking::{ConnectionPool, PoolRecver, PoolSender};
+pub use crate::connect::pool::nonblocking::{ConnectionPool, PoolAcceptor, PoolRecver, PoolSender};
 
 pub use crate::connect::clt::nonblocking::{Clt, CltRecver, CltSender};
 pub use crate::connect::svc::nonblocking::Svc;
