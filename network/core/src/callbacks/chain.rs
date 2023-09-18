@@ -56,7 +56,7 @@ mod test {
         // let store = EventStoreAsync::new_ref();
 
         let clbk = ChainCallback::new(vec![
-            LoggerCallback::<TestCltMsgProtocol>::new_ref(Level::Info, Level::Info),
+            LoggerCallbackOld::<TestCltMsgProtocol>::new_ref(Level::Info, Level::Info),
             // EventStoreCallback::<TestMsg, TestCltMsgProtocol>::new_ref(store.clone()),
         ]);
 

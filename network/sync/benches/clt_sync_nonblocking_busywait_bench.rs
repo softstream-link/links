@@ -1,7 +1,7 @@
 use std::{sync::Arc, thread::Builder, time::Duration};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::prelude::{CallbackRecvSend, DevNullCallbackNew, Messenger};
+use links_network_core::prelude::{CallbackRecvSend, DevNullCallback, Messenger};
 use links_network_sync::{
     prelude_nonblocking::*,
     unittest::setup::{
@@ -26,8 +26,8 @@ fn setup<MSvc: Messenger, MClt: Messenger>() -> (
     Duration,
 ) {
     let addr = setup::net::rand_avail_addr_port();
-    let svc_callback = DevNullCallbackNew::<MSvc>::new_ref();
-    let clt_callback = DevNullCallbackNew::<MClt>::new_ref();
+    let svc_callback = DevNullCallback::<MSvc>::new_ref();
+    let clt_callback = DevNullCallback::<MClt>::new_ref();
     let name = Some("example");
     let max_connections = 0;
     let timeout = Duration::from_micros(1_000);

@@ -15,11 +15,11 @@ pub use crate::callbacks::CallbackSendRecvOld;
 // };
 pub use crate::callbacks::eventstore::{CallbackEvent, Dir, Entry};
 // // loggers
-pub use crate::callbacks::logger::LoggerCallback;
+pub use crate::callbacks::logger::LoggerCallbackOld;
 // // chain
 pub use crate::callbacks::chain::ChainCallback;
 // // dev null
-pub use crate::callbacks::devnull::DevNullCallback;
+pub use crate::callbacks::devnull::DevNullCallbackOld;
 // // counters
 pub use crate::callbacks::counter::CounterCallback;
 
@@ -31,5 +31,5 @@ pub use crate::callbacks::CallbackRecv;
 pub use crate::callbacks::CallbackSend;
 pub use crate::callbacks::CallbackRecvSend;
 
-pub use crate::callbacks::devnull_new::DevNullCallbackNew;
-pub use crate::callbacks::logger_new::LoggerCallbackNew;
+pub use crate::callbacks::devnull_new::DevNullCallback;
+pub use crate::callbacks::logger_new::LoggerCallback;

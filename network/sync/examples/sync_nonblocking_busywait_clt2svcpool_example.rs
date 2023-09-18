@@ -2,10 +2,10 @@ use std::{
     error::Error,
     sync::Arc,
     thread::Builder,
-    time::{Duration, Instant},
+    time::{Duration, Instant}, io::ErrorKind,
 };
 
-use links_network_core::prelude::{CallbackRecvSend, DevNullCallbackNew, Messenger};
+use links_network_core::prelude::{CallbackRecvSend, DevNullCallback, Messenger};
 use links_network_sync::{
     prelude_nonblocking::*,
     unittest::setup::{
@@ -97,14 +97,17 @@ fn run() -> Result<(), Box<dyn Error>> {
     assert_eq!(msg_recv_count, WRITE_N_TIMES);
 
     // VERIFY svc interl pool returns None to all calls.
-    let recv_err = svc.recv_busywait().unwrap_err();
-    info!("svc: {}, err: {:?}", svc, recv_err);
+    let svc_recv_err = svc.recv_busywait().unwrap_err();
+    info!("svc_recv_err: {}", svc_recv_err);
+    assert_eq!(svc.pool_recv_send_len(), (0, 1)); // 0 recv, 1 send in pool recver was dropped in the Svc-Thread
+    assert_eq!(svc_recv_err.kind(), ErrorKind::NotConnected); // if there are no recives pool returns NotConnected
 
     let mut svc_send_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Client Msg"));
-    for _ in 0..5 {
-        let send_err = svc.send_busywait(&mut svc_send_msg);
-        info!("send_err: {:?}",  send_err);
-    }
+
+    let svc_send_err = svc.send_busywait(&mut svc_send_msg).unwrap_err();
+    info!("svc_send_err: {}", svc_send_err);
+    assert_eq!(svc.pool_recv_send_len(), (0, 0)); // last sender was dropped after attemp to send_busywait
+    assert_eq!(svc_send_err.kind(), ErrorKind::BrokenPipe); // because send_busywait tried to use the last sender in the pool it errored out with BrokenPipe
 
     Ok(())
 }
@@ -121,8 +124,8 @@ fn setup<MSvc: Messenger, MClt: Messenger>() -> (
     let addr = setup::net::rand_avail_addr_port();
     // let svc_callback = LoggerCallbackNew::<MSvc>::with_level_ref(Level::Debug, Level::Debug);
     // let clt_callback = LoggerCallbackNew::<MClt>::with_level_ref(Level::Debug, Level::Debug);
-    let svc_callback = DevNullCallbackNew::<MSvc>::new_ref();
-    let clt_callback = DevNullCallbackNew::<MClt>::new_ref();
+    let svc_callback = DevNullCallback::<MSvc>::new_ref();
+    let clt_callback = DevNullCallback::<MClt>::new_ref();
     let name = Some("example");
     let max_connections = 1; // TODO make this NonZeroUsize as CicleIterator fails if if max_connections is 0 of fix CicleIterator
     let timeout = Duration::from_micros(1_000);

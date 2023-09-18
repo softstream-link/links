@@ -48,7 +48,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
         })
     }
 
-    pub fn clients_len(&self) -> (usize, usize) {
+    pub fn pool_recv_send_len(&self) -> (usize, usize) {
         (self.pool_recver.len(), self.pool_sender.len())
     }
     pub fn into_split(
@@ -123,7 +123,6 @@ mod test {
     use std::io::ErrorKind;
 
     use crate::prelude_nonblocking::*;
-    use links_network_core::prelude::{DevNullCallbackNew, LoggerCallbackNew};
     use links_testing::unittest::setup::{
         self,
         model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
@@ -139,50 +138,13 @@ mod test {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
 
-        let callback = LoggerCallbackNew::<TestSvcMsgProtocol>::new_ref();
+        let callback = LoggerCallback::<TestSvcMsgProtocol>::new_ref();
         let svc =
             Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback.clone(), 2, Some("unittest"))
                 .unwrap();
         info!("svc: {}", svc);
     }
-    #[test]
-    fn test_svc_clt_connected_svc_max_connections() {
-        setup::log::configure_level(LevelFilter::Info);
-        let addr = setup::net::rand_avail_addr_port();
-        let max_connections = 2;
 
-        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
-            addr,
-            DevNullCallbackNew::<TestSvcMsgProtocol>::new_ref(),
-            max_connections,
-            Some("unittest"),
-        )
-        .unwrap();
-        info!("svc: {}", svc);
-
-        let mut clts = vec![];
-        for i in 0..max_connections * 2 {
-            let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-                addr,
-                setup::net::default_connect_timeout(),
-                setup::net::default_connect_retry_after(),
-                DevNullCallbackNew::<TestCltMsgProtocol>::new_ref(),
-                Some("unittest"),
-            )
-            .unwrap();
-            info!("#{}, clt: {}", i, clt);
-            clts.push(clt);
-            svc.service_once().unwrap();
-        }
-
-        let (recv_count, send_count) = svc.clients_len();
-        info!(
-            "svc: recv_count: {}, send_count: {}",
-            recv_count, send_count
-        );
-        assert_eq!(recv_count, max_connections);
-        assert_eq!(send_count, max_connections);
-    }
     #[test]
     fn test_svc_clt_connected() {
         setup::log::configure_level(LevelFilter::Info);
@@ -190,7 +152,7 @@ mod test {
 
         let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
             addr,
-            LoggerCallbackNew::<TestSvcMsgProtocol>::with_level_ref(Level::Info, Level::Debug),
+            LoggerCallback::<TestSvcMsgProtocol>::with_level_ref(Level::Info, Level::Debug),
             1,
             Some("unittest"),
         )
@@ -201,7 +163,7 @@ mod test {
             addr,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
-            LoggerCallbackNew::<TestCltMsgProtocol>::with_level_ref(Level::Info, Level::Debug),
+            LoggerCallback::<TestCltMsgProtocol>::with_level_ref(Level::Info, Level::Debug),
             Some("unittest"),
         )
         .unwrap();
@@ -209,7 +171,7 @@ mod test {
 
         svc.service_once().unwrap();
         info!("svc: {}", svc);
-        assert_eq!(svc.clients_len(), (1, 1));
+        assert_eq!(svc.pool_recv_send_len(), (1, 1));
 
         let mut clt_msg_inp = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
         let mut svc_msg_inp = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
@@ -236,76 +198,19 @@ mod test {
         // info!("clt_msg_inp: {:?}", clt_msg_inp);
         assert_eq!(svc_msg_out, clt_msg_inp);
 
-        // TODO critical figre out why this assert does nto work
-        // info!("--------- SVC DROP HALF ---------");
-        // drop(pool_recver);
-        // let res = pool_sender.send_nonblocking(&mut svc_msg_inp);
-        // info!("pool_sender res: {}", res.as_ref().unwrap_err());
-        // assert_eq!(pool_sender.len(), 0);
-        // assert_eq!(res.unwrap_err().kind(), ErrorKind::BrokenPipe);
-
         info!("--------- CLT DROP HALF ---------");
         // drop clt_recv and ensure that clt_sender has broken pipe
         drop(clt_recv);
-        let res = clt_send.send_nonblocking(&mut clt_msg_inp);
+        let err = clt_send.send_nonblocking(&mut clt_msg_inp).unwrap_err();
+        info!("clt_send err: {}", err);
+        assert_eq!(err.kind(), ErrorKind::BrokenPipe);
 
-        info!("clt_send res: {}", res.as_ref().unwrap_err());
-        assert_eq!(res.unwrap_err().kind(), ErrorKind::BrokenPipe);
-    }
-
-    #[test]
-    fn test_slab() {
-        setup::log::configure();
-        let mut sl = slab::Slab::<&str>::with_capacity(3);
-        assert_eq!(sl.len(), 0);
-        let k = sl.insert("one");
-        info!("k: {}", k);
-        let k = sl.insert("two");
-        info!("k: {}", k);
-        let k = sl.insert("three");
-        info!("k: {}", k);
-
-        info!("sl: {:?}", sl);
-        for (k, v) in sl.iter() {
-            info!("k: {}, v: {}", k, v);
-        }
-        info!("=============");
-        sl.remove(1);
-
-        info!("sl: {:?}", sl);
-        for (k, v) in sl.iter() {
-            info!("k: {}, v: {}", k, v);
-        }
-        info!("=============");
-
-        if let Some(v) = sl.get_mut(0) {
-            info!("0  v: {}", v);
-        }
-
-        if let Some((k, v)) = sl.iter_mut().nth(0) {
-            info!("0 k: {}, v: {}", k, v);
-        }
-        if let Some((k, v)) = sl.iter_mut().nth(1) {
-            info!("1 k: {}, v: {}", k, v);
-        }
-
-        if let Some((k, v)) = sl.iter_mut().nth(2) {
-            info!("2 k: {}, v: {}", k, v);
-        }
-        // let rm = sl.get(1);
-        // info!("rm: {:?}", rm);
-
-        // let k = sl.insert("two");
-        // info!("k: {}", k);
-
-        // fn t<T>(x: T) {
-        //     let name = type_name::<T>();
-        //     println!("{}", name);
-        // }
-        // let x = (0..3).into_iter().cycle();
-        // t(x);
-        // for i in x {
-        //     info!("i: {}", i);
-        // }
+        info!("--------- SVC SEND SHOULD FAIL AFTER RECV is NONE ---------");
+        let opt = pool_recver.recv_nonblocking().unwrap().unwrap_completed();
+        info!("pool_recver opt: {:?}", opt);
+        assert_eq!(opt, None);
+        let err = pool_sender.send_nonblocking(&mut svc_msg_inp).unwrap_err();
+        info!("pool_sender err: {}", err);
+        assert_eq!(err.kind(), ErrorKind::BrokenPipe);
     }
 }

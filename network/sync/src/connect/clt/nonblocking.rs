@@ -213,14 +213,14 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 mod test {
     use super::Clt;
     use crate::unittest::setup::framer::{TestCltMsgProtocol, TEST_MSG_FRAME_SIZE};
-    use links_network_core::callbacks::logger_new::LoggerCallbackNew;
+    use links_network_core::callbacks::logger_new::LoggerCallback;
     use links_testing::unittest::setup;
 
     #[test]
     fn test_clt_not_connected() {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
-        let callback = LoggerCallbackNew::<TestCltMsgProtocol>::new_ref();
+        let callback = LoggerCallback::<TestCltMsgProtocol>::new_ref();
         let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr,
             setup::net::default_connect_timeout(),

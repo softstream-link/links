@@ -259,7 +259,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 #[cfg(any(test, feature = "unittest"))]
 mod test {
 
-    use links_network_core::prelude::{DevNullCallbackNew, LoggerCallbackNew};
+    use links_network_core::prelude::{DevNullCallback, LoggerCallback};
     use links_testing::unittest::setup;
     use log::info;
 
@@ -275,7 +275,7 @@ mod test {
 
         let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
             addr,
-            DevNullCallbackNew::<TestSvcMsgProtocol>::new_ref(),
+            DevNullCallback::<TestSvcMsgProtocol>::new_ref(),
             2,
             Some("unittest"),
         )
@@ -290,7 +290,7 @@ mod test {
 
         let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
             addr,
-            LoggerCallbackNew::<TestSvcMsgProtocol>::new_ref(),
+            LoggerCallback::<TestSvcMsgProtocol>::new_ref(),
             2,
             Some("unittest"),
         )
@@ -307,7 +307,7 @@ mod test {
             addr,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
-            LoggerCallbackNew::<TestSvcMsgProtocol>::new_ref(),
+            LoggerCallback::<TestSvcMsgProtocol>::new_ref(),
             Some("unittest"),
         )
         .unwrap();

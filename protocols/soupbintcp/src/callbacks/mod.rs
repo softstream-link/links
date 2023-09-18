@@ -13,16 +13,16 @@ pub type SBSvcEvenStoreCallback<CltPayload, SvcPayload, Messenger> =
     EventStoreCallback<SBMsg<CltPayload, SvcPayload>, Messenger>;
 
 // loggers
-pub type SBCltLoggerCallback<Messenger> = LoggerCallback<Messenger>;
-pub type SBSvcLoggerCallback<Messenger> = LoggerCallback<Messenger>;
+pub type SBCltLoggerCallback<Messenger> = LoggerCallbackOld<Messenger>;
+pub type SBSvcLoggerCallback<Messenger> = LoggerCallbackOld<Messenger>;
 
 // chain
 pub type SBCltChainCallback<Messenger> = ChainCallback<Messenger>;
 pub type SBSvcChainCallback<Messenger> = ChainCallback<Messenger>;
 
 // dev null
-pub type SBCltDevNullCallback<Messenger> = DevNullCallback<Messenger>;
-pub type SBSvcDevNullCallback<Messenger> = DevNullCallback<Messenger>;
+pub type SBCltDevNullCallback<Messenger> = DevNullCallbackOld<Messenger>;
+pub type SBSvcDevNullCallback<Messenger> = DevNullCallbackOld<Messenger>;
 
 // counters
 pub type SBCltCounterCallback<Messenger> = CounterCallback<Messenger>;

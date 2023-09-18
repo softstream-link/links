@@ -209,7 +209,7 @@ mod test {
     use log::{info, Level};
 
     use super::*;
-    use links_network_core::prelude::LoggerCallback;
+    use links_network_core::prelude::LoggerCallbackOld;
 
     use crate::{
         prelude::{EventStoreAsync, EventStoreCallback, EventStoreSync},
@@ -222,7 +222,7 @@ mod test {
     #[tokio::test]
     async fn test_svc_not_connected_async() {
         setup::log::configure();
-        let logger = LoggerCallback::new_ref(Level::Debug, Level::Debug);
+        let logger = LoggerCallbackOld::new_ref(Level::Debug, Level::Debug);
         let svc = Svc::<_, _, MMS>::bind_async(
             setup::net::rand_avail_addr_port(),
             Arc::clone(&logger),
@@ -239,7 +239,7 @@ mod test {
         setup::log::configure();
         let runtime = Arc::new(Builder::new_multi_thread().enable_all().build().unwrap());
 
-        let logger = LoggerCallback::new_ref(Level::Debug, Level::Debug);
+        let logger = LoggerCallbackOld::new_ref(Level::Debug, Level::Debug);
         let svc = Svc::<_, _, MMS>::bind_sync(
             setup::net::rand_avail_addr_port(),
             Arc::clone(&logger),

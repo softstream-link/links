@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use links_network_core::prelude::{CallbackRecvSend, DevNullCallbackNew, Messenger};
+use links_network_core::prelude::{CallbackRecvSend, DevNullCallback, Messenger};
 use links_network_sync::{
     prelude_nonblocking::*,
     unittest::setup::{
@@ -114,8 +114,8 @@ fn setup<MSvc: Messenger, MClt: Messenger>() -> (
     let addr = setup::net::rand_avail_addr_port();
     // let svc_callback = LoggerCallbackNew::<MSvc>::with_level_ref(Level::Debug, Level::Debug);
     // let clt_callback = LoggerCallbackNew::<MClt>::with_level_ref(Level::Debug, Level::Debug);
-    let svc_callback = DevNullCallbackNew::<MSvc>::new_ref();
-    let clt_callback = DevNullCallbackNew::<MClt>::new_ref();
+    let svc_callback = DevNullCallback::<MSvc>::new_ref();
+    let clt_callback = DevNullCallback::<MClt>::new_ref();
     let name = Some("example");
     let max_connections = 1; // TODO make this NonZeroUsize as CicleIterator fails if if max_connections is 0 of fix CicleIterator
     let timeout = Duration::from_micros(1_000);

@@ -9,10 +9,10 @@ use crate::prelude::*;
 use super::CallbackSendRecvOld;
 
 #[derive(Debug)]
-pub struct DevNullCallback<M: MessengerOld> {
+pub struct DevNullCallbackOld<M: MessengerOld> {
     p1: std::marker::PhantomData<M>,
 }
-impl<M: MessengerOld> Default for DevNullCallback<M> {
+impl<M: MessengerOld> Default for DevNullCallbackOld<M> {
     fn default() -> Self {
         Self {
             p1: std::marker::PhantomData,
@@ -20,19 +20,19 @@ impl<M: MessengerOld> Default for DevNullCallback<M> {
     }
 }
 
-impl<M: MessengerOld> DevNullCallback<M> {
+impl<M: MessengerOld> DevNullCallbackOld<M> {
     pub fn new_ref() -> Arc<Self> {
         Arc::new(Self::default())
     }
 }
 
-impl<M: MessengerOld> Display for DevNullCallback<M> {
+impl<M: MessengerOld> Display for DevNullCallbackOld<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "DevNullCallback")
     }
 }
 
-impl<M: MessengerOld> CallbackSendRecvOld<M> for DevNullCallback<M> {
+impl<M: MessengerOld> CallbackSendRecvOld<M> for DevNullCallbackOld<M> {
     fn on_recv(&self, _con_id: &ConId, _msg: M::RecvT) {}
     fn on_send(&self, _con_id: &ConId, _msg: &M::SendT) {}
 }
@@ -49,7 +49,7 @@ mod test {
     #[test]
     fn test_callback() {
         setup::log::configure();
-        let clbk = DevNullCallback::<TestCltMsgProtocol>::default();
+        let clbk = DevNullCallbackOld::<TestCltMsgProtocol>::default();
 
         for _ in 0..2 {
             let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));

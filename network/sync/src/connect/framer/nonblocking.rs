@@ -3,6 +3,7 @@ use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
 use links_network_core::prelude::{ConId, Framer};
 use std::{
+    any::type_name,
     fmt::Display,
     io::{Error, ErrorKind, Read, Write},
 };
@@ -14,6 +15,8 @@ use log::{debug, log_enabled};
 const EOF: usize = 0;
 
 // TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MSG_SIZE generic as it can just be an non const arg to new
+const FRAME_READER: &str = "FrameReader";
+
 #[derive(Debug)]
 pub struct FrameReader<F: Framer, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
@@ -30,6 +33,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             phantom: std::marker::PhantomData,
         }
     }
+
     #[inline]
     pub fn read_frame(&mut self) -> Result<RecvStatus<Bytes>, Error> {
         #[allow(clippy::uninit_assumed_init)]
@@ -37,11 +41,12 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
 
         match self.stream_reader.read(&mut buf) {
             Ok(EOF) => {
+                self.shutdown_write("read_frame EOF"); // remember to shutdown on both exception and on EOF
                 if self.buffer.is_empty() {
                     Ok(RecvStatus::Completed(None))
                 } else {
                     let msg = format!(
-                        "{} FrameReader::read_frame connection reset by peer, residual buf:\n{}",
+                        "{} {FRAME_READER}::read_frame connection reset by peer, residual buf:\n{}",
                         self.con_id,
                         to_hex_pretty(&self.buffer[..])
                     );
@@ -58,52 +63,60 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             }
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(RecvStatus::WouldBlock),
             Err(e) => {
+                self.shutdown_write("read_frame error"); // remember to shutdown on both exception and on EOF
                 let msg = format!(
-                    "{} FrameReader::read_frame error: {} residual buf:\n{}",
+                    "{} {FRAME_READER}::read_frame error: {} residual buf:\n{}",
                     self.con_id,
                     e,
                     to_hex_pretty(&self.buffer[..])
                 );
-                Err(Error::new(e.kind(), msg))},
+
+                Err(Error::new(e.kind(), msg))
+            }
+        }
+    }
+    fn shutdown_write(&mut self, reason: &str) {
+        if log_enabled!(log::Level::Debug) {
+            debug!("{}::shutdown, reason: {}", self, reason);
+        }
+        match self.stream_reader.shutdown(std::net::Shutdown::Write) {
+            Ok(_) => {}
+            Err(e) if e.kind() == ErrorKind::NotConnected => {}
+            Err(e) => {
+                panic!("{}::shutdown, reason: {}, error: {}", self, reason, e);
+            }
         }
     }
 }
 impl<F: Framer, const MAX_MSG_SIZE: usize> Drop for FrameReader<F, MAX_MSG_SIZE> {
     fn drop(&mut self) {
-        if log_enabled!(log::Level::Debug) {
-            debug!("FrameReader::drop {}, {:?}", self.con_id, self.stream_reader);
-        }
-        match self.stream_reader.shutdown(std::net::Shutdown::Both) {
-            Ok(_) => {}
-            Err(e) if e.kind() == ErrorKind::NotConnected => {}
-            Err(e) => {
-                panic!("FrameReader::drop {} shutdown error: {}", self.con_id, e);
-            }
-        }
+        self.shutdown_write("drop")
     }
 }
 impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "FrameReader<{}> {{ {}->{}, fd: {} }}",
+            "{FRAME_READER}<{}> {{ {}, addr: {}, peer: {}, fd: {} }}",
             std::any::type_name::<F>()
                 .split("::")
                 .last()
                 .unwrap_or("Unknown"),
+            self.con_id,
             match self.stream_reader.local_addr() {
-                Ok(addr) => format!("{:?}", addr),
-                Err(_) => "disconnected".to_owned(),
+                Ok(_) => "connected",
+                Err(_) => "disconnected",
             },
             match self.stream_reader.peer_addr() {
-                Ok(addr) => format!("{:?}", addr),
-                Err(_) => "disconnected".to_owned(),
+                Ok(_) => "connected",
+                Err(_) => "disconnected",
             },
             self.stream_reader.as_raw_fd(),
         )
     }
 }
 
+const FRAME_WRITER: &str = "FrameWriter";
 #[derive(Debug)]
 pub struct FrameWriter {
     pub(crate) con_id: ConId,
@@ -135,6 +148,7 @@ impl FrameWriter {
                 // note: can't use write_all https://github.com/rust-lang/rust/issues/115451
                 #[rustfmt::skip]
                 Ok(EOF) => {
+                    self.shutdown_write("write_frame EOF"); // remember to shutdown on both exception and on EOF
                     let msg = format!("connection reset by peer, residual buf:\n{}", to_hex_pretty(residual));
                     return Err(Error::new(ErrorKind::ConnectionReset, msg));
                 }
@@ -158,8 +172,9 @@ impl FrameWriter {
                     }
                 }
                 Err(e) => {
+                    self.shutdown_write("write_frame error"); // remember to shutdown on both exception and on EOF
                     let msg = format!(
-                        "{} FrameWriter::writer_frame error: {}, residual:\n{}",
+                        "{} {FRAME_WRITER}::writer_frame error: {}, residual:\n{}",
                         self.con_id,
                         e,
                         to_hex_pretty(residual)
@@ -170,35 +185,40 @@ impl FrameWriter {
         }
         Ok(SendStatus::Completed)
     }
-}
-impl Drop for FrameWriter {
-    fn drop(&mut self) {
+
+    /// Only shutdown the write side of the underlying stream so that the tcp can complete receiving ACKs
+    fn shutdown_write(&mut self, reason: &str) {
         if log_enabled!(log::Level::Debug) {
-            debug!("FrameWriter::drop {}, {:?}", self.con_id, self.stream_writer);
+            debug!("{}::shutdown reason: {}", self, reason);
         }
-        match self.stream_writer.shutdown(std::net::Shutdown::Both) {
+        match self.stream_writer.shutdown(std::net::Shutdown::Write) {
             Ok(_) => {}
             Err(e) if e.kind() == ErrorKind::NotConnected => {}
             Err(e) => {
-                panic!("FrameWriter::drop {} shutdown error: {}", self.con_id, e);
+                panic!("{}::shutdown reason: {}, error: {}", self, reason, e);
             }
         }
+    }
+}
+impl Drop for FrameWriter {
+    fn drop(&mut self) {
+        self.shutdown_write("drop")
     }
 }
 impl Display for FrameWriter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "FrameWriter {{ {}, stream: {} }}",
+            "{FRAME_WRITER} {{ {}, addr: {}, peer: {}, fd: {} }}",
             self.con_id,
-            // match self.stream_writer.local_addr() {
-            //     Ok(addr) => format!("{:?}", addr),
-            //     Err(_) => "disconnected".to_owned(),
-            // },
-            // match self.stream_writer.peer_addr() {
-            //     Ok(addr) => format!("{:?}", addr),
-            //     Err(_) => "disconnected".to_owned(),
-            // },
+            match self.stream_writer.local_addr() {
+                Ok(_) => "connected",
+                Err(_) => "disconnected",
+            },
+            match self.stream_writer.peer_addr() {
+                Ok(_) => "connected",
+                Err(_) => "disconnected",
+            },
             self.stream_writer.as_raw_fd(),
         )
     }

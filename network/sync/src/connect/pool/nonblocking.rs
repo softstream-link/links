@@ -5,12 +5,12 @@ use std::{
     sync::{
         mpsc::{channel, Receiver, Sender},
         Arc,
-    }, f32::consts::E,
+    }, 
 };
 
 use crate::{core::iter::CycleRange, prelude_nonblocking::*};
 use links_network_core::prelude::{CallbackRecv, CallbackRecvSend, CallbackSend, ConId, Messenger};
-use log::{debug, info, log_enabled, warn, Level};
+use log::{debug, info, log_enabled, warn,};
 use slab::Slab;
 
 pub struct ConnectionPool<
@@ -155,7 +155,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBloc
                 if self.service_once_rx_queue()? {
                     self.recv_nonblocking()
                 } else {
-                    Err(Error::new(ErrorKind::NotConnected, "No recvers available in the pool"))
+                    Err(Error::new(ErrorKind::NotConnected, "Not Connected, 0 recvers available in the pool"))
                 }
             }
         }
@@ -273,7 +273,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBloc
                 if self.service_once_rx_queue()? {
                     self.send_nonblocking(msg)
                 } else {
-                    Err(Error::new(ErrorKind::NotConnected, "No senders available in the pool"))
+                    Err(Error::new(ErrorKind::NotConnected, "Not Connected, 0 senders available in the pool"))
                 }
             }
         }
@@ -378,5 +378,53 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} PoolAcceptor", self.con_id)
+    }
+}
+
+
+#[cfg(test)]
+mod test{
+    use crate::{prelude_nonblocking::*, unittest::setup::framer::{TestSvcMsgProtocol,TestCltMsgProtocol, TEST_MSG_FRAME_SIZE}};
+    use links_testing::unittest::setup;
+    use links_network_core::prelude::DevNullCallback;
+    use log::{LevelFilter, info};
+
+    #[test]
+    fn test_svc_clt_connected_svc_max_connections() {
+        setup::log::configure_level(LevelFilter::Info);
+        let addr = setup::net::rand_avail_addr_port();
+        let max_connections = 2;
+
+        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
+            addr,
+            DevNullCallback::<TestSvcMsgProtocol>::new_ref(),
+            max_connections,
+            Some("unittest"),
+        )
+        .unwrap();
+        info!("svc: {}", svc);
+
+        let mut clts = vec![];
+        for i in 0..max_connections * 2 {
+            let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+                addr,
+                setup::net::default_connect_timeout(),
+                setup::net::default_connect_retry_after(),
+                DevNullCallback::<TestCltMsgProtocol>::new_ref(),
+                Some("unittest"),
+            )
+            .unwrap();
+            info!("#{}, clt: {}", i, clt);
+            clts.push(clt);
+            svc.service_once().unwrap();
+        }
+
+        let (recv_count, send_count) = svc.pool_recv_send_len();
+        info!(
+            "svc: recv_count: {}, send_count: {}",
+            recv_count, send_count
+        );
+        assert_eq!(recv_count, max_connections);
+        assert_eq!(send_count, max_connections);
     }
 }

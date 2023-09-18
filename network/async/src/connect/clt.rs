@@ -313,7 +313,7 @@ mod test {
     use tokio::runtime::Builder;
 
     use super::*;
-    use links_network_core::prelude::LoggerCallback;
+    use links_network_core::prelude::LoggerCallbackOld;
     use crate::unittest::setup::protocol::*;
     use links_testing::unittest::setup;
 
@@ -321,7 +321,7 @@ mod test {
     async fn test_clt_not_connected_async() {
         setup::log::configure();
 
-        let logger = LoggerCallback::new(Level::Debug, Level::Debug).into();
+        let logger = LoggerCallbackOld::new(Level::Debug, Level::Debug).into();
         let clt = Clt::<_, _, 128>::connect_async(
             setup::net::rand_avail_addr_port(),
             setup::net::default_connect_timeout(),
@@ -341,7 +341,7 @@ mod test {
         setup::log::configure();
         let runtime = Arc::new(Builder::new_multi_thread().enable_all().build().unwrap());
 
-        let logger = LoggerCallback::new(Level::Debug, Level::Debug).into();
+        let logger = LoggerCallbackOld::new(Level::Debug, Level::Debug).into();
         let clt = Clt::<_, _, 128>::connect_sync(
             setup::net::rand_avail_addr_port(),
             setup::net::default_connect_timeout(),

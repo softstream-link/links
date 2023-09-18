@@ -8,10 +8,10 @@ use crate::prelude::*;
 use super::CallbackRecvSend;
 
 #[derive(Debug, Clone)]
-pub struct DevNullCallbackNew<M: Messenger> {
+pub struct DevNullCallback<M: Messenger> {
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: Messenger> Default for DevNullCallbackNew<M> {
+impl<M: Messenger> Default for DevNullCallback<M> {
     fn default() -> Self {
         Self {
             phantom: std::marker::PhantomData,
@@ -19,13 +19,13 @@ impl<M: Messenger> Default for DevNullCallbackNew<M> {
     }
 }
 
-impl<M: Messenger> DevNullCallbackNew<M> {
+impl<M: Messenger> DevNullCallback<M> {
     pub fn new_ref() -> Arc<Self> {
         Arc::new(Self::default())
     }
 }
 
-impl<M: Messenger> Display for DevNullCallbackNew<M> {
+impl<M: Messenger> Display for DevNullCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -33,13 +33,13 @@ impl<M: Messenger> Display for DevNullCallbackNew<M> {
         )
     }
 }
-impl<M: Messenger> CallbackRecvSend<M> for DevNullCallbackNew<M> {}
-impl<M: Messenger> CallbackRecv<M> for DevNullCallbackNew<M> {
+impl<M: Messenger> CallbackRecvSend<M> for DevNullCallback<M> {}
+impl<M: Messenger> CallbackRecv<M> for DevNullCallback<M> {
     #[allow(unused_variables)]
     #[inline(always)]
     fn on_recv(&self, con_id: &ConId, msg: &<M as Messenger>::RecvT) {}
 }
-impl<M: Messenger> CallbackSend<M> for DevNullCallbackNew<M> {
+impl<M: Messenger> CallbackSend<M> for DevNullCallback<M> {
     #[allow(unused_variables)]
     #[inline(always)]
     fn on_sent(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {}
