@@ -45,7 +45,7 @@ byteserde_derive = { workspace = true } # required to setup unit test models
 criterion = { workspace = true } # required to setup benchmarks
 rand = { workspace = true }      # required to setup benchmarks
 
-
+# BENCHMARKS
 [[bench]]
 name = "channel_rx_tx"
 harness = false
@@ -85,11 +85,12 @@ name = "clt2clt_nonblocking_busywait_bench"
 harness = false
 required-features = ["unittest"]
 
+# EXAMPLES
 
 [[example]]
-name = "sync_nonblocking_busywait_clt2clt_example"
+name = "clt2clt_nonblocking_busywait_example"
 required-features = ["full"]
 
 [[example]]
-name = "sync_nonblocking_busywait_clt2svcpool_example"
+name = "clt2svcpool_nonblocking_busywait_example"
 required-features = ["full"]
