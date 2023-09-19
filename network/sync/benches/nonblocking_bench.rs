@@ -65,7 +65,7 @@ fn send_random_frame(c: &mut Criterion) {
     info!("clt: {:?}", clt);
 
     let id = format!(
-        "sync_nonblocking_send_random_frame size: {} bytes",
+        "nonblocking_send_random_frame size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
     let mut frame_send_count = 0_usize;
@@ -163,7 +163,7 @@ fn recv_random_frame(c: &mut Criterion) {
 
     sleep(Duration::from_millis(1000));
     let id = format!(
-        "sync_nonblocking_recv_random_frame size: {} bytes",
+        "nonblocking_recv_random_frame size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
 

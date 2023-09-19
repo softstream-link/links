@@ -72,7 +72,7 @@ fn clt2clt_noclone() -> Result<(), Error> {
     pause_for_input("write post shutdown");
     assert_eq!(n, EOF);
 
-    let n = write(&mut svc)?;
+    let _n = write(&mut svc)?;
     // IF only WRITE is SHUTDOWN
     // 15	16.456955	127.0.0.1	127.0.0.1	TCP	66	8080 → 52634 [PSH, ACK] Seq=1 Ack=12 Win=408256 Len=10 TSval=3502553995 TSecr=307104660
     // 16	16.457039	127.0.0.1	127.0.0.1	TCP	56	52634 → 8080 [ACK] Seq=12 Ack=11 Win=408256 Len=0 TSval=307117156 TSecr=3502553995
@@ -82,7 +82,7 @@ fn clt2clt_noclone() -> Result<(), Error> {
 
     pause_for_input("write 2 post shutdown");
 
-    let n = write(&mut svc)?;
+    let _n = write(&mut svc)?;
     // assert_eq!(n, EOF);
 
     pause_for_input("exit");
@@ -99,7 +99,7 @@ fn pause_for_input(message: &str) {
     std::io::stdin().read_line(&mut buf).unwrap();
 }
 
-fn netstat(message: &str) {
+pub fn netstat(message: &str) {
     use std::process::{Command, Stdio};
     use std::str;
     let netstat = Command::new("netstat")
