@@ -288,7 +288,7 @@ mod test {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
 
-        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
+        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
             addr,
             LoggerCallback::<TestSvcMsgProtocol>::new_ref(),
             2,

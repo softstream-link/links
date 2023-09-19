@@ -3,6 +3,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_network_core::prelude::{ConId, Framer};
 use links_network_sync::connect::framer::nonblocking::into_split_framer;
 use links_network_sync::prelude_nonblocking::{RecvStatus, SendStatus};
+use links_testing::fmt_num;
 use links_testing::unittest::setup;
 use log::{error, info};
 use num_format::{Locale, ToFormattedString};
@@ -32,41 +33,43 @@ fn send_random_frame(c: &mut Criterion) {
     let addr = setup::net::rand_avail_addr_port();
 
     // CONFIGURE svc
-    let svc_reader = thread::Builder::new()
-        .name("Thread-Svc".to_owned())
-        .spawn({
-            move || {
-                let listener = TcpListener::bind(addr).unwrap();
-                let (stream, _) = listener.accept().unwrap();
-                let (mut reader, _writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
-                    ConId::svc(Some("benchmark"), addr, None),
-                    stream,
-                );
-                let mut frame_recv_count = 0_u32;
-                loop {
-                    match reader.read_frame() {
-                        Ok(RecvStatus::Completed(None)) => {
-                            info!("svc: read_frame is None, clt CLEAN connection close");
-                            break;
-                        }
-                        Ok(RecvStatus::Completed(Some(recv_frame))) => {
-                            frame_recv_count += 1;
-                            assert_eq!(send_frame, &recv_frame[..]);
-                            continue;
-                        }
-                        Ok(RecvStatus::WouldBlock) => {
-                            continue; // try reading again
-                        }
-                        Err(e) => {
-                            info!("Svc read_frame, expected error: {}", e);
-                            break;
+    let svc_reader_jh =
+        thread::Builder::new()
+            .name("Thread-Svc".to_owned())
+            .spawn({
+                move || {
+                    let listener = TcpListener::bind(addr).unwrap();
+                    let (stream, _) = listener.accept().unwrap();
+                    let (mut reader, _writer) =
+                        into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
+                            ConId::svc(Some("benchmark"), addr, None),
+                            stream,
+                        );
+                    let mut frame_recv_count = 0_u32;
+                    loop {
+                        match reader.read_frame() {
+                            Ok(RecvStatus::Completed(None)) => {
+                                info!("svc: read_frame is None, clt CLEAN connection close");
+                                break;
+                            }
+                            Ok(RecvStatus::Completed(Some(recv_frame))) => {
+                                frame_recv_count += 1;
+                                assert_eq!(send_frame, &recv_frame[..]);
+                                continue;
+                            }
+                            Ok(RecvStatus::WouldBlock) => {
+                                continue; // try reading again
+                            }
+                            Err(e) => {
+                                info!("Svc read_frame, expected error: {}", e);
+                                break;
+                            }
                         }
                     }
+                    frame_recv_count
                 }
-                frame_recv_count
-            }
-        })
-        .unwrap();
+            })
+            .unwrap();
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
@@ -78,7 +81,7 @@ fn send_random_frame(c: &mut Criterion) {
     // info!("clt: writer: {}", writer);
 
     let id = format!(
-        "framer_sync_nonblocking_send_random_frame size: {} bytes",
+        "framer_nonblocking_send_random_frame size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
     let mut frame_send_count = 0_u32;
@@ -104,11 +107,11 @@ fn send_random_frame(c: &mut Criterion) {
     });
 
     drop(clt_writer); // this will allow svc.join to complete
-    let frame_recv_count = svc_reader.join().unwrap();
+    let frame_recv_count = svc_reader_jh.join().unwrap();
     info!(
         "frame_send_count: {:?} = frame_recv_count: {:?}",
-        frame_send_count.to_formatted_string(&Locale::en),
-        frame_recv_count.to_formatted_string(&Locale::en)
+        fmt_num!(frame_send_count),
+        fmt_num!(frame_recv_count)
     );
 
     assert_eq!(frame_send_count, frame_recv_count);
@@ -120,36 +123,38 @@ fn recv_random_frame(c: &mut Criterion) {
     let addr = setup::net::rand_avail_addr_port();
 
     // CONFIGURE svc
-    let svc_writer = thread::Builder::new()
-        .name("Thread-Svc".to_owned())
-        .spawn({
-            move || {
-                let listener = TcpListener::bind(addr).unwrap();
-                let (stream, _) = listener.accept().unwrap();
-                let (_reader, mut writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
-                    ConId::svc(Some("benchmark"), addr, None),
-                    stream,
-                );
-                // info!("svc: writer: {}", writer);
-                let mut frame_send_count = 0_u32;
-                loop {
-                    match writer.write_frame(send_frame) {
-                        Ok(SendStatus::Completed) => {
-                            frame_send_count += 1;
-                        }
-                        Ok(SendStatus::WouldBlock) => {
-                            continue;
-                        }
-                        Err(e) => {
-                            info!("Svc write_frame, expected error: {}", e); // not error as client will stop reading and drop
-                            break;
+    let svc_writer_jh =
+        thread::Builder::new()
+            .name("Thread-Svc".to_owned())
+            .spawn({
+                move || {
+                    let listener = TcpListener::bind(addr).unwrap();
+                    let (stream, _) = listener.accept().unwrap();
+                    let (_reader, mut writer) =
+                        into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
+                            ConId::svc(Some("benchmark"), addr, None),
+                            stream,
+                        );
+                    // info!("svc: writer: {}", writer);
+                    let mut frame_send_count = 0_u32;
+                    loop {
+                        match writer.write_frame(send_frame) {
+                            Ok(SendStatus::Completed) => {
+                                frame_send_count += 1;
+                            }
+                            Ok(SendStatus::WouldBlock) => {
+                                continue;
+                            }
+                            Err(e) => {
+                                info!("Svc write_frame, expected error: {}", e); // not error as client will stop reading and drop
+                                break;
+                            }
                         }
                     }
+                    frame_send_count
                 }
-                frame_send_count
-            }
-        })
-        .unwrap();
+            })
+            .unwrap();
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
@@ -161,7 +166,7 @@ fn recv_random_frame(c: &mut Criterion) {
     // info!("clt: reader: {}", reader);
 
     let id = format!(
-        "framer_sync_nonblocking_recv_random_frame size: {} bytes",
+        "framer_nonblocking_recv_random_frame size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
     let mut frame_recv_count = 0_u32;
@@ -190,12 +195,12 @@ fn recv_random_frame(c: &mut Criterion) {
     });
 
     drop(clt_reader); // this will allow svc.join to complete
-    let frame_send_count = svc_writer.join().unwrap();
+    let frame_send_count = svc_writer_jh.join().unwrap();
     info!(
         "frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}",
-        frame_send_count.to_formatted_string(&Locale::en),
-        frame_recv_count.to_formatted_string(&Locale::en),
-        (frame_send_count - frame_recv_count).to_formatted_string(&Locale::en)
+        fmt_num!(frame_send_count),
+        fmt_num!(frame_recv_count),
+        fmt_num!(frame_send_count - frame_recv_count)
     );
 
     assert!(frame_send_count > frame_recv_count);
@@ -208,7 +213,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
     let addr = setup::net::rand_avail_addr_port();
 
     // CONFIGURE svc
-    let svc = thread::Builder::new()
+    let svc_jh = thread::Builder::new()
         .name("Thread-Svc".to_owned())
         .spawn({
             move || {
@@ -254,7 +259,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
     // info!("clt: writer: {}", writer);
 
     let id = format!(
-        "framer_sync_nonblocking_round_trip_random_frame size: {} bytes",
+        "framer_nonblocking_round_trip_random_frame size: {} bytes",
         BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
     );
     let mut frame_send_count = 0_u32;
@@ -298,12 +303,12 @@ fn round_trip_random_frame(c: &mut Criterion) {
     });
 
     drop(clt_writer); // this will allow svc.join to complete
-    // drop(clt_reader);
-    svc.join().unwrap();
+                      // drop(clt_reader);
+    svc_jh.join().unwrap();
     info!(
         "frame_send_count: {:?} = frame_recv_count: {:?}",
-        frame_send_count.to_formatted_string(&Locale::en),
-        frame_recv_count.to_formatted_string(&Locale::en)
+        fmt_num!(frame_send_count),
+        fmt_num!(frame_recv_count)
     );
 
     assert_eq!(frame_send_count, frame_recv_count);
@@ -315,5 +320,5 @@ criterion_group!(
     recv_random_frame,
     round_trip_random_frame
 );
-// criterion_group!(benches, recv_random_frame);
+
 criterion_main!(benches);

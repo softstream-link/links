@@ -117,11 +117,11 @@ mod test {
         let con_id = ConId::clt(Some("unittest"), None, "0.0.0.0:1");
         info!("con_id: {:?}", con_id);
         info!("con_id: {}", con_id);
-        assert_eq!(con_id.to_string(), "Clt(unittest@pending->0.0.0.0:1)");
+        assert_eq!(con_id.to_string(), "CltCon(unittest@pending->0.0.0.0:1)");
 
         let con_id = ConId::svc(Some("unittest"), "0.0.0.0:1", None);
         info!("con_id: {:?}", con_id);
         info!("con_id: {}", con_id);
-        assert_eq!(con_id.to_string(), "Svc(unittest@0.0.0.0:1<-pending)");
+        assert_eq!(con_id.to_string(), "SvcCon(unittest@0.0.0.0:1<-pending)");
     }
 }

@@ -1,4 +1,14 @@
 pub mod setup {
+    pub mod format{
+        
+        /// converts a number to a string with thousands separator
+        #[macro_export]
+        macro_rules! fmt_num{
+            ($num:expr) => {
+                $num.to_formatted_string(&Locale::en)
+            };
+        }
+    }
     pub mod log {
         use std::sync::Once;
         static SETUP: Once = Once::new();

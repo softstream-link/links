@@ -110,7 +110,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 #[cfg(test)]
 #[cfg(any(test, feature = "unittest"))]
 mod test {
-    use std::io::ErrorKind;
+    use std::{io::ErrorKind, time::Duration};
 
     use crate::prelude_nonblocking::*;
     use links_testing::unittest::setup::{
@@ -118,6 +118,7 @@ mod test {
         model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
     };
     use log::{info, Level, LevelFilter};
+    use rand::Rng;
 
     use crate::unittest::setup::framer::{
         TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE,
@@ -181,24 +182,42 @@ mod test {
         assert_eq!(clt_msg_inp, svc_msg_out);
 
         info!("--------- CLT SPLIT DIRECT ---------");
-        let (clt_recv, mut clt_send) = clt.into_split();
+        let (mut clt_recv, mut clt_send) = clt.into_split();
         clt_send.send_busywait(&mut clt_msg_inp).unwrap();
         let svc_msg_out = pool_recver.recv_busywait().unwrap().unwrap();
         // info!("svc_msg_out: {:?}", svc_msg_out);
         // info!("clt_msg_inp: {:?}", clt_msg_inp);
         assert_eq!(svc_msg_out, clt_msg_inp);
 
-        info!("--------- CLT DROP HALF ---------");
-        // drop clt_recv and ensure that clt_sender has broken pipe
-        drop(clt_recv);
-        let err = clt_send.send_nonblocking(&mut clt_msg_inp).unwrap_err();
-        info!("clt_send err: {}", err);
-        assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+        info!("--------- CLT DROP RANDOM HALF ---------");
 
-        info!("--------- SVC SEND SHOULD FAIL AFTER RECV is NONE ---------");
-        let opt = pool_recver.recv_nonblocking().unwrap().unwrap_completed();
+        // drop clt_recv and ensure that clt_sender has broken pipe
+        let drop_send = rand::thread_rng().gen_range(1..=2) % 2 == 0;
+
+        if drop_send {
+            info!("dropping clt_send");
+            drop(clt_send);
+            let opt = clt_recv.recv_nonblocking().unwrap().unwrap_completed();
+            info!("clt_recv opt: {:?}", opt);
+            assert_eq!(opt, None);
+        } else {
+            info!("dropping clt_recv");
+            drop(clt_recv); // drop of recv shuts down Write half of cloned stream and hence impacts clt_send
+            let err = clt_send.send_nonblocking(&mut clt_msg_inp).unwrap_err();
+            info!("clt_send err: {}", err);
+            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+        }
+
+        info!("--------- SVC RECV/SEND SHOULD FAIL CLT DROPS HALF ---------");
+        // recv with busywait to ensure that clt drop has delivered FIN signal and reciver does not just return WouldBlock
+        let opt = pool_recver
+            .recv_busywait_timeout(Duration::from_millis(100))
+            .unwrap()
+            .unwrap_completed();
         info!("pool_recver opt: {:?}", opt);
         assert_eq!(opt, None);
+        // because pool_recver will get None it will understand that the client socket is closed and hence will shutdown the write
+        // direction which in turn will force send to fail with ErrorKind::BrokenPipe
         let err = pool_sender.send_nonblocking(&mut svc_msg_inp).unwrap_err();
         info!("pool_sender err: {}", err);
         assert_eq!(err.kind(), ErrorKind::BrokenPipe);

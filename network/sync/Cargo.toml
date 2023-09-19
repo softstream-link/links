@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["full"]                     # TODO desable all default features during release
+default = ["full"]                             # TODO desable all default features during release
 full = ["unittest", "blocking", "nonblocking"]
 blocking = []
 nonblocking = ["dep:mio"]
@@ -15,8 +15,8 @@ unittest = ["dep:links_testing"]
 
 [dependencies]
 # networking nonblocking
-mio = { workspace = true, optional = true} # epoll wrapper
-nix = { workspace = true } # libc wrapper
+mio = { workspace = true, optional = true } # epoll wrapper
+nix = { workspace = true }                  # libc wrapper
 
 # blocking & nonblocking
 bytes = { workspace = true } # read buffer
@@ -47,15 +47,11 @@ rand = { workspace = true }      # required to setup benchmarks
 
 
 [[bench]]
-name = "framer_sync_blocking_bench"
+name = "channel_rx_tx"
 harness = false
 
 [[bench]]
-name = "sync_nonblocking_bench"
-harness = false
-
-[[bench]]
-name = "framer_sync_nonblocking_bench"
+name = "nonblocking_bench"
 harness = false
 
 [[bench]]
@@ -63,25 +59,31 @@ name = "message_ser_des"
 harness = false
 required-features = ["unittest"]
 
+
 [[bench]]
-name = "messender_sync_blocking_bench"
+name = "framer_blocking_bench"
+harness = false
+
+[[bench]]
+name = "framer_nonblocking_bench"
+harness = false
+
+
+[[bench]]
+name = "messender_blocking_bench"
 harness = false
 required-features = ["unittest"]
 
 [[bench]]
-name = "messender_sync_nonblocking_bench"
-harness = false
-required-features = ["unittest"]
-
-[[bench]]
-name = "clt2clt_sync_nonblocking_busywait_bench"
+name = "messender_nonblocking_bench"
 harness = false
 required-features = ["unittest"]
 
 
 [[bench]]
-name = "channel_rx_tx"
+name = "clt2clt_nonblocking_busywait_bench"
 harness = false
+required-features = ["unittest"]
 
 
 [[example]]

@@ -174,21 +174,25 @@ mod test {
     use crate::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol};
 
     use links_network_core::prelude::ConId;
-    use links_testing::unittest::setup::{self, model::*};
+    use links_testing::{
+        fmt_num,
+        unittest::setup::{self, model::*},
+    };
     use log::info;
     use num_format::{Locale, ToFormattedString};
+    use rand::Rng;
 
     #[test]
     fn test_messenger() {
-        setup::log::configure();
+        setup::log::configure_level(log::LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
-        const WRITE_N_TIMES: usize = 100_000;
+        const WRITE_N_TIMES: usize = 50_000;
 
         let svc = Builder::new()
             .name("Thread-Svc".to_owned())
             .spawn(move || {
                 let inp_svc_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
-                let (mut msg_sent_count, mut msg_recv_count) = (0_usize, 0_usize);
+                let (mut svc_msg_sent_count, mut svc_msg_recv_count) = (0_usize, 0_usize);
                 let listener = std::net::TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
                 let (mut recver, mut sender) =
@@ -196,17 +200,17 @@ mod test {
                         ConId::svc(Some("unittest"), addr, None),
                         stream,
                     );
-                info!("{} connected", sender);
+                info!("svc recver: {}", recver);
 
                 while let Ok(status) = recver.recv_nonblocking() {
                     match status {
                         RecvStatus::Completed(Some(_recv_msg)) => {
-                            msg_recv_count += 1;
+                            svc_msg_recv_count += 1;
                             while let SendStatus::WouldBlock =
                                 sender.send_nonblocking(&inp_svc_msg).unwrap()
                             {
                             }
-                            msg_sent_count += 1;
+                            svc_msg_sent_count += 1;
                         }
                         RecvStatus::Completed(None) => {
                             info!("{} Connection Closed by Client", recver);
@@ -215,49 +219,48 @@ mod test {
                         RecvStatus::WouldBlock => continue,
                     }
                 }
-                (msg_sent_count, msg_recv_count)
+                (svc_msg_sent_count, svc_msg_recv_count)
             })
             .unwrap();
 
         sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-        let clt = Builder::new()
-            .name("Thread-Clt".to_owned())
-            .spawn(move || {
-                let inp_clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
-                let (mut msg_sent_count, mut msg_recv_count) = (0, 0);
-                let stream = std::net::TcpStream::connect(addr).unwrap();
-                let (mut recver, mut sender) =
-                    into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
-                        ConId::clt(Some("unittest"), None, addr),
-                        stream,
-                    );
+        let inp_clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+        let (mut clt_msg_sent_count, mut clt_msg_recv_count) = (0, 0);
+        let stream = std::net::TcpStream::connect(addr).unwrap();
+        let (mut clt_recver, mut clt_sender) =
+            into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
+                ConId::clt(Some("unittest"), None, addr),
+                stream,
+            );
+        info!("clt sender: {}", clt_sender);
+        let start = Instant::now();
+        for _ in 0..WRITE_N_TIMES {
+            while let SendStatus::WouldBlock = clt_sender.send_nonblocking(&inp_clt_msg).unwrap() {}
+            clt_msg_sent_count += 1;
+            while let RecvStatus::WouldBlock = clt_recver.recv_nonblocking().unwrap() {}
+            clt_msg_recv_count += 1;
+        }
+        let elapsed = start.elapsed();
 
-                let start = Instant::now();
-                for _ in 0..WRITE_N_TIMES {
-                    while let SendStatus::WouldBlock =
-                        sender.send_nonblocking(&inp_clt_msg).unwrap()
-                    {}
-                    msg_sent_count += 1;
-                    while let RecvStatus::WouldBlock = recver.recv_nonblocking().unwrap() {}
-                    msg_recv_count += 1;
-                }
+        if rand::thread_rng().gen_range(1..=2) % 2 == 0 {
+            info!("dropping clt_sender");
+            drop(clt_sender);
+        } else {
+            info!("dropping clt_recver");
+            drop(clt_recver);
+        }
 
-                (msg_sent_count, msg_recv_count, start.elapsed())
-            })
-            .unwrap();
-
-        let (clt_msg_sent_count, clt_msg_recv_count, elapsed) = clt.join().unwrap();
         let (svc_msg_sent_count, svc_msg_recv_count) = svc.join().unwrap();
         info!(
             "clt_msg_sent_count: {}, clt_msg_recv_count: {}",
-            clt_msg_sent_count.to_formatted_string(&Locale::en),
-            clt_msg_recv_count.to_formatted_string(&Locale::en)
+            fmt_num!(clt_msg_sent_count),
+            fmt_num!(clt_msg_recv_count)
         );
         info!(
             "svc_msg_sent_count: {}, svc_msg_recv_count: {}",
-            svc_msg_sent_count.to_formatted_string(&Locale::en),
-            svc_msg_recv_count.to_formatted_string(&Locale::en)
+            fmt_num!(svc_msg_sent_count),
+            fmt_num!(svc_msg_recv_count)
         );
         info!(
             "per round trip elapsed: {:?}, total elapsed: {:?} ",

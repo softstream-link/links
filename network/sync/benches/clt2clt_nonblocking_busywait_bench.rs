@@ -9,10 +9,10 @@ use links_network_sync::{
         messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
     },
 };
-use links_testing::unittest::setup::{
+use links_testing::{unittest::setup::{
     self,
     model::{TestCltMsg, TestCltMsgDebug},
-};
+}, fmt_num};
 use log::info;
 use num_format::{Locale, ToFormattedString};
 
@@ -102,7 +102,7 @@ fn send_msg(c: &mut Criterion) {
     .unwrap();
     info!("clt_initiator: {}", clt_initiator);
 
-    let id = format!("clt2clt_send_msg_as_sync_non-blocking_busywait TestSvcMsg");
+    let id = format!("clt2clt_nonblocking_busywait_send_msg TestSvcMsg");
     let mut clt_initiator_msg_send_count = 0_usize;
     let mut clt_initiator_send_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
     c.bench_function(id.as_str(), |b| {
@@ -120,8 +120,8 @@ fn send_msg(c: &mut Criterion) {
     let clt_acceptor_msg_recv_count = clt_acceptor_jh.join().unwrap();
     info!(
         "clt_acceptor_msg_recv_count: {:?}, clt_initiator_msg_send_count: {:?}",
-        clt_acceptor_msg_recv_count.to_formatted_string(&Locale::en),
-        clt_initiator_msg_send_count.to_formatted_string(&Locale::en)
+        fmt_num!(clt_acceptor_msg_recv_count),
+        fmt_num!(clt_initiator_msg_send_count)
     );
     assert_eq!(clt_initiator_msg_send_count, clt_acceptor_msg_recv_count);
 }

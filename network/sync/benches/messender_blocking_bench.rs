@@ -52,7 +52,7 @@ fn send_msg(c: &mut Criterion) {
     );
     // info!("clt: writer: {}", writer);
 
-    let id = format!("send_msg_as_sync_blocking TestCltMsg");
+    let id = format!("messenger_blocking_send_msg TestCltMsg");
 
     let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
     let mut msg_send_count = 0_u32;
@@ -109,7 +109,7 @@ fn recv_msg(c: &mut Criterion) {
     );
     // info!("clt: reader: {}", reader);
 
-    let id = format!("recv_msg_as_sync_blocking TestSvcMsg");
+    let id = format!("messenger_blocking_recv_msg TestSvcMsg");
     let mut msg_recv_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
@@ -180,7 +180,7 @@ fn round_trip_msg(c: &mut Criterion) {
     );
     // info!("clt: writer: {}", writer);
 
-    let id = format!("round_trip_msg_as_sync_blocking",);
+    let id = format!("messenger_blocking_round_trip_msg",);
     let mut msg_send_count = 0_u32;
     let mut msg_recv_count = 0_u32;
     let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));

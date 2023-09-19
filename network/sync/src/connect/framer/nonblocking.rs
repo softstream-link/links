@@ -4,6 +4,7 @@ use byteserde::utils::hex::to_hex_pretty;
 use std::{
     fmt::Display,
     io::{Error, ErrorKind, Read, Write},
+    net::Shutdown,
 };
 
 use std::mem::MaybeUninit;
@@ -38,7 +39,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
 
         match self.stream_reader.read(&mut buf) {
             Ok(EOF) => {
-                self.shutdown_write("read_frame EOF"); // remember to shutdown on both exception and on EOF
+                self.shutdown(Shutdown::Write, "read_frame EOF"); // remember to shutdown on both exception and on EOF
                 if self.buffer.is_empty() {
                     Ok(RecvStatus::Completed(None))
                 } else {
@@ -60,9 +61,9 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             }
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(RecvStatus::WouldBlock),
             Err(e) => {
-                self.shutdown_write("read_frame error"); // remember to shutdown on both exception and on EOF
+                self.shutdown(Shutdown::Write, "read_frame error"); // remember to shutdown on both exception and on EOF
                 let msg = format!(
-                    "{} FrameReader::read_frame error: {} residual buf:\n{}",
+                    "{} FrameReader::read_frame caused by: [{}] residual buf:\n{}",
                     self.con_id,
                     e,
                     to_hex_pretty(&self.buffer[..])
@@ -72,23 +73,31 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             }
         }
     }
+
+    /// # Shutdown variants
+    /// * [Shutdown::Write] will send TCP FIN flag to the peer and any subsequence [`FrameWriter::write_frame`] will fail with [ErrorKind::BrokenPipe]
+    /// * [Shutdown::Read] will not send any TCP flags to the peer but all subsequent reads will [Self::stream_reader] will return Ok(0) and
+    /// subsequently [fread_frame] will return [Err(e) if e.kind() == ErrorKind::ConnectionReset]
     #[inline]
-    fn shutdown_write(&mut self, reason: &str) {
+    fn shutdown(&mut self, how: Shutdown, reason: &str) {
         if log_enabled!(log::Level::Debug) {
             debug!("{}::shutdown, reason: {}", self, reason);
         }
-        match self.stream_reader.shutdown(std::net::Shutdown::Write) {
+        match self.stream_reader.shutdown(how) {
             Ok(_) => {}
             Err(e) if e.kind() == ErrorKind::NotConnected => {}
             Err(e) => {
-                panic!("{}::shutdown, reason: {}, error: {}", self, reason, e);
+                panic!("{}::shutdown, reason: {}, caused by: [{}]", self, reason, e);
             }
         }
     }
 }
 impl<F: Framer, const MAX_MSG_SIZE: usize> Drop for FrameReader<F, MAX_MSG_SIZE> {
+    /// as a [FrameReader] it wil shutdown the underlying [mio::net::TcpStream] in both directions. This way 
+    /// the peer connection will recive a TCP FIN flag and and once it reaches the peer [FrameWriter] it will
+    /// get a [ErrorKind::BrokenPipe] error which in turn shall issue a [Shutdown::Write]
     fn drop(&mut self) {
-        self.shutdown_write("drop")
+        self.shutdown(Shutdown::Both, "drop")
     }
 }
 impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SIZE> {
@@ -145,7 +154,7 @@ impl FrameWriter {
                 // note: can't use write_all https://github.com/rust-lang/rust/issues/115451
                 #[rustfmt::skip]
                 Ok(EOF) => {
-                    self.shutdown_write("write_frame EOF"); // remember to shutdown on both exception and on EOF
+                    self.shutdown(Shutdown::Both, "write_frame EOF"); // remember to shutdown on both exception and on EOF
                     let msg = format!("connection reset by peer, residual buf:\n{}", to_hex_pretty(residual));
                     return Err(Error::new(ErrorKind::ConnectionReset, msg));
                 }
@@ -167,9 +176,9 @@ impl FrameWriter {
                     }
                 }
                 Err(e) => {
-                    self.shutdown_write("write_frame error"); // remember to shutdown on both exception and on EOF
+                    self.shutdown(Shutdown::Both, "write_frame error"); // remember to shutdown on both exception and on EOF
                     let msg = format!(
-                        "{} FrameWriter::writer_frame error: {}, residual:\n{}",
+                        "{} FrameWriter::writer_frame caused by: [{}], residual:\n{}",
                         self.con_id,
                         e,
                         to_hex_pretty(residual)
@@ -182,22 +191,22 @@ impl FrameWriter {
     }
 
     /// Only shutdown the write side of the underlying stream so that the tcp can complete receiving ACKs
-    fn shutdown_write(&mut self, reason: &str) {
+    fn shutdown(&mut self, how: Shutdown, reason: &str) {
         if log_enabled!(log::Level::Debug) {
             debug!("{}::shutdown reason: {}", self, reason);
         }
-        match self.stream_writer.shutdown(std::net::Shutdown::Write) {
+        match self.stream_writer.shutdown(how) {
             Ok(_) => {}
             Err(e) if e.kind() == ErrorKind::NotConnected => {}
             Err(e) => {
-                panic!("{}::shutdown reason: {}, error: {}", self, reason, e);
+                panic!("{}::shutdown reason: {}, caused by: [{}]", self, reason, e);
             }
         }
     }
 }
 impl Drop for FrameWriter {
     fn drop(&mut self) {
-        self.shutdown_write("drop")
+        self.shutdown(Shutdown::Both, "drop")
     }
 }
 impl Display for FrameWriter {
@@ -230,7 +239,9 @@ pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
     mut con_id: ConId,
     stream: std::net::TcpStream,
 ) -> FrameProcessor<F, MAX_MSG_SIZE> {
-    
+    stream
+        .set_nonblocking(true)
+        .expect("Failed to set_nonblocking on TcpStream");
     con_id.set_local(stream.local_addr().unwrap());
     con_id.set_peer(stream.peer_addr().unwrap());
     let (reader, writer) = (
@@ -239,12 +250,7 @@ pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
             .expect("Failed to try_clone TcpStream for FrameReader"),
         stream,
     );
-    reader
-        .set_nonblocking(true)
-        .expect("Failed to set_nonblocking on TcpStream");
-    writer
-        .set_nonblocking(true)
-        .expect("Failed to set_nonblocking on TcpStream");
+
     let (reader, writer) = (
         mio::net::TcpStream::from_std(reader),
         mio::net::TcpStream::from_std(writer),
@@ -269,10 +275,23 @@ mod test {
     use bytes::{Bytes, BytesMut};
     use byteserde::utils::hex::to_hex_pretty;
     use links_network_core::prelude::{ConId, Framer};
-    use links_testing::unittest::setup;
+    use links_testing::{fmt_num, unittest::setup};
     use log::{error, info};
     use num_format::{Locale, ToFormattedString};
+    use rand::Rng;
 
+    /// # High Level Approach
+    /// 1. Spawn FrameReader in a sperate thread
+    ///     1. accept connection that will be split into reader & writer
+    ///     2. only use reader and read until None or Err
+    ///     3. return frame_recv_count upon completion
+    /// 2. Create FrameWriter in main thread
+    ///     1. the connection will be split into reader & writer
+    ///     2. only use writer to write N frames
+    ///     3. randomly drop either reader or writer as join FrameReader thread which should succesfully exist in either case
+    ///     4. ensure number of frames sent by FrameWriter equals number of frames received by FrameReader
+    /// # Notes
+    /// * turn on LevelFilter::Debug for addtional logging, it will show drop events
     #[test]
     fn test_reader() {
         setup::log::configure_level(log::LevelFilter::Info);
@@ -348,10 +367,9 @@ mod test {
         sleep(Duration::from_millis(100)); // allow the spawned to bind
 
         // CONFIGUR clt
-        // keep _reader as if you drop it the writer connection will also be closed
         let stream = TcpStream::connect(addr).unwrap();
 
-        let (_reader, mut writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
+        let (reader, mut writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
             ConId::clt(Some("unittest"), None, addr),
             stream,
         );
@@ -378,12 +396,18 @@ mod test {
         }
         let elapsed = start.elapsed();
 
-        drop(writer);
+        if rand::thread_rng().gen_range(1..=2) % 2 == 0 {
+            info!("dropping writer");
+            drop(writer);
+        } else {
+            info!("dropping reader");
+            drop(reader);
+        }
         let frame_recv_count = svc.join().unwrap();
         info!(
             "frame_send_count: {}, frame_recv_count: {}",
-            frame_send_count.to_formatted_string(&Locale::en),
-            frame_recv_count.to_formatted_string(&Locale::en)
+            fmt_num!(frame_send_count),
+            fmt_num!(frame_recv_count)
         );
         info!(
             "per send elapsed: {:?}, total elapsed: {:?} ",
