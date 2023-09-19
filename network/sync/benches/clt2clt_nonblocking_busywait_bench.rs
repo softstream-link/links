@@ -9,12 +9,14 @@ use links_network_sync::{
         messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
     },
 };
-use links_testing::{unittest::setup::{
-    self,
-    model::{TestCltMsg, TestCltMsgDebug},
-}, fmt_num};
+use links_testing::{
+    fmt_num,
+    unittest::setup::{
+        self,
+        model::{TestCltMsg, TestCltMsgDebug},
+    },
+};
 use log::info;
-use num_format::{Locale, ToFormattedString};
 
 fn setup<MSvc: Messenger, MClt: Messenger>() -> (
     &'static str,

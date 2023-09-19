@@ -117,7 +117,6 @@ mod test {
         model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug, TEST_MSG_FRAME_SIZE},
     };
     use log::info;
-    use num_format::{Locale, ToFormattedString};
 
     #[test]
     fn test_messenger() {

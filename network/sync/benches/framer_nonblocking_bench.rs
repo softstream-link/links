@@ -6,7 +6,6 @@ use links_network_sync::prelude_nonblocking::{RecvStatus, SendStatus};
 use links_testing::fmt_num;
 use links_testing::unittest::setup;
 use log::{error, info};
-use num_format::{Locale, ToFormattedString};
 use std::{
     net::{TcpListener, TcpStream},
     thread::{self, sleep},
@@ -195,6 +194,7 @@ fn recv_random_frame(c: &mut Criterion) {
     });
 
     drop(clt_reader); // this will allow svc.join to complete
+    drop(_clt_writer); // TODO critical github hangs unless write dropped, finish pod ubuntu testing with tshark and remove this drop
     let frame_send_count = svc_writer_jh.join().unwrap();
     info!(
         "frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}",

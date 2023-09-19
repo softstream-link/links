@@ -16,7 +16,6 @@ use links_testing::unittest::setup::{
     model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
 };
 use log::{error, info};
-use num_format::{Locale, ToFormattedString};
 
 fn send_msg(c: &mut Criterion) {
     setup::log::configure_level(log::LevelFilter::Info);

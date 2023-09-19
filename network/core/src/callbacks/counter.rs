@@ -8,7 +8,6 @@ use std::{
 
 use crate::core::MessengerOld;
 use crate::prelude::*;
-use num_format::{Locale, ToFormattedString};
 
 use super::CallbackSendRecvOld;
 

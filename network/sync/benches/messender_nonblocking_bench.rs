@@ -22,7 +22,6 @@ use links_testing::{
 };
 use log::info;
 use nix::sys::socket::{setsockopt, sockopt::ReusePort};
-use num_format::{Locale, ToFormattedString};
 
 fn send_msg(c: &mut Criterion) {
     setup::log::configure_level(log::LevelFilter::Info);

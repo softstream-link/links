@@ -3,7 +3,6 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_testing::fmt_num;
 use links_testing::unittest::setup;
 use log::info;
-use num_format::{Locale, ToFormattedString};
 use std::io::ErrorKind;
 use std::{
     io::{Read, Write},

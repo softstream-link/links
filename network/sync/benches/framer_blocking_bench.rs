@@ -12,7 +12,6 @@ use links_network_sync::connect::framer::blocking::into_split_framer;
 use links_testing::unittest::setup;
 use log::{error, info};
 use nix::sys::socket::{setsockopt, sockopt::ReusePort};
-use num_format::{Locale, ToFormattedString};
 
 const BENCH_MAX_FRAME_SIZE: usize = 128;
 pub struct BenchMsgFramer;

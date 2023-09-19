@@ -11,7 +11,6 @@ use links_network_async::connect::framer::into_split_frame_manager;
 use links_network_core::prelude::Framer;
 use links_testing::unittest::setup::{self, data::random_bytes};
 use log::info;
-use num_format::{Locale, ToFormattedString};
 
 const BENCH_MAX_FRAME_SIZE: usize = 128;
 pub struct BenchMsgFramer;

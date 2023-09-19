@@ -277,7 +277,6 @@ mod test {
     use links_network_core::prelude::{ConId, Framer};
     use links_testing::{fmt_num, unittest::setup};
     use log::{error, info};
-    use num_format::{Locale, ToFormattedString};
     use rand::Rng;
 
     /// # High Level Approach

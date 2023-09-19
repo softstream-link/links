@@ -179,7 +179,6 @@ mod test {
         unittest::setup::{self, model::*},
     };
     use log::info;
-    use num_format::{Locale, ToFormattedString};
     use rand::Rng;
 
     #[test]

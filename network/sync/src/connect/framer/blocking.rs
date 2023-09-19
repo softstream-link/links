@@ -141,7 +141,6 @@ mod test {
     use links_network_core::prelude::Framer;
     use links_testing::unittest::setup;
     use log::{error, info};
-    use num_format::{Locale, ToFormattedString};
 
     #[test]
     fn test_reader() {

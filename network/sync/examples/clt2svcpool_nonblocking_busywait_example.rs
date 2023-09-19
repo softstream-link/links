@@ -19,7 +19,6 @@ use links_testing::unittest::setup::{
     model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
 };
 use log::info;
-use num_format::{Locale, ToFormattedString};
 
 fn main() -> Result<(), Box<dyn Error>> {
     run()

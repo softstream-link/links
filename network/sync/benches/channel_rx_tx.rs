@@ -8,7 +8,6 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use links_testing::unittest::setup;
 use log::info;
-use num_format::{Locale, ToFormattedString};
 
 fn send_random_frame_as_channel(c: &mut Criterion) {
     setup::log::configure();
