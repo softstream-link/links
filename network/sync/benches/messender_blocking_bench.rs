@@ -5,7 +5,7 @@ use std::{
 };
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::prelude::ConId;
+use links_network_core::{fmt_num, prelude::ConId};
 use links_network_sync::{
     prelude_blocking::*,
     unittest::setup::messenger::TestCltMsgProtocol,
@@ -68,8 +68,8 @@ fn send_msg(c: &mut Criterion) {
     let msg_recv_count = reader.join().unwrap();
     info!(
         "msg_send_count: {:?}, msg_recv_count: {:?}",
-        msg_send_count.to_formatted_string(&Locale::en),
-        msg_recv_count.to_formatted_string(&Locale::en)
+        fmt_num!(msg_send_count),
+        fmt_num!(msg_recv_count)
     );
     assert_eq!(msg_send_count, msg_recv_count);
 }
@@ -123,8 +123,8 @@ fn recv_msg(c: &mut Criterion) {
     let msg_send_count = writer.join().unwrap();
     info!(
         "msg_send_count: {:?}, msg_recv_count: {:?}",
-        msg_send_count.to_formatted_string(&Locale::en),
-        msg_recv_count.to_formatted_string(&Locale::en)
+        fmt_num!(msg_send_count),
+        fmt_num!(msg_recv_count)
     );
 
     assert!(msg_send_count > msg_recv_count);
@@ -206,8 +206,8 @@ fn round_trip_msg(c: &mut Criterion) {
     svc.join().unwrap();
     info!(
         "msg_send_count: {:?}, msg_recv_count: {:?}",
-        msg_send_count.to_formatted_string(&Locale::en),
-        msg_recv_count.to_formatted_string(&Locale::en)
+        fmt_num!(msg_send_count),
+        fmt_num!(msg_recv_count)
     );
 
     assert_eq!(msg_send_count, msg_recv_count);

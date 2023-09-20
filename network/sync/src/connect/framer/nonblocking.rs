@@ -93,7 +93,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
     }
 }
 impl<F: Framer, const MAX_MSG_SIZE: usize> Drop for FrameReader<F, MAX_MSG_SIZE> {
-    /// as a [FrameReader] it wil shutdown the underlying [mio::net::TcpStream] in both directions. This way 
+    /// as a [FrameReader] it wil shutdown the underlying [mio::net::TcpStream] in both directions. This way
     /// the peer connection will recive a TCP FIN flag and and once it reaches the peer [FrameWriter] it will
     /// get a [ErrorKind::BrokenPipe] error which in turn shall issue a [Shutdown::Write]
     fn drop(&mut self) {
@@ -274,8 +274,11 @@ mod test {
 
     use bytes::{Bytes, BytesMut};
     use byteserde::utils::hex::to_hex_pretty;
-    use links_network_core::prelude::{ConId, Framer};
-    use links_testing::{fmt_num, unittest::setup};
+    use links_network_core::{
+        fmt_num,
+        prelude::{ConId, Framer},
+    };
+    use links_testing::unittest::setup;
     use log::{error, info};
     use rand::Rng;
 

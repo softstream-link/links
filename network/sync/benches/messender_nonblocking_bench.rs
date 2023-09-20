@@ -5,7 +5,7 @@ use std::{
 };
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::prelude::ConId;
+use links_network_core::{prelude::ConId, fmt_num};
 use links_network_sync::{
     prelude_nonblocking::{into_split_messenger, RecvMsgNonBlocking, RecvStatus, SendStatus},
     unittest::setup::{
@@ -13,12 +13,9 @@ use links_network_sync::{
         messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
     },
 };
-use links_testing::{
-    fmt_num,
-    unittest::setup::{
-        self,
-        model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
-    },
+use links_testing::unittest::setup::{
+    self,
+    model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
 };
 use log::info;
 use nix::sys::socket::{setsockopt, sockopt::ReusePort};

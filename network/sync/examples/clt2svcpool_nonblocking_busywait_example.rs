@@ -6,7 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use links_network_core::prelude::{CallbackRecvSend, DevNullCallback, Messenger};
+use links_network_core::{prelude::{CallbackRecvSend, DevNullCallback, Messenger}, fmt_num};
 use links_network_sync::{
     prelude_nonblocking::*,
     unittest::setup::{
@@ -89,8 +89,8 @@ fn run() -> Result<(), Box<dyn Error>> {
     let (msg_recv_count, mut svc) = svc_jh.join().unwrap();
     info!(
         "msg_send_count: {}, msg_recv_count: {} , per/write {:?}, total: {:?}",
-        WRITE_N_TIMES.to_formatted_string(&Locale::en),
-        msg_recv_count.to_formatted_string(&Locale::en),
+        fmt_num!(WRITE_N_TIMES),
+        fmt_num!(msg_recv_count),
         elapsed / WRITE_N_TIMES as u32,
         elapsed
     );

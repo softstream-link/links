@@ -138,7 +138,7 @@ mod test {
 
     use bytes::{Bytes, BytesMut};
     use byteserde::utils::hex::to_hex_pretty;
-    use links_network_core::prelude::Framer;
+    use links_network_core::{fmt_num, prelude::Framer};
     use links_testing::unittest::setup;
     use log::{error, info};
 
@@ -217,8 +217,8 @@ mod test {
 
         info!(
             "frame_send_count: {}, frame_recv_count: {}",
-            frame_send_count.to_formatted_string(&Locale::en),
-            frame_recv_count.to_formatted_string(&Locale::en)
+            fmt_num!(frame_send_count),
+            fmt_num!(frame_recv_count)
         );
         info!(
             "per send elapsed: {:?}, total elapsed: {:?} ",

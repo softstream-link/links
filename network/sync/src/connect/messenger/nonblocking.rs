@@ -173,11 +173,8 @@ mod test {
     use crate::prelude_nonblocking::*;
     use crate::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol};
 
-    use links_network_core::prelude::ConId;
-    use links_testing::{
-        fmt_num,
-        unittest::setup::{self, model::*},
-    };
+    use links_network_core::{fmt_num, prelude::ConId};
+    use links_testing::unittest::setup::{self, model::*};
     use log::info;
     use rand::Rng;
 

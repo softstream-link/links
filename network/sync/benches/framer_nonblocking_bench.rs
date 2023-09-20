@@ -1,9 +1,9 @@
 use bytes::{Bytes, BytesMut};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use links_network_core::fmt_num;
 use links_network_core::prelude::{ConId, Framer};
 use links_network_sync::connect::framer::nonblocking::into_split_framer;
 use links_network_sync::prelude_nonblocking::{RecvStatus, SendStatus};
-use links_testing::fmt_num;
 use links_testing::unittest::setup;
 use log::{error, info};
 use std::{
@@ -81,7 +81,7 @@ fn send_random_frame(c: &mut Criterion) {
 
     let id = format!(
         "framer_nonblocking_send_random_frame size: {} bytes",
-        BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
+        fmt_num!(BENCH_MAX_FRAME_SIZE)
     );
     let mut frame_send_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
@@ -166,7 +166,7 @@ fn recv_random_frame(c: &mut Criterion) {
 
     let id = format!(
         "framer_nonblocking_recv_random_frame size: {} bytes",
-        BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
+        fmt_num!(BENCH_MAX_FRAME_SIZE)
     );
     let mut frame_recv_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
@@ -260,7 +260,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
 
     let id = format!(
         "framer_nonblocking_round_trip_random_frame size: {} bytes",
-        BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
+        fmt_num!(BENCH_MAX_FRAME_SIZE)
     );
     let mut frame_send_count = 0_u32;
     let mut frame_recv_count = 0_u32;

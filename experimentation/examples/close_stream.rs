@@ -37,7 +37,7 @@ fn clt2clt_noclone() -> Result<(), Error> {
     // 9	2.015779	127.0.0.1	127.0.0.1	TCP	56	[TCP Window Update] 8080 → 52608 [ACK] Seq=1 Ack=1 Win=408256 Len=0 TSval=1236383785 TSecr=3532670732
 
     println!("clt: {:?}, svc: {:?}", clt, svc);
-    pause_for_input("read/write");
+    // pause_for_input("read/write");
 
     for _ in 0..1 {
         pause_for_input("clt write");
@@ -76,7 +76,7 @@ fn clt2clt_noclone() -> Result<(), Error> {
     // IF only WRITE is SHUTDOWN
     // 15	16.456955	127.0.0.1	127.0.0.1	TCP	66	8080 → 52634 [PSH, ACK] Seq=1 Ack=12 Win=408256 Len=10 TSval=3502553995 TSecr=307104660
     // 16	16.457039	127.0.0.1	127.0.0.1	TCP	56	52634 → 8080 [ACK] Seq=12 Ack=11 Win=408256 Len=0 TSval=307117156 TSecr=3502553995
-    // IF both WRITE & READ SHUTDOWN
+    // IF both WRITE & READ SHUTDOWN /dropp
     // 17	67.450044	127.0.0.1	127.0.0.1	TCP	66	8080 → 52643 [PSH, ACK] Seq=1 Ack=12 Win=408256 Len=10 TSval=2927182 TSecr=3227935204
     // 18	67.450125	127.0.0.1	127.0.0.1	TCP	44	52643 → 8080 [RST] Seq=12 Win=0 Len=0
 

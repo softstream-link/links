@@ -6,6 +6,7 @@ use std::{
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
+use links_network_core::fmt_num;
 use links_testing::unittest::setup;
 use log::info;
 
@@ -55,8 +56,8 @@ fn send_random_frame_as_channel(c: &mut Criterion) {
 
     info!(
         "frame_send_count: {:?} > frame_recv_count: {:?}",
-        frame_send_count.to_formatted_string(&Locale::en),
-        frame_recv_count.to_formatted_string(&Locale::en)
+        fmt_num!(frame_send_count),
+        fmt_num!(frame_recv_count)
     );
 
     assert!(frame_send_count > frame_recv_count);
@@ -108,8 +109,8 @@ fn send_random_frame_as_sync_channel(c: &mut Criterion) {
 
     info!(
         "frame_send_count: {:?} = frame_recv_count: {:?}",
-        frame_send_count.to_formatted_string(&Locale::en),
-        frame_recv_count.to_formatted_string(&Locale::en)
+        fmt_num!(frame_send_count),
+        fmt_num!(frame_recv_count)
     );
 
     assert_eq!(frame_send_count, frame_recv_count);

@@ -6,8 +6,8 @@ use std::{
     },
 };
 
-use crate::core::MessengerOld;
 use crate::prelude::*;
+use crate::{core::MessengerOld, fmt_num};
 
 use super::CallbackSendRecvOld;
 
@@ -38,12 +38,8 @@ impl<M: MessengerOld> Display for CounterCallback<M> {
         write!(
             f,
             "CounterCallback<sent: {}, recv: {}>",
-            self.sent
-                .load(Ordering::SeqCst)
-                .to_formatted_string(&Locale::en),
-            self.recv
-                .load(Ordering::SeqCst)
-                .to_formatted_string(&Locale::en)
+            fmt_num!(self.sent.load(Ordering::SeqCst)),
+            fmt_num!(self.recv.load(Ordering::SeqCst))
         )
     }
 }

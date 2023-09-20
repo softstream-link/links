@@ -1,7 +1,7 @@
 pub mod conid;
 pub mod counters;
 pub mod messenger;
-
+pub mod fmt;
 use std::fmt::Debug;
 
 use bytes::{Bytes, BytesMut};

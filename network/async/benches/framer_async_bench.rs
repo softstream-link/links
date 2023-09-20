@@ -8,7 +8,7 @@ use tokio::{
 use bytes::{Bytes, BytesMut};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_network_async::connect::framer::into_split_frame_manager;
-use links_network_core::prelude::Framer;
+use links_network_core::{prelude::Framer, fmt_num};
 use links_testing::unittest::setup::{self, data::random_bytes};
 use log::info;
 
@@ -75,7 +75,7 @@ fn send_random_frame_as_asynch_block_on(c: &mut Criterion) {
     let random_frame = random_bytes(BENCH_MAX_FRAME_SIZE);
     let id = format!(
         "send_random_frame_as_async_block_on size: {} bytes",
-        BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
+        fmt_num!(BENCH_MAX_FRAME_SIZE)
     );
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
@@ -90,8 +90,8 @@ fn send_random_frame_as_asynch_block_on(c: &mut Criterion) {
     let frame_recv_count = svc_runtime.block_on(async move { svc.await.unwrap() });
     info!(
         "send_count: {:?}, recv_count: {:?}",
-        frame_send_count.to_formatted_string(&Locale::en),
-        frame_recv_count.to_formatted_string(&Locale::en)
+        fmt_num!(frame_send_count),
+        fmt_num!(frame_recv_count)
     );
 
     assert_eq!(frame_send_count, frame_recv_count);
@@ -132,7 +132,7 @@ fn send_random_frame_as_async(c: &mut Criterion) {
     let random_frame = random_bytes(BENCH_MAX_FRAME_SIZE);
     let id = format!(
         "send_random_frame_as_async size: {} bytes",
-        BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
+        fmt_num!(BENCH_MAX_FRAME_SIZE)
     );
     c.bench_function(id.as_str(), {
         |b| {
@@ -186,7 +186,7 @@ fn recv_random_frame_as_async(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // wait for svc to start
     let id = format!(
         "recv_random_frame_as_async size: {} bytes",
-        BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
+        fmt_num!(BENCH_MAX_FRAME_SIZE)
     );
 
     c.bench_function(id.as_str(), {
@@ -245,7 +245,7 @@ fn round_trip_random_frame_as_async(c: &mut Criterion) {
     let random_frame = random_bytes(BENCH_MAX_FRAME_SIZE);
     let id = format!(
         "round_trip_random_frame_as_async size: {} bytes",
-        BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
+        fmt_num!(BENCH_MAX_FRAME_SIZE)
     );
     c.bench_function(id.as_str(), {
         |b| {

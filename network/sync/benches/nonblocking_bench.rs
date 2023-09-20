@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use links_testing::fmt_num;
+use links_network_core::fmt_num;
 use links_testing::unittest::setup;
 use log::info;
 use std::io::ErrorKind;
@@ -65,7 +65,7 @@ fn send_random_frame(c: &mut Criterion) {
 
     let id = format!(
         "nonblocking_send_random_frame size: {} bytes",
-        BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
+        fmt_num!(BENCH_MAX_FRAME_SIZE)
     );
     let mut frame_send_count = 0_usize;
     c.bench_function(id.as_str(), |b| {
@@ -163,7 +163,7 @@ fn recv_random_frame(c: &mut Criterion) {
     sleep(Duration::from_millis(1000));
     let id = format!(
         "nonblocking_recv_random_frame size: {} bytes",
-        BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
+        fmt_num!(BENCH_MAX_FRAME_SIZE)
     );
 
     let mut byte_recv_count = 0;

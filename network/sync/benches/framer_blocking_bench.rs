@@ -7,7 +7,7 @@ use std::{
 
 use bytes::{Bytes, BytesMut};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::prelude::Framer;
+use links_network_core::{prelude::Framer, fmt_num};
 use links_network_sync::connect::framer::blocking::into_split_framer;
 use links_testing::unittest::setup;
 use log::{error, info};
@@ -76,7 +76,7 @@ fn send_random_frame(c: &mut Criterion) {
 
     let id = format!(
         "framer_blocking_send_random_frame size: {} bytes",
-        BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
+        fmt_num!(BENCH_MAX_FRAME_SIZE)
     );
     let mut frame_send_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
@@ -92,8 +92,8 @@ fn send_random_frame(c: &mut Criterion) {
     let frame_recv_count = reader.join().unwrap();
     info!(
         "frame_send_count: {:?} = frame_recv_count: {:?}",
-        frame_send_count.to_formatted_string(&Locale::en),
-        frame_recv_count.to_formatted_string(&Locale::en)
+        fmt_num!(frame_send_count),
+        fmt_num!(frame_recv_count)
     );
 
     assert_eq!(frame_send_count, frame_recv_count);
@@ -143,7 +143,7 @@ fn recv_random_frame(c: &mut Criterion) {
 
     let id = format!(
         "framer_blocking_recv_random_frame size: {} bytes",
-        BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
+        fmt_num!(BENCH_MAX_FRAME_SIZE)
     );
     let mut frame_recv_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
@@ -159,9 +159,9 @@ fn recv_random_frame(c: &mut Criterion) {
     let frame_send_count = writer.join().unwrap();
     info!(
         "frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}",
-        frame_send_count.to_formatted_string(&Locale::en),
-        frame_recv_count.to_formatted_string(&Locale::en),
-        (frame_send_count - frame_recv_count).to_formatted_string(&Locale::en),
+        fmt_num!(frame_send_count),
+        fmt_num!(frame_recv_count),
+        fmt_num!(frame_send_count - frame_recv_count),
     );
 
     assert!(frame_send_count > frame_recv_count);
@@ -213,7 +213,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
 
     let id = format!(
         "framer_blocking_round_trip_random_frame size: {} bytes",
-        BENCH_MAX_FRAME_SIZE.to_formatted_string(&Locale::en)
+        fmt_num!(BENCH_MAX_FRAME_SIZE)
     );
     let mut frame_send_count = 0_u32;
     let mut frame_recv_count = 0_u32;
@@ -243,8 +243,8 @@ fn round_trip_random_frame(c: &mut Criterion) {
     svc.join().unwrap();
     info!(
         "frame_send_count: {:?} = frame_recv_count: {:?}",
-        frame_send_count.to_formatted_string(&Locale::en),
-        frame_recv_count.to_formatted_string(&Locale::en)
+        fmt_num!(frame_send_count),
+        fmt_num!(frame_recv_count)
     );
 
     assert_eq!(frame_send_count, frame_recv_count);

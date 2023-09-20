@@ -111,7 +111,7 @@ mod test {
     use crate::prelude_blocking::*;
     use crate::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol};
 
-    use links_network_core::prelude::ConId;
+    use links_network_core::{prelude::ConId, fmt_num};
     use links_testing::unittest::setup::{
         self,
         model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug, TEST_MSG_FRAME_SIZE},
@@ -179,13 +179,13 @@ mod test {
         let (svc_msg_sent_count, svc_msg_recv_count) = svc.join().unwrap();
         info!(
             "clt_msg_sent_count: {}, clt_msg_recv_count: {}",
-            clt_msg_sent_count.to_formatted_string(&Locale::en),
-            clt_msg_recv_count.to_formatted_string(&Locale::en)
+            fmt_num!(clt_msg_sent_count),
+            fmt_num!(clt_msg_recv_count)
         );
         info!(
             "svc_msg_sent_count: {}, svc_msg_recv_count: {}",
-            svc_msg_sent_count.to_formatted_string(&Locale::en),
-            svc_msg_recv_count.to_formatted_string(&Locale::en)
+            fmt_num!(svc_msg_sent_count),
+            fmt_num!(svc_msg_recv_count)
         );
         info!(
             "per round trip elapsed: {:?}, total elapsed: {:?} ",

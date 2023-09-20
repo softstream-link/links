@@ -1,7 +1,7 @@
 use std::{sync::Arc, thread::Builder, time::Duration};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::prelude::{CallbackRecvSend, DevNullCallback, Messenger};
+use links_network_core::{prelude::{CallbackRecvSend, DevNullCallback, Messenger}, fmt_num};
 use links_network_sync::{
     prelude_nonblocking::*,
     unittest::setup::{
@@ -9,12 +9,9 @@ use links_network_sync::{
         messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
     },
 };
-use links_testing::{
-    fmt_num,
-    unittest::setup::{
-        self,
-        model::{TestCltMsg, TestCltMsgDebug},
-    },
+use links_testing::unittest::setup::{
+    self,
+    model::{TestCltMsg, TestCltMsgDebug},
 };
 use log::info;
 
