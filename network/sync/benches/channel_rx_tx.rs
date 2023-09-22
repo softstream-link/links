@@ -10,7 +10,7 @@ use links_network_core::fmt_num;
 use links_testing::unittest::setup;
 use log::info;
 
-fn send_random_frame_as_channel(c: &mut Criterion) {
+fn channel_rx_tx_send_random_frame(c: &mut Criterion) {
     setup::log::configure();
 
     let (tx, rx) = channel::<&[u8]>();
@@ -36,7 +36,7 @@ fn send_random_frame_as_channel(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGUR clt
-    let id = format!("send_random_frame_as_channel size: {} bytes", 128);
+    let id = format!("channel_rx_tx_send_random_frame size: {} bytes", 128);
     let mut frame_recv_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
@@ -63,7 +63,7 @@ fn send_random_frame_as_channel(c: &mut Criterion) {
     assert!(frame_send_count > frame_recv_count);
 }
 
-fn send_random_frame_as_sync_channel(c: &mut Criterion) {
+fn channel_rx_tx_send_random_frame_sync(c: &mut Criterion) {
     setup::log::configure();
 
     let (tx, rx) = sync_channel::<&[u8]>(0);
@@ -89,7 +89,7 @@ fn send_random_frame_as_sync_channel(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGUR clt
-    let id = format!("send_random_frame_as_sync_channel size: {} bytes", 128);
+    let id = format!("channel_rx_tx_send_random_frame_sync size: {} bytes", 128);
     let mut frame_recv_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
@@ -118,8 +118,8 @@ fn send_random_frame_as_sync_channel(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    send_random_frame_as_channel,
-    send_random_frame_as_sync_channel
+    channel_rx_tx_send_random_frame,
+    channel_rx_tx_send_random_frame_sync
 );
 
 criterion_main!(benches);

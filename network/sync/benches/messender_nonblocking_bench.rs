@@ -142,6 +142,7 @@ fn recv_msg(c: &mut Criterion) {
     });
 
     drop(clt_reader); // this will allow svc.join to complete
+    drop(_clt_writer); // TODO git hub issue - https://github.com/bheisler/criterion.rs/issues/726
 
     let msg_send_count = writer_jh.join().unwrap();
     info!(

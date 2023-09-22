@@ -8,5 +8,5 @@ cargo test --doc
 
 # Run all benchmarks
 ```shell
-cargo bench
+cargo bench --all-features
 ```
