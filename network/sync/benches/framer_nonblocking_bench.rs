@@ -117,7 +117,7 @@ fn send_random_frame(c: &mut Criterion) {
 }
 
 fn recv_random_frame(c: &mut Criterion) {
-    setup::log::configure_level(log::LevelFilter::Info);
+    setup::log::configure_level(log::LevelFilter::Debug);
     let send_frame = setup::data::random_bytes(BENCH_MAX_FRAME_SIZE);
     let addr = setup::net::rand_avail_addr_port();
 
@@ -194,7 +194,7 @@ fn recv_random_frame(c: &mut Criterion) {
     });
 
     drop(clt_reader); // this will allow svc.join to complete
-    drop(_clt_writer); // TODO critical github hangs unless write dropped, finish pod ubuntu testing with tshark and remove this drop
+    drop(_clt_writer); // TODO git hub issue - https://github.com/bheisler/criterion.rs/issues/726
     let frame_send_count = svc_writer_jh.join().unwrap();
     info!(
         "frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}",

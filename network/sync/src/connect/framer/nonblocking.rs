@@ -80,14 +80,25 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
     /// subsequently [fread_frame] will return [Err(e) if e.kind() == ErrorKind::ConnectionReset]
     #[inline]
     fn shutdown(&mut self, how: Shutdown, reason: &str) {
-        if log_enabled!(log::Level::Debug) {
-            debug!("{}::shutdown, reason: {}", self, reason);
-        }
         match self.stream_reader.shutdown(how) {
-            Ok(_) => {}
-            Err(e) if e.kind() == ErrorKind::NotConnected => {}
+            Ok(_) => {
+                if log_enabled!(log::Level::Debug) {
+                    debug!("{}::shutdown how: {:?}, reason: {}", self, how, reason);
+                }
+            }
+            Err(e) if e.kind() == ErrorKind::NotConnected => {
+                if log_enabled!(log::Level::Debug) {
+                    debug!(
+                        "{}::shutdown while diconnected how: {:?}, reason: {}",
+                        self, how, reason
+                    );
+                }
+            }
             Err(e) => {
-                panic!("{}::shutdown, reason: {}, caused by: [{}]", self, reason, e);
+                panic!(
+                    "{}::shutdown how: {:?}, reason: {}, caused by: [{}]",
+                    self, how, reason, e
+                );
             }
         }
     }
@@ -152,10 +163,12 @@ impl FrameWriter {
         while !residual.is_empty() {
             match self.stream_writer.write(residual) {
                 // note: can't use write_all https://github.com/rust-lang/rust/issues/115451
-                #[rustfmt::skip]
                 Ok(EOF) => {
                     self.shutdown(Shutdown::Both, "write_frame EOF"); // remember to shutdown on both exception and on EOF
-                    let msg = format!("connection reset by peer, residual buf:\n{}", to_hex_pretty(residual));
+                    let msg = format!(
+                        "connection reset by peer, residual buf:\n{}",
+                        to_hex_pretty(residual)
+                    );
                     return Err(Error::new(ErrorKind::ConnectionReset, msg));
                 }
                 Ok(len) => {
@@ -166,7 +179,7 @@ impl FrameWriter {
                         continue;
                     }
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                Err(e) if e.kind() == ErrorKind::WouldBlock => {
                     if bytes.len() == residual.len() {
                         // no bytes where written so Just report back NotReady
                         return Ok(SendStatus::WouldBlock);
@@ -178,9 +191,10 @@ impl FrameWriter {
                 Err(e) => {
                     self.shutdown(Shutdown::Both, "write_frame error"); // remember to shutdown on both exception and on EOF
                     let msg = format!(
-                        "{} FrameWriter::writer_frame caused by: [{}], residual:\n{}",
+                        "{} FrameWriter::writer_frame caused by: [{}], residual len: {}\n{}",
                         self.con_id,
                         e,
+                        residual.len(),
                         to_hex_pretty(residual)
                     );
                     return Err(Error::new(e.kind(), msg));
@@ -192,14 +206,25 @@ impl FrameWriter {
 
     /// Only shutdown the write side of the underlying stream so that the tcp can complete receiving ACKs
     fn shutdown(&mut self, how: Shutdown, reason: &str) {
-        if log_enabled!(log::Level::Debug) {
-            debug!("{}::shutdown reason: {}", self, reason);
-        }
         match self.stream_writer.shutdown(how) {
-            Ok(_) => {}
-            Err(e) if e.kind() == ErrorKind::NotConnected => {}
+            Ok(_) => {
+                if log_enabled!(log::Level::Debug) {
+                    debug!("{}::shutdown how: {:?}, reason: {}", self, how, reason);
+                }
+            }
+            Err(e) if e.kind() == ErrorKind::NotConnected => {
+                if log_enabled!(log::Level::Debug) {
+                    debug!(
+                        "{}::shutdown while disconnected how: {:?}, reason: {}",
+                        self, how, reason
+                    );
+                }
+            }
             Err(e) => {
-                panic!("{}::shutdown reason: {}, caused by: [{}]", self, reason, e);
+                panic!(
+                    "{}::shutdown how: {:?}, reason: {}, caused by: [{}]",
+                    self, how, reason, e
+                );
             }
         }
     }

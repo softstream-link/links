@@ -1,0 +1,14 @@
+3-way handshake
+    1 0.000000000    127.0.0.1 → 127.0.0.1    TCP 74 54134 → 8080 [SYN] Seq=0 Win=65495 Len=0 MSS=65495 SACK_PERM TSval=3818452039 TSecr=0 WS=128
+    2 0.000009958    127.0.0.1 → 127.0.0.1    TCP 74 8080 → 54134 [SYN, ACK] Seq=0 Ack=1 Win=65483 Len=0 MSS=65495 SACK_PERM TSval=3818452039 TSecr=3818452039 WS=128
+    3 0.000021083    127.0.0.1 → 127.0.0.1    TCP 66 54134 → 8080 [ACK] Seq=1 Ack=1 Win=65536 Len=0 TSval=3818452039 TSecr=3818452039
+clt window size update
+    NA
+clt.shutdown(BOTH) -> FIN
+    4 0.000043458    127.0.0.1 → 127.0.0.1    TCP 66 54134 → 8080 [FIN, ACK] Seq=1 Ack=1 Win=65536 Len=0 TSval=3818452039 TSecr=3818452039
+svc -> ACK
+    5 0.000244041    127.0.0.1 → 127.0.0.1    TCP 66 8080 → 54134 [ACK] Seq=1 Ack=2 Win=65536 Len=0 TSval=3818452040 TSecr=3818452039
+svc attempt to write to a shutdown clt
+    6 1.001405709    127.0.0.1 → 127.0.0.1    TCP 76 8080 → 54134 [PSH, ACK] Seq=1 Ack=2 Win=65536 Len=10 TSval=3818453041 TSecr=3818452039
+clt kernel indicates noone is listening ->RST
+    7 1.001502542    127.0.0.1 → 127.0.0.1    TCP 54 54134 → 8080 [RST] Seq=2 Win=0 Len=0

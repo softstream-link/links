@@ -140,14 +140,7 @@ pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
             .expect("Failed to try_clone TcpStream for MessageRecver"),
         stream,
     );
-    // // TODO set_delay performance issues?
-    // reader
-    //     .set_nodelay(true)
-    //     .expect("failed to set_nodelay=true");
 
-    // writer
-    //     .set_nodelay(true)
-    //     .expect("failed to set_nodelay=true");
     let (reader, writer) = (
         mio::net::TcpStream::from_std(reader),
         mio::net::TcpStream::from_std(writer),
