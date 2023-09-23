@@ -1,16 +1,16 @@
-//! This module contains a `paired` [FrameReader] and [FrameWriter] which are designed to be used in separate threads, 
-//! where each thread is only doing either reading or writing to the underlying [TcpStream]. Note that the underlying [TcpStream]
-//! is cloned and therefore share a single underlying network socket. 
+//! This module contains a non blocking `paired` [FrameReader] and [FrameWriter] which are designed to be used in separate threads, 
+//! where each thread is only doing either reading or writing to the underlying [mio::net::TcpStream]. 
+//! Note that the underlying [mio::net::TcpStream] is cloned and therefore share a single underlying network socket. 
 //! # Example
 //! ```no_run
-//! let addr = "127.0.0.0:80"
+//! let addr = "127.0.0.0:80";
 //! let clt_stream = std::net::TcpStream::connect(addr).unwrap();
 //! let (clt_reader, clt_writer) = into_split_framer::<MsgFramer, 128>(
 //!         ConId::clt(Some("unittest"), None, addr), 
 //!         clt_stream,
 //!     );
 //! 
-//! let svc_stream = std::net::TcpListener::bind(addr).unwrap().accept().unwrap();
+//! let svc_stream = std::net::TcpListener::bind(addr).unwrap().accept().unwrap().0;
 //! let (svc_reader, svc_writer) = into_split_framer::<MsgFramer, 128>(
 //!         ConId::svc(Some("unittest"), addr, None),
 //!         svc_stream,
@@ -50,9 +50,9 @@ const EOF: usize = 0;
 /// passed to the generic impl of [Framer::get_frame] where it is user's responsibility to inspect the buffer and split off a single frame.
 ///
 /// # Generic Parameters
-///   * `F` - impl of [Framer] trait which is responsible for splitting the internal buffer into a single frame
-///   * `MAX_MSG_SIZE` - [usize] the maximum number of bytes that a system call will be able to read in a single invocation. 
-/// Select this number to be able to be at least as large as the largest message size in bytes you will be sending over the network. 
+///  * `F` - a type that implements [Framer] trait. This trait is used to split off a single frame from the internal buffer
+///  * `MAX_MSG_SIZE` - a const generic that represents the maximum size of a single frame. This is used to preallocate the internal buffer.
+/// Set this number to the maximum size of a single frame for your protocol.
 #[derive(Debug)]
 pub struct FrameReader<F: Framer, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
@@ -75,7 +75,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
     }
 
     /// Reads `exactly one frame` from the underlying [TcpStream], see [RecvStatus] for more details on the meaning of 
-    /// each variant in the succesfull schenario
+    /// each variant in the successful scenario
     #[inline]
     pub fn read_frame(&mut self) -> Result<RecvStatus<Bytes>, Error> {
         // TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MSG_SIZE generic as it can just be an non const arg to new
@@ -135,7 +135,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             Err(e) if e.kind() == ErrorKind::NotConnected => {
                 if log_enabled!(log::Level::Debug) {
                     debug!(
-                        "{}::shutdown while diconnected how: {:?}, reason: {}",
+                        "{}::shutdown while disconnected how: {:?}, reason: {}",
                         self, how, reason
                     );
                 }
@@ -361,17 +361,17 @@ mod test {
     use rand::Rng;
 
     /// # High Level Approach
-    /// 1. Spawn FrameReader in a sperate thread
+    /// 1. Spawn FrameReader in a separate thread
     ///     1. accept connection that will be split into reader & writer
     ///     2. only use reader and read until None or Err
     ///     3. return frame_recv_count upon completion
     /// 2. Create FrameWriter in main thread
     ///     1. the connection will be split into reader & writer
     ///     2. only use writer to write N frames
-    ///     3. randomly drop either reader or writer as join FrameReader thread which should succesfully exist in either case
+    ///     3. randomly drop either reader or writer as join FrameReader thread which should successfully exist in either case
     ///     4. ensure number of frames sent by FrameWriter equals number of frames received by FrameReader
     /// # Notes
-    /// * turn on LevelFilter::Debug for addtional logging, it will show drop events
+    /// * turn on LevelFilter::Debug for additional logging, it will show drop events
     #[test]
     fn test_reader() {
         setup::log::configure_level(log::LevelFilter::Info);
@@ -434,7 +434,7 @@ mod test {
                                     continue; // try reading again
                                 }
                                 Err(e) => {
-                                    error!("Svc read_rame error: {}", e.to_string());
+                                    error!("Svc read_frame error: {}", e.to_string());
                                     break;
                                 }
                             }
@@ -446,7 +446,7 @@ mod test {
 
         sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-        // CONFIGUR clt
+        // CONFIGURE clt
         let stream = TcpStream::connect(addr).unwrap();
 
         let (reader, mut writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(

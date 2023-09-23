@@ -1,14 +1,53 @@
+//! This module contains a blocking `paired` [FrameReader] and [FrameWriter] which are designed to be used in separate threads.
+//! where each thread is only doing either reading or writing to the underlying [std::net::TcpStream].
+//! Note that the underlying [std::net::TcpStream] is cloned and therefore share a single underlying network socket.
+//! Example
+//! ```no_run
+//! let addr = "127.0.0.0:80";
+//! let clt_stream = std::net::TcpStream::connect(addr).unwrap();
+//! let (clt_reader, clt_writer) = into_split_framer::<MsgFramer, 128>(
+//!         ConId::clt(Some("unittest"), None, addr),
+//!         clt_stream,
+//!     );
+//!
+//! let svc_stream = std::net::TcpListener::bind(addr).unwrap().accept().unwrap().0;
+//! let (svc_reader, svc_writer) = into_split_framer::<MsgFramer, 128>(
+//!         ConId::svc(Some("unittest"), addr, None),
+//!         svc_stream,
+//!     );
+//!
+//! // Note:
+//!     // paired
+//!         // clt_reader & clt_writer
+//!         // svc_reader & svc_writer
+//!     // peers
+//!         // clt_reader & svc_writer
+//!         // svc_reader & clt_writer
+//! ```
+
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
 use links_network_core::prelude::*;
+use log::{debug, log_enabled};
 use std::fmt::Display;
-use std::io::{Read, Write};
+use std::io::{ErrorKind, Read, Write};
 use std::mem::MaybeUninit;
+use std::net::Shutdown;
 use std::os::fd::AsRawFd;
 use std::{io::Error, net::TcpStream};
 
 const EOF: usize = 0;
 
+/// Represents an abstraction for reading exactly oen frame from the [TcpStream].
+/// Each call to the [Self::read_frame] will issue a [Read::read] system call on the underlying [TcpStream].
+/// which will capture any bytes read into internal accumulator implemented as a [BytesMut]. This internal buffer will be
+/// passed to the generic impl of [Framer::get_frame] where it is user's responsibility to  inspect the buffer and split off a single frame.
+/// 
+/// # Generic Parameters
+///  * `F` - A type that implements the [Framer] trait. This is used to split off a single frame from the internal buffer.
+///  * `MAX_MSG_SIZE` - The maximum size of a single frame. This is used to pre-allocate the internal buffer.
+/// Set this number to the maximum size of a single frame for your protocol.
+///  
 #[derive(Debug)]
 pub struct FrameReader<F: Framer, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
@@ -17,6 +56,10 @@ pub struct FrameReader<F: Framer, const MAX_MSG_SIZE: usize> {
     phantom: std::marker::PhantomData<F>,
 }
 impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
+    /// Creates a new instance of [FrameReader]
+    /// # Arguments
+    /// * `con_id` - [ConId] a unique identifier for the connection and used for logging
+    /// * `reader` - [TcpStream] the underlying stream that will be used for reading
     pub fn new(con_id: ConId, reader: TcpStream) -> FrameReader<F, MAX_MSG_SIZE> {
         Self {
             con_id,
@@ -25,6 +68,8 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             phantom: std::marker::PhantomData,
         }
     }
+    
+    /// Reads `exactly one frame` from the underlying [TcpStream] and returns it as a [Some(Bytes)] or [None] if the connection was closed.
     #[inline]
     pub fn read_frame(&mut self) -> Result<Option<Bytes>, Error> {
         loop {
@@ -33,25 +78,68 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             } else {
                 #[allow(clippy::uninit_assumed_init)]
                 let mut buf: [u8; MAX_MSG_SIZE] = unsafe { MaybeUninit::uninit().assume_init() };
-                match self.stream_reader.read(&mut buf)? {
-                    EOF => {
+                match self.stream_reader.read(&mut buf) {
+                    Ok(EOF) => {
+                        self.shutdown(Shutdown::Write, "read_frame EOF");
                         if self.buffer.is_empty() {
                             return Ok(None);
                         } else {
                             let msg = format!(
-                                "connection reset by peer, residual buf: \n{}",
+                                "FrameReader::read_frame connection reset by peer, residual buf:\n{}",
                                 to_hex_pretty(&self.buffer[..])
                             );
                             return Err(Error::new(std::io::ErrorKind::ConnectionReset, msg));
                         }
                     }
-                    len => {
+                    Ok(len) => {
                         self.buffer.extend_from_slice(&buf[..len]);
-                        continue;
+                        continue; // more bytes added, try to get a frame again
+                    }
+                    Err(e) => {
+                        self.shutdown(Shutdown::Write, "read_frame error");
+                        let msg = format!(
+                            "{} FrameReader::read_frame caused by: [{}] residual buf:\n{}",
+                            self.con_id,
+                            e,
+                            to_hex_pretty(&self.buffer[..])
+                        );
+                        return Err(Error::new(e.kind(), msg));
                     }
                 }
             }
         }
+    }
+    #[inline]
+    fn shutdown(&mut self, how: Shutdown, reason: &str) {
+        match self.stream_reader.shutdown(how) {
+            Ok(_) => {
+                if log_enabled!(log::Level::Debug) {
+                    debug!("{}::shutdown how: {:?}, reason: {}", self, how, reason);
+                }
+            }
+            Err(e) if e.kind() == ErrorKind::NotConnected => {
+                if log_enabled!(log::Level::Debug) {
+                    debug!(
+                        "{}::shutdown while disconnected how: {:?}, reason: {}",
+                        self, how, reason
+                    );
+                }
+            }
+            Err(e) => {
+                panic!(
+                    "{}::shutdown how: {:?}, reason: {}, caused by: [{}]",
+                    self, how, reason, e
+                );
+            }
+        }
+    }
+}
+impl<F: Framer, const MAX_MSG_SIZE: usize> Drop for FrameReader<F, MAX_MSG_SIZE> {
+    /// Will shutdown the underlying [std::net::TcpStream] in both directions. This way
+    /// the `peer` connection will receive a TCP FIN flag and and once it reaches the `peer` [FrameWriter] it will
+    /// get a [ErrorKind::BrokenPipe] error which in turn shall issue a [Shutdown::Write]
+    fn drop(&mut self) {
+        self.shutdown(Shutdown::Both, "drop")
     }
 }
 impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SIZE> {
@@ -77,23 +165,68 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SI
     }
 }
 
+/// Represents an abstraction for writing a single frame to the underlying [TcpStream].
 #[derive(Debug)]
 pub struct FrameWriter {
     pub(crate) con_id: ConId,
     pub(crate) stream_writer: TcpStream,
 }
 impl FrameWriter {
+    /// Creates a new instance of [FrameWriter]
+    /// # Arguments
+    /// * `con_id` - [ConId] a unique identifier for the connection and used for logging
+    /// * `stream` - [TcpStream] the underlying stream that will be used for writing
     pub fn new(con_id: ConId, stream: TcpStream) -> Self {
         Self {
             con_id,
             stream_writer: stream,
         }
     }
+    /// Writes a single frame to the underlying [TcpStream].
     #[inline]
     pub fn write_frame(&mut self, bytes: &[u8]) -> Result<(), Error> {
-        self.stream_writer.write_all(bytes)?;
-        self.stream_writer.flush()?;
-        Ok(())
+        match self.stream_writer.write_all(bytes) {
+            Ok(_) => return Ok(()),
+            Err(e) => {
+                self.shutdown(Shutdown::Write, "write_frame error");
+                let msg = format!(
+                    "{} FrameWriter::write_frame caused by: [{}]",
+                    self.con_id, e
+                );
+                return Err(Error::new(e.kind(), msg));
+            }
+        }
+    }
+
+    /// Shuts down the underlying [std::net::TcpStream] in the specified direction.
+    fn shutdown(&mut self, how: Shutdown, reason: &str) {
+        match self.stream_writer.shutdown(how) {
+            Ok(_) => {
+                if log_enabled!(log::Level::Debug) {
+                    debug!("{}::shutdown how: {:?}, reason: {}", self, how, reason);
+                }
+            }
+            Err(e) if e.kind() == ErrorKind::NotConnected => {
+                if log_enabled!(log::Level::Debug) {
+                    debug!(
+                        "{}::shutdown while disconnected how: {:?}, reason: {}",
+                        self, how, reason
+                    );
+                }
+            }
+            Err(e) => {
+                panic!(
+                    "{}::shutdown how: {:?}, reason: {}, caused by: [{}]",
+                    self, how, reason, e
+                );
+            }
+        }
+    }
+}
+impl Drop for FrameWriter {
+    /// Will shutdown the underlying [mio::net::TcpStream] in both directions.
+    fn drop(&mut self) {
+        self.shutdown(Shutdown::Both, "drop")
     }
 }
 impl Display for FrameWriter {
@@ -183,14 +316,14 @@ mod test {
                 move || {
                     let listener = TcpListener::bind(addr).unwrap();
                     let (stream, _) = listener.accept().unwrap();
-                    let (mut reader, _) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
+                    let (mut svc_reader, _svc_writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
                         ConId::svc(Some("unittest"), addr, None),
                         stream,
                     );
-                    info!("svc: reader: {}", reader);
+                    info!("svc: reader: {}", svc_reader);
                     let mut frame_recv_count = 0_usize;
                     loop {
-                        let res = reader.read_frame();
+                        let res = svc_reader.read_frame();
                         match res {
                             Ok(frame) => {
                                 if let None = frame {
@@ -213,22 +346,22 @@ mod test {
 
         sleep(Duration::from_millis(100)); // allow the spawned to bind
                                            // CONFIGUR clt
-        let (_, mut writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
+        let (_clt_reader, mut clt_writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
             ConId::clt(Some("unittest"), None, addr),
             TcpStream::connect(addr).unwrap(),
         );
 
-        info!("clt: {}", writer);
+        info!("clt: {}", clt_writer);
 
         let mut frame_send_count = 0_usize;
         let start = Instant::now();
         for _ in 0..WRITE_N_TIMES {
-            writer.write_frame(send_frame).unwrap();
+            clt_writer.write_frame(send_frame).unwrap();
             frame_send_count += 1;
         }
         let elapsed = start.elapsed();
 
-        drop(writer);
+        drop(clt_writer);
         let frame_recv_count = svc.join().unwrap();
 
         info!(
