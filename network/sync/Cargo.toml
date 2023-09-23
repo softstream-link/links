@@ -47,7 +47,7 @@ rand = { workspace = true }      # required to setup benchmarks
 
 # BENCHMARKS
 [[bench]]
-name = "channel_rx_tx"
+name = "channel_rx_tx_bench"
 harness = false
 
 [[bench]]

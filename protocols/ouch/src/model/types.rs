@@ -312,8 +312,8 @@ pub mod timestamp {
 
     #[rustfmt::skip]
     u64_tuple!(Timestamp, "be", ByteSerializeStack, ByteDeserializeSlice, ByteSerializedSizeOf, ByteSerializedLenOf, PartialEq, Debug, Clone, Copy);
-    /// Converts into nanseconds from last midnight of a given [DateTime<Local>] and into a [Timestamp]
     impl From<DateTime<Local>> for Timestamp {
+        /// Converts into nanseconds from last midnight of a given [`DateTime<Local>`] and into a [Timestamp]
         fn from(dt: DateTime<Local>) -> Self {
             let naive_now = dt.naive_local();
             Timestamp::from(naive_now)

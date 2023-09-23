@@ -11,7 +11,7 @@ use byteserde::prelude::*;
 pub trait Framer {
     /// The implementation of this function should use protocol specific logic to determine when enough bytes are available
     /// and return the Some(Bytes) or None per below
-    /// ```
+    /// ```dontrun
     /// // if required_frame_len = frame_len {
     /// //     let frame = bytes.split_to(required_frame_len);
     /// //     Some(frame.freeze())

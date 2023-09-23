@@ -23,8 +23,8 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
     }
     /// If there was a successfull attempt to write any bytes from serialized message
     /// into the stream but the write was only partial then the call shall buzy wait until all
-    /// remaining bytes were written before returning [WriteStatus::Completed].
-    /// [WriteStatus::WouldBlock] is returned only if the attemp did not write any bytes to the stream
+    /// remaining bytes were written before returning [SendStatus::Completed].
+    /// [SendStatus::WouldBlock] is returned only if the attemp did not write any bytes to the stream
     /// after the first attempt
     #[inline(always)]
     pub fn send_nonblocking(&mut self, msg: &M::SendT) -> Result<SendStatus, Error> {
@@ -32,7 +32,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
         self.frm_writer.write_frame(&bytes[..size])
     }
 
-    /// Will call [send_nonblocking] untill it returns [WriteStatus::Completed] or [WriteStatus::WouldBlock] after the timeoutok,
+    /// Will call [Self::send_nonblocking] untill it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeoutok,
     #[inline(always)]
     pub fn send_nonblocking_timeout(
         &mut self,
@@ -52,7 +52,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
             }
         }
     }
-    /// will busywait block on [send_nonblocking] untill it returns [WriteStatus::Completed]
+    /// will busywait block on [Self::send_nonblocking] untill it returns [SendStatus::Completed]
     #[inline(always)]
     pub fn send_busywait(&mut self, msg: &M::SendT) -> Result<(), Error> {
         loop {
@@ -66,11 +66,11 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
 
 impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msger = type_name::<M>().split("::").last().unwrap_or("Unknown");
+        let messenger_name = type_name::<M>().split("::").last().unwrap_or("Unknown");
         write!(
             f,
             "{} MessageSender<{}, {}>",
-            self.frm_writer.con_id, msger, MAX_MSG_SIZE
+            self.frm_writer.con_id, messenger_name, MAX_MSG_SIZE
         )
     }
 }

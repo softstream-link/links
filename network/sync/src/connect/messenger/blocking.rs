@@ -6,47 +6,43 @@ use crate::prelude_blocking::{FrameReader, FrameWriter, RecvMsg};
 
 #[derive(Debug)]
 pub struct MessageSender<M: Messenger, const MAX_MSG_SIZE: usize> {
-    pub(crate) con_id: ConId,
-    writer: FrameWriter,
+    pub(crate) frm_writer: FrameWriter,
     phantom: std::marker::PhantomData<M>,
 }
 impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
-    pub fn new(stream: TcpStream, con_id: ConId) -> Self {
+    pub fn new(con_id: ConId, stream: TcpStream) -> Self {
         Self {
-            con_id,
-            writer: FrameWriter::new(stream),
+            frm_writer: FrameWriter::new(con_id, stream),
             phantom: std::marker::PhantomData,
         }
     }
     #[inline(always)]
     pub fn send(&mut self, msg: &M::SendT) -> Result<(), Error> {
         let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
-        self.writer.write_frame(&bytes[..size])?;
+        self.frm_writer.write_frame(&bytes[..size])?;
         Ok(())
     }
 }
 
 impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
+        let messenger_name = type_name::<M>().split("::").last().unwrap_or("Unknown");
         write!(
             f,
-            "{:?} MessageSender<{}, {}>",
-            self.con_id, name, MAX_MSG_SIZE
+            "{} MessageSender<{}, {}>",
+            self.frm_writer.con_id, messenger_name, MAX_MSG_SIZE
         )
     }
 }
 #[derive(Debug)]
 pub struct MessageRecver<M: Messenger, const MAX_MSG_SIZE: usize> {
-    pub(crate) con_id: ConId,
-    reader: FrameReader<M, MAX_MSG_SIZE>,
+    pub(crate) frm_reader: FrameReader<M, MAX_MSG_SIZE>,
     phantom: std::marker::PhantomData<M>,
 }
 impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageRecver<M, MAX_MSG_SIZE> {
-    pub fn new(stream: TcpStream, con_id: ConId) -> Self {
+    pub fn new(con_id: ConId, stream: TcpStream) -> Self {
         Self {
-            con_id,
-            reader: FrameReader::<M, MAX_MSG_SIZE>::new(stream),
+            frm_reader: FrameReader::<M, MAX_MSG_SIZE>::new(con_id, stream),
             phantom: std::marker::PhantomData,
         }
     }
@@ -54,7 +50,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageRecver<M, MAX_MSG_SIZE> {
 impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvMsg<M> for MessageRecver<M, MAX_MSG_SIZE> {
     #[inline]
     fn recv(&mut self) -> Result<Option<M::RecvT>, Error> {
-        let opt_bytes = self.reader.read_frame()?;
+        let opt_bytes = self.frm_reader.read_frame()?;
         match opt_bytes {
             Some(frame) => {
                 let msg = M::deserialize(&frame)?;
@@ -70,7 +66,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageRecver<M, MAX_M
         write!(
             f,
             "{:?} MessageRecver<{}, {}>",
-            self.con_id, name, MAX_MSG_SIZE
+            self.frm_reader.con_id, name, MAX_MSG_SIZE
         )
     }
 }
@@ -93,8 +89,8 @@ pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
         stream,
     );
     (
-        MessageRecver::<M, MAX_MSG_SIZE>::new(reader, con_id.clone()),
-        MessageSender::<M, MAX_MSG_SIZE>::new(writer, con_id.clone()),
+        MessageRecver::<M, MAX_MSG_SIZE>::new(con_id.clone(), reader),
+        MessageSender::<M, MAX_MSG_SIZE>::new(con_id, writer),
     )
 }
 
@@ -111,7 +107,7 @@ mod test {
     use crate::prelude_blocking::*;
     use crate::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol};
 
-    use links_network_core::{prelude::ConId, fmt_num};
+    use links_network_core::{fmt_num, prelude::ConId};
     use links_testing::unittest::setup::{
         self,
         model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug, TEST_MSG_FRAME_SIZE},

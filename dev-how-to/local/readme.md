@@ -10,3 +10,8 @@ cargo test --doc
 ```shell
 cargo bench --all-features
 ```
+
+# Create docs
+```shell
+cargo doc
+```

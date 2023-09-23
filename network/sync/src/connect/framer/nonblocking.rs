@@ -1,11 +1,41 @@
+//! This module contains a `paired` [FrameReader] and [FrameWriter] which are designed to be used in separate threads, 
+//! where each thread is only doing either reading or writing to the underlying [TcpStream]. Note that the underlying [TcpStream]
+//! is cloned and therefore share a single underlying network socket. 
+//! # Example
+//! ```no_run
+//! let addr = "127.0.0.0:80"
+//! let clt_stream = std::net::TcpStream::connect(addr).unwrap();
+//! let (clt_reader, clt_writer) = into_split_framer::<MsgFramer, 128>(
+//!         ConId::clt(Some("unittest"), None, addr), 
+//!         clt_stream,
+//!     );
+//! 
+//! let svc_stream = std::net::TcpListener::bind(addr).unwrap().accept().unwrap();
+//! let (svc_reader, svc_writer) = into_split_framer::<MsgFramer, 128>(
+//!         ConId::svc(Some("unittest"), addr, None),
+//!         svc_stream,
+//!     );
+//! 
+//! // Note: 
+//!     // paired 
+//!         // clt_reader & clt_writer
+//!         // svc_reader & svc_writer
+//!     // peers
+//!         // clt_reader & svc_writer
+//!         // svc_reader & clt_writer
+//! ```
+
 use crate::prelude_nonblocking::{ConId, Framer, RecvStatus, SendStatus};
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
+use mio::net::TcpStream;
 use std::{
     fmt::Display,
     io::{Error, ErrorKind, Read, Write},
     net::Shutdown,
 };
+
+
 
 use std::mem::MaybeUninit;
 use std::os::fd::AsRawFd;
@@ -13,16 +43,28 @@ use std::os::fd::AsRawFd;
 use log::{debug, log_enabled};
 const EOF: usize = 0;
 
-// TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MSG_SIZE generic as it can just be an non const arg to new
 
+/// Represents an abstraction for reading exactly one frame from the [TcpStream].
+/// Each call to [Self::read_frame] will issue a [Read::read] system call on the underlying [TcpStream]
+/// which will capture any bytes read into internal accumulator implemented as [BytesMut]. This internal buffer will be
+/// passed to the generic impl of [Framer::get_frame] where it is user's responsibility to inspect the buffer and split off a single frame.
+///
+/// # Generic Parameters
+///   * `F` - impl of [Framer] trait which is responsible for splitting the internal buffer into a single frame
+///   * `MAX_MSG_SIZE` - [usize] the maximum number of bytes that a system call will be able to read in a single invocation. 
+/// Select this number to be able to be at least as large as the largest message size in bytes you will be sending over the network. 
 #[derive(Debug)]
 pub struct FrameReader<F: Framer, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
-    pub(crate) stream_reader: mio::net::TcpStream,
+    pub(crate) stream_reader: TcpStream,
     buffer: BytesMut,
     phantom: std::marker::PhantomData<F>,
 }
 impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
+    /// Constructs a new instance of [FrameReader]
+    /// # Arguments
+    /// * `con_id` - [ConId] a unique identifier for the connection and used for logging
+    /// * `reader` - [mio::net::TcpStream] the underlying stream that will be used for reading
     pub fn new(con_id: ConId, reader: mio::net::TcpStream) -> FrameReader<F, MAX_MSG_SIZE> {
         Self {
             con_id,
@@ -32,8 +74,11 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
         }
     }
 
+    /// Reads `exactly one frame` from the underlying [TcpStream], see [RecvStatus] for more details on the meaning of 
+    /// each variant in the succesfull schenario
     #[inline]
     pub fn read_frame(&mut self) -> Result<RecvStatus<Bytes>, Error> {
+        // TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MSG_SIZE generic as it can just be an non const arg to new
         #[allow(clippy::uninit_assumed_init)]
         let mut buf: [u8; MAX_MSG_SIZE] = unsafe { MaybeUninit::uninit().assume_init() };
 
@@ -74,10 +119,11 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
         }
     }
 
-    /// # Shutdown variants
-    /// * [Shutdown::Write] will send TCP FIN flag to the peer and any subsequence [`FrameWriter::write_frame`] will fail with [ErrorKind::BrokenPipe]
-    /// * [Shutdown::Read] will not send any TCP flags to the peer but all subsequent reads will [Self::stream_reader] will return Ok(0) and
-    /// subsequently [fread_frame] will return [Err(e) if e.kind() == ErrorKind::ConnectionReset]
+    /// Shuts down the underlying [TcpStream] in the specified direction. 
+    /// # Note side effects of each variant below
+    ///  * [Shutdown::Write] will send TCP FIN flag to the peer, as a result all subsequent `paired` [FrameWriter::write_frame] will fail with [ErrorKind::BrokenPipe]
+    ///  * [Shutdown::Read] will `NOT` send any TCP flags to the peer, however, as a result all subsequent [Self::read_frame] will return [Ok(0)]. 
+    /// This variant will also cause all `peer` [FramerWriter::write_frame] to generate [std::io::Error] of [ErrorKind::ConnectionReset]
     #[inline]
     fn shutdown(&mut self, how: Shutdown, reason: &str) {
         match self.stream_reader.shutdown(how) {
@@ -104,8 +150,8 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
     }
 }
 impl<F: Framer, const MAX_MSG_SIZE: usize> Drop for FrameReader<F, MAX_MSG_SIZE> {
-    /// as a [FrameReader] it wil shutdown the underlying [mio::net::TcpStream] in both directions. This way
-    /// the peer connection will recive a TCP FIN flag and and once it reaches the peer [FrameWriter] it will
+    /// Will shutdown the underlying [mio::net::TcpStream] in both directions. This way
+    /// the `peer` connection will receive a TCP FIN flag and and once it reaches the `peer` [FrameWriter] it will
     /// get a [ErrorKind::BrokenPipe] error which in turn shall issue a [Shutdown::Write]
     fn drop(&mut self) {
         self.shutdown(Shutdown::Both, "drop")
@@ -134,29 +180,33 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SI
     }
 }
 
+
+/// Represents an abstraction for writing exactly one frame to the non blocking underlying [mio::net::TcpStream]
 #[derive(Debug)]
 pub struct FrameWriter {
     pub(crate) con_id: ConId,
     pub(crate) stream_writer: mio::net::TcpStream,
 }
 impl FrameWriter {
+    /// Constructs a new instance of [FrameWriter]
     pub fn new(con_id: ConId, stream: mio::net::TcpStream) -> Self {
         Self {
             con_id,
             stream_writer: stream,
         }
     }
-    /// Writes entire frame or no bytes at all to the underlying stream
-    /// # Agruments
+    /// Writes `entire` frame or `no` bytes at all to the underlying stream, see [SendStatus] for more details on the meaning of
+    /// each variant in the successful scenario.
+    /// 
+    /// # Arguments
     ///    * bytes - a slice representing one complete frame
-    /// # Result States
-    ///    * [Ok(WriteStatus::Completed)] - all bytes were written to the underlying stream
-    ///    * [Ok(WriteStatus::WouldBlock)] - zero bytes were written to the underlying stream
-    ///    * [Err(Error)] - some might be written but eventually write generated Error
     ///
-    /// Internally the function will c
-    /// This means that if a single `write` successeds the function contrinue to call `write` until all bytes are written or an error is generated.
-    /// [WriteStatus::WouldBlock] will only return if the first socket `write` fails with [ErrorKind::WouldBlock] and no bytes where written.
+    /// # Important
+    /// The function will internally issue a [Write::write] system call repeatedly on the underlying [mio::net::TcpStream]
+    /// until all of the bytes are written, while `busy waiting` on the socket if write returns [ErrorKind::WouldBlock].
+    /// 
+    /// However, if an only if, the first call to [Write::write] returns [ErrorKind::WouldBlock] and no bytes where written
+    /// to the underlying socket, the method will return immediately with [Ok(SendStatus::WouldBlock)].
     #[inline]
     pub fn write_frame(&mut self, bytes: &[u8]) -> Result<SendStatus, Error> {
         let mut residual = bytes;
@@ -204,7 +254,7 @@ impl FrameWriter {
         Ok(SendStatus::Completed)
     }
 
-    /// Only shutdown the write side of the underlying stream so that the tcp can complete receiving ACKs
+    /// Shuts down the underlying [mio::net::TcpStream] in the specified direction.
     fn shutdown(&mut self, how: Shutdown, reason: &str) {
         match self.stream_writer.shutdown(how) {
             Ok(_) => {
@@ -230,6 +280,7 @@ impl FrameWriter {
     }
 }
 impl Drop for FrameWriter {
+    /// Will shutdown the underlying [mio::net::TcpStream] in both directions.
     fn drop(&mut self) {
         self.shutdown(Shutdown::Both, "drop")
     }
@@ -254,12 +305,14 @@ impl Display for FrameWriter {
 }
 
 type FrameProcessor<F, const MAX_MSG_SIZE: usize> = (FrameReader<F, MAX_MSG_SIZE>, FrameWriter);
-/// Crates a [FrameReader] and [FrameWriter] from a [std::net::TcpStream] by clonning it and converting the understaing stream to a [mio::net::TcpStream]
-/// # Returns
+
+/// Crates a `paired` [FrameReader] and [FrameWriter] from a [std::net::TcpStream] by cloning it and converting 
+/// the underlying stream to [mio::net::TcpStream]
+/// # Returns a tuple with
 ///   * [FrameReader] - a nonblocking FrameReader
 ///   * [FrameWriter] - a nonblocking FrameWriter
 /// # Important
-/// If either the [FrameReader] or [FrameWriter] are dropped the underlying stream will be shutdown and all actions on the remainging stream will fail
+/// If either the [FrameReader] or [FrameWriter] are dropped the underlying stream will be shutdown and all actions on the remaining `pair` will fail
 pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
     mut con_id: ConId,
     stream: std::net::TcpStream,

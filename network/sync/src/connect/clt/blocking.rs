@@ -36,7 +36,8 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsg<M>
     fn recv(&mut self) -> Result<Option<M::RecvT>, Error> {
         match self.msg_recver.recv()? {
             Some(msg) => {
-                self.callback.on_recv(&self.msg_recver.con_id, &msg);
+                self.callback
+                    .on_recv(&self.msg_recver.frm_reader.con_id, &msg);
                 Ok(Some(msg))
             }
             None => Ok(None),
@@ -54,7 +55,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
         write!(
             f,
             "CltRecver<{}, {}, {}>",
-            self.msg_recver.con_id, name, MAX_MSG_SIZE
+            self.msg_recver.frm_reader.con_id, name, MAX_MSG_SIZE
         )
     }
 }
@@ -78,14 +79,17 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsg<M>
     for CltSender<M, C, MAX_MSG_SIZE>
 {
     fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<(), Error> {
-        self.callback.on_send(&self.msg_sender.con_id, msg);
+        self.callback
+            .on_send(&self.msg_sender.frm_writer.con_id, msg);
         match self.msg_sender.send(msg) {
             Ok(()) => {
-                self.callback.on_sent(&self.msg_sender.con_id, msg);
+                self.callback
+                    .on_sent(&self.msg_sender.frm_writer.con_id, msg);
                 Ok(())
             }
             Err(e) => {
-                self.callback.on_fail(&self.msg_sender.con_id, msg, &e);
+                self.callback
+                    .on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
                 Err(e)
             }
         }
@@ -102,7 +106,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
         write!(
             f,
             "CltSender<{}, {}, {}>",
-            self.msg_sender.con_id, name, MAX_MSG_SIZE
+            self.msg_sender.frm_writer.con_id, name, MAX_MSG_SIZE
         )
     }
 }
@@ -184,7 +188,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
         write!(
             f,
             "Clt<{}, {}, {}>",
-            self.clt_recver.msg_recver.con_id, name, MAX_MSG_SIZE
+            self.clt_recver.msg_recver.frm_reader.con_id, name, MAX_MSG_SIZE
         )
     }
 }

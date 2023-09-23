@@ -2,7 +2,6 @@ use bytes::{Bytes, BytesMut};
 use criterion::{black_box, Criterion};
 use std::fmt::Debug;
 use std::io::{Error, ErrorKind, Read, Write};
-use std::mem::MaybeUninit;
 use std::net::Shutdown;
 use std::{
     net::{TcpListener, TcpStream},
