@@ -1,39 +1,43 @@
+//! This module contains a blocking `paired` [MessageRecver] and [MessageSender] which are designed to be used in different threads,
+//! where each thread is only doing either send or recv to the underlying [std::net::TcpStream] via respective [FrameReader] and [FrameWriter].
+//! 
+//! # Note
+//! The underlying [std::net::TcpStream] is cloned and therefore share a single underlying network socket.
+//! 
+//! # Example
+//! ```no_run
+//! let addr = "127.0.0.0:80";
+//! let clt_stream = std::net::TcpStream::connect(addr).unwrap();
+//! let (clt_recv, clt_send) = into_split_messenger::<MsgFramer, 128>(
+//!         ConId::clt(Some("unittest"), None, addr),
+//!         clt_stream,
+//!     );
+//!
+//! let svc_stream = std::net::TcpListener::bind(addr).unwrap().accept().unwrap().0;
+//! let (svc_recv, svc_send) = into_split_messenger::<MsgFramer, 128>(
+//!         ConId::svc(Some("unittest"), addr, None),
+//!         svc_stream,
+//!     );
+//!
+//! // Note:
+//!     // paired
+//!         // clt_recv & clt_send
+//!         // svc_recv & svc_send
+//!     // peers
+//!         // clt_recv & svc_send
+//!         // svc_recv & clt_send
+//! ```
+
 use std::{any::type_name, fmt::Display, io::Error, net::TcpStream};
 
 use links_network_core::prelude::{ConId, Messenger};
 
-use crate::prelude_blocking::{FrameReader, FrameWriter, RecvMsg};
+use crate::{
+    core::blocking::SendMsgNonMut,
+    prelude_blocking::{FrameReader, FrameWriter, RecvMsg},
+};
 
-#[derive(Debug)]
-pub struct MessageSender<M: Messenger, const MAX_MSG_SIZE: usize> {
-    pub(crate) frm_writer: FrameWriter,
-    phantom: std::marker::PhantomData<M>,
-}
-impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
-    pub fn new(con_id: ConId, stream: TcpStream) -> Self {
-        Self {
-            frm_writer: FrameWriter::new(con_id, stream),
-            phantom: std::marker::PhantomData,
-        }
-    }
-    #[inline(always)]
-    pub fn send(&mut self, msg: &M::SendT) -> Result<(), Error> {
-        let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
-        self.frm_writer.write_frame(&bytes[..size])?;
-        Ok(())
-    }
-}
-
-impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MAX_MSG_SIZE> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let messenger_name = type_name::<M>().split("::").last().unwrap_or("Unknown");
-        write!(
-            f,
-            "{} MessageSender<{}, {}>",
-            self.frm_writer.con_id, messenger_name, MAX_MSG_SIZE
-        )
-    }
-}
+// Represents an abstraction for receiving exactly one message utilizing the underlying [FrameReader].
 #[derive(Debug)]
 pub struct MessageRecver<M: Messenger, const MAX_MSG_SIZE: usize> {
     pub(crate) frm_reader: FrameReader<M, MAX_MSG_SIZE>,
@@ -48,7 +52,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageRecver<M, MAX_MSG_SIZE> {
     }
 }
 impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvMsg<M> for MessageRecver<M, MAX_MSG_SIZE> {
-    #[inline]
+    #[inline(always)]
     fn recv(&mut self) -> Result<Option<M::RecvT>, Error> {
         let opt_bytes = self.frm_reader.read_frame()?;
         match opt_bytes {
@@ -71,11 +75,52 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageRecver<M, MAX_M
     }
 }
 
+/// Represents an abstraction for sending exactly one message utilizing the underlying [FrameWriter]
+#[derive(Debug)]
+pub struct MessageSender<M: Messenger, const MAX_MSG_SIZE: usize> {
+    pub(crate) frm_writer: FrameWriter,
+    phantom: std::marker::PhantomData<M>,
+}
+impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
+    pub fn new(con_id: ConId, stream: TcpStream) -> Self {
+        Self {
+            frm_writer: FrameWriter::new(con_id, stream),
+            phantom: std::marker::PhantomData,
+        }
+    }
+}
+impl<M: Messenger, const MAX_MSG_SIZE: usize> SendMsgNonMut<M> for MessageSender<M, MAX_MSG_SIZE> {
+    #[inline(always)]
+    fn send(&mut self, msg: &<M as Messenger>::SendT) -> Result<(), Error> {
+        let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
+        self.frm_writer.write_frame(&bytes[..size])?;
+        Ok(())
+    }
+}
+impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MAX_MSG_SIZE> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let messenger_name = type_name::<M>().split("::").last().unwrap_or("Unknown");
+        write!(
+            f,
+            "{} MessageSender<{}, {}>",
+            self.frm_writer.con_id, messenger_name, MAX_MSG_SIZE
+        )
+    }
+}
+
 pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (
     MessageRecver<M, MAX_MSG_SIZE>,
     MessageSender<M, MAX_MSG_SIZE>,
 );
 
+/// Creates a `paired` [MessageRecver] and [MessageSender] from a [std::net::TcpStream] by cloning it.
+/// 
+/// # Returns a tuple with 
+///  * [MessageRecver] which is used for receiving messages
+///  * [MessageSender] which is used for sending messages
+/// 
+/// # Important
+/// if either [MessageRecver] or [MessageSender] is dropped, the underlying stream will be shutdown and all actions on the remaining `pair` will fail
 pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
     stream: TcpStream,
     mut con_id: ConId,
@@ -101,7 +146,7 @@ mod test {
     use std::{
         net::{TcpListener, TcpStream},
         thread::{sleep, Builder},
-        time::{Duration, Instant},
+        time::{Duration, Instant}, io::ErrorKind,
     };
 
     use crate::prelude_blocking::*;
@@ -113,10 +158,11 @@ mod test {
         model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug, TEST_MSG_FRAME_SIZE},
     };
     use log::info;
+    use rand::Rng;
 
     #[test]
     fn test_messenger() {
-        setup::log::configure();
+        setup::log::configure_level(log::LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
 
         const WRITE_N_TIMES: usize = 100_000;
@@ -125,53 +171,62 @@ mod test {
             .name("Thread-Svc".to_owned())
             .spawn(move || {
                 let inp_svc_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
-                let (mut msg_sent, mut msg_recv) = (0_usize, 0_usize);
+                let (mut svc_msg_sent_count, mut svc_msg_recv_count) = (0_usize, 0_usize);
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
-                let (mut recver, mut sender) =
+                let (mut svc_recver, mut svc_sender) =
                     into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
                         stream,
                         ConId::svc(Some("unittest"), addr, None),
                     );
-                info!("{} connected", sender);
+                info!("{} connected", svc_sender);
 
-                while let Some(_) = recver.recv().unwrap() {
-                    msg_recv += 1;
-                    sender.send(&inp_svc_msg).unwrap();
-                    msg_sent += 1;
+                while let Some(_) = svc_recver.recv().unwrap() {
+                    svc_msg_recv_count += 1;
+                    svc_sender.send(&inp_svc_msg).unwrap();
+                    svc_msg_sent_count += 1;
                 }
-                info!("{} Connection Closed by Client", recver);
+                info!("{} Connection Closed by Client", svc_recver);
 
-                (msg_sent, msg_recv)
+                (svc_msg_sent_count, svc_msg_recv_count)
             })
             .unwrap();
 
         sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-        let clt = Builder::new()
-            .name("Thread-Clt".to_owned())
-            .spawn(move || {
-                let inp_clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
-                let (mut msg_sent_count, mut msg_recv_count) = (0, 0);
-                let stream = TcpStream::connect(addr).unwrap();
-                let (mut recver, mut sender) =
-                    into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
-                        stream,
-                        ConId::clt(Some("unittest"), None, addr),
-                    );
-                info!("{} connected", sender);
-                let start = Instant::now();
-                for _ in 0..WRITE_N_TIMES {
-                    sender.send(&inp_clt_msg).unwrap();
-                    msg_sent_count += 1;
-                    let _x = recver.recv().unwrap().unwrap();
-                    msg_recv_count += 1;
-                }
-                (msg_sent_count, msg_recv_count, start.elapsed())
-            })
-            .unwrap();
+        let inp_clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+        let (mut clt_msg_sent_count, mut clt_msg_recv_count) = (0, 0);
+        let stream = TcpStream::connect(addr).unwrap();
+        let (mut clt_recver, mut clt_sender) =
+            into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
+                stream,
+                ConId::clt(Some("unittest"), None, addr),
+            );
+        info!("{} connected", clt_sender);
+        let start = Instant::now();
+        for _ in 0..WRITE_N_TIMES {
+            clt_sender.send(&inp_clt_msg).unwrap();
+            clt_msg_sent_count += 1;
+            let _x = clt_recver.recv().unwrap().unwrap();
+            clt_msg_recv_count += 1;
+        }
+        let elapsed = start.elapsed();
 
-        let (clt_msg_sent_count, clt_msg_recv_count, elapsed) = clt.join().unwrap();
+        if rand::thread_rng().gen_range(1..=2) % 2 == 0 {
+            info!("dropping clt_sender");
+            drop(clt_sender);
+            let opt = clt_recver.recv().unwrap();
+            info!("clt_recver.recv(): {:?}", opt);
+            assert_eq!(opt, None);
+        } else {
+            info!("dropping clt_recver");
+            drop(clt_recver);
+            let err = clt_sender.send(&inp_clt_msg).unwrap_err();
+            info!("clt_sender.send(): {}", err);
+            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+        }
+
+
         let (svc_msg_sent_count, svc_msg_recv_count) = svc.join().unwrap();
         info!(
             "clt_msg_sent_count: {}, clt_msg_recv_count: {}",

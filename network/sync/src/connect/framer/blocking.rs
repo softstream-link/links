@@ -1,7 +1,10 @@
 //! This module contains a blocking `paired` [FrameReader] and [FrameWriter] which are designed to be used in separate threads.
 //! where each thread is only doing either reading or writing to the underlying [std::net::TcpStream].
-//! Note that the underlying [std::net::TcpStream] is cloned and therefore share a single underlying network socket.
-//! Example
+//! 
+//! # Note
+//! The underlying [std::net::TcpStream] is cloned and therefore share a single underlying network socket.
+//! 
+//! # Example
 //! ```no_run
 //! let addr = "127.0.0.0:80";
 //! let clt_stream = std::net::TcpStream::connect(addr).unwrap();
@@ -255,6 +258,15 @@ impl Display for FrameWriter {
 }
 
 type FrameProcessor<F, const MAX_MSG_SIZE: usize> = (FrameReader<F, MAX_MSG_SIZE>, FrameWriter);
+
+/// Creates a `paired` [FrameReader] and [FrameWriter] from a [std::net::TcpStream] by cloning 
+/// 
+/// # Returns a tuple with
+///   * [FrameReader] - a blocking FrameReader
+///   * [FrameWriter] - a blocking FrameWriter
+/// 
+/// # Important
+/// If either the [FrameReader] or [FrameWriter] are dropped the underlying stream will be shutdown and all actions on the remaining `pair` will fail
 pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
     mut con_id: ConId,
     stream: TcpStream,

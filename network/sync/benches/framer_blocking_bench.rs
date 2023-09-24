@@ -14,7 +14,6 @@ use links_network_core::{
 use links_network_sync::connect::framer::blocking::into_split_framer;
 use links_testing::unittest::setup;
 use log::{error, info};
-use nix::sys::socket::{setsockopt, sockopt::ReusePort};
 
 const BENCH_MAX_FRAME_SIZE: usize = 128;
 pub struct BenchMsgFramer;
@@ -41,7 +40,6 @@ fn send_random_frame(c: &mut Criterion) {
         .spawn({
             move || {
                 let listener = TcpListener::bind(addr).unwrap();
-                setsockopt(&listener, ReusePort, &true).unwrap();
                 let (stream, _) = listener.accept().unwrap();
                 let (mut reader, _) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
                     ConId::svc(Some("bench"), addr, None),
@@ -61,7 +59,7 @@ fn send_random_frame(c: &mut Criterion) {
                             assert_eq!(send_frame, recv_frame);
                         }
                         Err(e) => {
-                            info!("Svc read_rame error: {}", e.to_string());
+                            info!("Svc read_frame error: {}", e.to_string());
                             break;
                         }
                     }
@@ -73,7 +71,7 @@ fn send_random_frame(c: &mut Criterion) {
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-    // CONFIGUR clt
+    // CONFIGURE clt
     let (_, mut writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
         ConId::clt(Some("bench"), None, addr),
         TcpStream::connect(addr).unwrap(),
@@ -116,7 +114,6 @@ fn recv_random_frame(c: &mut Criterion) {
         .spawn({
             move || {
                 let listener = TcpListener::bind(addr).unwrap();
-                setsockopt(&listener, ReusePort, &true).unwrap();
                 let (stream, _) = listener.accept().unwrap();
                 let (_, mut writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
                     ConId::svc(Some("bench"), addr, None),
@@ -143,7 +140,7 @@ fn recv_random_frame(c: &mut Criterion) {
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-    // CONFIGUR clt
+    // CONFIGURE clt
     let (mut reader, _) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
         ConId::clt(Some("bench"), None, addr),
         TcpStream::connect(addr).unwrap(),
@@ -217,7 +214,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-    // CONFIGUR clt
+    // CONFIGURE clt
     let stream = TcpStream::connect(addr).unwrap();
     let (mut reader, mut writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
         ConId::clt(Some("bench"), None, addr),

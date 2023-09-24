@@ -3,7 +3,7 @@ pub use crate::core::nonblocking::{
 };
 pub use crate::core::nonblocking::{NonBlockingServiceLoop, ServiceLoopStatus};
 pub use crate::core::nonblocking::{RecvMsgNonBlocking, RecvStatus};
-pub use crate::core::nonblocking::{SendMsgNonBlocking, SendStatus};
+pub use crate::core::nonblocking::{SendMsgNonBlocking, SendMsgNonBlockingNonMut, SendStatus};
 
 pub use crate::connect::framer::nonblocking::{into_split_framer, FrameReader, FrameWriter};
 

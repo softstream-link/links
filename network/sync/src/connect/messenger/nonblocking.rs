@@ -1,3 +1,32 @@
+//! This module contains a non blocking `paired` [MessageRecver] and [MessageSender] which are designed to be used in separate threads,
+//! where each thread is only doing either send or recv to the underlying [mio::net::TcpStream] via respective [FrameReader] and [FrameWriter].
+//! 
+//! # Note
+//! The underlying [std::net::TcpStream] is cloned and therefore share a single underlying network socket.
+//! 
+//! # Example
+//! ```no_run
+//! let addr = "127.0.0.0:80";
+//! let clt_stream = std::net::TcpStream::connect(addr).unwrap();
+//! let (clt_recv, clt_send) = into_split_messenger::<MsgFramer, 128>(
+//!         ConId::clt(Some("unittest"), None, addr),
+//!         clt_stream,
+//!     );
+//!
+//! let svc_stream = std::net::TcpListener::bind(addr).unwrap().accept().unwrap().0;
+//! let (svc_recv, svc_send) = into_split_messenger::<MsgFramer, 128>(
+//!         ConId::svc(Some("unittest"), addr, None),
+//!         svc_stream,
+//!     );
+//!
+//! // Note:
+//!     // paired
+//!         // clt_recv & clt_send
+//!         // svc_recv & svc_send
+//!     // peers
+//!         // clt_recv & svc_send
+//!         // svc_recv & clt_send
+//! ```
 use std::{
     any::type_name,
     fmt::Display,
@@ -5,76 +34,14 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::prelude_nonblocking::{
-    ConId, FrameReader, FrameWriter, Messenger, RecvMsgNonBlocking, RecvStatus, SendStatus,
+use crate::{
+    core::nonblocking::SendMsgNonBlockingNonMut,
+    prelude_nonblocking::{
+        ConId, FrameReader, FrameWriter, Messenger, RecvMsgNonBlocking, RecvStatus, SendStatus,
+    },
 };
 
-#[derive(Debug)]
-pub struct MessageSender<M: Messenger, const MAX_MSG_SIZE: usize> {
-    pub(crate) frm_writer: FrameWriter,
-    phantom: std::marker::PhantomData<M>,
-}
-impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
-    pub fn new(con_id: ConId, stream: mio::net::TcpStream) -> Self {
-        Self {
-            frm_writer: FrameWriter::new(con_id, stream),
-            phantom: std::marker::PhantomData,
-        }
-    }
-    /// If there was a successfull attempt to write any bytes from serialized message
-    /// into the stream but the write was only partial then the call shall buzy wait until all
-    /// remaining bytes were written before returning [SendStatus::Completed].
-    /// [SendStatus::WouldBlock] is returned only if the attemp did not write any bytes to the stream
-    /// after the first attempt
-    #[inline(always)]
-    pub fn send_nonblocking(&mut self, msg: &M::SendT) -> Result<SendStatus, Error> {
-        let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
-        self.frm_writer.write_frame(&bytes[..size])
-    }
-
-    /// Will call [Self::send_nonblocking] untill it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeoutok,
-    #[inline(always)]
-    pub fn send_nonblocking_timeout(
-        &mut self,
-        msg: &M::SendT,
-        timeout: Duration,
-    ) -> Result<SendStatus, Error> {
-        let start = Instant::now();
-        let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
-        loop {
-            match self.frm_writer.write_frame(&bytes[..size])? {
-                SendStatus::Completed => return Ok(SendStatus::Completed),
-                SendStatus::WouldBlock => {
-                    if start.elapsed() > timeout {
-                        return Ok(SendStatus::WouldBlock);
-                    }
-                }
-            }
-        }
-    }
-    /// will busywait block on [Self::send_nonblocking] untill it returns [SendStatus::Completed]
-    #[inline(always)]
-    pub fn send_busywait(&mut self, msg: &M::SendT) -> Result<(), Error> {
-        loop {
-            match self.send_nonblocking(msg)? {
-                SendStatus::Completed => return Ok(()),
-                SendStatus::WouldBlock => continue,
-            }
-        }
-    }
-}
-
-impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MAX_MSG_SIZE> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let messenger_name = type_name::<M>().split("::").last().unwrap_or("Unknown");
-        write!(
-            f,
-            "{} MessageSender<{}, {}>",
-            self.frm_writer.con_id, messenger_name, MAX_MSG_SIZE
-        )
-    }
-}
-
+/// Represents an abstraction for receiving exactly one message utilizing the underlying [FrameReader]
 #[derive(Debug)]
 pub struct MessageRecver<M: Messenger, const MAX_MSG_SIZE: usize> {
     pub(crate) frm_reader: FrameReader<M, MAX_MSG_SIZE>,
@@ -115,11 +82,88 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageRecver<M, MAX_M
     }
 }
 
+/// Represents an abstraction for sending exactly one message utilizing the underlying [FrameWriter]
+#[derive(Debug)]
+pub struct MessageSender<M: Messenger, const MAX_MSG_SIZE: usize> {
+    pub(crate) frm_writer: FrameWriter,
+    phantom: std::marker::PhantomData<M>,
+}
+impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
+    pub fn new(con_id: ConId, stream: mio::net::TcpStream) -> Self {
+        Self {
+            frm_writer: FrameWriter::new(con_id, stream),
+            phantom: std::marker::PhantomData,
+        }
+    }
+}
+impl<M: Messenger, const MAX_MSG_SIZE: usize> SendMsgNonBlockingNonMut<M>
+    for MessageSender<M, MAX_MSG_SIZE>
+{
+    #[inline(always)]
+    fn send_nonblocking(&mut self, msg: &<M as Messenger>::SendT) -> Result<SendStatus, Error> {
+        let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
+        self.frm_writer.write_frame(&bytes[..size])
+    }
+
+    /// This implementation overrides default trait implementation by optimizing serialization of the message to only
+    /// happen once in the event that the under socket is busy and returns [SendStatus::WouldBlock]  
+    #[inline(always)]
+    fn send_busywait_timeout(
+        &mut self,
+        msg: &<M as Messenger>::SendT,
+        timeout: Duration,
+    ) -> Result<SendStatus, Error> {
+        let start = Instant::now();
+        let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
+        loop {
+            match self.frm_writer.write_frame(&bytes[..size])? {
+                SendStatus::Completed => return Ok(SendStatus::Completed),
+                SendStatus::WouldBlock => {
+                    if start.elapsed() > timeout {
+                        return Ok(SendStatus::WouldBlock);
+                    }
+                }
+            }
+        }
+    }
+
+    /// This implementation overrides default trait implementation by optimizing serialization of the message to only
+    /// happen once in the event that the under socket is busy and returns [SendStatus::WouldBlock]
+    fn send_busywait(&mut self, msg: &<M as Messenger>::SendT) -> Result<SendStatus, Error> {
+        let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
+        loop {
+            match self.frm_writer.write_frame(&bytes[..size])? {
+                SendStatus::Completed => return Ok(SendStatus::Completed),
+                SendStatus::WouldBlock => continue,
+            }
+        }
+    }
+}
+impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MAX_MSG_SIZE> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let messenger_name = type_name::<M>().split("::").last().unwrap_or("Unknown");
+        write!(
+            f,
+            "{} MessageSender<{}, {}>",
+            self.frm_writer.con_id, messenger_name, MAX_MSG_SIZE
+        )
+    }
+}
+
 pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (
     MessageRecver<M, MAX_MSG_SIZE>,
     MessageSender<M, MAX_MSG_SIZE>,
 );
 
+/// Creates a `paired` [MessageRecver] and [MessageSender] from a [std::net::TcpStream] by cloning it and converting
+/// the underlying stream to [mio::net::TcpStream] 
+/// 
+/// # Returns a tuple with
+///  * [MessageRecver] - for receiving messages
+///  * [MessageSender] - for sending messages
+/// 
+/// # Important
+/// if either [MessageRecver] or [MessageSender] is dropped, the underlying stream will be shutdown and all actions on the remaining `pair` will fail
 pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
     mut con_id: ConId,
     stream: std::net::TcpStream,
@@ -128,10 +172,6 @@ pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
         .set_nonblocking(true)
         .expect("Failed to set nonblocking on TcpStream");
 
-    // TODO set_delay performance issues?
-    // stream
-    //     .set_nodelay(true)
-    //     .expect("failed to set_nodelay=true");
     con_id.set_local(stream.local_addr().unwrap());
     con_id.set_peer(stream.peer_addr().unwrap());
     let (reader, writer) = (
@@ -151,16 +191,12 @@ pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
     )
 }
 
-/// # Warning!!!
-/// This is not a public trait as it [send_nonblocking] implementaiton requires special consideration if it involves modification of state as it is expected
-/// to be called repetedly to recover from [WriteStatus::WouldBlock]
-
 #[cfg(test)]
 #[cfg(feature = "unittest")]
 mod test {
     use std::{
         thread::{sleep, Builder},
-        time::{Duration, Instant},
+        time::{Duration, Instant}, io::ErrorKind,
     };
 
     use crate::prelude_nonblocking::*;
@@ -184,25 +220,25 @@ mod test {
                 let (mut svc_msg_sent_count, mut svc_msg_recv_count) = (0_usize, 0_usize);
                 let listener = std::net::TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
-                let (mut recver, mut sender) =
+                let (mut svc_recver, mut svc_sender) =
                     into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
                         ConId::svc(Some("unittest"), addr, None),
                         stream,
                     );
-                info!("svc recver: {}", recver);
+                info!("svc recver: {}", svc_recver);
 
-                while let Ok(status) = recver.recv_nonblocking() {
+                while let Ok(status) = svc_recver.recv_nonblocking() {
                     match status {
                         RecvStatus::Completed(Some(_recv_msg)) => {
                             svc_msg_recv_count += 1;
                             while let SendStatus::WouldBlock =
-                                sender.send_nonblocking(&inp_svc_msg).unwrap()
+                                svc_sender.send_nonblocking(&inp_svc_msg).unwrap()
                             {
                             }
                             svc_msg_sent_count += 1;
                         }
                         RecvStatus::Completed(None) => {
-                            info!("{} Connection Closed by Client", recver);
+                            info!("{} Connection Closed by Client", svc_recver);
                             break;
                         }
                         RecvStatus::WouldBlock => continue,
@@ -235,9 +271,15 @@ mod test {
         if rand::thread_rng().gen_range(1..=2) % 2 == 0 {
             info!("dropping clt_sender");
             drop(clt_sender);
+            let opt = clt_recver.recv_busywait().unwrap();
+            info!("clt_recver.recv_busywait(): {:?}", opt);
+            assert_eq!(opt, None);
         } else {
             info!("dropping clt_recver");
             drop(clt_recver);
+            let err = clt_sender.send_busywait(&inp_clt_msg).unwrap_err();
+            info!("clt_sender.send_busywait(): {}", err);
+            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
         }
 
         let (svc_msg_sent_count, svc_msg_recv_count) = svc.join().unwrap();

@@ -10,7 +10,7 @@ use std::{
 use crate::prelude_nonblocking::{
     into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, MessageRecver,
     MessageSender, Messenger, NonBlockingServiceLoop, RecvMsgNonBlocking, RecvStatus,
-    SendMsgNonBlocking, SendStatus, ServiceLoopStatus,
+    SendMsgNonBlocking, SendMsgNonBlockingNonMut, SendStatus, ServiceLoopStatus,
 };
 use log::debug;
 
@@ -145,7 +145,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Clt<M, C, 
     ) -> Result<Self, Error> {
         assert!(
             timeout > retry_after,
-            "timoout: {:?}, retry_after: {:?}",
+            "timeout: {:?}, retry_after: {:?}",
             timeout,
             retry_after
         );

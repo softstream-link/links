@@ -9,7 +9,9 @@ use std::{
 
 use crate::{
     core::blocking::RecvMsg,
-    prelude_blocking::{into_split_messenger, MessageRecver, MessageSender, SendMsg},
+    prelude_blocking::{
+        into_split_messenger, MessageRecver, MessageSender, SendMsg, SendMsgNonMut,
+    },
 };
 use links_network_core::prelude::{CallbackRecv, CallbackRecvSend, CallbackSend, ConId, Messenger};
 use log::debug;

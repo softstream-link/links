@@ -1,6 +1,10 @@
 //! This module contains a non blocking `paired` [FrameReader] and [FrameWriter] which are designed to be used in separate threads,
 //! where each thread is only doing either reading or writing to the underlying [mio::net::TcpStream].
-//! Note that the underlying [mio::net::TcpStream] is cloned and therefore share a single underlying network socket.
+//! 
+//! # Note
+//! 
+//!  The underlying [mio::net::TcpStream] is cloned and therefore share a single underlying network socket.
+//! 
 //! # Example
 //! ```no_run
 //! let addr = "127.0.0.0:80";
@@ -307,11 +311,13 @@ impl Display for FrameWriter {
 
 type FrameProcessor<F, const MAX_MSG_SIZE: usize> = (FrameReader<F, MAX_MSG_SIZE>, FrameWriter);
 
-/// Crates a `paired` [FrameReader] and [FrameWriter] from a [std::net::TcpStream] by cloning it and converting
+/// Creates a `paired` [FrameReader] and [FrameWriter] from a [std::net::TcpStream] by cloning it and converting
 /// the underlying stream to [mio::net::TcpStream]
+/// 
 /// # Returns a tuple with
 ///   * [FrameReader] - a nonblocking FrameReader
 ///   * [FrameWriter] - a nonblocking FrameWriter
+/// 
 /// # Important
 /// If either the [FrameReader] or [FrameWriter] are dropped the underlying stream will be shutdown and all actions on the remaining `pair` will fail
 pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(

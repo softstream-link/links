@@ -237,6 +237,46 @@ pub trait SendMsgNonBlocking<M: Messenger> {
     }
 }
 
+pub trait SendMsgNonBlockingNonMut<M: Messenger> {
+    /// The call will internally serialize the msg and attempt to write the resulting bytes into a stream.
+    /// If there was a successfull attempt which wrote some bytes from serialized message
+    /// into the stream but the write was only partial then the call will busy wait until all of
+    /// remaining bytes were written before returning [SendStatus::Completed].
+    /// [SendStatus::WouldBlock] is returned only if the attempt did not write any bytes to the stream
+    /// after the first attempt
+    fn send_nonblocking(&mut self, msg: &<M as Messenger>::SendT) -> Result<SendStatus, Error>;
+
+    /// Will call [Self::send_nonblocking] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
+    #[inline(always)]
+    fn send_busywait_timeout(
+        &mut self,
+        msg: &<M as Messenger>::SendT,
+        timeout: Duration,
+    ) -> Result<SendStatus, Error> {
+        let start = Instant::now();
+        loop {
+            match self.send_nonblocking(msg)? {
+                SendStatus::Completed => return Ok(SendStatus::Completed),
+                SendStatus::WouldBlock => {
+                    if start.elapsed() > timeout {
+                        return Ok(SendStatus::WouldBlock);
+                    }
+                }
+            }
+        }
+    }
+    /// Will call [Self::send_nonblocking] until it returns [SendStatus::Completed]
+    #[inline(always)]
+    fn send_busywait(&mut self, msg: &<M as Messenger>::SendT) -> Result<SendStatus, Error> {
+        use SendStatus::{Completed, WouldBlock};
+        loop {
+            match self.send_nonblocking(msg)? {
+                Completed => return Ok(Completed),
+                WouldBlock => continue,
+            }
+        }
+    }
+}
 // ---- Service Loop ----
 
 #[derive(Debug)]

@@ -5,9 +5,11 @@ use std::{
 };
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::{prelude::ConId, fmt_num};
+use links_network_core::{fmt_num, prelude::ConId};
 use links_network_sync::{
-    prelude_nonblocking::{into_split_messenger, RecvMsgNonBlocking, RecvStatus, SendStatus},
+    prelude_nonblocking::{
+        into_split_messenger, RecvMsgNonBlocking, RecvStatus, SendMsgNonBlockingNonMut, SendStatus,
+    },
     unittest::setup::{
         framer::TEST_MSG_FRAME_SIZE,
         messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
@@ -18,7 +20,6 @@ use links_testing::unittest::setup::{
     model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
 };
 use log::info;
-use nix::sys::socket::{setsockopt, sockopt::ReusePort};
 
 fn send_msg(c: &mut Criterion) {
     setup::log::configure_level(log::LevelFilter::Info);
@@ -30,7 +31,6 @@ fn send_msg(c: &mut Criterion) {
         .name("Thread-Svc".to_owned())
         .spawn(move || {
             let listener = TcpListener::bind(addr).unwrap();
-            setsockopt(&listener, ReusePort, &true).unwrap(); // TODO remove i don't think this is necessary
             let (stream, _) = listener.accept().unwrap();
             let (mut svc_reader, _svc_writer) =
                 into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
@@ -58,7 +58,7 @@ fn send_msg(c: &mut Criterion) {
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-    // CONFIGUR clt
+    // CONFIGURE clt
     let (_clt_reader, mut clt_writer) =
         into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
             ConId::clt(Some("unittest"), None, addr),
@@ -100,7 +100,6 @@ fn recv_msg(c: &mut Criterion) {
         .spawn(move || {
             let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
             let listener = TcpListener::bind(addr).unwrap();
-            setsockopt(&listener, ReusePort, &true).unwrap();
             let (stream, _) = listener.accept().unwrap();
             let (_clt_reader, mut svc_writer) = into_split_messenger::<
                 TestSvcMsgProtocol,
@@ -122,7 +121,7 @@ fn recv_msg(c: &mut Criterion) {
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-    // CONFIGUR clt
+    // CONFIGURE clt
     let (mut clt_reader, _clt_writer) =
         into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
             ConId::clt(Some("unittest"), None, addr),
@@ -194,7 +193,7 @@ fn round_trip_msg(c: &mut Criterion) {
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-    // CONFIGUR clt
+    // CONFIGURE clt
     let stream = TcpStream::connect(addr).unwrap();
     let (mut reader, mut writer) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
         ConId::clt(Some("unittest"), None, addr),
