@@ -1,6 +1,6 @@
 use std::{fmt::Debug, io::Error};
 
-use super::Framer;
+use super::framer::Framer;
 
 pub trait Messenger: Framer+Debug {
     type SendT: Debug+Clone+PartialEq;

@@ -3,7 +3,7 @@ pub use crate::core::conid::ConId;
 pub use crate::core::messenger::Messenger;
 pub use crate::core::MessengerOld; // TODO remove
 
-pub use crate::core::Framer;
+pub use crate::core::framer::{Framer, FixedSizeFramer};
 
 // callbacks
 // // trait

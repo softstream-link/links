@@ -1,24 +1,36 @@
 //! This module contains a non blocking `paired` [MessageRecver] and [MessageSender] which are designed to be used in separate threads,
 //! where each thread is only doing either send or recv to the underlying [mio::net::TcpStream] via respective [FrameReader] and [FrameWriter].
-//! 
+//!
 //! # Note
 //! The underlying [std::net::TcpStream] is cloned and therefore share a single underlying network socket.
-//! 
+//!
 //! # Example
 //! ```no_run
-//! let addr = "127.0.0.0:80";
+//! use links_network_sync::prelude_nonblocking::*;
+//! use links_network_sync::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
+//!
+//! let addr = "127.0.0.0:8080";
+//!
+//! let svc_listener = std::net::TcpListener::bind(addr).unwrap();
+//! 
 //! let clt_stream = std::net::TcpStream::connect(addr).unwrap();
-//! let (clt_recv, clt_send) = into_split_messenger::<MsgFramer, 128>(
+//! let (clt_recv, clt_send) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
 //!         ConId::clt(Some("unittest"), None, addr),
 //!         clt_stream,
 //!     );
 //!
-//! let svc_stream = std::net::TcpListener::bind(addr).unwrap().accept().unwrap().0;
-//! let (svc_recv, svc_send) = into_split_messenger::<MsgFramer, 128>(
+//! let svc_stream = svc_listener.accept().unwrap().0;
+//! let (svc_recv, svc_send) = into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
 //!         ConId::svc(Some("unittest"), addr, None),
 //!         svc_stream,
 //!     );
-//!
+//! 
+//! drop(clt_recv);
+//! drop(clt_send);
+//! drop(svc_recv);
+//! drop(svc_send);
+//! drop(svc_listener);
+//! 
 //! // Note:
 //!     // paired
 //!         // clt_recv & clt_send
@@ -156,12 +168,12 @@ pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (
 );
 
 /// Creates a `paired` [MessageRecver] and [MessageSender] from a [std::net::TcpStream] by cloning it and converting
-/// the underlying stream to [mio::net::TcpStream] 
-/// 
+/// the underlying stream to [mio::net::TcpStream]
+///
 /// # Returns a tuple with
 ///  * [MessageRecver] - for receiving messages
 ///  * [MessageSender] - for sending messages
-/// 
+///
 /// # Important
 /// if either [MessageRecver] or [MessageSender] is dropped, the underlying stream will be shutdown and all actions on the remaining `pair` will fail
 pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
@@ -195,8 +207,9 @@ pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
 #[cfg(feature = "unittest")]
 mod test {
     use std::{
+        io::ErrorKind,
         thread::{sleep, Builder},
-        time::{Duration, Instant}, io::ErrorKind,
+        time::{Duration, Instant},
     };
 
     use crate::prelude_nonblocking::*;

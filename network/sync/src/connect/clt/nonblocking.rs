@@ -14,6 +14,7 @@ use crate::prelude_nonblocking::{
 };
 use log::debug;
 
+/// An abstraction over a [MessageRecver] that calls a [CallbackRecv] on every message received.
 #[derive(Debug)]
 pub struct CltRecver<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
     pub(crate) msg_recver: MessageRecver<M, MAX_MSG_SIZE>,

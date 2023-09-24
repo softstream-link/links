@@ -152,7 +152,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Clt<M, C, 
     }
 
     pub(crate) fn from_stream(stream: TcpStream, con_id: ConId, callback: Arc<C>) -> Self {
-        let (msg_recver, msg_sender) = into_split_messenger::<M, MAX_MSG_SIZE>(stream, con_id);
+        let (msg_recver, msg_sender) = into_split_messenger::<M, MAX_MSG_SIZE>(con_id, stream);
         Self {
             clt_recver: CltRecver::new(msg_recver, callback.clone()),
             clt_sender: CltSender::new(msg_sender, callback.clone()),

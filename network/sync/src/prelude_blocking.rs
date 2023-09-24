@@ -7,3 +7,5 @@ pub use crate::connect::messenger::blocking::{into_split_messenger, MessageRecve
 
 pub use crate::connect::clt::blocking::{Clt, CltRecver, CltSender};
 pub use crate::connect::svc::blocking::{Svc, SvcAcceptor, SvcRecver, SvcSender};
+
+pub use links_network_core::prelude::{ConId, FixedSizeFramer, Framer};

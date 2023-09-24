@@ -19,4 +19,4 @@ pub use crate::connect::svc::nonblocking::Svc;
 pub use links_network_core::prelude::{
     CallbackRecv, CallbackRecvSend, CallbackSend, DevNullCallback, LoggerCallback,
 };
-pub use links_network_core::prelude::{ConId, Framer, Messenger};
+pub use links_network_core::prelude::{ConId, FixedSizeFramer, Framer, Messenger};

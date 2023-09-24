@@ -1,24 +1,37 @@
 //! This module contains a non blocking `paired` [FrameReader] and [FrameWriter] which are designed to be used in separate threads,
 //! where each thread is only doing either reading or writing to the underlying [mio::net::TcpStream].
-//! 
+//!
 //! # Note
-//! 
+//!
 //!  The underlying [mio::net::TcpStream] is cloned and therefore share a single underlying network socket.
-//! 
+//!
 //! # Example
-//! ```no_run
-//! let addr = "127.0.0.0:80";
+//! ```
+//! use links_network_sync::prelude_nonblocking::*;
+//!
+//! const FRAME_SIZE: usize = 128;
+//!
+//! let addr = "127.0.0.1:8080";
+//!
+//! let svc_listener = std::net::TcpListener::bind(addr).unwrap();
+//!
 //! let clt_stream = std::net::TcpStream::connect(addr).unwrap();
-//! let (clt_reader, clt_writer) = into_split_framer::<MsgFramer, 128>(
+//! let (clt_reader, clt_writer) = into_split_framer::<FixedSizeFramer<FRAME_SIZE>, FRAME_SIZE>(
 //!         ConId::clt(Some("unittest"), None, addr),
 //!         clt_stream,
 //!     );
 //!
-//! let svc_stream = std::net::TcpListener::bind(addr).unwrap().accept().unwrap().0;
-//! let (svc_reader, svc_writer) = into_split_framer::<MsgFramer, 128>(
+//! let svc_stream = svc_listener.accept().unwrap().0;
+//! let (svc_reader, svc_writer) = into_split_framer::<FixedSizeFramer<FRAME_SIZE>, FRAME_SIZE>(
 //!         ConId::svc(Some("unittest"), addr, None),
 //!         svc_stream,
 //!     );
+//!
+//! drop(clt_reader);
+//! drop(clt_writer);
+//! drop(svc_reader);
+//! drop(svc_writer);
+//! drop(svc_listener);
 //!
 //! // Note:
 //!     // paired
@@ -313,11 +326,11 @@ type FrameProcessor<F, const MAX_MSG_SIZE: usize> = (FrameReader<F, MAX_MSG_SIZE
 
 /// Creates a `paired` [FrameReader] and [FrameWriter] from a [std::net::TcpStream] by cloning it and converting
 /// the underlying stream to [mio::net::TcpStream]
-/// 
+///
 /// # Returns a tuple with
 ///   * [FrameReader] - a nonblocking FrameReader
 ///   * [FrameWriter] - a nonblocking FrameWriter
-/// 
+///
 /// # Important
 /// If either the [FrameReader] or [FrameWriter] are dropped the underlying stream will be shutdown and all actions on the remaining `pair` will fail
 pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(

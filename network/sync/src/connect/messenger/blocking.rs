@@ -5,20 +5,32 @@
 //! The underlying [std::net::TcpStream] is cloned and therefore share a single underlying network socket.
 //! 
 //! # Example
-//! ```no_run
-//! let addr = "127.0.0.0:80";
+//! ```
+//! use links_network_sync::prelude_blocking::*;
+//! use links_network_sync::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
+//! 
+//! let addr = "127.0.0.1:8080";
+//! 
+//! let svc_listener = std::net::TcpListener::bind(addr).unwrap();
+//! 
 //! let clt_stream = std::net::TcpStream::connect(addr).unwrap();
-//! let (clt_recv, clt_send) = into_split_messenger::<MsgFramer, 128>(
+//! let (clt_recv, clt_send) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
 //!         ConId::clt(Some("unittest"), None, addr),
 //!         clt_stream,
 //!     );
 //!
-//! let svc_stream = std::net::TcpListener::bind(addr).unwrap().accept().unwrap().0;
-//! let (svc_recv, svc_send) = into_split_messenger::<MsgFramer, 128>(
+//! let svc_stream = svc_listener.accept().unwrap().0;
+//! let (svc_recv, svc_send) = into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
 //!         ConId::svc(Some("unittest"), addr, None),
 //!         svc_stream,
 //!     );
-//!
+//! 
+//! drop(clt_recv);
+//! drop(clt_send);
+//! drop(svc_recv);
+//! drop(svc_send);
+//! drop(svc_listener);
+//! 
 //! // Note:
 //!     // paired
 //!         // clt_recv & clt_send
@@ -116,14 +128,14 @@ pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (
 /// Creates a `paired` [MessageRecver] and [MessageSender] from a [std::net::TcpStream] by cloning it.
 /// 
 /// # Returns a tuple with 
-///  * [MessageRecver] which is used for receiving messages
-///  * [MessageSender] which is used for sending messages
+///  * [MessageRecver] - for receiving messages
+///  * [MessageSender] - for sending messages
 /// 
 /// # Important
 /// if either [MessageRecver] or [MessageSender] is dropped, the underlying stream will be shutdown and all actions on the remaining `pair` will fail
 pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
-    stream: TcpStream,
     mut con_id: ConId,
+    stream: TcpStream,
 ) -> MessageProcessor<M, MAX_MSG_SIZE> {
     con_id.set_local(stream.local_addr().unwrap());
     con_id.set_peer(stream.peer_addr().unwrap());
@@ -176,8 +188,8 @@ mod test {
                 let (stream, _) = listener.accept().unwrap();
                 let (mut svc_recver, mut svc_sender) =
                     into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
-                        stream,
                         ConId::svc(Some("unittest"), addr, None),
+                        stream,
                     );
                 info!("{} connected", svc_sender);
 
@@ -199,8 +211,8 @@ mod test {
         let stream = TcpStream::connect(addr).unwrap();
         let (mut clt_recver, mut clt_sender) =
             into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
-                stream,
                 ConId::clt(Some("unittest"), None, addr),
+                stream,
             );
         info!("{} connected", clt_sender);
         let start = Instant::now();

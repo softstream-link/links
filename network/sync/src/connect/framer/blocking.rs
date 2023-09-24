@@ -5,20 +5,33 @@
 //! The underlying [std::net::TcpStream] is cloned and therefore share a single underlying network socket.
 //! 
 //! # Example
-//! ```no_run
-//! let addr = "127.0.0.0:80";
+//! ```
+//! use links_network_sync::prelude_blocking::*;
+//! 
+//! const FRAME_SIZE: usize = 128;
+//! 
+//! let addr = "127.0.0.1:8080";
+//! 
+//! let svc_listener = std::net::TcpListener::bind(addr).unwrap();
+//! 
 //! let clt_stream = std::net::TcpStream::connect(addr).unwrap();
-//! let (clt_reader, clt_writer) = into_split_framer::<MsgFramer, 128>(
+//! let (clt_reader, clt_writer) = into_split_framer::<FixedSizeFramer<FRAME_SIZE>, FRAME_SIZE>(
 //!         ConId::clt(Some("unittest"), None, addr),
 //!         clt_stream,
 //!     );
 //!
-//! let svc_stream = std::net::TcpListener::bind(addr).unwrap().accept().unwrap().0;
-//! let (svc_reader, svc_writer) = into_split_framer::<MsgFramer, 128>(
+//! let svc_stream = svc_listener.accept().unwrap().0;
+//! let (svc_reader, svc_writer) = into_split_framer::<FixedSizeFramer<FRAME_SIZE>, FRAME_SIZE>(
 //!         ConId::svc(Some("unittest"), addr, None),
 //!         svc_stream,
 //!     );
-//!
+//! 
+//! drop(clt_reader);
+//! drop(clt_writer);
+//! drop(svc_reader);
+//! drop(svc_writer);
+//! drop(svc_listener);
+//! 
 //! // Note:
 //!     // paired
 //!         // clt_reader & clt_writer
@@ -30,7 +43,7 @@
 
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
-use links_network_core::prelude::*;
+use crate::prelude_blocking::{ConId, Framer};
 use log::{debug, log_enabled};
 use std::fmt::Display;
 use std::io::{ErrorKind, Read, Write};
