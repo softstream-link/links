@@ -1,23 +1,23 @@
-//! This module contains a non blocking `paired` [FrameReader] and [FrameWriter] which are designed to be used in separate threads, 
-//! where each thread is only doing either reading or writing to the underlying [mio::net::TcpStream]. 
-//! Note that the underlying [mio::net::TcpStream] is cloned and therefore share a single underlying network socket. 
+//! This module contains a non blocking `paired` [FrameReader] and [FrameWriter] which are designed to be used in separate threads,
+//! where each thread is only doing either reading or writing to the underlying [mio::net::TcpStream].
+//! Note that the underlying [mio::net::TcpStream] is cloned and therefore share a single underlying network socket.
 //! # Example
 //! ```no_run
 //! let addr = "127.0.0.0:80";
 //! let clt_stream = std::net::TcpStream::connect(addr).unwrap();
 //! let (clt_reader, clt_writer) = into_split_framer::<MsgFramer, 128>(
-//!         ConId::clt(Some("unittest"), None, addr), 
+//!         ConId::clt(Some("unittest"), None, addr),
 //!         clt_stream,
 //!     );
-//! 
+//!
 //! let svc_stream = std::net::TcpListener::bind(addr).unwrap().accept().unwrap().0;
 //! let (svc_reader, svc_writer) = into_split_framer::<MsgFramer, 128>(
 //!         ConId::svc(Some("unittest"), addr, None),
 //!         svc_stream,
 //!     );
-//! 
-//! // Note: 
-//!     // paired 
+//!
+//! // Note:
+//!     // paired
 //!         // clt_reader & clt_writer
 //!         // svc_reader & svc_writer
 //!     // peers
@@ -35,14 +35,11 @@ use std::{
     net::Shutdown,
 };
 
-
-
 use std::mem::MaybeUninit;
 use std::os::fd::AsRawFd;
 
 use log::{debug, log_enabled};
 const EOF: usize = 0;
-
 
 /// Represents an abstraction for reading exactly one frame from the [TcpStream].
 /// Each call to [Self::read_frame] will issue a [Read::read] system call on the underlying [TcpStream]
@@ -74,8 +71,10 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
         }
     }
 
-    /// Reads `exactly one frame` from the underlying [TcpStream], see [RecvStatus] for more details on the meaning of 
-    /// each variant in the successful scenario
+    /// Reads `exactly one frame` from the underlying [TcpStream], see [RecvStatus] for more details on the meaning of
+    /// each variant in the successful scenario.
+    /// # Note
+    /// If the [FrameWriter] `pair` is dropped this method will return [RecvStatus::Completed(None)]
     #[inline]
     pub fn read_frame(&mut self) -> Result<RecvStatus<Bytes>, Error> {
         // TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MSG_SIZE generic as it can just be an non const arg to new
@@ -119,10 +118,10 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
         }
     }
 
-    /// Shuts down the underlying [TcpStream] in the specified direction. 
+    /// Shuts down the underlying [TcpStream] in the specified direction.
     /// # Note side effects of each variant below
     ///  * [Shutdown::Write] will send TCP FIN flag to the peer, as a result all subsequent `paired` [FrameWriter::write_frame] will fail with [ErrorKind::BrokenPipe]
-    ///  * [Shutdown::Read] will `NOT` send any TCP flags to the peer, however, as a result all subsequent [Self::read_frame] will return [Ok(0)]. 
+    ///  * [Shutdown::Read] will `NOT` send any TCP flags to the peer, however, as a result all subsequent [Self::read_frame] will return [Ok(0)].
     /// This variant will also cause all `peer` [FramerWriter::write_frame] to generate [std::io::Error] of [ErrorKind::ConnectionReset]
     #[inline]
     fn shutdown(&mut self, how: Shutdown, reason: &str) {
@@ -180,7 +179,6 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SI
     }
 }
 
-
 /// Represents an abstraction for writing exactly one frame to the non blocking underlying [mio::net::TcpStream]
 #[derive(Debug)]
 pub struct FrameWriter {
@@ -197,16 +195,19 @@ impl FrameWriter {
     }
     /// Writes `entire` frame or `no` bytes at all to the underlying stream, see [SendStatus] for more details on the meaning of
     /// each variant in the successful scenario.
-    /// 
+    ///
     /// # Arguments
     ///    * bytes - a slice representing one complete frame
     ///
     /// # Important
     /// The function will internally issue a [Write::write] system call repeatedly on the underlying [mio::net::TcpStream]
     /// until all of the bytes are written, while `busy waiting` on the socket if write returns [ErrorKind::WouldBlock].
-    /// 
+    ///
     /// However, if an only if, the first call to [Write::write] returns [ErrorKind::WouldBlock] and no bytes where written
     /// to the underlying socket, the method will return immediately with [Ok(SendStatus::WouldBlock)].
+    ///
+    /// # Note
+    /// If the [FrameReader] `pair` is dropped this method will return [Err(ErrorKind::BrokenPipe)]
     #[inline]
     pub fn write_frame(&mut self, bytes: &[u8]) -> Result<SendStatus, Error> {
         let mut residual = bytes;
@@ -306,7 +307,7 @@ impl Display for FrameWriter {
 
 type FrameProcessor<F, const MAX_MSG_SIZE: usize> = (FrameReader<F, MAX_MSG_SIZE>, FrameWriter);
 
-/// Crates a `paired` [FrameReader] and [FrameWriter] from a [std::net::TcpStream] by cloning it and converting 
+/// Crates a `paired` [FrameReader] and [FrameWriter] from a [std::net::TcpStream] by cloning it and converting
 /// the underlying stream to [mio::net::TcpStream]
 /// # Returns a tuple with
 ///   * [FrameReader] - a nonblocking FrameReader
@@ -343,6 +344,7 @@ pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
 #[cfg(test)]
 mod test {
     use std::{
+        io::ErrorKind,
         net::{TcpListener, TcpStream},
         thread::{self, sleep},
         time::{Duration, Instant},
@@ -361,11 +363,11 @@ mod test {
     use rand::Rng;
 
     /// # High Level Approach
-    /// 1. Spawn FrameReader in a separate thread
+    /// 1. Spawn Svc FrameReader in a separate thread
     ///     1. accept connection that will be split into reader & writer
     ///     2. only use reader and read until None or Err
     ///     3. return frame_recv_count upon completion
-    /// 2. Create FrameWriter in main thread
+    /// 2. Create Clt FrameWriter in main thread
     ///     1. the connection will be split into reader & writer
     ///     2. only use writer to write N frames
     ///     3. randomly drop either reader or writer as join FrameReader thread which should successfully exist in either case
@@ -449,18 +451,18 @@ mod test {
         // CONFIGURE clt
         let stream = TcpStream::connect(addr).unwrap();
 
-        let (reader, mut writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
+        let (mut clt_reader, mut clt_writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
             ConId::clt(Some("unittest"), None, addr),
             stream,
         );
 
-        info!("clt: writer: {}", writer);
+        info!("clt: writer: {}", clt_writer);
 
         let mut frame_send_count = 0_usize;
         let start = Instant::now();
         for _ in 0..WRITE_N_TIMES {
             loop {
-                match writer.write_frame(send_frame) {
+                match clt_writer.write_frame(send_frame) {
                     Ok(SendStatus::Completed) => {
                         frame_send_count += 1;
                         break;
@@ -476,12 +478,19 @@ mod test {
         }
         let elapsed = start.elapsed();
 
+        // drop either clt_reader or clt_writer and validate that the `pair` is acting correction
         if rand::thread_rng().gen_range(1..=2) % 2 == 0 {
-            info!("dropping writer");
-            drop(writer);
+            info!("dropping clt_writer");
+            drop(clt_writer);
+            let status = clt_reader.read_frame().unwrap();
+            info!("clt_reader.read_frame() status: {:?}", status);
+            assert_eq!(status, RecvStatus::Completed(None));
         } else {
-            info!("dropping reader");
-            drop(reader);
+            info!("dropping clt_reader");
+            drop(clt_reader);
+            let err = clt_writer.write_frame(send_frame).unwrap_err();
+            info!("clt_writer.write_frame() err: {}", err);
+            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
         }
         let frame_recv_count = svc.join().unwrap();
         info!(

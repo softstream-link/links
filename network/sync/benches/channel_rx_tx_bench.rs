@@ -35,7 +35,7 @@ fn channel_rx_tx_send_random_frame(c: &mut Criterion) {
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-    // CONFIGUR clt
+    // CONFIGURE clt
     let id = format!("channel_rx_tx_send_random_frame size: {} bytes", 128);
     let mut frame_recv_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
@@ -88,7 +88,7 @@ fn channel_rx_tx_send_random_frame_sync(c: &mut Criterion) {
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-    // CONFIGUR clt
+    // CONFIGURE clt
     let id = format!("channel_rx_tx_send_random_frame_sync size: {} bytes", 128);
     let mut frame_recv_count = 0_u32;
     c.bench_function(id.as_str(), |b| {

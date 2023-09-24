@@ -122,8 +122,8 @@ pub trait AcceptCltNonBlocking<M: Messenger, C: CallbackRecvSend<M>, const MAX_M
 /// Represents the state of a non-blocking read operation
 ///
 /// # Variants
-/// * [RecvStatus::Completed(Some(T))] - indiates that read was successfull and `T` contains the value read
-/// * [RecvStatus::Completed(None)] - indicates that connectioon was closed by the peer cleanly and all data was read
+/// * [RecvStatus::Completed(Some(T))] - indicates that read was successful and `T` contains the value read
+/// * [RecvStatus::Completed(None)] - indicates that connection was closed by the peer cleanly and all data was read
 /// * [RecvStatus::WouldBlock] - indicates that no data was read and the caller should try again
 #[derive(Debug, PartialEq)]
 pub enum RecvStatus<T> {
@@ -152,11 +152,11 @@ impl<T> RecvStatus<T> {
 
 pub trait RecvMsgNonBlocking<M: Messenger> {
     /// Will attempt to read a message from the stream. Each call to this method will
-    /// attemp to read data from the stream via system call and if sufficient number of bytes were read to
+    /// attempt to read data from the stream via system call and if sufficient number of bytes were read to
     /// make a single frame it will attempt to deserialize it into a message and return it
     fn recv_nonblocking(&mut self) -> Result<RecvStatus<M::RecvT>, Error>;
 
-    /// Will call [Self::recv_nonblocking] untill it returns [RecvStatus::Completed] or [RecvStatus::WouldBlock] after the timeout.
+    /// Will call [Self::recv_nonblocking] until it returns [RecvStatus::Completed] or [RecvStatus::WouldBlock] after the timeout.
     fn recv_busywait_timeout(&mut self, timeout: Duration) -> Result<RecvStatus<M::RecvT>, Error> {
         use RecvStatus::{Completed, WouldBlock};
         let start = Instant::now();
@@ -171,7 +171,7 @@ pub trait RecvMsgNonBlocking<M: Messenger> {
             }
         }
     }
-    /// Will busywait block on [Self::recv_nonblocking] untill it returns [RecvStatus::Completed]
+    /// Will busywait block on [Self::recv_nonblocking] until it returns [RecvStatus::Completed]
     fn recv_busywait(&mut self) -> Result<Option<M::RecvT>, Error> {
         use RecvStatus::{Completed, WouldBlock};
         loop {
@@ -199,13 +199,13 @@ pub enum SendStatus {
 pub trait SendMsgNonBlocking<M: Messenger> {
     /// The call will internally serialize the msg and attempt to write the resulting bytes into a stream.
     /// If there was a successfull attempt which wrote some bytes from serialized message
-    /// into the stream but the write was only partial then the call will buzy wait until all of
+    /// into the stream but the write was only partial then the call will busy wait until all of
     /// remaining bytes were written before returning [SendStatus::Completed].
-    /// [SendStatus::WouldBlock] is returned only if the attemp did not write any bytes to the stream
+    /// [SendStatus::WouldBlock] is returned only if the attempt did not write any bytes to the stream
     /// after the first attempt
     fn send_nonblocking(&mut self, msg: &mut M::SendT) -> Result<SendStatus, Error>;
 
-    /// Will call [Self::send_nonblocking] untill it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeoutok,
+    /// Will call [Self::send_nonblocking] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
     #[inline(always)]
     fn send_busywait_timeout(
         &mut self,
@@ -224,7 +224,7 @@ pub trait SendMsgNonBlocking<M: Messenger> {
             }
         }
     }
-    /// Will call [Self::send_nonblocking] untill it returns [SendStatus::Completed]
+    /// Will call [Self::send_nonblocking] until it returns [SendStatus::Completed]
     #[inline(always)]
     fn send_busywait(&mut self, msg: &mut M::SendT) -> Result<SendStatus, Error> {
         use SendStatus::{Completed, WouldBlock};

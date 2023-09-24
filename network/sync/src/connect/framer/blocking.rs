@@ -42,7 +42,7 @@ const EOF: usize = 0;
 /// Each call to the [Self::read_frame] will issue a [Read::read] system call on the underlying [TcpStream].
 /// which will capture any bytes read into internal accumulator implemented as a [BytesMut]. This internal buffer will be
 /// passed to the generic impl of [Framer::get_frame] where it is user's responsibility to  inspect the buffer and split off a single frame.
-/// 
+///
 /// # Generic Parameters
 ///  * `F` - A type that implements the [Framer] trait. This is used to split off a single frame from the internal buffer.
 ///  * `MAX_MSG_SIZE` - The maximum size of a single frame. This is used to pre-allocate the internal buffer.
@@ -68,8 +68,11 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             phantom: std::marker::PhantomData,
         }
     }
-    
+
     /// Reads `exactly one frame` from the underlying [TcpStream] and returns it as a [Some(Bytes)] or [None] if the connection was closed.
+    /// 
+    /// # Note
+    /// If the [FrameWriter] `pair` is dropped then this method will return a [Ok(None)].
     #[inline]
     pub fn read_frame(&mut self) -> Result<Option<Bytes>, Error> {
         loop {
@@ -183,6 +186,9 @@ impl FrameWriter {
         }
     }
     /// Writes a single frame to the underlying [TcpStream].
+    /// 
+    /// # Note
+    /// If the [FrameReader] `pair` is dropped then this method will return a [Err(ErrorKind::BrokenPipe)] error.
     #[inline]
     pub fn write_frame(&mut self, bytes: &[u8]) -> Result<(), Error> {
         match self.stream_writer.write_all(bytes) {
@@ -271,6 +277,7 @@ pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
 mod test {
 
     use std::{
+        io::ErrorKind,
         net::{TcpListener, TcpStream},
         thread::{self, sleep},
         time::{Duration, Instant},
@@ -286,7 +293,20 @@ mod test {
     };
     use links_testing::unittest::setup;
     use log::{error, info};
+    use rand::Rng;
 
+    /// # High Level Approach
+    /// 1. Spawn Svc FrameReader in a separate thread
+    ///     1. accept connection that will be split into reader & writer
+    ///     2. only use reader and read until None or Err
+    ///     3. return frame_recv_count upon completion
+    /// 2. Create Clt FrameWriter in main thread
+    ///     1. the connection will be split into reader & writer
+    ///     2. only use writer to write N frames
+    ///     3. randomly drop either reader or writer as join FrameReader thread which should successfully exist in either case
+    ///     4. ensure number of frames sent by FrameWriter equals number of frames received by FrameReader
+    /// # Notes
+    /// * turn on LevelFilter::Debug for additional logging, it will show drop events
     #[test]
     fn test_reader() {
         setup::log::configure_level(log::LevelFilter::Info);
@@ -316,10 +336,11 @@ mod test {
                 move || {
                     let listener = TcpListener::bind(addr).unwrap();
                     let (stream, _) = listener.accept().unwrap();
-                    let (mut svc_reader, _svc_writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
-                        ConId::svc(Some("unittest"), addr, None),
-                        stream,
-                    );
+                    let (mut svc_reader, _svc_writer) =
+                        into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
+                            ConId::svc(Some("unittest"), addr, None),
+                            stream,
+                        );
                     info!("svc: reader: {}", svc_reader);
                     let mut frame_recv_count = 0_usize;
                     loop {
@@ -334,7 +355,7 @@ mod test {
                                 }
                             }
                             Err(e) => {
-                                error!("Svc read_rame error: {}", e.to_string());
+                                error!("Svc read_frame error: {}", e.to_string());
                                 break;
                             }
                         }
@@ -345,8 +366,8 @@ mod test {
             .unwrap();
 
         sleep(Duration::from_millis(100)); // allow the spawned to bind
-                                           // CONFIGUR clt
-        let (_clt_reader, mut clt_writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
+                                           // CONFIGURE clt
+        let (mut clt_reader, mut clt_writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
             ConId::clt(Some("unittest"), None, addr),
             TcpStream::connect(addr).unwrap(),
         );
@@ -361,7 +382,20 @@ mod test {
         }
         let elapsed = start.elapsed();
 
-        drop(clt_writer);
+        // drop either clt_reader or clt_writer and validate that the `pair` is acting correction
+        if rand::thread_rng().gen_range(1..=2) % 2 == 0 {
+            info!("dropping clt_writer");
+            drop(clt_writer);
+            let opt = clt_reader.read_frame().unwrap();
+            info!("clt_reader.read_frame() opt: {:?}", opt);
+            assert_eq!(opt, None);
+        } else {
+            info!("dropping clt_reader");
+            drop(clt_reader);
+            let err = clt_writer.write_frame(send_frame).unwrap_err();
+            info!("clt_writer.write_frame() err: {}", err);
+            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+        }
         let frame_recv_count = svc.join().unwrap();
 
         info!(
