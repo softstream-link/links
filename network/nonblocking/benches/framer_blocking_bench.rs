@@ -11,7 +11,7 @@ use links_network_core::{
     fmt_num,
     prelude::{ConId, Framer},
 };
-use links_network_sync::connect::framer::blocking::into_split_framer;
+use links_network_nonblocking::connect::framer::blocking::into_split_framer;
 use links_testing::unittest::setup;
 use log::{error, info};
 

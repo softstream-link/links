@@ -6,7 +6,7 @@
 //! 
 //! # Example
 //! ```
-//! use links_network_sync::prelude_blocking::*;
+//! use links_network_nonblocking::prelude_blocking::*;
 //! 
 //! const FRAME_SIZE: usize = 128;
 //! 

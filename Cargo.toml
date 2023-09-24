@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "network/core",
-    "network/sync",
+    "network/nonblocking",
     "network/async",
     "protocols/ouch",
     "protocols/soupbintcp",
@@ -20,7 +20,7 @@ derive_more = "0.99"                                                            
 
 # networking
 links_network_async = { path = "./network/async" }
-links_network_sync = { path = "./network/sync" }
+links_network_nonblocking = { path = "./network/nonblocking" }
 links_network_core = { path = "./network/core" }
 bytes = "1.4"
 nix = {version ="0.27", features = ["net"]} # TODO this is not used , remove

@@ -2,8 +2,8 @@ use bytes::{Bytes, BytesMut};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_network_core::fmt_num;
 use links_network_core::prelude::{ConId, Framer};
-use links_network_sync::connect::framer::nonblocking::into_split_framer;
-use links_network_sync::prelude_nonblocking::{RecvStatus, SendStatus};
+use links_network_nonblocking::connect::framer::nonblocking::into_split_framer;
+use links_network_nonblocking::prelude_nonblocking::{RecvStatus, SendStatus};
 use links_testing::unittest::setup;
 use log::{error, info};
 use std::{

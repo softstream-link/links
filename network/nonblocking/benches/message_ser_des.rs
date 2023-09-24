@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_network_core::prelude::Messenger;
-use links_network_sync::{
+use links_network_nonblocking::{
     unittest::setup::messenger::TestCltMsgProtocol,
     unittest::setup::{framer::TEST_MSG_FRAME_SIZE, messenger::TestSvcMsgProtocol},
 };

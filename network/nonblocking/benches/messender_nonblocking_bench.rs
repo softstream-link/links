@@ -6,16 +6,20 @@ use std::{
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_network_core::{fmt_num, prelude::ConId};
-use links_network_sync::{
-    prelude_blocking::*,
-    unittest::setup::messenger::TestCltMsgProtocol,
-    unittest::setup::{framer::TEST_MSG_FRAME_SIZE, messenger::TestSvcMsgProtocol},
+use links_network_nonblocking::{
+    prelude_nonblocking::{
+        into_split_messenger, RecvMsgNonBlocking, RecvStatus, SendMsgNonBlockingNonMut, SendStatus,
+    },
+    unittest::setup::{
+        framer::TEST_MSG_FRAME_SIZE,
+        messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
+    },
 };
 use links_testing::unittest::setup::{
     self,
     model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
 };
-use log::{error, info};
+use log::info;
 
 fn send_msg(c: &mut Criterion) {
     setup::log::configure_level(log::LevelFilter::Info);
@@ -28,43 +32,54 @@ fn send_msg(c: &mut Criterion) {
         .spawn(move || {
             let listener = TcpListener::bind(addr).unwrap();
             let (stream, _) = listener.accept().unwrap();
-            let (mut reader, _) = into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
-                ConId::svc(Some("unittest"), addr, None),
-                stream,
-            );
+            let (mut svc_reader, _svc_writer) =
+                into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
+                    ConId::svc(Some("unittest"), addr, None),
+                    stream,
+                );
             // info!("svc: reader: {}", reader);
             let mut frame_recv_count = 0_u32;
-            while let Some(_) = reader.recv().unwrap() {
-                frame_recv_count += 1;
+            loop {
+                let status = svc_reader.recv_nonblocking().unwrap();
+                match status {
+                    RecvStatus::Completed(Some(_)) => {
+                        frame_recv_count += 1;
+                    }
+                    RecvStatus::Completed(None) => {
+                        info!("svc: read_frame is None, client closed connection");
+                        break;
+                    }
+                    RecvStatus::WouldBlock => continue,
+                }
             }
-            info!("svc: {} Client Closed Connection", reader);
             frame_recv_count
         })
         .unwrap();
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-    // CONFIGUR clt
-    let (_, mut writer) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
-        ConId::clt(Some("unittest"), None, addr),
-        TcpStream::connect(addr).unwrap(),
-    );
+    // CONFIGURE clt
+    let (_clt_reader, mut clt_writer) =
+        into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
+            ConId::clt(Some("unittest"), None, addr),
+            TcpStream::connect(addr).unwrap(),
+        );
     // info!("clt: writer: {}", writer);
 
-    let id = format!("messenger_blocking_send_msg TestCltMsg");
+    let id = format!("messenger_nonblocking_send_msg TestCltMsg");
 
     let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
     let mut msg_send_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                writer.send(&msg).unwrap();
+                while let SendStatus::WouldBlock = clt_writer.send_nonblocking(&msg).unwrap() {}
                 msg_send_count += 1;
             })
         })
     });
 
-    drop(writer); // this will allow svc.join to complete
+    drop(clt_writer); // this will allow svc.join to complete
     let msg_recv_count = reader.join().unwrap();
     info!(
         "msg_send_count: {:?}, msg_recv_count: {:?}",
@@ -80,51 +95,60 @@ fn recv_msg(c: &mut Criterion) {
     let addr = setup::net::rand_avail_addr_port();
 
     // CONFIGURE svc
-    let writer = thread::Builder::new()
+    let writer_jh = thread::Builder::new()
         .name("Thread-Svc".to_owned())
         .spawn(move || {
             let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
             let listener = TcpListener::bind(addr).unwrap();
             let (stream, _) = listener.accept().unwrap();
-            let (_, mut writer) = into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
-                ConId::svc(None, addr, None),
-                stream,
-            );
+            let (_clt_reader, mut svc_writer) = into_split_messenger::<
+                TestSvcMsgProtocol,
+                TEST_MSG_FRAME_SIZE,
+            >(ConId::svc(None, addr, None), stream);
             // info!("svc: writer: {}", writer);
-            let mut frame_send_count = 0_u32;
-            while let Ok(_) = writer.send(&msg) {
-                frame_send_count += 1;
+            let mut msg_send_count = 0_u32;
+            while let Ok(status) = svc_writer.send_nonblocking(&msg) {
+                match status {
+                    SendStatus::WouldBlock => continue,
+                    SendStatus::Completed => {
+                        msg_send_count += 1;
+                    }
+                }
             }
-            frame_send_count
+            msg_send_count
         })
         .unwrap();
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-    // CONFIGUR clt
-    let (mut reader, _) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
-        ConId::clt(Some("unittest"), None, addr),
-        TcpStream::connect(addr).unwrap(),
-    );
+    // CONFIGURE clt
+    let (mut clt_reader, _clt_writer) =
+        into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
+            ConId::clt(Some("unittest"), None, addr),
+            TcpStream::connect(addr).unwrap(),
+        );
     // info!("clt: reader: {}", reader);
 
-    let id = format!("messenger_blocking_recv_msg TestSvcMsg");
+    let id = format!("messenger_nonblocking_recv_msg TestSvcMsg");
     let mut msg_recv_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                let _x = reader.recv().unwrap();
+                while let RecvStatus::WouldBlock = clt_reader.recv_nonblocking().unwrap() {}
                 msg_recv_count += 1;
             })
         })
     });
 
-    drop(reader); // this will allow svc.join to complete
-    let msg_send_count = writer.join().unwrap();
+    drop(clt_reader); // this will allow svc.join to complete
+    drop(_clt_writer); // TODO git hub issue - https://github.com/bheisler/criterion.rs/issues/726
+
+    let msg_send_count = writer_jh.join().unwrap();
     info!(
-        "msg_send_count: {:?}, msg_recv_count: {:?}",
+        "msg_send_count: {:?} > msg_recv_count: {:?}, diff: {:?}",
         fmt_num!(msg_send_count),
-        fmt_num!(msg_recv_count)
+        fmt_num!(msg_recv_count),
+        fmt_num!(msg_send_count - msg_recv_count),
     );
 
     assert!(msg_send_count > msg_recv_count);
@@ -149,20 +173,18 @@ fn round_trip_msg(c: &mut Criterion) {
                         stream,
                     );
                 // info!("svc: reader: {}", reader);
-                loop {
-                    let res = reader.recv();
-                    match res {
-                        Ok(None) => {
-                            info!("svc: recv is None, client closed connection");
+                while let Ok(status) = reader.recv_nonblocking() {
+                    match status {
+                        RecvStatus::Completed(Some(_msg)) => {
+                            while let SendStatus::WouldBlock =
+                                writer.send_nonblocking(&msg).unwrap()
+                            {}
+                        }
+                        RecvStatus::Completed(None) => {
+                            info!("{} Connection Closed by Client", reader);
                             break;
                         }
-                        Ok(Some(_)) => {
-                            writer.send(&msg).unwrap();
-                        }
-                        Err(e) => {
-                            error!("Svc recv error: {}", e.to_string());
-                            break;
-                        }
+                        RecvStatus::WouldBlock => continue,
                     }
                 }
             }
@@ -171,7 +193,7 @@ fn round_trip_msg(c: &mut Criterion) {
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-    // CONFIGUR clt
+    // CONFIGURE clt
     let stream = TcpStream::connect(addr).unwrap();
     let (mut reader, mut writer) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
         ConId::clt(Some("unittest"), None, addr),
@@ -179,22 +201,27 @@ fn round_trip_msg(c: &mut Criterion) {
     );
     // info!("clt: writer: {}", writer);
 
-    let id = format!("messenger_blocking_round_trip_msg",);
+    let id = format!("messenger_nonblocking_round_trip_msg",);
     let mut msg_send_count = 0_u32;
     let mut msg_recv_count = 0_u32;
     let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                writer.send(&msg).unwrap();
+                while let SendStatus::WouldBlock = writer.send_nonblocking(&msg).unwrap() {}
                 msg_send_count += 1;
 
-                match reader.recv().unwrap() {
-                    None => {
-                        panic!("{} Server Closed Connection", reader);
-                    }
-                    Some(_) => {
-                        msg_recv_count += 1;
+                loop {
+                    match reader.recv_nonblocking().unwrap() {
+                        RecvStatus::Completed(Some(_msg)) => {
+                            msg_recv_count += 1;
+                            break;
+                        }
+                        RecvStatus::Completed(None) => {
+                            panic!("{} Connection Closed by Server", reader);
+                            // break;
+                        }
+                        RecvStatus::WouldBlock => continue,
                     }
                 }
             })
@@ -202,7 +229,7 @@ fn round_trip_msg(c: &mut Criterion) {
     });
 
     drop(writer); // this will allow svc.join to complete
-    drop(reader);
+
     svc.join().unwrap();
     info!(
         "msg_send_count: {:?}, msg_recv_count: {:?}",
@@ -214,4 +241,5 @@ fn round_trip_msg(c: &mut Criterion) {
 }
 
 criterion_group!(benches, send_msg, recv_msg, round_trip_msg);
+
 criterion_main!(benches);
