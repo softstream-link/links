@@ -209,7 +209,7 @@ mod test {
         }
 
         info!("--------- SVC RECV/SEND SHOULD FAIL CLT DROPS HALF ---------");
-        // recv with busywait to ensure that clt drop has delivered FIN signal and reciver does not just return WouldBlock
+        // recv with busywait to ensure that clt drop has delivered FIN signal and receiver does not just return WouldBlock
         let opt = pool_recver
             .recv_busywait_timeout(Duration::from_millis(100))
             .unwrap()

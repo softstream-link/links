@@ -231,11 +231,11 @@ pub trait SendMsgNonBlocking<M: Messenger> {
     }
     /// Will call [Self::send_nonblocking] until it returns [SendStatus::Completed]
     #[inline(always)]
-    fn send_busywait(&mut self, msg: &mut M::SendT) -> Result<SendStatus, Error> {
+    fn send_busywait(&mut self, msg: &mut M::SendT) -> Result<(), Error> {
         use SendStatus::{Completed, WouldBlock};
         loop {
             match self.send_nonblocking(msg)? {
-                Completed => return Ok(Completed),
+                Completed => return Ok(()),
                 WouldBlock => continue,
             }
         }
@@ -272,11 +272,11 @@ pub trait SendMsgNonBlockingNonMut<M: Messenger> {
     }
     /// Will call [Self::send_nonblocking] until it returns [SendStatus::Completed]
     #[inline(always)]
-    fn send_busywait(&mut self, msg: &<M as Messenger>::SendT) -> Result<SendStatus, Error> {
+    fn send_busywait(&mut self, msg: &<M as Messenger>::SendT) -> Result<(), Error> {
         use SendStatus::{Completed, WouldBlock};
         loop {
             match self.send_nonblocking(msg)? {
-                Completed => return Ok(Completed),
+                Completed => return Ok(()),
                 WouldBlock => continue,
             }
         }

@@ -139,11 +139,11 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> SendMsgNonBlockingNonMut<M>
 
     /// This implementation overrides default trait implementation by optimizing serialization of the message to only
     /// happen once in the event that the under socket is busy and returns [SendStatus::WouldBlock]
-    fn send_busywait(&mut self, msg: &<M as Messenger>::SendT) -> Result<SendStatus, Error> {
+    fn send_busywait(&mut self, msg: &<M as Messenger>::SendT) -> Result<(), Error> {
         let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
         loop {
             match self.frm_writer.write_frame(&bytes[..size])? {
-                SendStatus::Completed => return Ok(SendStatus::Completed),
+                SendStatus::Completed => return Ok(()),
                 SendStatus::WouldBlock => continue,
             }
         }

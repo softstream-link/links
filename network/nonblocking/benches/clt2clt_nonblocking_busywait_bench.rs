@@ -136,7 +136,6 @@ fn send_msg(c: &mut Criterion) {
 //         .spawn(move || {
 //             let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
 //             let listener = TcpListener::bind(addr).unwrap();
-//             setsockopt(&listener, ReusePort, &true).unwrap();
 //             let (stream, _) = listener.accept().unwrap();
 //             let (_, mut writer) = into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
 //                 stream,
@@ -158,7 +157,7 @@ fn send_msg(c: &mut Criterion) {
 
 //     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-//     // CONFIGUR clt
+//     // CONFIGURE clt
 //     let (mut reader, _) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
 //         TcpStream::connect(addr).unwrap(),
 //         ConId::clt(Some("unittest"), None, addr),
@@ -224,7 +223,7 @@ fn send_msg(c: &mut Criterion) {
 
 //     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-//     // CONFIGUR clt
+//     // CONFIGURE clt
 //     let stream = TcpStream::connect(addr).unwrap();
 //     let (mut reader, mut writer) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
 //         stream,

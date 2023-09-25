@@ -122,6 +122,7 @@ fn recv_msg(c: &mut Criterion) {
     });
 
     drop(clt_reader); // this will allow svc.join to complete
+    drop(_clt_writer); // TODO rust lang issue https://github.com/rust-lang/rust/issues/116143
     let msg_send_count = writer.join().unwrap();
     info!(
         "msg_send_count: {:?}, msg_recv_count: {:?}",

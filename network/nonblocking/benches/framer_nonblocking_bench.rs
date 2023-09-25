@@ -72,7 +72,7 @@ fn send_random_frame(c: &mut Criterion) {
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-    // CONFIGUR clt
+    // CONFIGURE clt
     let (_clt_reader, mut clt_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
         ConId::clt(Some("benchmark"), None, addr),
         TcpStream::connect(addr).unwrap(),
@@ -157,7 +157,7 @@ fn recv_random_frame(c: &mut Criterion) {
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-    // CONFIGUR clt
+    // CONFIGURE clt
     let (mut clt_reader, _clt_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
         ConId::clt(Some("benchmark"), None, addr),
         TcpStream::connect(addr).unwrap(),
@@ -250,7 +250,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
 
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-    // CONFIGUR clt
+    // CONFIGURE clt
     let stream = TcpStream::connect(addr).unwrap();
     let (mut clt_reader, mut clt_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
         ConId::clt(Some("benchmark"), None, addr),

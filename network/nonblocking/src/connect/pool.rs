@@ -147,7 +147,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBloc
                 }
             },
             None => {
-                // no recivers available try processing rx_queue
+                // no receivers available try processing rx_queue
                 if self.service_once_rx_queue()? {
                     self.recv_nonblocking()
                 } else {

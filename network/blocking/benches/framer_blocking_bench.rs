@@ -164,6 +164,7 @@ fn recv_random_frame(c: &mut Criterion) {
     });
 
     drop(clt_reader); // this will allow svc.join to complete
+    drop(_clt_writer); // TODO rust lang issue - https://github.com/rust-lang/rust/issues/116143
     let frame_send_count = writer.join().unwrap();
     info!(
         "frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}",
