@@ -54,11 +54,11 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> AcceptClt<
 {
     fn accept(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error> {
         self.listener.set_nonblocking(false)?;
-        SvcAcceptor::accept(&self)
+        SvcAcceptor::accept(self)
     }
     fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
         self.listener.set_nonblocking(true)?;
-        match SvcAcceptor::accept(&self) {
+        match SvcAcceptor::accept(self) {
             Ok(clt) => Ok(Some(clt)),
             Err(e) => {
                 if e.kind() == ErrorKind::WouldBlock {

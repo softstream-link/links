@@ -122,26 +122,25 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBloc
     ) -> Result<SendStatus, Error> {
         self.callback
             .on_send(&self.msg_sender.frm_writer.con_id, msg);
-        loop {
-            match self.msg_sender.send_busywait_timeout(msg, timeout) {
-                Ok(SendStatus::Completed) => {
-                    self.callback
-                        .on_sent(&self.msg_sender.frm_writer.con_id, msg);
-                    return Ok(SendStatus::Completed);
-                }
-                Ok(SendStatus::WouldBlock) => {
-                    self.callback.on_fail(
-                        &self.msg_sender.frm_writer.con_id,
-                        msg,
-                        &ErrorKind::WouldBlock.into(),
-                    );
-                    return Ok(SendStatus::WouldBlock);
-                }
-                Err(e) => {
-                    self.callback
-                        .on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
-                    return Err(e);
-                }
+
+        match self.msg_sender.send_busywait_timeout(msg, timeout) {
+            Ok(SendStatus::Completed) => {
+                self.callback
+                    .on_sent(&self.msg_sender.frm_writer.con_id, msg);
+                Ok(SendStatus::Completed)
+            }
+            Ok(SendStatus::WouldBlock) => {
+                self.callback.on_fail(
+                    &self.msg_sender.frm_writer.con_id,
+                    msg,
+                    &ErrorKind::WouldBlock.into(),
+                );
+                Ok(SendStatus::WouldBlock)
+            }
+            Err(e) => {
+                self.callback
+                    .on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
+                Err(e)
             }
         }
     }
@@ -149,18 +148,17 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBloc
     fn send_busywait(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<(), Error> {
         self.callback
             .on_send(&self.msg_sender.frm_writer.con_id, msg);
-        loop {
-            match self.msg_sender.send_busywait(msg) {
-                Ok(()) => {
-                    self.callback
-                        .on_sent(&self.msg_sender.frm_writer.con_id, msg);
-                    return Ok(());
-                }
-                Err(e) => {
-                    self.callback
-                        .on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
-                    return Err(e);
-                }
+
+        match self.msg_sender.send_busywait(msg) {
+            Ok(()) => {
+                self.callback
+                    .on_sent(&self.msg_sender.frm_writer.con_id, msg);
+                Ok(())
+            }
+            Err(e) => {
+                self.callback
+                    .on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
+                Err(e)
             }
         }
     }

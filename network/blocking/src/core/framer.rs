@@ -1,19 +1,19 @@
 //! This module contains a blocking `paired` [FrameReader] and [FrameWriter] which are designed to be used in separate threads.
 //! where each thread is only doing either reading or writing to the underlying [std::net::TcpStream].
-//! 
+//!
 //! # Note
 //! The underlying [std::net::TcpStream] is cloned and therefore share a single underlying network socket.
-//! 
+//!
 //! # Example
 //! ```
 //! use links_network_blocking::prelude::*;
-//! 
+//!
 //! const FRAME_SIZE: usize = 128;
-//! 
+//!
 //! let addr = "127.0.0.1:8080";
-//! 
+//!
 //! let svc_listener = std::net::TcpListener::bind(addr).unwrap();
-//! 
+//!
 //! let clt_stream = std::net::TcpStream::connect(addr).unwrap();
 //! let (clt_reader, clt_writer) = into_split_framer::<FixedSizeFramer<FRAME_SIZE>, FRAME_SIZE>(
 //!         ConId::clt(Some("unittest"), None, addr),
@@ -25,13 +25,13 @@
 //!         ConId::svc(Some("unittest"), addr, None),
 //!         svc_stream,
 //!     );
-//! 
+//!
 //! drop(clt_reader);
 //! drop(clt_writer);
 //! drop(svc_reader);
 //! drop(svc_writer);
 //! drop(svc_listener);
-//! 
+//!
 //! // Note:
 //!     // paired
 //!         // clt_reader & clt_writer
@@ -41,9 +41,9 @@
 //!         // svc_reader & clt_writer
 //! ```
 
+use crate::prelude::{ConId, Framer};
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
-use crate::prelude::{ConId, Framer};
 use log::{debug, log_enabled};
 use std::fmt::Display;
 use std::io::{ErrorKind, Read, Write};
@@ -86,7 +86,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
     }
 
     /// Reads `exactly one frame` from the underlying [TcpStream] and returns it as a [Some(Bytes)] or [None] if the connection was closed.
-    /// 
+    ///
     /// # Note
     /// If the [FrameWriter] `pair` is dropped then this method will return a [Ok(None)].
     #[inline]
@@ -202,20 +202,20 @@ impl FrameWriter {
         }
     }
     /// Writes a single frame to the underlying [TcpStream].
-    /// 
+    ///
     /// # Note
     /// If the [FrameReader] `pair` is dropped then this method will return a [Err(ErrorKind::BrokenPipe)] error.
     #[inline]
     pub fn write_frame(&mut self, bytes: &[u8]) -> Result<(), Error> {
         match self.stream_writer.write_all(bytes) {
-            Ok(_) => return Ok(()),
+            Ok(_) => Ok(()),
             Err(e) => {
                 self.shutdown(Shutdown::Write, "write_frame error");
                 let msg = format!(
                     "{} FrameWriter::write_frame caused by: [{}]",
                     self.con_id, e
                 );
-                return Err(Error::new(e.kind(), msg));
+                Err(Error::new(e.kind(), msg))
             }
         }
     }
@@ -272,12 +272,12 @@ impl Display for FrameWriter {
 
 type FrameProcessor<F, const MAX_MSG_SIZE: usize> = (FrameReader<F, MAX_MSG_SIZE>, FrameWriter);
 
-/// Creates a `paired` [FrameReader] and [FrameWriter] from a [std::net::TcpStream] by cloning 
-/// 
+/// Creates a `paired` [FrameReader] and [FrameWriter] from a [std::net::TcpStream] by cloning
+///
 /// # Returns a tuple with
 ///   * [FrameReader] - a blocking FrameReader
 ///   * [FrameWriter] - a blocking FrameWriter
-/// 
+///
 /// # Important
 /// If either the [FrameReader] or [FrameWriter] are dropped the underlying stream will be shutdown and all actions on the remaining `pair` will fail
 pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(

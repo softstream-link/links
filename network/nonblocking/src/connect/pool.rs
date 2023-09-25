@@ -43,24 +43,24 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
             sender_pool: PoolSender::new(rx_sender, max_connections),
         }
     }
-    pub fn into_split(
-        self,
-    ) -> (
-        (
-            Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
-            Sender<CltSender<M, C, MAX_MSG_SIZE>>,
-        ),
-        (
-            PoolRecver<M, C, MAX_MSG_SIZE>,
-            PoolSender<M, C, MAX_MSG_SIZE>,
-        ),
-    ) {
+    pub fn into_split(self) -> SplitConnectionPool<M, C, MAX_MSG_SIZE> {
         (
             (self.tx_recver, self.tx_sender),
             (self.recver_pool, self.sender_pool),
         )
     }
 }
+
+pub type SplitConnectionPool<M, C, const MAX_MSG_SIZE: usize> = (
+    (
+        Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
+        Sender<CltSender<M, C, MAX_MSG_SIZE>>,
+    ),
+    (
+        PoolRecver<M, C, MAX_MSG_SIZE>,
+        PoolSender<M, C, MAX_MSG_SIZE>,
+    ),
+);
 
 #[derive(Debug)]
 pub struct PoolRecver<M: Messenger+'static, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
@@ -123,8 +123,8 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBloc
         use RecvStatus::{Completed, WouldBlock};
         match self.next_key_recver_mut() {
             Some((key, clt)) => match clt.recv_nonblocking() {
-                Ok(Completed(Some(msg))) => return Ok(Completed(Some(msg))),
-                Ok(WouldBlock) => return Ok(WouldBlock),
+                Ok(Completed(Some(msg))) => Ok(Completed(Some(msg))),
+                Ok(WouldBlock) => Ok(WouldBlock),
                 Ok(Completed(None)) => {
                     let recver = self.recvers.remove(key);
                     if log_enabled!(Info) {
@@ -133,7 +133,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBloc
                                 key, recver, self
                             );
                     }
-                    return Ok(Completed(None));
+                    Ok(Completed(None))
                 }
                 Err(e) => {
                     let recver = self.recvers.remove(key);
@@ -143,7 +143,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBloc
                                 e, key, recver, self
                             );
                     }
-                    return Err(e);
+                    Err(e)
                 }
             },
             None => {
@@ -245,20 +245,18 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBloc
     /// if the are no senders available the rx_queue will be checked once and if a new sender is available it will be used.
     fn send_nonblocking(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
         match self.next_key_sender_mut() {
-            Some((key, clt)) => {
-                match clt.send_nonblocking(msg) {
-                    Ok(SendStatus::Completed) => return Ok(SendStatus::Completed),
-                    Ok(SendStatus::WouldBlock) => return Ok(SendStatus::WouldBlock),
-                    Err(e) => {
-                        let msg = format!(
-                            "sender #{} is dead {} and will be dropped.  error: ({})",
-                            key, self, e
-                        );
-                        self.senders.remove(key);
-                        return Err(Error::new(e.kind(), msg));
-                    }
-                };
-            }
+            Some((key, clt)) => match clt.send_nonblocking(msg) {
+                Ok(SendStatus::Completed) => Ok(SendStatus::Completed),
+                Ok(SendStatus::WouldBlock) => Ok(SendStatus::WouldBlock),
+                Err(e) => {
+                    let msg = format!(
+                        "sender #{} is dead {} and will be dropped.  error: ({})",
+                        key, self, e
+                    );
+                    self.senders.remove(key);
+                    Err(Error::new(e.kind(), msg))
+                }
+            },
             None => {
                 // no senders available try processing rx_queue
                 if self.service_once_rx_queue()? {
