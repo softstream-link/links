@@ -6,7 +6,7 @@
 //!
 //! # Example
 //! ```no_run
-//! use links_network_nonblocking::prelude_nonblocking::*;
+//! use links_network_nonblocking::prelude::*;
 //! use links_network_nonblocking::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
 //!
 //! let addr = "127.0.0.0:8080";

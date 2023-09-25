@@ -5,12 +5,12 @@ pub trait Framer {
     /// The implementation of this function should use protocol specific logic to determine when enough bytes are available
     /// and return the Some(Bytes) or None per below
     /// ```no_run
-    /// if bytes.len() >= FRAME_SIZE {
-    ///     let frame = bytes.split_to(FRAME_SIZE);
-    ///     Some(frame.freeze())
-    /// } else {
-    ///     None
-    /// }
+    /// // if bytes.len() >= FRAME_SIZE {
+    /// //     let frame = bytes.split_to(FRAME_SIZE);
+    /// //     Some(frame.freeze())
+    /// // } else {
+    /// //     None
+    /// // }
     /// ```
     fn get_frame(bytes: &mut BytesMut) -> Option<Bytes>;
 }
