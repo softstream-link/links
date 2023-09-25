@@ -8,7 +8,7 @@ use std::{
 
 use links_network_core::{prelude::{CallbackRecvSend, DevNullCallback, Messenger}, fmt_num};
 use links_network_nonblocking::{
-    prelude_nonblocking::*,
+    prelude::*,
     unittest::setup::{
         framer::TEST_MSG_FRAME_SIZE,
         messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},

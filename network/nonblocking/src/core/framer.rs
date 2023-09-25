@@ -42,7 +42,7 @@
 //!         // svc_reader & clt_writer
 //! ```
 
-use crate::prelude_nonblocking::{ConId, Framer, RecvStatus, SendStatus};
+use crate::prelude::{ConId, Framer, RecvStatus, SendStatus};
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
 use mio::net::TcpStream;
@@ -369,7 +369,7 @@ mod test {
         time::{Duration, Instant},
     };
 
-    use crate::prelude_nonblocking::*;
+    use crate::prelude::*;
 
     use bytes::{Bytes, BytesMut};
     use byteserde::utils::hex::to_hex_pretty;

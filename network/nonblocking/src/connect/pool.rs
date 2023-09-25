@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
     core::iter::CycleRange,
-    prelude_nonblocking::{
+    prelude::{
         AcceptCltNonBlocking, AcceptStatus, CallbackRecv, CallbackRecvSend, CallbackSend, Clt,
         CltRecver, CltSender, ConId, Messenger, NonBlockingServiceLoop, PoolAcceptCltNonBlocking,
         PoolAcceptStatus, RecvMsgNonBlocking, RecvStatus, SendMsgNonBlocking, SendStatus,
@@ -378,7 +378,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 #[cfg(test)]
 mod test {
     use crate::{
-        prelude_nonblocking::*,
+        prelude::*,
         unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE},
     };
     use links_network_core::prelude::DevNullCallback;

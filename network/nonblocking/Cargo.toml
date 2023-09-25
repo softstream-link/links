@@ -5,8 +5,7 @@ edition = "2021"
 
 [features]
 default = ["full"]                             # TODO desable all default features during release
-full = ["unittest", "blocking", "nonblocking"]
-blocking = []
+full = ["unittest", "nonblocking"]
 nonblocking = ["dep:mio"]
 unittest = ["dep:links_testing"]
 
@@ -61,18 +60,9 @@ required-features = ["unittest"]
 
 
 [[bench]]
-name = "framer_blocking_bench"
-harness = false
-
-[[bench]]
 name = "framer_nonblocking_bench"
 harness = false
 
-
-[[bench]]
-name = "messender_blocking_bench"
-harness = false
-required-features = ["unittest"]
 
 [[bench]]
 name = "messender_nonblocking_bench"

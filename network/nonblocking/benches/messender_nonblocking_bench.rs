@@ -5,10 +5,11 @@ use std::{
 };
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::{fmt_num, prelude::ConId};
+use links_network_core::fmt_num;
 use links_network_nonblocking::{
-    prelude_nonblocking::{
-        into_split_messenger, RecvMsgNonBlocking, RecvStatus, SendMsgNonBlockingNonMut, SendStatus,
+    prelude::{
+        into_split_messenger, ConId, RecvMsgNonBlocking, RecvStatus, SendMsgNonBlockingNonMut,
+        SendStatus,
     },
     unittest::setup::{
         framer::TEST_MSG_FRAME_SIZE,

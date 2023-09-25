@@ -1,6 +1,6 @@
 use std::{fmt::Display, io::Error, sync::Arc};
 
-use crate::prelude_nonblocking::*;
+use crate::prelude::*;
 
 #[derive(Debug)]
 pub struct Svc<M: Messenger+'static, C: CallbackRecvSend<M>+'static, const MAX_MSG_SIZE: usize> {
@@ -112,7 +112,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 mod test {
     use std::{io::ErrorKind, time::Duration};
 
-    use crate::prelude_nonblocking::*;
+    use crate::prelude::*;
     use links_testing::unittest::setup::{
         self,
         model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
