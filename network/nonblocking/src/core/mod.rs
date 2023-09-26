@@ -74,7 +74,8 @@ pub enum AcceptStatus<T> {
     WouldBlock,
 }
 impl<T> AcceptStatus<T> {
-    pub fn unwrap_accepted(self) -> T {
+    /// Unwraps into [T] if the variant is [AcceptStatus::Accepted], otherwise panics
+    pub fn unwrap(self) -> T {
         match self {
             AcceptStatus::Accepted(t) => t,
             AcceptStatus::WouldBlock => panic!("AcceptStatus::WouldBlock"),

@@ -51,7 +51,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     .unwrap();
     info!("clt_initiator: {}", clt_initiator);
 
-    let mut clt_acceptor = svc.accept_busywait_timeout(timeout)?.unwrap_accepted();
+    let mut clt_acceptor = svc.accept_busywait_timeout(timeout)?.unwrap();
     info!("clt_acceptor: {}", clt_acceptor);
 
     let mut clt_initiator_send_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));

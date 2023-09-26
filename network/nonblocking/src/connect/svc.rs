@@ -54,7 +54,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 #[derive(Debug)]
 pub struct Svc<M: Messenger+'static, C: CallbackRecvSend<M>+'static, const MAX_MSG_SIZE: usize> {
     acceptor: Acceptor<M, C, MAX_MSG_SIZE>,
-    connection_pool: ConnectionPool<M, C, MAX_MSG_SIZE>,
+    clts_pool: CltsPool<M, C, MAX_MSG_SIZE>,
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, MAX_MSG_SIZE> {
     pub fn bind(
@@ -72,29 +72,29 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
             phantom: std::marker::PhantomData,
         };
 
-        let connection_pool = ConnectionPool::<M, C, MAX_MSG_SIZE>::new(max_connections);
+        let clts_pool = CltsPool::<M, C, MAX_MSG_SIZE>::new(max_connections);
         Ok(Self {
             acceptor,
-            connection_pool,
+            clts_pool,
         })
     }
 
     #[inline(always)]
     pub fn len(&self) -> (usize, usize) {
-        self.connection_pool.len()
+        self.clts_pool.len()
     }
-    pub fn pool(&self) -> &ConnectionPool<M, C, MAX_MSG_SIZE> {
-        &self.connection_pool
+    pub fn pool(&self) -> &CltsPool<M, C, MAX_MSG_SIZE> {
+        &self.clts_pool
     }
     pub fn into_split(
         self,
     ) -> (
-        PoolAcceptor<M, C, MAX_MSG_SIZE>,
-        RecversPool<M, C, MAX_MSG_SIZE>,
-        SendersPool<M, C, MAX_MSG_SIZE>,
+        PoolCltAcceptor<M, C, MAX_MSG_SIZE>,
+        CltRecversPool<M, C, MAX_MSG_SIZE>,
+        CltSendersPool<M, C, MAX_MSG_SIZE>,
     ) {
-        let ((tx_recver, tx_sender), (svc_recver, svc_sender)) = self.connection_pool.into_split();
-        let acceptor = PoolAcceptor {
+        let ((tx_recver, tx_sender), (svc_recver, svc_sender)) = self.clts_pool.into_split();
+        let acceptor = PoolCltAcceptor {
             tx_recver,
             tx_sender,
             acceptor: self.acceptor,
@@ -108,7 +108,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error> {
         match self.acceptor.accept_nonblocking()? {
             AcceptStatus::Accepted(clt) => {
-                self.connection_pool.add(clt)?;
+                self.clts_pool.add(clt)?;
                 Ok(PoolAcceptStatus::Accepted)
             }
             AcceptStatus::WouldBlock => Ok(PoolAcceptStatus::WouldBlock),
@@ -127,7 +127,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsgNon
 {
     #[inline(always)]
     fn send_nonblocking(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
-        self.connection_pool.send_nonblocking(msg)
+        self.clts_pool.send_nonblocking(msg)
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
@@ -135,14 +135,14 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvMsgNon
 {
     #[inline(always)]
     fn recv_nonblocking(&mut self) -> Result<RecvStatus<<M as Messenger>::RecvT>, Error> {
-        self.connection_pool.recv_nonblocking()
+        self.clts_pool.recv_nonblocking()
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     for Svc<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Svc<{}, {}>", self.acceptor, self.connection_pool)
+        write!(f, "Svc<{}, {}>", self.acceptor, self.clts_pool)
     }
 }
 
