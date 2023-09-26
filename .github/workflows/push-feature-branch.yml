@@ -29,6 +29,7 @@ jobs:
           cargo nextest run --all-features # --success-output final
           cargo nextest run --examples # --success-output final
           cargo test --doc #  NOTE: docs are not supported by nextest
+          carto doc --all-features # TODO how to fail on warnings?
       - name: Benchmarking
         run: |
           cd links

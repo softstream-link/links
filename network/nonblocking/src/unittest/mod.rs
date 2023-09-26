@@ -1,3 +1,5 @@
+
+// TODO move this to the links_network_core crate with a feature for testing if possible but also move the links_testing::unittest::setup::model into core
 pub mod setup {
 
     pub mod framer {
@@ -5,17 +7,8 @@ pub mod setup {
         use bytes::{Bytes, BytesMut};
         use links_network_core::prelude::*;
         pub use links_testing::unittest::setup::model::TEST_MSG_FRAME_SIZE;
-        pub struct TestMsgFramer;
-        impl Framer for TestMsgFramer {
-            fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-                if bytes.len() < TEST_MSG_FRAME_SIZE {
-                    None
-                } else {
-                    let frame = bytes.split_to(TEST_MSG_FRAME_SIZE);
-                    Some(frame.freeze())
-                }
-            }
-        }
+
+        type TestMsgFramer = FixedSizeFramer<TEST_MSG_FRAME_SIZE>;
         #[derive(Debug, Clone, PartialEq)]
         pub struct TestCltMsgProtocol;
 

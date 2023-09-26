@@ -9,7 +9,7 @@ pub use crate::core::framer::{into_split_framer, FrameReader, FrameWriter};
 
 pub use crate::core::messenger::{into_split_messenger, MessageRecver, MessageSender};
 
-pub use crate::connect::pool::{ConnectionPool, PoolAcceptor, PoolRecver, PoolSender};
+pub use crate::connect::pool::{ConnectionPool, PoolAcceptor, RecversPool, SendersPool};
 
 pub use crate::connect::clt::{Clt, CltRecver, CltSender};
 pub use crate::connect::svc::Svc;

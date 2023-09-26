@@ -144,6 +144,14 @@ impl<T> RecvStatus<T> {
             RecvStatus::WouldBlock => panic!("ReadStatus::WouldBlock"),
         }
     }
+    /// Will panic if the variant is [RecvStatus::WouldBlock] or [RecvStatus::Completed(None)],  otherwise unwraps into `T` from [RecvStatus::Completed(Some(T))]
+    pub fn unwrap(self) -> T {
+        match self {
+            RecvStatus::Completed(Some(t)) => t,
+            RecvStatus::Completed(None) => panic!("ReadStatus::Completed(None)"),
+            RecvStatus::WouldBlock => panic!("ReadStatus::WouldBlock"),
+        }
+    }
     pub fn is_completed(&self) -> bool {
         match self {
             RecvStatus::Completed(_) => true,
@@ -199,6 +207,24 @@ pub trait RecvMsgNonBlocking<M: Messenger> {
 pub enum SendStatus {
     Completed,
     WouldBlock,
+}
+impl SendStatus {
+    /// Will panic if the variant is [SendStatus::WouldBlock], otherwise unwraps into [()] from [SendStatus::Completed]
+    pub fn unwrap(self) {
+        match self {
+            SendStatus::Completed => {}
+            SendStatus::WouldBlock => panic!("SendStatus::WouldBlock"),
+        }
+    }
+    pub fn is_completed(&self) -> bool {
+        match self {
+            SendStatus::Completed => true,
+            SendStatus::WouldBlock => false,
+        }
+    }
+    pub fn is_wouldblock(&self) -> bool {
+        !self.is_completed()
+    }
 }
 
 pub trait SendMsgNonBlocking<M: Messenger> {

@@ -14,7 +14,8 @@ use crate::prelude::{
 };
 use log::debug;
 
-/// An abstraction over a [MessageRecver] that calls a [CallbackRecv] on every message received.
+/// An abstraction over a [MessageRecver] that calls a [CallbackRecv] on every message being processed by [CltRecver].
+/// It is designed to work in a thread that is different from [CltSender]
 #[derive(Debug)]
 pub struct CltRecver<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
     pub(crate) msg_recver: MessageRecver<M, MAX_MSG_SIZE>,
@@ -72,6 +73,8 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
     }
 }
 
+/// An abstraction over a [MessageSender] that calls a [CallbackSend] on every message sent by [CltSender].
+/// It is designed to work in a thread that is different from [CltRecver]
 #[derive(Debug)]
 pub struct CltSender<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> {
     pub(crate) msg_sender: MessageSender<M, MAX_MSG_SIZE>,
@@ -180,6 +183,42 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
     }
 }
 
+/// An abstraction over a [MessageRecver] and [MessageSender] that calls a respective callback functions on every 
+/// message being processed by internal [CltRecver] and [CltSender].
+/// It is designed to work in a single thread. To split out [CltRecver] and [CltSender] use [Clt::into_split]
+/// 
+/// # Example
+/// ```
+/// use links_network_nonblocking::prelude::*;
+/// use links_network_nonblocking::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
+/// use links_testing::unittest::setup::model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg};
+/// use std::time::Duration;
+/// 
+/// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+///         "127.0.0.1:8080",
+///         Duration::from_millis(100),
+///         Duration::from_millis(10),
+///         DevNullCallback::<TestCltMsgProtocol>::default().into(),
+///         Some("unittest"),
+///     );
+/// 
+/// if res.is_ok() {
+/// 
+///     // Not Split for use in single thread
+///     let mut clt = res.unwrap();
+///     clt.send_busywait(&mut TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"))).unwrap();
+///     let msg: TestSvcMsg = clt.recv_busywait().unwrap().unwrap();
+///     
+///     // Split for use in different threads
+///     let (mut clt_recver, mut clt_sender) = clt.into_split();
+///     clt_sender.send_busywait(&mut TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"))).unwrap();
+///     let msg: TestSvcMsg = clt_recver.recv_busywait().unwrap().unwrap();
+/// 
+///     drop(clt_recver);
+///     drop(clt_sender);
+///     
+/// }
+/// ```
 pub struct Clt<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
     clt_recver: CltRecver<M, C, MAX_MSG_SIZE>,
     clt_sender: CltSender<M, C, MAX_MSG_SIZE>,

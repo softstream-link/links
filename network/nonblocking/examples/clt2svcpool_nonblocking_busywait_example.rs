@@ -1,12 +1,16 @@
 use std::{
     error::Error,
     io::ErrorKind,
+    num::NonZeroUsize,
     sync::Arc,
     thread::Builder,
     time::{Duration, Instant},
 };
 
-use links_network_core::{prelude::{CallbackRecvSend, DevNullCallback, Messenger}, fmt_num};
+use links_network_core::{
+    fmt_num,
+    prelude::{CallbackRecvSend, DevNullCallback, Messenger},
+};
 use links_network_nonblocking::{
     prelude::*,
     unittest::setup::{
@@ -99,14 +103,14 @@ fn run() -> Result<(), Box<dyn Error>> {
     // VERIFY svc internal pool returns None to all calls.
     let svc_recv_err = svc.recv_busywait().unwrap_err();
     info!("svc_recv_err: {}", svc_recv_err);
-    assert_eq!(svc.pool_recv_send_len(), (0, 1)); // 0 recv, 1 send in pool recver was dropped in the Svc-Thread
+    assert_eq!(svc.len(), (0, 1)); // 0 recv, 1 send in pool recver was dropped in the Svc-Thread
     assert_eq!(svc_recv_err.kind(), ErrorKind::NotConnected); // if there are no receives pool returns NotConnected
 
     let mut svc_send_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Client Msg"));
 
     let svc_send_err = svc.send_busywait(&mut svc_send_msg).unwrap_err();
     info!("svc_send_err: {}", svc_send_err);
-    assert_eq!(svc.pool_recv_send_len(), (0, 0)); // last sender was dropped after attempt to send_busywait
+    assert_eq!(svc.len(), (0, 0)); // last sender was dropped after attempt to send_busywait
     assert_eq!(svc_send_err.kind(), ErrorKind::BrokenPipe); // because send_busywait tried to use the last sender in the pool it errored out with BrokenPipe
 
     Ok(())
@@ -116,7 +120,7 @@ fn setup<MSvc: Messenger, MClt: Messenger>() -> (
     &'static str,
     Arc<impl CallbackRecvSend<MSvc>>,
     Arc<impl CallbackRecvSend<MClt>>,
-    usize,
+    NonZeroUsize,
     Option<&'static str>,
     Duration,
     Duration,
@@ -127,7 +131,7 @@ fn setup<MSvc: Messenger, MClt: Messenger>() -> (
     let svc_callback = DevNullCallback::<MSvc>::new_ref();
     let clt_callback = DevNullCallback::<MClt>::new_ref();
     let name = Some("example");
-    let max_connections = 1; // TODO make this NonZeroUsize as CircleIterator fails if if max_connections is 0 of fix CircleIterator
+    let max_connections = NonZeroUsize::new(1).unwrap();
     let timeout = Duration::from_micros(1_000);
     let retry_after = Duration::from_micros(100);
     (

@@ -1,7 +1,10 @@
-use std::{sync::Arc, thread::Builder, time::Duration};
+use std::{num::NonZeroUsize, sync::Arc, thread::Builder, time::Duration};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::{prelude::{CallbackRecvSend, DevNullCallback, Messenger}, fmt_num};
+use links_network_core::{
+    fmt_num,
+    prelude::{CallbackRecvSend, DevNullCallback, Messenger},
+};
 use links_network_nonblocking::{
     prelude::*,
     unittest::setup::{
@@ -19,7 +22,7 @@ fn setup<MSvc: Messenger, MClt: Messenger>() -> (
     &'static str,
     Arc<impl CallbackRecvSend<MSvc>>,
     Arc<impl CallbackRecvSend<MClt>>,
-    usize,
+    NonZeroUsize,
     Option<&'static str>,
     Duration,
     Duration,
@@ -28,7 +31,7 @@ fn setup<MSvc: Messenger, MClt: Messenger>() -> (
     let svc_callback = DevNullCallback::<MSvc>::new_ref();
     let clt_callback = DevNullCallback::<MClt>::new_ref();
     let name = Some("example");
-    let max_connections = 0;
+    let max_connections = NonZeroUsize::new(1).unwrap();
     let timeout = Duration::from_micros(1_000);
     let retry_after = Duration::from_micros(100);
     (

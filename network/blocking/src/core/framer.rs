@@ -246,7 +246,7 @@ impl FrameWriter {
     }
 }
 impl Drop for FrameWriter {
-    /// Will shutdown the underlying [mio::net::TcpStream] in both directions.
+    /// Will shutdown the underlying [std::net::TcpStream] in both directions.
     fn drop(&mut self) {
         self.shutdown(Shutdown::Both, "drop")
     }

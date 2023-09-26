@@ -1,18 +1,18 @@
-use std::{fmt::Display, io::Error, sync::Arc};
+use std::{fmt::Display, io::Error, num::NonZeroUsize, sync::Arc};
 
 use crate::prelude::*;
 
 #[derive(Debug)]
 pub struct Svc<M: Messenger+'static, C: CallbackRecvSend<M>+'static, const MAX_MSG_SIZE: usize> {
     pool_acceptor: PoolAcceptor<M, C, MAX_MSG_SIZE>,
-    pool_recver: PoolRecver<M, C, MAX_MSG_SIZE>,
-    pool_sender: PoolSender<M, C, MAX_MSG_SIZE>,
+    pool_recver: RecversPool<M, C, MAX_MSG_SIZE>,
+    pool_sender: SendersPool<M, C, MAX_MSG_SIZE>,
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, MAX_MSG_SIZE> {
     pub fn bind(
         addr: &str,
         callback: Arc<C>,
-        max_connections: usize, // TODO this arg needs better name
+        max_connections: NonZeroUsize, // TODO this arg needs better name
         name: Option<&str>,
     ) -> Result<Self, Error> {
         let listener = std::net::TcpListener::bind(addr)?;
@@ -38,15 +38,17 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
         })
     }
 
-    pub fn pool_recv_send_len(&self) -> (usize, usize) {
+    // returns a len tuple for [RecversPool] and [SendersPool] respectively
+    pub fn len(&self) -> (usize, usize) {
         (self.pool_recver.len(), self.pool_sender.len())
     }
+    
     pub fn into_split(
         self,
     ) -> (
         PoolAcceptor<M, C, MAX_MSG_SIZE>,
-        PoolRecver<M, C, MAX_MSG_SIZE>,
-        PoolSender<M, C, MAX_MSG_SIZE>,
+        RecversPool<M, C, MAX_MSG_SIZE>,
+        SendersPool<M, C, MAX_MSG_SIZE>,
     ) {
         (self.pool_acceptor, self.pool_recver, self.pool_sender)
     }
@@ -110,7 +112,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 #[cfg(test)]
 #[cfg(any(test, feature = "unittest"))]
 mod test {
-    use std::{io::ErrorKind, time::Duration};
+    use std::{io::ErrorKind, num::NonZeroUsize, time::Duration};
 
     use crate::prelude::*;
     use links_testing::unittest::setup::{
@@ -130,9 +132,13 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
 
         let callback = LoggerCallback::<TestSvcMsgProtocol>::new_ref();
-        let svc =
-            Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback.clone(), 2, Some("unittest"))
-                .unwrap();
+        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
+            addr,
+            callback.clone(),
+            NonZeroUsize::new(2).unwrap(),
+            Some("unittest"),
+        )
+        .unwrap();
         info!("svc: {}", svc);
     }
 
@@ -144,7 +150,7 @@ mod test {
         let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
             addr,
             LoggerCallback::<TestSvcMsgProtocol>::with_level_ref(Level::Info, Level::Debug),
-            1,
+            NonZeroUsize::new(1).unwrap(),
             Some("unittest"),
         )
         .unwrap();
@@ -162,7 +168,7 @@ mod test {
 
         svc.service_once().unwrap();
         info!("svc: {}", svc);
-        assert_eq!(svc.pool_recv_send_len(), (1, 1));
+        assert_eq!(svc.len(), (1, 1));
 
         let mut clt_msg_inp = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
         let mut svc_msg_inp = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
