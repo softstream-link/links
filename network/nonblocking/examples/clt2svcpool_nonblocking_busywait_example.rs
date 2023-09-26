@@ -55,7 +55,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     .unwrap();
     info!("clt: {}", clt);
 
-    svc.pool_accept_busywait_timeout(timeout)?.unwrap_accepted();
+    svc.pool_accept_busywait_timeout(timeout)?.unwrap();
 
     info!("svc: {}", svc);
 

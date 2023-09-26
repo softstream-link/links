@@ -12,7 +12,7 @@ pub use crate::core::messenger::{into_split_messenger, MessageRecver, MessageSen
 pub use crate::connect::pool::{ConnectionPool, PoolAcceptor, RecversPool, SendersPool};
 
 pub use crate::connect::clt::{Clt, CltRecver, CltSender};
-pub use crate::connect::svc::Svc;
+pub use crate::connect::svc::{Acceptor, Svc};
 
 pub use links_network_core::prelude::{
     CallbackRecv, CallbackRecvSend, CallbackSend, DevNullCallback, LoggerCallback,

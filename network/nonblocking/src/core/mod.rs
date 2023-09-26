@@ -20,7 +20,8 @@ pub enum PoolAcceptStatus {
     WouldBlock,
 }
 impl PoolAcceptStatus {
-    pub fn unwrap_accepted(self) -> () {
+    /// Unwraps to [()] if the variant is [PoolAcceptStatus::Accepted], otherwise panics
+    pub fn unwrap(self) -> () {
         match self {
             PoolAcceptStatus::Accepted => (),
             PoolAcceptStatus::WouldBlock => panic!("PoolAcceptStatus::WouldBlock"),
@@ -36,8 +37,7 @@ impl PoolAcceptStatus {
         !self.is_accepted()
     }
 }
-pub trait PoolAcceptCltNonBlocking<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>:
-    AcceptCltNonBlocking<M, C, MAX_MSG_SIZE>
+pub trait PoolAcceptCltNonBlocking<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
 {
     fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error>;
     fn pool_accept_busywait_timeout(

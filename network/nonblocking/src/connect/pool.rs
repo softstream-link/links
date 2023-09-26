@@ -2,18 +2,14 @@ use std::{
     fmt::Display,
     io::{Error, ErrorKind},
     num::NonZeroUsize,
-    os::fd::{FromRawFd, IntoRawFd},
-    sync::{
-        mpsc::{channel, Receiver, Sender},
-        Arc,
-    },
+    sync::mpsc::{channel, Receiver, Sender},
 };
 
 use crate::{
     core::iter::CycleRange,
     prelude::{
-        AcceptCltNonBlocking, AcceptStatus, CallbackRecv, CallbackRecvSend, CallbackSend, Clt,
-        CltRecver, CltSender, ConId, Messenger, NonBlockingServiceLoop, PoolAcceptCltNonBlocking,
+        AcceptCltNonBlocking, AcceptStatus, Acceptor, CallbackRecv, CallbackRecvSend, CallbackSend,
+        Clt, CltRecver, CltSender, Messenger, NonBlockingServiceLoop, PoolAcceptCltNonBlocking,
         PoolAcceptStatus, RecvMsgNonBlocking, RecvStatus, SendMsgNonBlocking, SendStatus,
         ServiceLoopStatus,
     },
@@ -56,6 +52,7 @@ use slab::Slab;
 ///     let svc_msg: TestSvcMsg = recvers.recv_busywait().unwrap().unwrap();
 /// }
 /// ```
+#[derive(Debug)]
 pub struct ConnectionPool<
     M: Messenger+'static,
     C: CallbackRecvSend<M>+'static,
@@ -98,13 +95,19 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
         if !self.recver_pool.has_capacity() {
             return Err(Error::new(
                 ErrorKind::Other,
-                "ConnectionPool recver_pool at capacity",
+                format!(
+                    "ConnectionPool recver_pool at max capacity: {}",
+                    self.recver_pool.recvers.len()
+                ),
             ));
         }
         if !self.sender_pool.has_capacity() {
             return Err(Error::new(
                 ErrorKind::Other,
-                "ConnectionPool sender_pool at capacity",
+                format!(
+                    "ConnectionPool sender_pool at max capacity: {}",
+                    self.sender_pool.senders.len()
+                ),
             ));
         }
 
@@ -124,6 +127,18 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
         (
             (self.tx_recver, self.tx_sender),
             (self.recver_pool, self.sender_pool),
+        )
+    }
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
+    for ConnectionPool<M, C, MAX_MSG_SIZE>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ConnectionPool<recvers: {}, senders: {}>",
+            self.recver_pool.len(),
+            self.sender_pool.len(),
         )
     }
 }
@@ -456,57 +471,28 @@ pub struct PoolAcceptor<
 > {
     pub(crate) tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
     pub(crate) tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>,
-    pub(crate) listener: mio::net::TcpListener,
-    pub(crate) callback: Arc<C>,
-    pub(crate) con_id: ConId,
-}
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    PoolAcceptor<M, C, MAX_MSG_SIZE>
-{
-    //TODO add new method and use it in svc/nonblocking.rs
+    pub(crate) acceptor: Acceptor<M, C, MAX_MSG_SIZE>,
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     PoolAcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for PoolAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error> {
-        if let AcceptStatus::Accepted(clt) = self.accept_nonblocking()? {
-            let (recver, sender) = clt.into_split();
-            if let Err(e) = self.tx_recver.send(recver) {
-                return Err(Error::new(ErrorKind::Other, e.to_string()));
-            }
-            if let Err(e) = self.tx_sender.send(sender) {
-                return Err(Error::new(ErrorKind::Other, e.to_string()));
-            }
-        }
-        Ok(PoolAcceptStatus::Accepted)
-    }
-}
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for PoolAcceptor<M, C, MAX_MSG_SIZE>
-{
-    fn accept_nonblocking(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
-        match self.listener.accept() {
-            Ok((stream, addr)) => {
-                // TODO add rate limiter
-                let stream = unsafe { std::net::TcpStream::from_raw_fd(stream.into_raw_fd()) };
-                let mut con_id = self.con_id.clone();
-                con_id.set_peer(addr);
-                if log_enabled!(log::Level::Debug) {
-                    debug!("{} Accepted", con_id);
+        use AcceptStatus::{Accepted, WouldBlock};
+        match self.acceptor.accept_nonblocking()? {
+            Accepted(clt) => {
+                let (recver, sender) = clt.into_split();
+                if let Err(e) = self.tx_recver.send(recver) {
+                    return Err(Error::new(ErrorKind::Other, e.to_string()));
                 }
-                let clt = Clt::<_, _, MAX_MSG_SIZE>::from_stream(
-                    stream,
-                    con_id.clone(),
-                    self.callback.clone(),
-                );
-                Ok(AcceptStatus::Accepted(clt))
+                if let Err(e) = self.tx_sender.send(sender) {
+                    return Err(Error::new(ErrorKind::Other, e.to_string()));
+                }
+                Ok(PoolAcceptStatus::Accepted)
             }
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(AcceptStatus::WouldBlock),
-            Err(e) => Err(e),
+            WouldBlock => return Ok(PoolAcceptStatus::WouldBlock),
         }
     }
 }
-
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
     for PoolAcceptor<M, C, MAX_MSG_SIZE>
 {
@@ -519,13 +505,13 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     for PoolAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} PoolAcceptor", self.con_id)
+        write!(f, "{} PoolAcceptor", self.acceptor.con_id)
     }
 }
 
 #[cfg(test)]
 mod test {
-    use std::num::NonZeroUsize;
+    use std::{num::NonZeroUsize, time::Duration};
 
     use crate::{
         prelude::*,
@@ -550,7 +536,7 @@ mod test {
         .unwrap();
         info!("svc: {}", svc);
 
-        let mut clts = ConnectionPool::new(max_connections);
+        let mut clt_pool = ConnectionPool::new(max_connections);
         for i in 0..max_connections.get() * 2 {
             let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
                 addr,
@@ -561,59 +547,31 @@ mod test {
             )
             .unwrap();
             info!("#{}, clt: {}", i, clt);
-            if clts.has_capacity() {
-                clts.add(clt).unwrap();
+            // all connections over max_connections will be dropped
+            if clt_pool.has_capacity() {
+                clt_pool.add(clt).unwrap();
+                svc.pool_accept_busywait_timeout(Duration::from_millis(100))
+                    .unwrap()
+                    .unwrap();
             } else {
-                clts.add(clt).unwrap_err();
+                assert_eq!(
+                    clt_pool.len(),
+                    (max_connections.get(), max_connections.get())
+                );
+                assert_eq!(
+                    svc.pool().len(),
+                    (max_connections.get(), max_connections.get())
+                );
+                let clt_pool_err = clt_pool.add(clt).unwrap_err();
+                info!("clt_pool_err: {:?}", clt_pool_err);
+                let svc_pool_err = svc.pool_accept_busywait().unwrap_err();
+                info!("svc_pool_err: {:?}", svc_pool_err);
             }
-            // the second half of the connections will be dropped because svc pool is at capacity
-            svc.pool_accept_busywait().unwrap();
         }
 
         let (recv_count, send_count) = svc.len();
-        info!(
-            "svc: recv_count: {}, send_count: {}",
-            recv_count, send_count
-        );
-        assert_eq!(recv_count, max_connections.get());
-        assert_eq!(send_count, max_connections.get());
-    }
-
-    #[test]
-    fn test_svc_clt_connected_svc_max_connections() {
-        setup::log::configure_level(LevelFilter::Info);
-        let addr = setup::net::rand_avail_addr_port();
-        let max_connections = NonZeroUsize::new(2).unwrap();
-
-        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
-            addr,
-            DevNullCallback::<TestSvcMsgProtocol>::new_ref(),
-            max_connections,
-            Some("unittest"),
-        )
-        .unwrap();
-        info!("svc: {}", svc);
-
-        let mut clts = vec![];
-        for i in 0..max_connections.get() * 2 {
-            let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-                addr,
-                setup::net::default_connect_timeout(),
-                setup::net::default_connect_retry_after(),
-                DevNullCallback::<TestCltMsgProtocol>::new_ref(),
-                Some("unittest"),
-            )
-            .unwrap();
-            info!("#{}, clt: {}", i, clt);
-            clts.push(clt);
-            svc.service_once().unwrap();
-        }
-
-        let (recv_count, send_count) = svc.len();
-        info!(
-            "svc: recv_count: {}, send_count: {}",
-            recv_count, send_count
-        );
+        info!("svc_pool: (recv_count, send_count): {:?}", svc.pool().len());
+        info!("clt_pool: (recv_count, send_count): {:?}", clt_pool.len());
         assert_eq!(recv_count, max_connections.get());
         assert_eq!(send_count, max_connections.get());
     }
