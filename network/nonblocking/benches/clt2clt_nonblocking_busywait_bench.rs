@@ -4,18 +4,14 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_network_core::{
     fmt_num,
     prelude::{CallbackRecvSend, DevNullCallback, Messenger},
-};
-use links_network_nonblocking::{
-    prelude::*,
     unittest::setup::{
+        self,
         framer::TEST_MSG_FRAME_SIZE,
         messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
+        model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
     },
 };
-use links_testing::unittest::setup::{
-    self,
-    model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
-};
+use links_network_nonblocking::prelude::*;
 use log::info;
 
 fn setup<MSvc: Messenger, MClt: Messenger>() -> (

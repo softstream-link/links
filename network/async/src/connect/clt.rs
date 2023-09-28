@@ -50,7 +50,9 @@ impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> CltSenderAsync<P,
         &self.con_id
     }
 }
-impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display for CltSenderAsync<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display
+    for CltSenderAsync<P, C, MMS>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg_name = type_name::<P>().split("::").last().unwrap_or("Unknown");
         let clb_name = type_name::<C>()
@@ -93,7 +95,9 @@ impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> CltSenderSync<P, 
         self.clt.con_id()
     }
 }
-impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display for CltSenderSync<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display
+    for CltSenderSync<P, C, MMS>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.clt)
     }
@@ -303,19 +307,15 @@ impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Drop for Clt<P, C
     }
 }
 
-
 #[cfg(test)]
 mod test {
-
-    
 
     use log::{info, Level};
     use tokio::runtime::Builder;
 
     use super::*;
-    use links_network_core::prelude::LoggerCallbackOld;
     use crate::unittest::setup::protocol::*;
-    use links_testing::unittest::setup;
+    use links_network_core::{prelude::LoggerCallbackOld, unittest::setup};
 
     #[tokio::test]
     async fn test_clt_not_connected_async() {

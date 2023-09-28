@@ -9,7 +9,7 @@ mod test {
     use log::{info, Level};
 
     use crate::prelude::*;
-    use links_testing::unittest::setup;
+    use links_network_core::unittest::setup;
 
     lazy_static! {
         static ref ADDR: &'static str = &setup::net::rand_avail_addr_port();

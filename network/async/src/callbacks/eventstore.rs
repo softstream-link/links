@@ -298,8 +298,7 @@ mod test {
     use tokio::runtime::Builder;
 
     use crate::unittest::setup::protocol::*;
-    use links_testing::unittest::setup;
-    use links_testing::unittest::setup::model::*;
+    use links_network_core::unittest::setup::{self, model::*};
 
     use super::*;
 

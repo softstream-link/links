@@ -61,7 +61,9 @@ impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> SvcSenderAsync<P,
         &self.con_id
     }
 }
-impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display for SvcSenderAsync<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display
+    for SvcSenderAsync<P, C, MMS>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use futures::executor::block_on;
         let clts = block_on(self.senders.lock())
@@ -115,7 +117,9 @@ impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> SvcSenderSync<P, 
         self.svc.con_id()
     }
 }
-impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display for SvcSenderSync<P, C, MMS> {
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display
+    for SvcSenderSync<P, C, MMS>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.svc)
     }
@@ -209,13 +213,16 @@ mod test {
     use log::{info, Level};
 
     use super::*;
-    use links_network_core::prelude::LoggerCallbackOld;
+    use links_network_core::{
+        prelude::LoggerCallbackOld,
+        unittest::setup::{self, model::*},
+    };
 
     use crate::{
         prelude::{EventStoreAsync, EventStoreCallback, EventStoreSync},
         unittest::setup::protocol::*,
     };
-    use links_testing::unittest::{setup, setup::model::*};
+
     use tokio::{runtime::Builder, time::Duration};
 
     const MMS: usize = 128;

@@ -5,15 +5,15 @@ use std::{
 };
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_blocking::{
-    prelude::*,
-    unittest::setup::messenger::TestCltMsgProtocol,
-    unittest::setup::{framer::TEST_MSG_FRAME_SIZE, messenger::TestSvcMsgProtocol},
-};
-use links_network_core::{fmt_num, prelude::ConId};
-use links_testing::unittest::setup::{
-    self,
-    model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
+use links_network_blocking::prelude::*;
+use links_network_core::{
+    fmt_num,
+    prelude::ConId,
+    unittest::setup::{
+        self,
+        messenger::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE},
+        model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
+    },
 };
 use log::{error, info};
 
@@ -104,10 +104,11 @@ fn recv_msg(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGURE clt
-    let (mut clt_reader, _clt_writer) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
-        ConId::clt(Some("unittest"), None, addr),
-        TcpStream::connect(addr).unwrap(),
-    );
+    let (mut clt_reader, _clt_writer) =
+        into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
+            ConId::clt(Some("unittest"), None, addr),
+            TcpStream::connect(addr).unwrap(),
+        );
     // info!("clt: reader: {}", reader);
 
     let id = format!("messenger_blocking_recv_msg TestSvcMsg");
@@ -176,10 +177,10 @@ fn round_trip_msg(c: &mut Criterion) {
 
     // CONFIGURE clt
     let stream = TcpStream::connect(addr).unwrap();
-    let (mut clt_reader, mut clt_writer) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
-        ConId::clt(Some("unittest"), None, addr),
-        stream,
-    );
+    let (mut clt_reader, mut clt_writer) = into_split_messenger::<
+        TestCltMsgProtocol,
+        TEST_MSG_FRAME_SIZE,
+    >(ConId::clt(Some("unittest"), None, addr), stream);
     // info!("clt: writer: {}", writer);
 
     let id = format!("messenger_blocking_round_trip_msg",);

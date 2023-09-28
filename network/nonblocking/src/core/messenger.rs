@@ -7,7 +7,7 @@
 //! # Example
 //! ```no_run
 //! use links_network_nonblocking::prelude::*;
-//! use links_network_nonblocking::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
+//! use links_network_core::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
 //!
 //! let addr = "127.0.0.0:8080";
 //!
@@ -202,7 +202,6 @@ pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
 }
 
 #[cfg(test)]
-#[cfg(feature = "unittest")]
 mod test {
     use std::{
         io::ErrorKind,
@@ -211,10 +210,15 @@ mod test {
     };
 
     use crate::prelude::*;
-    use crate::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol};
+    use links_network_core::{
+        unittest::setup::{
+            self,
+            framer::{TestCltMsgProtocol, TestSvcMsgProtocol},
+            model::*,
+        },
+        {fmt_num, prelude::ConId},
+    };
 
-    use links_network_core::{fmt_num, prelude::ConId};
-    use links_testing::unittest::setup::{self, model::*};
     use log::info;
     use rand::Rng;
 

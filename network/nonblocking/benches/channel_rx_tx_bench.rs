@@ -6,8 +6,7 @@ use std::{
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use links_network_core::fmt_num;
-use links_testing::unittest::setup;
+use links_network_core::{fmt_num, unittest::setup};
 use log::info;
 
 fn channel_rx_tx_send_random_frame(c: &mut Criterion) {

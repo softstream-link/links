@@ -5,20 +5,17 @@ use std::{
 };
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::fmt_num;
-use links_network_nonblocking::{
-    prelude::{
-        into_split_messenger, ConId, RecvMsgNonBlocking, RecvStatus, SendMsgNonBlockingNonMut,
-        SendStatus,
-    },
+use links_network_core::{
+    fmt_num,
     unittest::setup::{
-        framer::TEST_MSG_FRAME_SIZE,
-        messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
+        self,
+        messenger::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE},
+        model::*,
     },
 };
-use links_testing::unittest::setup::{
-    self,
-    model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
+use links_network_nonblocking::prelude::{
+    into_split_messenger, ConId, RecvMsgNonBlocking, RecvStatus, SendMsgNonBlockingNonMut,
+    SendStatus,
 };
 use log::info;
 

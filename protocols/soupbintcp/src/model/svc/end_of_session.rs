@@ -28,7 +28,7 @@ impl Display for EndOfSession {
 #[cfg(test)]
 mod test {
     use super::*;
-    use links_testing::unittest::setup;
+    use links_network_core::unittest::setup;
     use byteserde::prelude::*;
     use log::info;
 

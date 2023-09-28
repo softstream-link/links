@@ -196,9 +196,15 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 #[cfg(feature = "unittest")]
 mod test {
     use super::Clt;
-    use crate::unittest::setup::framer::{TestCltMsgProtocol, TEST_MSG_FRAME_SIZE};
-    use links_network_core::callbacks::logger_new::LoggerCallback;
-    use links_testing::unittest::setup;
+
+    use links_network_core::{
+        prelude::LoggerCallback,
+        unittest::setup::{
+            self,
+            framer::{TestCltMsgProtocol, TEST_MSG_FRAME_SIZE},
+        },
+    };
+
     use log::info;
 
     #[test]

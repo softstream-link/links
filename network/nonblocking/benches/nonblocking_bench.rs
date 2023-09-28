@@ -1,7 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use links_network_core::fmt_num;
-use links_testing::unittest::setup;
+use links_network_core::{fmt_num, unittest::setup};
 use log::info;
 use std::io::ErrorKind;
 use std::{

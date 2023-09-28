@@ -6,18 +6,16 @@ use std::{
     time::{Duration, Instant},
 };
 
-use links_network_core::fmt_num;
-use links_network_nonblocking::{
-    prelude::*,
+use links_network_core::{
+    fmt_num,
     unittest::setup::{
+        self,
         framer::TEST_MSG_FRAME_SIZE,
         messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
+        model::*,
     },
 };
-use links_testing::unittest::setup::{
-    self,
-    model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
-};
+use links_network_nonblocking::prelude::*;
 use log::info;
 
 fn main() -> Result<(), Box<dyn Error>> {

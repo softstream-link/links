@@ -1,10 +1,10 @@
 use bytes::{Bytes, BytesMut};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_core::fmt_num;
+use links_network_core::{fmt_num, unittest::setup};
 use links_network_nonblocking::prelude::{
     into_split_framer, ConId, Framer, RecvStatus, SendStatus,
 };
-use links_testing::unittest::setup;
+
 use log::{error, info};
 use std::{
     net::{TcpListener, TcpStream},

@@ -10,7 +10,6 @@ publish = false
 bytes = "1.4"
 mio = { version = "0.8", features = ["os-poll", "net"] }
 rand = "0.8"
-links_testing = { workspace = true }
 links_network_core = { workspace = true }
 links_network_nonblocking = { workspace = true }
 num-format = { workspace = true }

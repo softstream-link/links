@@ -9,7 +9,7 @@ mod test {
 
     use crate::prelude::*;
 
-    use links_testing::unittest::setup;
+    use links_network_core::unittest::setup;
     use log::{info, Level};
 
     const MMS: usize = 128;

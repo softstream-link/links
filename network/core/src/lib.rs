@@ -2,5 +2,5 @@ pub mod prelude;
 pub mod core;
 pub mod callbacks;
 
-#[cfg(test)]
+#[cfg(feature = "unittest")]
 pub mod unittest;

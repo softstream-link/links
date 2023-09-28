@@ -12,7 +12,7 @@ pub struct AccountQueryRequest {
 mod test {
     use super::*;
     use byteserde::prelude::*;
-    use links_testing::unittest::setup;
+    use links_network_core::unittest::setup;
 
     use log::info;
 

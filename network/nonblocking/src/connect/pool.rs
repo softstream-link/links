@@ -1,4 +1,5 @@
 use std::{
+    any::type_name,
     fmt::Display,
     io::{Error, ErrorKind},
     num::NonZeroUsize,
@@ -22,8 +23,7 @@ use slab::Slab;
 /// # Example
 /// ```
 /// use links_network_nonblocking::prelude::*;
-/// use links_network_nonblocking::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
-/// use links_testing::unittest::setup::model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug};
+/// use links_network_core::unittest::setup::{framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug}};
 /// use std::time::Duration;
 ///
 ///
@@ -116,6 +116,10 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> CltsPool<M
         self.sender_pool.service_once_rx_queue()?;
         Ok(())
     }
+    pub fn clear(&mut self) {
+        self.recver_pool.clear();
+        self.sender_pool.clear();
+    }
     /// Splits [CltsPool] into a a pair of channel transmitters and their respective [CltRecversPool] & [CltSendersPool] pools
     pub fn into_split(self) -> SplitCltsPool<M, C, MAX_MSG_SIZE> {
         (
@@ -178,8 +182,33 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = (
     ),
 );
 
-/// An abstraction layer handling a pool of round robin [CltRecver]'s with respective [std::sync::mpsc::Receiver] channel
-/// that is inspected in order to add additional [CltRecver]'s to the pool.
+/// A round robin pool of [CltRecver]s with respective [std::sync::mpsc::Receiver] channel
+/// though which the pool can be populated.
+///
+/// # Example
+/// ```
+/// use links_network_nonblocking::prelude::*;
+/// use links_network_core::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
+/// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
+///
+///
+/// let (tx_recver, rx_recver) = channel();
+/// let mut pool = CltRecversPool::new(rx_recver, NonZeroUsize::new(2).unwrap());
+///
+/// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+///     "127.0.0.1:8080",
+///     Duration::from_millis(100),
+///     Duration::from_millis(10),
+///     DevNullCallback::<TestCltMsgProtocol>::default().into(),
+///     Some("doctest"),
+/// );
+///
+/// if res.is_ok() {
+///     let clt = res.unwrap();
+///     let (recver, _sender) = clt.into_split();
+///     tx_recver.send(recver);
+/// }
+/// ```
 #[derive(Debug)]
 pub struct CltRecversPool<M: Messenger+'static, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
     rx_recver: Receiver<CltRecver<M, C, MAX_MSG_SIZE>>,
@@ -324,8 +353,33 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
     }
 }
 
-/// An abstraction layer handling a pool of round robin [CltSendersPool]'s with respective [std::sync::mpsc::Receiver] channel
-/// that is inspected in order to add additional [CltSendersPool]'s to the pool.
+/// A round robin pool of [CltSender]s with respective [std::sync::mpsc::Receiver] channel
+/// though which the pool can be populated.
+///
+/// # Example
+/// ```
+/// use links_network_nonblocking::prelude::*;
+/// use links_network_core::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
+/// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
+///
+///
+/// let (tx_recver, rx_recver) = channel();
+/// let mut pool = CltSendersPool::new(rx_recver, NonZeroUsize::new(2).unwrap());
+///
+/// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+///     "127.0.0.1:8080",
+///     Duration::from_millis(100),
+///     Duration::from_millis(10),
+///     DevNullCallback::<TestCltMsgProtocol>::default().into(),
+///     Some("doctest"),
+/// );
+///
+/// if res.is_ok() {
+///     let clt = res.unwrap();
+///     let (_recver, sender) = clt.into_split();
+///     tx_recver.send(sender);
+/// }
+/// ```
 #[derive(Debug)]
 pub struct CltSendersPool<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> {
     rx_sender: Receiver<CltSender<M, C, MAX_MSG_SIZE>>,
@@ -455,22 +509,62 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
     }
 }
 
-/// An abstraction layer contains contains a [mio::net::TcpListener] and methods for accepting new connections.
-/// Connections can be accepted and returned to the caller directly or added to the sender and recver pools.
+/// Abstraction used to accept new connections bound to the address and transmit them via a channel to the
+/// respective [CltSendersPool] & [CltRecversPool].
 ///
+/// It is designed to be used in a thread which is different from the thread that will be using the [CltSendersPool] & [CltRecversPool].
+///
+/// # Example
+/// ```
+/// use links_network_nonblocking::prelude::*;
+/// use links_network_core::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
+///
+/// let addr = "127.0.0.1:8080";
+/// let acceptor = Acceptor::<_,_, TEST_MSG_FRAME_SIZE>::new(
+///     ConId::svc(Some("doctest"), addr, None),
+///     std::net::TcpListener::bind(addr).unwrap(),
+///     DevNullCallback::<TestSvcMsgProtocol>::default().into(),
+/// );
+///
+/// let (tx_recver, rx_recver) = std::sync::mpsc::channel();
+/// let (tx_sender, rx_sender) = std::sync::mpsc::channel();
+///
+/// let mut pool = PoolCltAcceptor::new(tx_recver, tx_sender, acceptor);
+///
+/// println!("pool: {}", pool);
+///
+/// pool.pool_accept_nonblocking().unwrap();
+///
+/// ```
 #[derive(Debug)]
 pub struct PoolCltAcceptor<
     M: Messenger+'static,
     C: CallbackRecvSend<M>+'static,
     const MAX_MSG_SIZE: usize,
 > {
-    pub(crate) tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
-    pub(crate) tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>,
-    pub(crate) acceptor: Acceptor<M, C, MAX_MSG_SIZE>,
+    tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
+    tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>,
+    acceptor: Acceptor<M, C, MAX_MSG_SIZE>,
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
+    PoolCltAcceptor<M, C, MAX_MSG_SIZE>
+{
+    pub fn new(
+        tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
+        tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>,
+        acceptor: Acceptor<M, C, MAX_MSG_SIZE>,
+    ) -> Self {
+        Self {
+            tx_recver,
+            tx_sender,
+            acceptor,
+        }
+    }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     PoolAcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for PoolCltAcceptor<M, C, MAX_MSG_SIZE>
 {
+    /// Will interrogate the [Acceptor] for new connections and if available will send them to the respective [CltRecver] & [CltSender] pools.
     fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error> {
         use AcceptStatus::{Accepted, WouldBlock};
         match self.acceptor.accept_nonblocking()? {
@@ -500,7 +594,18 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     for PoolCltAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} PoolAcceptor", self.acceptor.con_id)
+        let name = "PoolCltAcceptor";
+        debug_assert_eq!(
+            name,
+            type_name::<Self>()
+                .split("<")
+                .next()
+                .unwrap()
+                .split("::")
+                .last()
+                .unwrap()
+        );
+        write!(f, "{} {name}", self.acceptor.con_id)
     }
 }
 
@@ -508,15 +613,16 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 mod test {
     use std::{num::NonZeroUsize, time::Duration};
 
-    use crate::{
-        prelude::*,
-        unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE},
+    use crate::prelude::*;
+    use links_network_core::{
+        prelude::DevNullCallback,
+        unittest::setup::{
+            self,
+            framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE},
+            model::{TestCltMsg, TestCltMsgDebug},
+        },
     };
-    use links_network_core::prelude::DevNullCallback;
-    use links_testing::unittest::setup::{
-        self,
-        model::{TestCltMsg, TestCltMsgDebug},
-    };
+
     use log::{info, LevelFilter};
 
     #[test]

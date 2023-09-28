@@ -7,7 +7,7 @@ edition = "2021"
 default = ["full"]               # TODO desable all default features during release
 full = ["unittest", "blocking"]
 blocking = []
-unittest = ["dep:links_testing"]
+unittest = []
 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -25,10 +25,9 @@ slab = { workspace = true } # slab allocator
 byteserde = { workspace = true } # byteserde::utils::hex::to_hex_pretty #TODO move to seperate crate
 
 
-links_testing = { workspace = true, optional = true } # benchmarks & testing only
-
 [dev-dependencies]
-links_testing = { workspace = true } # tests
+
+links_network_core = { workspace = true, features = ["unittest"] } # traits
 
 env_logger = { workspace = true }
 num-format = { workspace = true }

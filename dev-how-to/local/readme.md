@@ -4,6 +4,10 @@
 cargo nextest run --all-features
 cargo nextest run --examples
 cargo test --doc
+
+cargo doc
+
+# cargo bench --all-features
 ```
 
 # Run all benchmarks

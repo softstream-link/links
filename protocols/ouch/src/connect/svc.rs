@@ -7,7 +7,7 @@ pub type OuchSvc<Protocol, Callback> = SBSvc<Protocol, Callback, MAX_FRAME_SIZE_
 #[cfg(test)]
 mod test {
 
-    use links_testing::unittest::setup;
+    use links_network_core::unittest::setup;
     use log::{info, Level};
     use std::{sync::Arc, time::Duration};
 

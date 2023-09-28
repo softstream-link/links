@@ -1,6 +1,6 @@
 use std::{io::ErrorKind, fmt::Display};
 
-use links_testing::unittest::setup;
+use links_network_core::unittest::setup;
 use log::info;
 
 use std::error::Error;

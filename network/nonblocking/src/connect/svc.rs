@@ -1,4 +1,5 @@
 use std::{
+    any::type_name,
     fmt::Display,
     io::Error,
     num::NonZeroUsize,
@@ -13,9 +14,22 @@ use crate::prelude::*;
 #[derive(Debug)]
 pub struct Acceptor<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
-    pub(crate) listener: mio::net::TcpListener,
-    pub(crate) callback: Arc<C>,
-    pub(crate) phantom: std::marker::PhantomData<M>,
+    listener: mio::net::TcpListener,
+    callback: Arc<C>,
+    phantom: std::marker::PhantomData<M>,
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Acceptor<M, C, MAX_MSG_SIZE> {
+    pub fn new(con_id: ConId, listener: std::net::TcpListener, callback: Arc<C>) -> Self {
+        listener
+            .set_nonblocking(true)
+            .expect("Failed to set nonblocking on listener");
+        Self {
+            con_id,
+            listener: mio::net::TcpListener::from_std(listener),
+            callback,
+            phantom: std::marker::PhantomData,
+        }
+    }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Acceptor<M, C, MAX_MSG_SIZE>
@@ -47,7 +61,18 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     for Acceptor<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} Acceptor", self.con_id)
+        let name = "Acceptor";
+        debug_assert_eq!(
+            name,
+            type_name::<Self>()
+                .split("<")
+                .next()
+                .unwrap()
+                .split("::")
+                .last()
+                .unwrap()
+        );
+        write!(f, "{} {name}", self.con_id)
     }
 }
 
@@ -63,14 +88,11 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
         max_connections: NonZeroUsize, // TODO this arg needs better name
         name: Option<&str>,
     ) -> Result<Self, Error> {
-        let listener = std::net::TcpListener::bind(addr)?;
-        listener.set_nonblocking(true)?;
-        let acceptor = Acceptor {
-            con_id: ConId::svc(name, addr, None),
-            listener: mio::net::TcpListener::from_std(listener),
+        let acceptor = Acceptor::new(
+            ConId::svc(name, addr, None),
+            std::net::TcpListener::bind(addr)?,
             callback,
-            phantom: std::marker::PhantomData,
-        };
+        );
 
         let clts_pool = CltsPool::<M, C, MAX_MSG_SIZE>::new(max_connections);
         Ok(Self {
@@ -94,11 +116,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
         CltSendersPool<M, C, MAX_MSG_SIZE>,
     ) {
         let ((tx_recver, tx_sender), (svc_recver, svc_sender)) = self.clts_pool.into_split();
-        let acceptor = PoolCltAcceptor {
-            tx_recver,
-            tx_sender,
-            acceptor: self.acceptor,
-        };
+        let acceptor = PoolCltAcceptor::new(tx_recver, tx_sender, self.acceptor);
         (acceptor, svc_recver, svc_sender)
     }
 }
@@ -152,16 +170,14 @@ mod test {
     use std::{io::ErrorKind, num::NonZeroUsize, time::Duration};
 
     use crate::prelude::*;
-    use links_testing::unittest::setup::{
+    use links_network_core::unittest::setup::{
         self,
+        framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE},
         model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
     };
+
     use log::{info, Level, LevelFilter};
     use rand::Rng;
-
-    use crate::unittest::setup::framer::{
-        TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE,
-    };
 
     #[test]
     fn test_svc_not_connected() {

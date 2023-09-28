@@ -183,17 +183,16 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
     }
 }
 
-/// An abstraction over a [MessageRecver] and [MessageSender] that calls a respective callback functions on every 
+/// An abstraction over a [MessageRecver] and [MessageSender] that calls a respective callback functions on every
 /// message being processed by internal [CltRecver] and [CltSender].
 /// It is designed to work in a single thread. To split out [CltRecver] and [CltSender] use [Clt::into_split]
-/// 
+///
 /// # Example
 /// ```
 /// use links_network_nonblocking::prelude::*;
-/// use links_network_nonblocking::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
-/// use links_testing::unittest::setup::model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg};
+/// use links_network_core::unittest::setup::{framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg}};
 /// use std::time::Duration;
-/// 
+///
 /// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
 ///         "127.0.0.1:8080",
 ///         Duration::from_millis(100),
@@ -201,9 +200,9 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
 ///         DevNullCallback::<TestCltMsgProtocol>::default().into(),
 ///         Some("unittest"),
 ///     );
-/// 
+///
 /// if res.is_ok() {
-/// 
+///
 ///     // Not Split for use in single thread
 ///     let mut clt = res.unwrap();
 ///     clt.send_busywait(&mut TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"))).unwrap();
@@ -213,7 +212,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
 ///     let (mut clt_recver, mut clt_sender) = clt.into_split();
 ///     clt_sender.send_busywait(&mut TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"))).unwrap();
 ///     let msg: TestSvcMsg = clt_recver.recv_busywait().unwrap().unwrap();
-/// 
+///
 ///     drop(clt_recver);
 ///     drop(clt_sender);
 ///     
@@ -292,12 +291,13 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 }
 
 #[cfg(test)]
-#[cfg(feature = "unittest")]
 mod test {
     use super::Clt;
-    use crate::unittest::setup::framer::{TestCltMsgProtocol, TEST_MSG_FRAME_SIZE};
     use links_network_core::callbacks::logger_new::LoggerCallback;
-    use links_testing::unittest::setup;
+    use links_network_core::unittest::setup::{
+        self,
+        framer::{TestCltMsgProtocol, TEST_MSG_FRAME_SIZE},
+    };
 
     #[test]
     fn test_clt_not_connected() {

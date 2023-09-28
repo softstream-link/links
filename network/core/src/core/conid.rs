@@ -109,7 +109,7 @@ mod test {
     use log::info;
 
     use crate::prelude::*;
-    use links_testing::unittest::setup;
+    use crate::unittest::setup;
 
     #[test]
     fn test_con_id() {

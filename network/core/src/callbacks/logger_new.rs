@@ -87,7 +87,7 @@ impl<M: Messenger> CallbackSend<M> for LoggerCallback<M> {
 // mod test {
 
 //     use crate::unittest::setup::messenger::TestCltMsgProtocol;
-//     use links_testing::unittest::setup;
+//     use links_network_core::unittest::setup;
 //     use links_testing::unittest::setup::model::*;
 
 //     use super::*;

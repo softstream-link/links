@@ -315,8 +315,9 @@ mod test {
     use links_network_core::{
         fmt_num,
         prelude::{ConId, Framer},
+        unittest::setup,
     };
-    use links_testing::unittest::setup;
+
     use log::{error, info};
     use rand::Rng;
 

@@ -20,10 +20,10 @@ byteserde = { workspace = true } # required to do serialization and deserializat
 byteserde_types = { workspace = true }  # required to setup unit test models
 byteserde_derive = { workspace = true } # required to setup unit test models
 
+links_network_core ={ workspace = true, features = ["unittest"]}
 tokio-test = { workspace = true }
 lazy_static = { workspace = true }
 
-links_testing = { workspace = true }
 
 criterion = { workspace = true } # required to setup benchmarks
 rand = { workspace = true } # required to setup benchmarks

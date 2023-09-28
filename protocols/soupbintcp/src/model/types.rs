@@ -67,7 +67,7 @@ pub mod field_types{
     #[cfg(test)]
     mod test{
         use log::info;
-        use links_testing::unittest::setup;
+        use links_network_core::unittest::setup;
         use super::TimeoutMs;
 
         #[test]

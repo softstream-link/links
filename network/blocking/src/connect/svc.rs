@@ -259,14 +259,16 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 #[cfg(any(test, feature = "unittest"))]
 mod test {
 
-    use links_network_core::prelude::{DevNullCallback, LoggerCallback};
-    use links_testing::unittest::setup;
+    use links_network_core::{
+        prelude::{DevNullCallback, LoggerCallback},
+        unittest::setup::{
+            self,
+            framer::{TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE},
+        },
+    };
     use log::info;
 
-    use crate::{
-        prelude::*,
-        unittest::setup::framer::{TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE},
-    };
+    use crate::prelude::*;
 
     #[test]
     fn test_svc_not_connected() {

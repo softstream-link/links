@@ -8,7 +8,7 @@ pub type OuchClt<Protocol, Callback> = SBClt<Protocol, Callback, MAX_FRAME_SIZE_
 mod test {
 
     use lazy_static::lazy_static;
-    use links_testing::unittest::setup;
+    use links_network_core::unittest::setup;
     use log::{info, Level};
 
     lazy_static! {

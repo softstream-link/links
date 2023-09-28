@@ -2,7 +2,7 @@ pub mod setup {
 
     pub mod protocol {
         use links_network_core::prelude::{CallbackSendRecvOld, Framer, MessengerOld};
-        use links_testing::unittest::setup::model::*;
+        use links_network_core::unittest::setup::model::*;
 
         use std::{error::Error, time::Duration};
 

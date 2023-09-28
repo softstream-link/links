@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_ouch_async::prelude::*;
-use links_testing::unittest::setup;
+use links_network_core::unittest::setup;
 use log::info;
 use tokio::runtime::Builder;
 

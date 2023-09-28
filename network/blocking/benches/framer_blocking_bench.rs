@@ -11,8 +11,8 @@ use links_network_blocking::prelude::into_split_framer;
 use links_network_core::{
     fmt_num,
     prelude::{ConId, Framer},
+    unittest::setup,
 };
-use links_testing::unittest::setup;
 use log::{error, info};
 
 const BENCH_MAX_FRAME_SIZE: usize = 128;

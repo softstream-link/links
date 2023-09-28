@@ -7,7 +7,7 @@
 //! # Example
 //! ```
 //! use links_network_blocking::prelude::*;
-//! use links_network_blocking::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
+//! use links_network_core::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
 //!
 //! let addr = "127.0.0.1:8080";
 //!
@@ -160,12 +160,17 @@ mod test {
     };
 
     use crate::prelude::*;
-    use crate::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol};
 
-    use links_network_core::{fmt_num, prelude::ConId};
-    use links_testing::unittest::setup::{
-        self,
-        model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug, TEST_MSG_FRAME_SIZE},
+    use links_network_core::{
+        fmt_num,
+        prelude::ConId,
+        unittest::setup::{
+            self,
+            framer::{TestCltMsgProtocol, TestSvcMsgProtocol},
+            model::{
+                TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug, TEST_MSG_FRAME_SIZE,
+            },
+        },
     };
     use log::info;
     use rand::Rng;

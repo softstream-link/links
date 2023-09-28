@@ -119,8 +119,7 @@ mod test {
 
     use crate::unittest::setup::protocol::*;
     use byteserde::{prelude::*, utils::hex::to_hex_pretty};
-    use links_testing::unittest::setup;
-    use links_testing::unittest::setup::model::*;
+    use links_network_core::unittest::setup::{self, model::*};
     use log::info;
     use tokio::net::TcpListener;
 

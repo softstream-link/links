@@ -66,7 +66,7 @@ impl From<(&EnterOrder, &ReplaceOrder)> for OrderReplaced {
 #[cfg(test)]
 mod test {
     use super::*;
-    use links_testing::unittest::setup;
+    use links_network_core::unittest::setup;
 
     use log::info;
 

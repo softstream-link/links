@@ -63,7 +63,7 @@ impl Default for UPayload<Nil>{
 mod test {
     use super::*;
     use crate::model::payload::SamplePayload;
-    use links_testing::unittest::setup;
+    use links_network_core::unittest::setup;
     use log::info;
 
     #[test]

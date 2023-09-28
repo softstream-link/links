@@ -108,7 +108,7 @@ pub fn into_split_messenger<M: MessengerOld, const MMS: usize, F: Framer>(
 mod test {
     use super::*;
     use crate::unittest::setup::protocol::*;
-    use links_testing::unittest::{setup, setup::model::*};
+    use links_network_core::unittest::setup::{self, model::*};
     use log::info;
     use tokio::net::TcpListener;
 

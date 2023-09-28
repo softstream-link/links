@@ -42,12 +42,13 @@ impl<M: MessengerOld> CallbackSendRecvOld<M> for ChainCallback<M> {
 }
 
 #[cfg(test)]
+#[cfg(feature = "unittest")]
 mod test {
 
     use super::*;
-    use links_testing::unittest::setup::model::*;
-    use crate::unittest::setup::messenger::TestCltMsgProtocol;
-    use links_testing::unittest::setup;
+    use crate::unittest::setup::model::*;
+    use crate::unittest::setup::messenger_old::TestCltMsgProtocol;
+    use crate::unittest::setup;
     // use log::info;
     use log::Level;
     #[test]

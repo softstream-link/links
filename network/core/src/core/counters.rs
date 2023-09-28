@@ -59,7 +59,7 @@ impl Display for EventIntervalTracker {
 mod test {
 
     use super::*;
-    use links_testing::unittest::setup;
+    use crate::unittest::setup;
     use log::info;
     #[test]
     fn test_expired() {

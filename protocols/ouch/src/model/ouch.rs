@@ -321,7 +321,7 @@ mod test {
         prelude::*,
     };
     use byteserde::prelude::*;
-    use links_testing::unittest::setup;
+    use links_network_core::unittest::setup;
     use log::info;
 
     // TODO max message length needed to optimize stack serialization assume 512 bytes for now
