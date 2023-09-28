@@ -12,6 +12,11 @@ use crate::prelude::Clt;
 
 // ---- Acceptor ----
 
+/// Represents the state of a non-blocking accept operation on a pool
+/// 
+/// # Variants
+///  * [PoolAcceptStatus::Accepted] - indicates that accept was successful
+///  * [PoolAcceptStatus::WouldBlock] - indicates that no connection was accepted
 #[derive(Debug, PartialEq)]
 pub enum PoolAcceptStatus {
     Accepted,
@@ -66,6 +71,10 @@ pub trait PoolAcceptCltNonBlocking<M: Messenger, C: CallbackRecvSend<M>, const M
     }
 }
 
+/// Represents the state of a non-blocking accept operation
+/// # Variants
+/// * [AcceptStatus::Accepted(T)] - indicates that accept was successful and `T` contains the value accepted
+/// * [AcceptStatus::WouldBlock] - indicates that no connection was accepted and the caller should try again
 #[derive(Debug, PartialEq)]
 pub enum AcceptStatus<T> {
     Accepted(T),

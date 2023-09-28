@@ -11,6 +11,24 @@ use log::{debug, log_enabled};
 
 use crate::prelude::*;
 
+/// Helper class that create [Clt] instances by accepting new connections on a [std::net::TcpListener]
+///
+/// # Example
+/// ```
+/// use links_network_nonblocking::prelude::*;
+/// use links_network_core::unittest::setup::messenger::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
+///
+/// let addr = "127.0.0.1:8080";
+/// let acceptor = Acceptor::<_, _, TEST_MSG_FRAME_SIZE>::new(
+///     ConId::svc(Some("doctest"), addr, None),
+///     std::net::TcpListener::bind(addr).unwrap(),
+///     DevNullCallback::<TestSvcMsgProtocol>::default().into(),
+/// );
+///
+/// let status = acceptor.accept_nonblocking().unwrap();
+/// assert!(status.is_wouldblock());
+///
+/// ```
 #[derive(Debug)]
 pub struct Acceptor<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
@@ -76,12 +94,35 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     }
 }
 
+/// An abstraction over [MessageRecver] and [MessageSender] that calls a respective callback on every
+/// message being processed by internal pool of [Clt]'s managed by [CltsPool]
+/// It is designed to work in a single thread. To split out [CltRecversPool], [CltSendersPool] and [PoolCltAcceptor] use [Svc::into_split]
+/// # Example
+/// ```
+/// use links_network_nonblocking::prelude::*;
+/// use links_network_core::unittest::setup::messenger::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
+/// use std::num::NonZeroUsize;
+/// use std::{io::ErrorKind, fmt::Display};
+/// let addr = "127.0.0.1:8080";
+/// let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
+///     addr,
+///     DevNullCallback::<TestSvcMsgProtocol>::default().into(),
+///     NonZeroUsize::new(1).unwrap(),
+///     Some("doctest"),
+/// ).unwrap();
+///
+/// let status = svc.pool_accept_nonblocking().unwrap();
+///
+/// let err = svc.recv_nonblocking().unwrap_err();
+/// assert_eq!(err.kind(), ErrorKind::NotConnected);
+/// ```
 #[derive(Debug)]
 pub struct Svc<M: Messenger+'static, C: CallbackRecvSend<M>+'static, const MAX_MSG_SIZE: usize> {
     acceptor: Acceptor<M, C, MAX_MSG_SIZE>,
     clts_pool: CltsPool<M, C, MAX_MSG_SIZE>,
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, MAX_MSG_SIZE> {
+    /// Binds to a given address and returns an instance [Svc]
     pub fn bind(
         addr: &str,
         callback: Arc<C>,
@@ -105,6 +146,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
     pub fn len(&self) -> usize {
         self.clts_pool.len()
     }
+    #[inline(always)]
     pub fn pool(&self) -> &CltsPool<M, C, MAX_MSG_SIZE> {
         &self.clts_pool
     }
@@ -123,6 +165,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     PoolAcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
 {
+    /// Will attempt to accept a new connection and add it to the pool. If the pool is full it will return an error.
     fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error> {
         match self.acceptor.accept_nonblocking()? {
             AcceptStatus::Accepted(clt) => {
@@ -136,6 +179,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
 {
+    /// Instead of adding the accepted connection to the pool it will return it to the caller.
     fn accept_nonblocking(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
         self.acceptor.accept_nonblocking()
     }
@@ -143,6 +187,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M>
     for Svc<M, C, MAX_MSG_SIZE>
 {
+    /// Will use the underling [CltsPool] to deliver the message to one of the [Clt]'s in the pool.
     #[inline(always)]
     fn send_nonblocking(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
         self.clts_pool.send_nonblocking(msg)
@@ -151,6 +196,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsgNon
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
     for Svc<M, C, MAX_MSG_SIZE>
 {
+    /// Will use the underling [CltsPool] to receive a message from one of the [Clt]'s in the pool.
     #[inline(always)]
     fn recv_nonblocking(&mut self) -> Result<RecvStatus<<M as Messenger>::RecvT>, Error> {
         self.clts_pool.recv_nonblocking()
