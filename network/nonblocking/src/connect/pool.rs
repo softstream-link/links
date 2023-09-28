@@ -6,17 +6,14 @@ use std::{
     sync::mpsc::{channel, Receiver, Sender},
 };
 
-use crate::{
-    core::iter::CycleRange,
-    prelude::{
-        AcceptCltNonBlocking, AcceptStatus, Acceptor, CallbackRecv, CallbackRecvSend, CallbackSend,
-        Clt, CltRecver, CltSender, Messenger, NonBlockingServiceLoop, PoolAcceptCltNonBlocking,
-        PoolAcceptStatus, RecvMsgNonBlocking, RecvStatus, SendMsgNonBlocking, SendStatus,
-        ServiceLoopStatus,
-    },
+use crate::prelude::{
+    AcceptCltNonBlocking, AcceptStatus, Acceptor, CallbackRecv, CallbackRecvSend, CallbackSend,
+    Clt, CltRecver, CltSender, Messenger, NonBlockingServiceLoop, PoolAcceptCltNonBlocking,
+    PoolAcceptStatus, RecvMsgNonBlocking, RecvStatus, SendMsgNonBlocking, SendStatus,
+    ServiceLoopStatus,
 };
-use log::{debug, info, log_enabled, warn};
-use slab::Slab;
+use links_network_core::prelude::RoundRobinPool;
+use log::{info, log_enabled, warn, Level};
 
 /// An abstraction layer representing a pool of [Clt]'s connections
 ///
@@ -52,23 +49,16 @@ use slab::Slab;
 /// }
 /// ```
 #[derive(Debug)]
-pub struct CltsPool<M: Messenger+'static, C: CallbackRecvSend<M>+'static, const MAX_MSG_SIZE: usize>
-{
-    // tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
-    // tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>,
-    // recver_pool: CltRecversPool<M, C, MAX_MSG_SIZE>,
-    // sender_pool: CltSendersPool<M, C, MAX_MSG_SIZE>,
-    clts: Slab<Clt<M, C, MAX_MSG_SIZE>>,
-    slab_keys: CycleRange,
+pub struct CltsPool<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
+    clts: RoundRobinPool<Clt<M, C, MAX_MSG_SIZE>>,
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> CltsPool<M, C, MAX_MSG_SIZE> {
     /// Creates a new [CltsPool]
     /// # Arguments
     ///  * max_connections - the maximum number of connections that can be added to the pool.
-    pub fn new(max_connections: NonZeroUsize) -> Self {
+    pub fn with_capacity(max_connections: NonZeroUsize) -> Self {
         Self {
-            clts: Slab::with_capacity(max_connections.get()),
-            slab_keys: CycleRange::new(0..max_connections.get()),
+            clts: RoundRobinPool::with_capacity(max_connections),
         }
     }
     /// Returns a tuple representing len of [CltRecversPool] and [CltSendersPool] respectively
@@ -76,32 +66,14 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> CltsPool<M
         self.clts.len()
     }
     pub fn has_capacity(&self) -> bool {
-        self.clts.len() < self.clts.capacity()
+        self.clts.has_capacity()
     }
     /// Adds a [Clt] to the pool
     pub fn add(&mut self, clt: Clt<M, C, MAX_MSG_SIZE>) -> Result<(), Error> {
-        if !self.has_capacity() {
-            return Err(Error::new(
-                ErrorKind::Other,
-                format!("CltsPool at max capacity: {}", self.len()),
-            ));
-        }
-
-        let _key = self.clts.insert(clt);
-        Ok(())
+        self.clts.add(clt)
     }
     pub fn clear(&mut self) {
         self.clts.clear();
-    }
-    #[inline]
-    fn next(&mut self) -> Option<(usize, &mut Clt<M, C, MAX_MSG_SIZE>)> {
-        for _ in 0..self.clts.len() {
-            let key = self.slab_keys.next();
-            if self.clts.contains(key) {
-                return Some((key, &mut self.clts[key]));
-            }
-        }
-        None
     }
     /// Splits [CltsPool] into a a pair of channel transmitters and their respective [CltRecversPool] & [CltSendersPool] pools
     pub fn into_split(self) -> SplitCltsPool<M, C, MAX_MSG_SIZE> {
@@ -134,17 +106,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     for CltsPool<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "CltsPool<len: {} of cap: {} [{}]>",
-            self.clts.len(),
-            self.clts.capacity(),
-            self.clts
-                .iter()
-                .map(|(_, clt)| format!("{}", clt))
-                .collect::<Vec<_>>()
-                .join(",")
-        )
+        write!(f, "{}", self.clts)
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Default
@@ -152,7 +114,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Default
 {
     /// Creates a new [CltsPool] with a max_connections of 1
     fn default() -> Self {
-        Self::new(NonZeroUsize::new(1).unwrap())
+        Self::with_capacity(NonZeroUsize::new(1).unwrap())
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M>
@@ -161,8 +123,8 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsgNon
     /// Will round robin [Clt]'s in the pool to propagate the call.
     #[inline(always)]
     fn send_nonblocking(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
-        match self.next() {
-            Some((_key, clt)) => clt.send_nonblocking(msg),
+        match self.clts.next() {
+            Some(clt) => clt.send_nonblocking(msg),
             None => Err(Error::new(
                 ErrorKind::NotConnected,
                 "Not Connected, 0 clts available in the pool",
@@ -177,25 +139,25 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvMsgNon
     #[inline(always)]
     fn recv_nonblocking(&mut self) -> Result<RecvStatus<<M as Messenger>::RecvT>, Error> {
         use RecvStatus::{Completed, WouldBlock};
-        match self.next() {
-            Some((key, clt)) => match clt.recv_nonblocking() {
+        match self.clts.next() {
+            Some(clt) => match clt.recv_nonblocking() {
                 Ok(Completed(Some(msg))) => Ok(Completed(Some(msg))),
                 Ok(WouldBlock) => Ok(WouldBlock),
                 Ok(Completed(None)) => {
-                    let clt = self.clts.remove(key);
+                    let clt = self.clts.remove_last_used();
                     if log_enabled!(log::Level::Info) {
                         info!(
-                            "Connection reset by peer, clean. key: #{}, clt: {} and will be dropped, clts: {}",
-                            key, clt, self
+                            "Connection reset by peer, clean. clt: {} and will be dropped, clts: {}",
+                             clt, self
                         );
                     }
                     Ok(RecvStatus::Completed(None))
                 }
                 Err(e) => {
-                    let clt = self.clts.remove(key);
+                    let clt = self.clts.remove_last_used();
                     warn!(
-                        "Connection failed, {}. key: #{}, clt: {} and will be dropped.  clts: {}",
-                        e, key, clt, self
+                        "Connection failed, {}. clt: {} and will be dropped.  clts: {}",
+                        e, clt, self
                     );
                     Err(e)
                 }
@@ -248,8 +210,7 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = (
 #[derive(Debug)]
 pub struct CltRecversPool<M: Messenger+'static, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
     rx_recver: Receiver<CltRecver<M, C, MAX_MSG_SIZE>>,
-    recvers: Slab<CltRecver<M, C, MAX_MSG_SIZE>>,
-    slab_keys: CycleRange,
+    recvers: RoundRobinPool<CltRecver<M, C, MAX_MSG_SIZE>>,
 }
 impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize>
     CltRecversPool<M, C, MAX_MSG_SIZE>
@@ -257,15 +218,13 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize>
     /// Creates a new instance of [CltRecversPool]
     pub fn new(
         rx_recver: Receiver<CltRecver<M, C, MAX_MSG_SIZE>>,
-        max_connections: NonZeroUsize,
+        max_capacity: NonZeroUsize,
     ) -> Self {
         Self {
             rx_recver,
-            recvers: Slab::with_capacity(max_connections.get()),
-            slab_keys: CycleRange::new(0..max_connections.get()),
+            recvers: RoundRobinPool::with_capacity(max_capacity),
         }
     }
-
     pub fn len(&self) -> usize {
         self.recvers.len()
     }
@@ -283,30 +242,16 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize>
     #[inline]
     pub(crate) fn service_once_rx_queue(&mut self) -> Result<bool, Error> {
         match self.rx_recver.try_recv() {
-            Ok(recver) => {
-                if self.has_capacity() {
-                    if log_enabled!(log::Level::Debug) {
-                        debug!("Adding recver: {} to {}", recver, self);
-                    }
-                    self.recvers.insert(recver);
-                } else {
-                    warn!("Dropping recver: {}, {} at capacity", recver, self);
+            Ok(recver) => match self.recvers.add(recver) {
+                Ok(_) => Ok(true),
+                Err(e) => {
+                    warn!("Failed to add recver to pool, {}", e);
+                    Ok(false)
                 }
-                Ok(true)
-            }
+            },
             Err(std::sync::mpsc::TryRecvError::Empty) => Ok(false),
             Err(e) => Err(Error::new(ErrorKind::Other, e)),
         }
-    }
-    #[inline]
-    fn next(&mut self) -> Option<(usize, &mut CltRecver<M, C, MAX_MSG_SIZE>)> {
-        for _ in 0..self.recvers.len() {
-            let key = self.slab_keys.next();
-            if self.recvers.contains(key) {
-                return Some((key, &mut self.recvers[key]));
-            }
-        }
-        None
     }
 }
 impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
@@ -321,31 +266,28 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBloc
     /// In the event there are no receivers in the channel or the pool the method will return an [Error] where `e.kind() == ErrorKind::NotConnected`
     #[inline(always)]
     fn recv_nonblocking(&mut self) -> Result<RecvStatus<M::RecvT>, Error> {
-        use log::Level::{Info, Warn};
         use RecvStatus::{Completed, WouldBlock};
-        match self.next() {
-            Some((key, clt)) => match clt.recv_nonblocking() {
+        match self.recvers.next() {
+            Some(clt) => match clt.recv_nonblocking() {
                 Ok(Completed(Some(msg))) => Ok(Completed(Some(msg))),
                 Ok(WouldBlock) => Ok(WouldBlock),
                 Ok(Completed(None)) => {
-                    let recver = self.recvers.remove(key);
-                    if log_enabled!(Info) {
+                    let recver = self.recvers.remove_last_used();
+                    if log_enabled!(Level::Info) {
                         info!(
-                                "Connection reset by peer, clean. key: #{}, recver: {} and will be dropped, recvers: {}",
-                                key, recver, self
-                            );
+                            "recver: {} is dead and will be dropped, connection reset by peer. recvers: {}",
+                            recver, self
+                        );
                     }
                     Ok(Completed(None))
                 }
                 Err(e) => {
-                    let recver = self.recvers.remove(key);
-                    if log_enabled!(Warn) {
-                        warn!(
-                                "Connection failed, {}. key: #{}, recver: {} and will be dropped.  recvers: {}",
-                                e, key, recver, self
-                            );
-                    }
-                    Err(e)
+                    let recver = self.recvers.remove_last_used();
+                    let msg = format!(
+                        "recver: {} is dead and will be dropped. recvers: {} error: ({}). ",
+                        recver, self, e,
+                    );
+                    Err(Error::new(e.kind(), msg))
                 }
             },
             None => {
@@ -375,17 +317,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
     for CltRecversPool<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "CltRecversPool<len: {} of cap: {} [{}]>",
-            self.recvers.len(),
-            self.recvers.capacity(),
-            self.recvers
-                .iter()
-                .map(|(_, clt)| format!("{}", clt))
-                .collect::<Vec<_>>()
-                .join(","),
-        )
+        write!(f, "{}", self.recvers,)
     }
 }
 
@@ -419,8 +351,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
 #[derive(Debug)]
 pub struct CltSendersPool<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> {
     rx_sender: Receiver<CltSender<M, C, MAX_MSG_SIZE>>,
-    senders: Slab<CltSender<M, C, MAX_MSG_SIZE>>,
-    slab_keys: CycleRange,
+    senders: RoundRobinPool<CltSender<M, C, MAX_MSG_SIZE>>,
 }
 impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize>
     CltSendersPool<M, C, MAX_MSG_SIZE>
@@ -432,8 +363,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize>
     ) -> Self {
         Self {
             rx_sender,
-            senders: Slab::with_capacity(max_connections.get()),
-            slab_keys: CycleRange::new(0..max_connections.get()),
+            senders: RoundRobinPool::with_capacity(max_connections),
         }
     }
     pub fn len(&self) -> usize {
@@ -447,37 +377,21 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize>
     }
     #[inline]
     pub fn has_capacity(&self) -> bool {
-        self.senders.len() < self.senders.capacity()
+        self.senders.has_capacity()
     }
     #[inline]
     pub(crate) fn service_once_rx_queue(&mut self) -> Result<bool, Error> {
         match self.rx_sender.try_recv() {
-            Ok(sender) => {
-                if self.has_capacity() {
-                    if log_enabled!(log::Level::Debug) {
-                        debug!("Adding sender: {} to {}", sender, self);
-                    }
-                    self.senders.insert(sender);
-                } else {
-                    warn!("Dropping sender: {}, {} at capacity", sender, self);
+            Ok(sender) => match self.senders.add(sender) {
+                Ok(_) => Ok(true),
+                Err(e) => {
+                    warn!("Failed to add sender to pool, {}", e);
+                    Ok(false)
                 }
-                Ok(true)
-            }
+            },
             Err(std::sync::mpsc::TryRecvError::Empty) => Ok(false),
             Err(e) => Err(Error::new(ErrorKind::Other, e)),
         }
-    }
-
-    #[inline]
-    fn next(&mut self) -> Option<(usize, &mut CltSender<M, C, MAX_MSG_SIZE>)> {
-        // TODO can this be optimized
-        for _ in 0..self.senders.len() {
-            let key = self.slab_keys.next();
-            if self.senders.contains(key) {
-                return Some((key, &mut self.senders[key]));
-            }
-        }
-        None
     }
 }
 impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M>
@@ -492,15 +406,16 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBloc
     /// In the event there are no receivers in the channel or the pool the method will return an [Error] where `e.kind() == ErrorKind::NotConnected`
     #[inline(always)]
     fn send_nonblocking(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
-        match self.next() {
-            Some((key, clt)) => match clt.send_nonblocking(msg) {
+        match self.senders.next() {
+            Some(clt) => match clt.send_nonblocking(msg) {
                 Ok(s) => Ok(s),
                 Err(e) => {
+                    let sender = self.senders.remove_last_used();
                     let msg = format!(
-                        "sender #{} is dead {} and will be dropped.  error: ({})",
-                        key, self, e
+                        "sender: {} is dead and will be dropped, senders: {}.  error: ({})",
+                        sender, self.senders, e
                     );
-                    self.senders.remove(key);
+
                     Err(Error::new(e.kind(), msg))
                 }
             },
@@ -531,17 +446,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
     for CltSendersPool<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "CltSendersPool<len: {} of cap: {} [{}]>",
-            self.senders.len(),
-            self.senders.capacity(),
-            self.senders
-                .iter()
-                .map(|(_, clt)| format!("{}", clt))
-                .collect::<Vec<_>>()
-                .join(","),
-        )
+        write!(f, "{}", self.senders)
     }
 }
 
@@ -676,7 +581,7 @@ mod test {
         .unwrap();
         info!("svc: {}", svc);
 
-        let mut clt_pool = CltsPool::new(max_connections);
+        let mut clt_pool = CltsPool::with_capacity(max_connections);
         for i in 0..max_connections.get() * 2 {
             let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
                 addr,

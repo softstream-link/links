@@ -1,8 +1,6 @@
 pub mod framer;
 pub mod messenger;
 
-pub mod iter;
-
 use std::{
     io::Error,
     time::{Duration, Instant},

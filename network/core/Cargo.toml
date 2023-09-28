@@ -9,6 +9,7 @@ edition = "2021"
 bytes = { workspace = true }
 num-format = { workspace = true }
 log = { workspace = true }
+slab = { workspace = true }       # slab allocator
 
 byteserde = { workspace = true } # TODO should be eliminated once trait Messenger is moved to tempalte serializization
 
@@ -18,10 +19,11 @@ rand = { workspace = true, optional = true }             # required to setup uni
 colored = { workspace = true, optional = true }          # required to setup logging
 env_logger = { workspace = true, optional = true }
 
+
 [dev-dependencies]
 
 [features]
-default = []
+default = ["full"] # TODO remove before publishing
 full = ["unittest"]
 unittest = [
     "dep:byteserde_types",

@@ -94,7 +94,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
             callback,
         );
 
-        let clts_pool = CltsPool::<M, C, MAX_MSG_SIZE>::new(max_connections);
+        let clts_pool = CltsPool::<M, C, MAX_MSG_SIZE>::with_capacity(max_connections);
         Ok(Self {
             acceptor,
             clts_pool,

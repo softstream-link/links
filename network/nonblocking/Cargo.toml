@@ -23,7 +23,7 @@ links_network_core = { workspace = true } # traits
 
 log = { workspace = true }
 
-slab = { workspace = true } # slab allocator
+slab = { workspace = true } # slab allocator # TODO remove after moved to core
 
 byteserde = { workspace = true } # byteserde::utils::hex::to_hex_pretty #TODO move to seperate crate
 

@@ -3,6 +3,7 @@ pub mod counters;
 pub mod fmt;
 pub mod framer;
 pub mod messenger;
+pub mod pool;
 use std::fmt::Debug;
 
 use byteserde::prelude::*;
