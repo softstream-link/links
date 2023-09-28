@@ -65,7 +65,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
         debug_assert_eq!(
             name,
             type_name::<Self>()
-                .split("<")
+                .split('<')
                 .next()
                 .unwrap()
                 .split("::")
@@ -102,7 +102,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
     }
 
     #[inline(always)]
-    pub fn len(&self) -> (usize, usize) {
+    pub fn len(&self) -> usize {
         self.clts_pool.len()
     }
     pub fn pool(&self) -> &CltsPool<M, C, MAX_MSG_SIZE> {
@@ -221,7 +221,7 @@ mod test {
 
         svc.pool_accept_busywait().unwrap();
         info!("svc: {}", svc);
-        assert_eq!(svc.len(), (1, 1));
+        assert_eq!(svc.len(), 1);
 
         let mut clt_msg_inp = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
         let mut svc_msg_inp = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));

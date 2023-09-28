@@ -19,3 +19,8 @@ cargo bench --all-features
 ```shell
 cargo doc
 ```
+
+# Run Clippy
+```
+cargo clippy --all-features -- --deny warnings
+```

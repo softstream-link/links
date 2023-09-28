@@ -54,85 +54,97 @@ use slab::Slab;
 #[derive(Debug)]
 pub struct CltsPool<M: Messenger+'static, C: CallbackRecvSend<M>+'static, const MAX_MSG_SIZE: usize>
 {
-    tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
-    tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>,
-    recver_pool: CltRecversPool<M, C, MAX_MSG_SIZE>,
-    sender_pool: CltSendersPool<M, C, MAX_MSG_SIZE>,
+    // tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
+    // tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>,
+    // recver_pool: CltRecversPool<M, C, MAX_MSG_SIZE>,
+    // sender_pool: CltSendersPool<M, C, MAX_MSG_SIZE>,
+    clts: Slab<Clt<M, C, MAX_MSG_SIZE>>,
+    slab_keys: CycleRange,
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> CltsPool<M, C, MAX_MSG_SIZE> {
     /// Creates a new [CltsPool]
     /// # Arguments
     ///  * max_connections - the maximum number of connections that can be added to the pool.
-    ///
-    /// # Important
-    ///  * The channel will continue to accept new connections even if the pool is at capacity. However, `once and only once`
-    /// the [CltRecversPool] or [CltSendersPool] services its respective channel the connection will be dropped respective pool is at capacity.
     pub fn new(max_connections: NonZeroUsize) -> Self {
-        let (tx_recver, rx_recver) = channel();
-        let (tx_sender, rx_sender) = channel();
         Self {
-            tx_recver,
-            tx_sender,
-            recver_pool: CltRecversPool::new(rx_recver, max_connections),
-            sender_pool: CltSendersPool::new(rx_sender, max_connections),
+            clts: Slab::with_capacity(max_connections.get()),
+            slab_keys: CycleRange::new(0..max_connections.get()),
         }
     }
     /// Returns a tuple representing len of [CltRecversPool] and [CltSendersPool] respectively
-    pub fn len(&self) -> (usize, usize) {
-        (self.recver_pool.len(), self.sender_pool.len())
+    pub fn len(&self) -> usize {
+        self.clts.len()
     }
     pub fn has_capacity(&self) -> bool {
-        self.recver_pool.has_capacity() && self.sender_pool.has_capacity()
+        self.clts.len() < self.clts.capacity()
     }
     /// Adds a [Clt] to the pool
     pub fn add(&mut self, clt: Clt<M, C, MAX_MSG_SIZE>) -> Result<(), Error> {
-        if !self.recver_pool.has_capacity() {
+        if !self.has_capacity() {
             return Err(Error::new(
                 ErrorKind::Other,
-                format!(
-                    "CltsPool recver_pool at max capacity: {}",
-                    self.recver_pool.recvers.len()
-                ),
-            ));
-        }
-        if !self.sender_pool.has_capacity() {
-            return Err(Error::new(
-                ErrorKind::Other,
-                format!(
-                    "CltsPool sender_pool at max capacity: {}",
-                    self.sender_pool.senders.len()
-                ),
+                format!("CltsPool at max capacity: {}", self.len()),
             ));
         }
 
-        let (recver, sender) = clt.into_split();
-        if let Err(e) = self.tx_recver.send(recver) {
-            return Err(Error::new(ErrorKind::Other, e.to_string()));
-        }
-        if let Err(e) = self.tx_sender.send(sender) {
-            return Err(Error::new(ErrorKind::Other, e.to_string()));
-        }
-        self.recver_pool.service_once_rx_queue()?;
-        self.sender_pool.service_once_rx_queue()?;
+        let _key = self.clts.insert(clt);
         Ok(())
     }
     pub fn clear(&mut self) {
-        self.recver_pool.clear();
-        self.sender_pool.clear();
+        self.clts.clear();
+    }
+    #[inline]
+    fn next(&mut self) -> Option<(usize, &mut Clt<M, C, MAX_MSG_SIZE>)> {
+        for _ in 0..self.clts.len() {
+            let key = self.slab_keys.next();
+            if self.clts.contains(key) {
+                return Some((key, &mut self.clts[key]));
+            }
+        }
+        None
     }
     /// Splits [CltsPool] into a a pair of channel transmitters and their respective [CltRecversPool] & [CltSendersPool] pools
     pub fn into_split(self) -> SplitCltsPool<M, C, MAX_MSG_SIZE> {
-        (
-            (self.tx_recver, self.tx_sender),
-            (self.recver_pool, self.sender_pool),
-        )
+        let (tx_recver, rx_recver) = channel();
+        let (tx_sender, rx_sender) = channel();
+        let max_capacity = NonZeroUsize::new(self.clts.capacity()).unwrap();
+        let mut recver_pool = CltRecversPool::new(rx_recver, max_capacity);
+        let mut sender_pool = CltSendersPool::new(rx_sender, max_capacity);
+
+        for (_, clt) in self.clts.into_iter() {
+            let (clt_recver, clt_sender) = clt.into_split();
+            tx_recver
+                .send(clt_recver)
+                .expect("CltsPool::into_split - Failed to send CltRecver to CltRecversPool");
+            assert!(recver_pool
+                .service_once_rx_queue()
+                .expect("CltsPool::into_split - Failed to service CltRecversPool rx_queue"));
+
+            tx_sender
+                .send(clt_sender)
+                .expect("CltsPool::into_split - Failed to send CltSender to CltSendersPool");
+            assert!(sender_pool
+                .service_once_rx_queue()
+                .expect("CltsPool::into_split - Failed to service CltSendersPool rx_queue"));
+        }
+        ((tx_recver, tx_sender), (recver_pool, sender_pool))
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     for CltsPool<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "CltsPool<{}, {}>", self.recver_pool, self.sender_pool,)
+        write!(
+            f,
+            "CltsPool<len: {} of cap: {} [{}]>",
+            self.clts.len(),
+            self.clts.capacity(),
+            self.clts
+                .iter()
+                .map(|(_, clt)| format!("{}", clt))
+                .collect::<Vec<_>>()
+                .join(",")
+        )
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Default
@@ -146,31 +158,55 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Default
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M>
     for CltsPool<M, C, MAX_MSG_SIZE>
 {
-    /// Will propagate the call to [CltSendersPool::send_nonblocking] and return the result
+    /// Will round robin [Clt]'s in the pool to propagate the call.
     #[inline(always)]
     fn send_nonblocking(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
-        self.sender_pool.send_nonblocking(msg)
+        match self.next() {
+            Some((_key, clt)) => clt.send_nonblocking(msg),
+            None => Err(Error::new(
+                ErrorKind::NotConnected,
+                "Not Connected, 0 clts available in the pool",
+            )),
+        }
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
     for CltsPool<M, C, MAX_MSG_SIZE>
 {
-    /// Will propagate the call to [CltRecversPool::recv_nonblocking] and return the result
+    /// Will round robin [Clt]'s in the pool to propagate the call.
     #[inline(always)]
     fn recv_nonblocking(&mut self) -> Result<RecvStatus<<M as Messenger>::RecvT>, Error> {
-        self.recver_pool.recv_nonblocking()
+        use RecvStatus::{Completed, WouldBlock};
+        match self.next() {
+            Some((key, clt)) => match clt.recv_nonblocking() {
+                Ok(Completed(Some(msg))) => Ok(Completed(Some(msg))),
+                Ok(WouldBlock) => Ok(WouldBlock),
+                Ok(Completed(None)) => {
+                    let clt = self.clts.remove(key);
+                    if log_enabled!(log::Level::Info) {
+                        info!(
+                            "Connection reset by peer, clean. key: #{}, clt: {} and will be dropped, clts: {}",
+                            key, clt, self
+                        );
+                    }
+                    Ok(RecvStatus::Completed(None))
+                }
+                Err(e) => {
+                    let clt = self.clts.remove(key);
+                    warn!(
+                        "Connection failed, {}. key: #{}, clt: {} and will be dropped.  clts: {}",
+                        e, key, clt, self
+                    );
+                    Err(e)
+                }
+            },
+            None => Err(Error::new(
+                ErrorKind::NotConnected,
+                "Not Connected, 0 clts available in the pool",
+            )),
+        }
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
-    for CltsPool<M, C, MAX_MSG_SIZE>
-{
-    fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
-        self.sender_pool.service_once()?;
-        self.recver_pool.service_once()?;
-        Ok(ServiceLoopStatus::Continue)
-    }
-}
-
 pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = (
     (
         Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
@@ -578,7 +614,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
                 }
                 Ok(PoolAcceptStatus::Accepted)
             }
-            WouldBlock => return Ok(PoolAcceptStatus::WouldBlock),
+            WouldBlock => Ok(PoolAcceptStatus::WouldBlock),
         }
     }
 }
@@ -598,7 +634,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
         debug_assert_eq!(
             name,
             type_name::<Self>()
-                .split("<")
+                .split('<')
                 .next()
                 .unwrap()
                 .split("::")
@@ -658,14 +694,8 @@ mod test {
                     .unwrap()
                     .unwrap();
             } else {
-                assert_eq!(
-                    clt_pool.len(),
-                    (max_connections.get(), max_connections.get())
-                );
-                assert_eq!(
-                    svc.pool().len(),
-                    (max_connections.get(), max_connections.get())
-                );
+                assert_eq!(clt_pool.len(), max_connections.get());
+                assert_eq!(svc.pool().len(), max_connections.get());
                 let clt_pool_err = clt_pool.add(clt).unwrap_err();
                 info!("clt_pool_err: {:?}", clt_pool_err);
                 let svc_pool_err = svc.pool_accept_busywait().unwrap_err();

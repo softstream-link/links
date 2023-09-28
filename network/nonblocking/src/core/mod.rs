@@ -21,7 +21,7 @@ pub enum PoolAcceptStatus {
 }
 impl PoolAcceptStatus {
     /// Unwraps to [()] if the variant is [PoolAcceptStatus::Accepted], otherwise panics
-    pub fn unwrap(self) -> () {
+    pub fn unwrap(self) {
         match self {
             PoolAcceptStatus::Accepted => (),
             PoolAcceptStatus::WouldBlock => panic!("PoolAcceptStatus::WouldBlock"),
