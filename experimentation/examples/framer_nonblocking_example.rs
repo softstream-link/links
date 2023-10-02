@@ -1,5 +1,6 @@
 use bytes::{Bytes, BytesMut};
 use criterion::{black_box, Criterion};
+use links_network_core::prelude::FixedSizeFramer;
 use std::fmt::Debug;
 use std::io::{Error, ErrorKind, Read, Write};
 use std::net::Shutdown;
@@ -112,18 +113,7 @@ impl Drop for FrameReader {
     }
 }
 
-#[derive(Debug)]
-pub struct BenchMsgFramer;
-impl Framer for BenchMsgFramer {
-    fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-        if bytes.len() < BENCH_MAX_FRAME_SIZE {
-            return None;
-        } else {
-            let frame = bytes.split_to(BENCH_MAX_FRAME_SIZE);
-            return Some(frame.freeze());
-        }
-    }
-}
+pub type BenchMsgFramer = FixedSizeFramer<BENCH_MAX_FRAME_SIZE>;
 
 #[derive(Debug)]
 pub struct FrameWriter {

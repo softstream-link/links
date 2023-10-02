@@ -310,13 +310,8 @@ mod test {
 
     use crate::prelude::*;
 
-    use bytes::{Bytes, BytesMut};
     use byteserde::utils::hex::to_hex_pretty;
-    use links_network_core::{
-        fmt_num,
-        prelude::{ConId, Framer},
-        unittest::setup,
-    };
+    use links_network_core::{fmt_num, prelude::ConId, unittest::setup};
 
     use log::{error, info};
     use rand::Rng;
@@ -338,17 +333,7 @@ mod test {
         setup::log::configure_level(log::LevelFilter::Info);
         const TEST_SEND_FRAME_SIZE: usize = 128;
         const WRITE_N_TIMES: usize = 100_000;
-        pub struct MsgFramer;
-        impl Framer for MsgFramer {
-            fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-                if bytes.len() < TEST_SEND_FRAME_SIZE {
-                    return None;
-                } else {
-                    let frame = bytes.split_to(TEST_SEND_FRAME_SIZE);
-                    return Some(frame.freeze());
-                }
-            }
-        }
+        pub type MsgFramer = FixedSizeFramer<TEST_SEND_FRAME_SIZE>;
 
         let send_frame = setup::data::random_bytes(TEST_SEND_FRAME_SIZE);
         info!("send_frame: \n{}", to_hex_pretty(send_frame));

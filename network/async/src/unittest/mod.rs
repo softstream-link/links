@@ -10,17 +10,7 @@ pub mod setup {
         use log::info;
 
         use crate::prelude::*;
-        pub struct TestMsgFramer;
-        impl Framer for TestMsgFramer {
-            fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-                if bytes.len() < TEST_MSG_FRAME_SIZE {
-                    return None;
-                } else {
-                    let frame = bytes.split_to(TEST_MSG_FRAME_SIZE);
-                    return Some(frame.freeze());
-                }
-            }
-        }
+        pub type TestMsgFramer = FixedSizeFramer<TEST_MSG_FRAME_SIZE>;
 
         pub const HBEAT_INTERVAL: Duration = Duration::from_millis(500);
         #[derive(Debug, Clone, PartialEq)]

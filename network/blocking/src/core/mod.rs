@@ -1,10 +1,7 @@
 pub mod framer;
 pub mod messenger;
 
-use std::{
-    io::Error,
-    time::{Duration, Instant},
-};
+use std::io::Error;
 
 use links_network_core::prelude::{CallbackRecvSend, Messenger};
 
@@ -12,40 +9,13 @@ use crate::prelude::Clt;
 
 // ----- Acceptor -----
 
+pub trait PoolAcceptClt<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
+    fn pool_accept(&mut self) -> Result<(), Error>;
+}
+
 pub trait AcceptClt<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
     /// Blocking accept
     fn accept(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error>;
-    /// Non-blocking accept
-    fn accept_nonblocking(&self) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error>;
-
-    /// Will call [Self::accept_nonblocking] busy waiting until it returns [Some(Clt)] or
-    /// will return [Ok(None)] if the call to [Self::accept_nonblocking] returns [None] after the timeout
-    fn accept_busywait_timeout(
-        &self,
-        timeout: Duration,
-    ) -> Result<Option<Clt<M, C, MAX_MSG_SIZE>>, Error> {
-        let start = Instant::now();
-        loop {
-            match self.accept_nonblocking()? {
-                Some(clt) => return Ok(Some(clt)),
-                None => {
-                    if start.elapsed() > timeout {
-                        return Ok(None);
-                    }
-                }
-            }
-        }
-    }
-
-    /// Will call [Self::accept_nonblocking] while busy waiting until it returns [`Some(Clt)`]
-    fn accept_busywait(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error> {
-        loop {
-            match self.accept_nonblocking()? {
-                Some(clt) => return Ok(clt),
-                None => continue,
-            }
-        }
-    }
 }
 
 // ----- Recver -----

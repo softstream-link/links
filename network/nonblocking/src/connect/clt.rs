@@ -12,6 +12,7 @@ use crate::prelude::{
     MessageSender, Messenger, NonBlockingServiceLoop, RecvMsgNonBlocking, RecvStatus,
     SendMsgNonBlocking, SendMsgNonBlockingNonMut, SendStatus, ServiceLoopStatus,
 };
+use links_network_core::asserted_short_name;
 use log::debug;
 
 /// An abstraction over a [MessageRecver] that calls a [CallbackRecv] on every message being processed by [CltRecver].
@@ -61,14 +62,17 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
     for CltRecver<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = std::any::type_name::<M>()
+        let msger_name = std::any::type_name::<M>()
             .split("::")
             .last()
             .unwrap_or("Unknown");
         write!(
             f,
-            "CltRecver<{}, {}, {}>",
-            self.msg_recver.frm_reader.con_id, name, MAX_MSG_SIZE
+            "{}<{}, {}, {}>",
+            asserted_short_name!("CltRecver", Self),
+            self.msg_recver.frm_reader.con_id,
+            msger_name,
+            MAX_MSG_SIZE
         )
     }
 }
@@ -171,14 +175,17 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
     for CltSender<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = std::any::type_name::<M>()
+        let msger_name = std::any::type_name::<M>()
             .split("::")
             .last()
             .unwrap_or("Unknown");
         write!(
             f,
-            "CltSender<{}, {}, {}>",
-            self.msg_sender.frm_writer.con_id, name, MAX_MSG_SIZE
+            "{}<{}, {}, {}>",
+            asserted_short_name!("CltSender", Self),
+            self.msg_sender.frm_writer.con_id,
+            msger_name,
+            MAX_MSG_SIZE
         )
     }
 }
@@ -190,14 +197,14 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
 /// # Example
 /// ```
 /// use links_network_nonblocking::prelude::*;
-/// use links_network_core::unittest::setup::{framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg}};
+/// use links_network_core::unittest::setup::{framer::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg}};
 /// use std::time::Duration;
 ///
 /// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
 ///         "127.0.0.1:8080",
 ///         Duration::from_millis(100),
 ///         Duration::from_millis(10),
-///         DevNullCallback::<TestCltMsgProtocol>::default().into(),
+///         DevNullCallback::<TestCltMessenger>::default().into(),
 ///         Some("unittest"),
 ///     );
 ///
@@ -287,7 +294,13 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     for Clt<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Clt<{}, {}>", self.clt_recver, self.clt_sender)
+        write!(
+            f,
+            "{}<{}, {}>",
+            asserted_short_name!("Clt", Self),
+            self.clt_recver,
+            self.clt_sender
+        )
     }
 }
 
@@ -297,14 +310,14 @@ mod test {
     use links_network_core::callbacks::logger_new::LoggerCallback;
     use links_network_core::unittest::setup::{
         self,
-        framer::{TestCltMsgProtocol, TEST_MSG_FRAME_SIZE},
+        framer::{TestCltMessenger, TEST_MSG_FRAME_SIZE},
     };
 
     #[test]
     fn test_clt_not_connected() {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
-        let callback = LoggerCallback::<TestCltMsgProtocol>::new_ref();
+        let callback = LoggerCallback::<TestCltMessenger>::new_ref();
         let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr,
             setup::net::default_connect_timeout(),

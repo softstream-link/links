@@ -1,20 +1,18 @@
 pub use crate::core::{
-    AcceptCltNonBlocking, AcceptStatus, PoolAcceptCltNonBlocking, PoolAcceptStatus,
+    framer::{into_split_framer, FrameReader, FrameWriter},
+    messenger::{into_split_messenger, MessageRecver, MessageSender},
+    AcceptCltNonBlocking, AcceptStatus, NonBlockingServiceLoop, PoolAcceptCltNonBlocking,
+    PoolAcceptStatus, RecvMsgNonBlocking, RecvStatus, SendMsgNonBlocking, SendMsgNonBlockingNonMut,
+    SendStatus, ServiceLoopStatus,
 };
-pub use crate::core::{NonBlockingServiceLoop, ServiceLoopStatus};
-pub use crate::core::{RecvMsgNonBlocking, RecvStatus};
-pub use crate::core::{SendMsgNonBlocking, SendMsgNonBlockingNonMut, SendStatus};
 
-pub use crate::core::framer::{into_split_framer, FrameReader, FrameWriter};
-
-pub use crate::core::messenger::{into_split_messenger, MessageRecver, MessageSender};
-
-pub use crate::connect::pool::{CltRecversPool, CltSendersPool, CltsPool, PoolCltAcceptor};
-
-pub use crate::connect::clt::{Clt, CltRecver, CltSender};
-pub use crate::connect::svc::{Acceptor, Svc};
+pub use crate::connect::{
+    clt::{Clt, CltRecver, CltSender},
+    pool::{CltRecversPool, CltSendersPool, CltsPool, PoolCltAcceptor},
+    svc::{Svc, SvcAcceptor},
+};
 
 pub use links_network_core::prelude::{
-    CallbackRecv, CallbackRecvSend, CallbackSend, DevNullCallback, LoggerCallback,
+    CallbackRecv, CallbackRecvSend, CallbackSend, ConId, DevNullCallback, FixedSizeFramer, Framer,
+    LoggerCallback, Messenger,
 };
-pub use links_network_core::prelude::{ConId, FixedSizeFramer, Framer, Messenger};

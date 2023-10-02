@@ -11,7 +11,7 @@ use links_network_core::{
     unittest::setup::{
         self,
         framer::TEST_MSG_FRAME_SIZE,
-        messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
+        messenger::{TestCltMessenger, TestSvcMessenger},
         model::*,
     },
 };
@@ -29,7 +29,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     setup::log::configure_level(log::LevelFilter::Info);
     let (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after) = setup();
 
-    let svc = Svc::<TestSvcMsgProtocol, _, TEST_MSG_FRAME_SIZE>::bind(
+    let svc = Svc::<TestSvcMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
         addr,
         svc_callback.clone(),
         max_connections,
@@ -39,7 +39,7 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     info!("svc: {}", svc);
 
-    let mut clt_initiator = Clt::<TestCltMsgProtocol, _, TEST_MSG_FRAME_SIZE>::connect(
+    let mut clt_initiator = Clt::<TestCltMessenger, _, TEST_MSG_FRAME_SIZE>::connect(
         addr,
         timeout,
         retry_after,
@@ -54,10 +54,7 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let mut clt_initiator_send_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
     clt_initiator.send_busywait_timeout(&mut clt_initiator_send_msg, timeout)?;
-    let clt_acceptor_recv_msg = clt_acceptor
-        .recv_busywait_timeout(timeout)?
-        .unwrap_completed()
-        .unwrap();
+    let clt_acceptor_recv_msg = clt_acceptor.recv_busywait_timeout(timeout)?.unwrap();
 
     assert_eq!(clt_initiator_send_msg, clt_acceptor_recv_msg);
 

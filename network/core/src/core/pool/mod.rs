@@ -7,6 +7,8 @@ use std::{
 
 use slab::{IntoIter, Slab};
 
+use crate::asserted_short_name;
+
 use self::iter::CycleRange;
 
 /// A round robin pool of elements
@@ -56,7 +58,11 @@ impl<T: Debug+Display> RoundRobinPool<T> {
         if !self.has_capacity() {
             return Err(Error::new(
                 ErrorKind::OutOfMemory,
-                format!("RoundRobinPool at max capacity: {}, element: {} will be dropped", self.len(), element),
+                format!(
+                    "RoundRobinPool at max capacity: {}, element: {} will be dropped",
+                    self.len(),
+                    element
+                ),
             ));
         }
 
@@ -81,7 +87,8 @@ impl<T: Debug+Display> Display for RoundRobinPool<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "RoundRobinPool<len: {} of cap: {} [{}]>",
+            "{}<len: {} of cap: {} [{}]>",
+            asserted_short_name!("RoundRobinPool", Self),
             self.elements.len(),
             self.elements.capacity(),
             self.elements

@@ -167,7 +167,6 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsg<M>
         self.clt_sender.send(msg)
     }
 }
-
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvMsg<M>
     for Clt<M, C, MAX_MSG_SIZE>
 {
@@ -201,7 +200,7 @@ mod test {
         prelude::LoggerCallback,
         unittest::setup::{
             self,
-            framer::{TestCltMsgProtocol, TEST_MSG_FRAME_SIZE},
+            framer::{TestCltMessenger, TEST_MSG_FRAME_SIZE},
         },
     };
 
@@ -211,7 +210,7 @@ mod test {
     fn test_clt_not_connected() {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
-        let callback = LoggerCallback::<TestCltMsgProtocol>::new_ref();
+        let callback = LoggerCallback::<TestCltMessenger>::new_ref();
         let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr,
             std::time::Duration::from_millis(50),

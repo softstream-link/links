@@ -1,9 +1,6 @@
-use bytes::{Bytes, BytesMut};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_network_core::{fmt_num, unittest::setup};
-use links_network_nonblocking::prelude::{
-    into_split_framer, ConId, Framer, RecvStatus, SendStatus,
-};
+use links_network_nonblocking::prelude::{into_split_framer, ConId, RecvStatus, SendStatus, FixedSizeFramer};
 
 use log::{error, info};
 use std::{
@@ -13,17 +10,7 @@ use std::{
 };
 
 const BENCH_MAX_FRAME_SIZE: usize = 128;
-pub struct BenchMsgFramer;
-impl Framer for BenchMsgFramer {
-    fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-        if bytes.len() < BENCH_MAX_FRAME_SIZE {
-            return None;
-        } else {
-            let frame = bytes.split_to(BENCH_MAX_FRAME_SIZE);
-            return Some(frame.freeze());
-        }
-    }
-}
+pub type BenchMsgFramer = FixedSizeFramer<BENCH_MAX_FRAME_SIZE>;
 
 fn send_random_frame(c: &mut Criterion) {
     setup::log::configure_level(log::LevelFilter::Info);

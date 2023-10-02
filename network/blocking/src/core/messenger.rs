@@ -7,20 +7,20 @@
 //! # Example
 //! ```
 //! use links_network_blocking::prelude::*;
-//! use links_network_core::unittest::setup::framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
+//! use links_network_core::unittest::setup::framer::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE};
 //!
 //! let addr = "127.0.0.1:8080";
 //!
 //! let svc_listener = std::net::TcpListener::bind(addr).unwrap();
 //!
 //! let clt_stream = std::net::TcpStream::connect(addr).unwrap();
-//! let (clt_recv, clt_send) = into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
+//! let (clt_recv, clt_send) = into_split_messenger::<TestCltMessenger, TEST_MSG_FRAME_SIZE>(
 //!         ConId::clt(Some("unittest"), None, addr),
 //!         clt_stream,
 //!     );
 //!
 //! let svc_stream = svc_listener.accept().unwrap().0;
-//! let (svc_recv, svc_send) = into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
+//! let (svc_recv, svc_send) = into_split_messenger::<TestSvcMessenger, TEST_MSG_FRAME_SIZE>(
 //!         ConId::svc(Some("unittest"), addr, None),
 //!         svc_stream,
 //!     );
@@ -166,7 +166,7 @@ mod test {
         prelude::ConId,
         unittest::setup::{
             self,
-            framer::{TestCltMsgProtocol, TestSvcMsgProtocol},
+            framer::{TestCltMessenger, TestSvcMessenger},
             model::{
                 TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug, TEST_MSG_FRAME_SIZE,
             },
@@ -190,7 +190,7 @@ mod test {
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
                 let (mut svc_recver, mut svc_sender) =
-                    into_split_messenger::<TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE>(
+                    into_split_messenger::<TestSvcMessenger, TEST_MSG_FRAME_SIZE>(
                         ConId::svc(Some("unittest"), addr, None),
                         stream,
                     );
@@ -213,7 +213,7 @@ mod test {
         let (mut clt_msg_sent_count, mut clt_msg_recv_count) = (0, 0);
         let stream = TcpStream::connect(addr).unwrap();
         let (mut clt_recver, mut clt_sender) =
-            into_split_messenger::<TestCltMsgProtocol, TEST_MSG_FRAME_SIZE>(
+            into_split_messenger::<TestCltMessenger, TEST_MSG_FRAME_SIZE>(
                 ConId::clt(Some("unittest"), None, addr),
                 stream,
             );

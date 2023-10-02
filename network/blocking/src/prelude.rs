@@ -1,11 +1,16 @@
-pub use crate::core::AcceptClt;
-pub use crate::core::{RecvMsg, SendMsg, SendMsgNonMut};
+pub use crate::core::{
+    framer::{into_split_framer, FrameReader, FrameWriter},
+    messenger::{into_split_messenger, MessageRecver, MessageSender},
+    AcceptClt, PoolAcceptClt, RecvMsg, SendMsg, SendMsgNonMut,
+};
 
-pub use crate::core::framer::{into_split_framer, FrameReader, FrameWriter};
+pub use crate::connect::{
+    clt::{Clt, CltRecver, CltSender},
+    pool::{CltRecversPool, CltSendersPool, CltsPool, PoolCltAcceptor},
+    svc::{Svc, SvcAcceptor},
+};
 
-pub use crate::core::messenger::{into_split_messenger, MessageRecver, MessageSender};
-
-pub use crate::connect::clt::{Clt, CltRecver, CltSender};
-pub use crate::connect::svc::{Svc, SvcAcceptor, SvcRecver, SvcSender};
-
-pub use links_network_core::prelude::{ConId, FixedSizeFramer, Framer};
+pub use links_network_core::prelude::{
+    CallbackRecv, CallbackRecvSend, CallbackSend, ConId, DevNullCallback, FixedSizeFramer, Framer,
+    LoggerCallback, Messenger,
+};

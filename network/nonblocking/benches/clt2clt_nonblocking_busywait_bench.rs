@@ -7,7 +7,7 @@ use links_network_core::{
     unittest::setup::{
         self,
         framer::TEST_MSG_FRAME_SIZE,
-        messenger::{TestCltMsgProtocol, TestSvcMsgProtocol},
+        messenger::{TestCltMessenger, TestSvcMessenger},
         model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
     },
 };
@@ -48,7 +48,7 @@ fn send_msg(c: &mut Criterion) {
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<TestSvcMsgProtocol, _, TEST_MSG_FRAME_SIZE>::bind(
+            let svc = Svc::<TestSvcMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
                 addr,
                 svc_callback,
                 max_connections,
@@ -87,7 +87,7 @@ fn send_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let mut clt_initiator = Clt::<TestCltMsgProtocol, _, TEST_MSG_FRAME_SIZE>::connect(
+    let mut clt_initiator = Clt::<TestCltMessenger, _, TEST_MSG_FRAME_SIZE>::connect(
         addr,
         timeout,
         retry_after,
@@ -130,7 +130,7 @@ fn recv_msg(c: &mut Criterion) {
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<TestSvcMsgProtocol, _, TEST_MSG_FRAME_SIZE>::bind(
+            let svc = Svc::<TestSvcMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
                 addr,
                 svc_callback,
                 max_connections,
@@ -163,7 +163,7 @@ fn recv_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let mut clt_initiator = Clt::<TestCltMsgProtocol, _, TEST_MSG_FRAME_SIZE>::connect(
+    let mut clt_initiator = Clt::<TestCltMessenger, _, TEST_MSG_FRAME_SIZE>::connect(
         addr,
         timeout,
         retry_after,
@@ -202,7 +202,7 @@ fn round_trip_msg(c: &mut Criterion) {
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<TestSvcMsgProtocol, _, TEST_MSG_FRAME_SIZE>::bind(
+            let svc = Svc::<TestSvcMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
                 addr,
                 svc_callback,
                 max_connections,
@@ -246,7 +246,7 @@ fn round_trip_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let mut clt_initiator = Clt::<TestCltMsgProtocol, _, TEST_MSG_FRAME_SIZE>::connect(
+    let mut clt_initiator = Clt::<TestCltMessenger, _, TEST_MSG_FRAME_SIZE>::connect(
         addr,
         timeout,
         retry_after,

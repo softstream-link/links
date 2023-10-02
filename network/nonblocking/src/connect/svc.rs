@@ -1,5 +1,4 @@
 use std::{
-    any::type_name,
     fmt::Display,
     io::Error,
     num::NonZeroUsize,
@@ -7,6 +6,7 @@ use std::{
     sync::Arc,
 };
 
+use links_network_core::asserted_short_name;
 use log::{debug, log_enabled};
 
 use crate::prelude::*;
@@ -16,13 +16,13 @@ use crate::prelude::*;
 /// # Example
 /// ```
 /// use links_network_nonblocking::prelude::*;
-/// use links_network_core::unittest::setup::messenger::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
+/// use links_network_core::unittest::setup::messenger::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE};
 ///
 /// let addr = "127.0.0.1:8080";
-/// let acceptor = Acceptor::<_, _, TEST_MSG_FRAME_SIZE>::new(
+/// let acceptor = SvcAcceptor::<_, _, TEST_MSG_FRAME_SIZE>::new(
 ///     ConId::svc(Some("doctest"), addr, None),
 ///     std::net::TcpListener::bind(addr).unwrap(),
-///     DevNullCallback::<TestSvcMsgProtocol>::default().into(),
+///     DevNullCallback::<TestSvcMessenger>::default().into(),
 /// );
 ///
 /// let status = acceptor.accept_nonblocking().unwrap();
@@ -30,13 +30,15 @@ use crate::prelude::*;
 ///
 /// ```
 #[derive(Debug)]
-pub struct Acceptor<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
+pub struct SvcAcceptor<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
     listener: mio::net::TcpListener,
     callback: Arc<C>,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Acceptor<M, C, MAX_MSG_SIZE> {
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
+    SvcAcceptor<M, C, MAX_MSG_SIZE>
+{
     pub fn new(con_id: ConId, listener: std::net::TcpListener, callback: Arc<C>) -> Self {
         listener
             .set_nonblocking(true)
@@ -50,7 +52,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Acceptor<M
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Acceptor<M, C, MAX_MSG_SIZE>
+    AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn accept_nonblocking(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
         match self.listener.accept() {
@@ -76,21 +78,15 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
-    for Acceptor<M, C, MAX_MSG_SIZE>
+    for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = "Acceptor";
-        debug_assert_eq!(
-            name,
-            type_name::<Self>()
-                .split('<')
-                .next()
-                .unwrap()
-                .split("::")
-                .last()
-                .unwrap()
-        );
-        write!(f, "{} {name}", self.con_id)
+        write!(
+            f,
+            "{}<{}>",
+            asserted_short_name!("SvcAcceptor", Self),
+            self.con_id
+        )
     }
 }
 
@@ -100,13 +96,13 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 /// # Example
 /// ```
 /// use links_network_nonblocking::prelude::*;
-/// use links_network_core::unittest::setup::messenger::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE};
+/// use links_network_core::unittest::setup::messenger::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE};
 /// use std::num::NonZeroUsize;
 /// use std::{io::ErrorKind, fmt::Display};
 /// let addr = "127.0.0.1:8080";
 /// let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
 ///     addr,
-///     DevNullCallback::<TestSvcMsgProtocol>::default().into(),
+///     DevNullCallback::<TestSvcMessenger>::default().into(),
 ///     NonZeroUsize::new(1).unwrap(),
 ///     Some("doctest"),
 /// ).unwrap();
@@ -117,8 +113,8 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 /// assert_eq!(err.kind(), ErrorKind::NotConnected);
 /// ```
 #[derive(Debug)]
-pub struct Svc<M: Messenger+'static, C: CallbackRecvSend<M>+'static, const MAX_MSG_SIZE: usize> {
-    acceptor: Acceptor<M, C, MAX_MSG_SIZE>,
+pub struct Svc<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
+    acceptor: SvcAcceptor<M, C, MAX_MSG_SIZE>,
     clts_pool: CltsPool<M, C, MAX_MSG_SIZE>,
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, MAX_MSG_SIZE> {
@@ -129,7 +125,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
         max_connections: NonZeroUsize, // TODO this arg needs better name
         name: Option<&str>,
     ) -> Result<Self, Error> {
-        let acceptor = Acceptor::new(
+        let acceptor = SvcAcceptor::new(
             ConId::svc(name, addr, None),
             std::net::TcpListener::bind(addr)?,
             callback,
@@ -206,7 +202,13 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
     for Svc<M, C, MAX_MSG_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Svc<{}, {}>", self.acceptor, self.clts_pool)
+        write!(
+            f,
+            "{}<{}, {}>",
+            asserted_short_name!("Svc", Self),
+            self.acceptor,
+            self.clts_pool
+        )
     }
 }
 
@@ -218,7 +220,7 @@ mod test {
     use crate::prelude::*;
     use links_network_core::unittest::setup::{
         self,
-        framer::{TestCltMsgProtocol, TestSvcMsgProtocol, TEST_MSG_FRAME_SIZE},
+        framer::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE},
         model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
     };
 
@@ -230,7 +232,7 @@ mod test {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
 
-        let callback = LoggerCallback::<TestSvcMsgProtocol>::new_ref();
+        let callback = LoggerCallback::<TestSvcMessenger>::new_ref();
         let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
             addr,
             callback.clone(),
@@ -239,6 +241,7 @@ mod test {
         )
         .unwrap();
         info!("svc: {}", svc);
+        assert_eq!(svc.pool().len(), 0);
     }
 
     #[test]
@@ -248,7 +251,7 @@ mod test {
 
         let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
             addr,
-            LoggerCallback::<TestSvcMsgProtocol>::with_level_ref(Level::Info, Level::Debug),
+            LoggerCallback::<TestSvcMessenger>::with_level_ref(Level::Info, Level::Debug),
             NonZeroUsize::new(1).unwrap(),
             Some("unittest"),
         )
@@ -259,7 +262,7 @@ mod test {
             addr,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
-            LoggerCallback::<TestCltMsgProtocol>::with_level_ref(Level::Info, Level::Debug),
+            LoggerCallback::<TestCltMessenger>::with_level_ref(Level::Info, Level::Debug),
             Some("unittest"),
         )
         .unwrap();
@@ -279,9 +282,9 @@ mod test {
         assert_eq!(clt_msg_inp, svc_msg_out);
 
         info!("--------- SVC SPLIT POOL ---------");
-        let (_svc_acceptor, mut pool_recver, mut pool_sender) = svc.into_split();
+        let (_svc_acceptor, mut svc_pool_recver, mut svc_pool_sender) = svc.into_split();
         clt.send_busywait(&mut clt_msg_inp).unwrap();
-        let svc_msg_out = pool_recver.recv_busywait().unwrap().unwrap();
+        let svc_msg_out = svc_pool_recver.recv_busywait().unwrap().unwrap();
         // info!("clt_msg_inp: {:?}", clt_msg_inp);
         // info!("svc_msg_out: {:?}", svc_msg_out);
         assert_eq!(clt_msg_inp, svc_msg_out);
@@ -289,13 +292,12 @@ mod test {
         info!("--------- CLT SPLIT DIRECT ---------");
         let (mut clt_recv, mut clt_send) = clt.into_split();
         clt_send.send_busywait(&mut clt_msg_inp).unwrap();
-        let svc_msg_out = pool_recver.recv_busywait().unwrap().unwrap();
+        let svc_msg_out = svc_pool_recver.recv_busywait().unwrap().unwrap();
         // info!("svc_msg_out: {:?}", svc_msg_out);
         // info!("clt_msg_inp: {:?}", clt_msg_inp);
         assert_eq!(svc_msg_out, clt_msg_inp);
 
         info!("--------- CLT DROP RANDOM HALF ---------");
-
         // drop clt_recv and ensure that clt_sender has broken pipe
         let drop_send = rand::thread_rng().gen_range(1..=2) % 2 == 0;
 
@@ -315,7 +317,7 @@ mod test {
 
         info!("--------- SVC RECV/SEND SHOULD FAIL CLT DROPS HALF ---------");
         // recv with busywait to ensure that clt drop has delivered FIN signal and receiver does not just return WouldBlock
-        let opt = pool_recver
+        let opt = svc_pool_recver
             .recv_busywait_timeout(Duration::from_millis(100))
             .unwrap()
             .unwrap_completed();
@@ -323,7 +325,7 @@ mod test {
         assert_eq!(opt, None);
         // because pool_recver will get None it will understand that the client socket is closed and hence will shutdown the write
         // direction which in turn will force send to fail with ErrorKind::BrokenPipe
-        let err = pool_sender.send_nonblocking(&mut svc_msg_inp).unwrap_err();
+        let err = svc_pool_sender.send_nonblocking(&mut svc_msg_inp).unwrap_err();
         info!("pool_sender err: {}", err);
         assert_eq!(err.kind(), ErrorKind::BrokenPipe);
     }

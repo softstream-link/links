@@ -1,6 +1,6 @@
 pub mod conid;
 pub mod counters;
-pub mod fmt;
+pub mod macros;
 pub mod framer;
 pub mod messenger;
 pub mod pool;
