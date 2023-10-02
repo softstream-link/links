@@ -1,6 +1,6 @@
 use bytes::{Bytes, BytesMut};
 use criterion::{black_box, Criterion};
-use links_network_core::prelude::FixedSizeFramer;
+use links_core::prelude::FixedSizeFramer;
 use std::fmt::Debug;
 use std::io::{Error, ErrorKind, Read, Write};
 use std::net::Shutdown;

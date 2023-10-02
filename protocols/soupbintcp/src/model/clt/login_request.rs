@@ -84,7 +84,7 @@ impl Display for LoginRequest {
 mod test {
     use super::*;
     use byteserde::prelude::*;
-    use links_network_core::unittest::setup;
+    use links_core::unittest::setup;
     use log::info;
 
     use super::LoginRequest;

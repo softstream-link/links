@@ -52,7 +52,7 @@ impl From<&EnterOrder> for ReplaceOrder {
 #[cfg(test)]
 mod test {
     use super::*;
-    use links_network_core::unittest::setup;
+    use links_core::unittest::setup;
 
     use log::info;
 

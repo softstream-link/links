@@ -1,0 +1,51 @@
+[package]
+name = "links_blocking"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["full"]               # TODO desable all default features during release
+full = ["unittest", "blocking"]
+blocking = []
+unittest = []
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# blocking & nonblocking
+bytes = { workspace = true } # read buffer
+
+links_core = { workspace = true } # traits
+
+log = { workspace = true }
+
+slab = { workspace = true } # slab allocator
+
+byteserde = { workspace = true } # byteserde::utils::hex::to_hex_pretty #TODO move to seperate crate
+
+
+[dev-dependencies]
+
+links_core = { workspace = true, features = ["unittest"] } # traits
+
+env_logger = { workspace = true }
+num-format = { workspace = true }
+
+byteserde_types = { workspace = true }  # required to setup unit test models
+byteserde_derive = { workspace = true } # required to setup unit test models
+
+
+criterion = { workspace = true } # required to setup benchmarks
+rand = { workspace = true }      # required to setup benchmarks
+
+# BENCHMARKS
+[[bench]]
+name = "framer_blocking_bench"
+harness = false
+
+
+[[bench]]
+name = "messender_blocking_bench"
+harness = false
+required-features = ["unittest"]

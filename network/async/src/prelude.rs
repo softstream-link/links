@@ -13,4 +13,4 @@ pub use crate::core::Protocol;
 // // store
 pub use crate::callbacks::eventstore::{EventStoreAsync, EventStoreCallback, EventStoreSync};
 
-pub use links_network_core::prelude::*;
+pub use links_core::prelude::*;

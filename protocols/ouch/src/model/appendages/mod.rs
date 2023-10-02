@@ -347,7 +347,7 @@ pub struct OptionalAppendage {
 #[cfg(test)]
 mod test {
     use super::*;
-    use links_network_core::unittest::setup;
+    use links_core::unittest::setup;
     #[test]
     fn tag_value_elements() {
         use log::info;

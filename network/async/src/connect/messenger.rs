@@ -6,7 +6,7 @@ use std::{
 };
 
 use byteserde::prelude::{from_slice, to_bytes_stack};
-use links_network_core::prelude::{ConId, Framer, MessengerOld};
+use links_core::prelude::{ConId, Framer, MessengerOld};
 use log::warn;
 use tokio::{
     net::{
@@ -108,7 +108,7 @@ pub fn into_split_messenger<M: MessengerOld, const MMS: usize, F: Framer>(
 mod test {
     use super::*;
     use crate::unittest::setup::protocol::*;
-    use links_network_core::unittest::setup::{self, model::*};
+    use links_core::unittest::setup::{self, model::*};
     use log::info;
     use tokio::net::TcpListener;
 

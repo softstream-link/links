@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use lazy_static::lazy_static;
 use links_soupbintcp_async::prelude::*;
-use links_network_core::unittest::setup;
+use links_core::unittest::setup;
 use log::{error, info, Level};
 
 #[tokio::test]

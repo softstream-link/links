@@ -123,7 +123,7 @@ mod test {
     use crate::{prelude::*, unittest::setup::model::*};
     use byteserde::prelude::*;
 
-    use links_network_core::unittest::setup;
+    use links_core::unittest::setup;
 
     #[test]
     fn test_soup_bin_clt() {

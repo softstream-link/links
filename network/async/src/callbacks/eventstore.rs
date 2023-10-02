@@ -6,10 +6,10 @@ use std::{
 };
 
 use chrono::{DateTime, Local};
-use links_network_core::prelude::{ConId, Entry, MessengerOld};
+use links_core::prelude::{ConId, Entry, MessengerOld};
 use tokio::{runtime::Runtime, task::yield_now};
 
-use links_network_core::prelude::{CallbackEvent, CallbackSendRecvOld, Dir};
+use links_core::prelude::{CallbackEvent, CallbackSendRecvOld, Dir};
 
 pub type EventStoreAsyncRef<T> = Arc<EventStoreAsync<T>>;
 
@@ -298,7 +298,7 @@ mod test {
     use tokio::runtime::Builder;
 
     use crate::unittest::setup::protocol::*;
-    use links_network_core::unittest::setup::{self, model::*};
+    use links_core::unittest::setup::{self, model::*};
 
     use super::*;
 

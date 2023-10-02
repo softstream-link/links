@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use links_ouch_async::prelude::*;
-use links_network_core::unittest::setup;
+use links_core::unittest::setup;
 use log::{info, Level};
 
 #[tokio::test]

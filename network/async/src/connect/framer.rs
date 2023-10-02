@@ -14,7 +14,7 @@ use tokio::{
     },
 };
 
-use links_network_core::prelude::Framer;
+use links_core::prelude::Framer;
 
 #[derive(Debug)]
 pub struct FrameReader<F: Framer> {
@@ -119,7 +119,7 @@ mod test {
 
     use crate::unittest::setup::protocol::*;
     use byteserde::{prelude::*, utils::hex::to_hex_pretty};
-    use links_network_core::unittest::setup::{self, model::*};
+    use links_core::unittest::setup::{self, model::*};
     use log::info;
     use tokio::net::TcpListener;
 

@@ -25,4 +25,4 @@ env_logger = { workspace = true }
 tokio-test = { workspace = true }
 lazy_static = { workspace = true }
 
-links_network_core = { workspace = true, features = ["unittest"]}
+links_core = { workspace = true, features = ["unittest"]}

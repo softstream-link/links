@@ -3,7 +3,7 @@ use std::{
 };
 
 use crate::prelude::*;
-use links_network_core::prelude::{CallbackSendRecvOld, ConId};
+use links_core::prelude::{CallbackSendRecvOld, ConId};
 use log::{debug, error, warn};
 use tokio::{net::TcpListener, runtime::Runtime, sync::Mutex, task::AbortHandle};
 
@@ -213,7 +213,7 @@ mod test {
     use log::{info, Level};
 
     use super::*;
-    use links_network_core::{
+    use links_core::{
         prelude::LoggerCallbackOld,
         unittest::setup::{self, model::*},
     };

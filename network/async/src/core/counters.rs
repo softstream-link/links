@@ -5,7 +5,7 @@ use std::{
 
 use tokio::time::Instant;
 
-use links_network_core::prelude::*;
+use links_core::prelude::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EventIntervalTracker {
@@ -60,7 +60,7 @@ impl Display for EventIntervalTracker {
 mod test {
 
     use super::*;
-    use links_network_core::unittest::setup;
+    use links_core::unittest::setup;
     use log::info;
     #[test]
     fn test_expired() {

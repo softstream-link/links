@@ -31,7 +31,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use links_network_core::unittest::setup;
+    use links_core::unittest::setup;
     use byteserde::prelude::*;
     use log::info;
 

@@ -66,7 +66,7 @@ impl From<&EnterOrder> for OrderAccepted {
 #[cfg(test)]
 mod test {
     use super::*;
-    use links_network_core::unittest::setup;
+    use links_core::unittest::setup;
 
     use log::info;
 

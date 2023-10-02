@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::prelude::*;
-use links_network_core::prelude::{CallbackSendRecvOld, ConId};
+use links_core::prelude::{CallbackSendRecvOld, ConId};
 use log::{debug, error};
 use tokio::net::TcpStream;
 
@@ -315,7 +315,7 @@ mod test {
 
     use super::*;
     use crate::unittest::setup::protocol::*;
-    use links_network_core::{prelude::LoggerCallbackOld, unittest::setup};
+    use links_core::{prelude::LoggerCallbackOld, unittest::setup};
 
     #[tokio::test]
     async fn test_clt_not_connected_async() {

@@ -4,7 +4,7 @@ use std::{error::Error, future::Future, time::Duration};
 
 use crate::prelude::*;
 
-use links_network_core::prelude::{
+use links_core::prelude::{
     CallbackSendRecvOld, ConId, EventIntervalTracker, Framer, MessengerOld,
 };
 
