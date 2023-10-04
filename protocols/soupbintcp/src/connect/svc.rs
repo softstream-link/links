@@ -1,4 +1,4 @@
-use links_network_async::prelude::*;
+use links_async::prelude::*;
 
 pub type SBSvc<Protocol, Callback, const MMS: usize> = Svc<Protocol, Callback, MMS>;
 

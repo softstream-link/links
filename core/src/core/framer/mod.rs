@@ -19,7 +19,7 @@ pub trait Framer {
     }
 }
 
-/// Will split the first [FRAME_SIZE] bytes from the [BytesMut] buffer and return them as a [Bytes] frame.
+/// Will split the first `<const FRAME_SIZE: usize>` bytes from the [BytesMut] buffer and return them as a [Bytes] frame.
 pub struct FixedSizeFramer<const FRAME_SIZE: usize>;
 impl<const FRAME_SIZE: usize> Framer for FixedSizeFramer<FRAME_SIZE> {
     #[inline(always)]

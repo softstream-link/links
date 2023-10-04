@@ -6,7 +6,7 @@ cargo nextest run --examples
 cargo test --doc
 
 cargo doc
-
+cargo clippy --all-features -- --deny warnings
 # cargo bench --all-features
 ```
 

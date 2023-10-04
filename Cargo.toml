@@ -3,7 +3,7 @@ members = [
     "core",
     "nonblocking",
     "blocking",
-    "network/async",
+    "async",
     "protocols/ouch",
     "protocols/soupbintcp",
     "experimentation",
@@ -33,7 +33,7 @@ byteserde_types = { version = "0.4.0" }
 derive_more = "0.99"                     # try_into, etc
 
 # networking
-links_network_async = { path = "./network/async" }
+links_async = { path = "./async" }
 links_nonblocking = { path = "./nonblocking" }
 links_blocking = { path = "./blocking" }
 links_core = { path = "./core" }

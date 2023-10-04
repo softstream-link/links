@@ -10,7 +10,7 @@ byteserde_types = { workspace = true }
 derive_more = { workspace = true }
 
 links_soupbintcp_async = { workspace = true }
-links_network_async = { workspace = true }
+links_async = { workspace = true }
 
 chrono = { workspace = true }
 tokio = { workspace = true }

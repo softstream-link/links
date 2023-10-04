@@ -6,7 +6,7 @@ use tokio::{
 };
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use links_network_async::connect::framer::into_split_frame_manager;
+use links_async::connect::framer::into_split_frame_manager;
 use links_core::{
     fmt_num,
     prelude::FixedSizeFramer,

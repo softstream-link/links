@@ -1,4 +1,4 @@
-use links_network_async::prelude::*;
+use links_async::prelude::*;
 
 pub type SBClt<Protocol, Callback, const MMS: usize> = Clt<Protocol, Callback, MMS>;
 

@@ -1,0 +1,26 @@
+{
+    "cSpell.words": [
+        "hbeat",
+        "nanos",
+        "byteserde",
+        "cltpool",
+        "clts",
+        "doctest",
+        "endianess",
+        "msger",
+        "nonblocking",
+        "Recver",
+        "recvers",
+        "rustfmt",
+        "SOUPBIN",
+        "soupbintcp",
+        "successfull",
+        "svcpool",
+        "svcs",
+        "Uninit",
+        "unsequenced",
+        "wouldblock",
+        "nextest",
+        "clippy",
+    ]
+}

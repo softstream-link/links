@@ -1,4 +1,4 @@
-use links_network_async::prelude::*;
+use links_async::prelude::*;
 
 pub type SoupBinFramer = PacketLengthU16Framer<0, true, true>;
 

@@ -1,6 +1,6 @@
 use bytes::BytesMut;
 use byteserde::prelude::*;
-use links_network_async::prelude::*;
+use links_async::prelude::*;
 use log::warn;
 use tokio::sync::Mutex;
 use tokio::task::yield_now;

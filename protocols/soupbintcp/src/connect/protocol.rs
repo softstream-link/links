@@ -1,6 +1,6 @@
 use bytes::{Bytes, BytesMut};
 use byteserde::prelude::*;
-use links_network_async::prelude::*;
+use links_async::prelude::*;
 use std::fmt::Debug;
 use std::{error::Error, sync::Arc};
 
