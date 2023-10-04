@@ -202,7 +202,7 @@ pub mod setup {
 
     pub mod framer {
 
-        use bytes::{Bytes, BytesMut};
+        use bytes::BytesMut;
 
         use crate::prelude::*;
 
@@ -214,8 +214,8 @@ pub mod setup {
         pub struct TestCltMessenger;
 
         impl Framer for TestCltMessenger {
-            fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-                TestMsgFramer::get_frame(bytes)
+            fn get_frame_length(bytes: &mut BytesMut) -> Option<usize> {
+                TestMsgFramer::get_frame_length(bytes)
             }
         }
 
@@ -223,8 +223,8 @@ pub mod setup {
         pub struct TestSvcMessenger;
 
         impl Framer for TestSvcMessenger {
-            fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-                TestMsgFramer::get_frame(bytes)
+            fn get_frame_length(bytes: &mut BytesMut) -> Option<usize> {
+                TestMsgFramer::get_frame_length(bytes)
             }
         }
     }

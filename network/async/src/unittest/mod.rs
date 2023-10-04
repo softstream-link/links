@@ -6,7 +6,7 @@ pub mod setup {
 
         use std::{error::Error, time::Duration};
 
-        use bytes::{Bytes, BytesMut};
+        use bytes::BytesMut;
         use log::info;
 
         use crate::prelude::*;
@@ -20,8 +20,8 @@ pub mod setup {
             type RecvT = TestSvcMsg;
         }
         impl Framer for TestCltMsgProtocol {
-            fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-                TestMsgFramer::get_frame(bytes)
+            fn get_frame_length(bytes: &mut BytesMut) -> Option<usize> {
+                TestMsgFramer::get_frame_length(bytes)
             }
         }
 
@@ -32,8 +32,8 @@ pub mod setup {
             type RecvT = TestCltMsg;
         }
         impl Framer for TestSvcMsgProtocol {
-            fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-                TestMsgFramer::get_frame(bytes)
+            fn get_frame_length(bytes: &mut BytesMut) -> Option<usize> {
+                TestMsgFramer::get_frame_length(bytes)
             }
         }
 

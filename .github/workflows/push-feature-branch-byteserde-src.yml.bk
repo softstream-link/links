@@ -1,4 +1,4 @@
-name: Feature Branch Build On Nightly
+name: Feature Branch Build On Nightly with src for byteserde
 on:
   push:
      branches:
@@ -9,23 +9,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out links current branch
-        uses: actions/checkout@v3 # this will checkout current project
+        uses: actions/checkout@v3
+        with:
+          path: links
+      - name: Check out byteserde v4
+        uses: actions/checkout@v3 
+        with:
+          repository: 'softstream-link/byteserde'
+          ref: 'v4'  # TODO change branch
+          path: byteserde
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: clippy
       - uses: taiki-e/install-action@nextest
-      - name: Testing 
+      - name: Testing
         run: |
+          cd links
           cargo nextest run --all-features # --success-output final
           cargo nextest run --examples # --success-output final
           cargo test --doc #  NOTE: docs are not supported by nextest
-          cargo doc --all-features # TODO how to fail on warnings?
+          cargo doc --all-features
       - name: Benchmarking
         run: |
+          cd links
           cargo bench --all-features
       - name: Clippy Deny Warnings
         run: |
+          cd links
           cargo clippy --all-features -- --deny warnings
 
 

@@ -10,13 +10,27 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+version = "0.1.0"                                       # NOTE remembe to update this and sbelow dependencies for byteserde and byteserde_derive
+authors = ["Softstream <softstream.link@gmail.com>"]
+readme = "readme.md"
+license-file = "LICENSE"
+edition = "2021"
+rust-version = "1.69"
+repository = "https://github.com/softstream-link/links"
+keywords = ["network"]
+categories = ["network"]
+
 
 [workspace.dependencies]
 # derive
-byteserde = { version = "0.3.0", path = "./../byteserde/byteserde" }
-byteserde_derive = { version = "0.3.0", path = "./../byteserde/byteserde_derive" }
-byteserde_types = { version = "0.3.0", path = "./../byteserde/byteserde_types" }
-derive_more = "0.99"                                                               # try_into, etc
+# byteserde = { version = "0.3.0", path = "./../byteserde/byteserde" }
+# byteserde_derive = { version = "0.3.0", path = "./../byteserde/byteserde_derive" }
+# byteserde_types = { version = "0.3.0", path = "./../byteserde/byteserde_types" }
+byteserde = { version = "0.4.0" }
+byteserde_derive = { version = "0.4.0" }
+byteserde_types = { version = "0.4.0" }
+derive_more = "0.99"                     # try_into, etc
 
 # networking
 links_network_async = { path = "./network/async" }
@@ -24,15 +38,15 @@ links_nonblocking = { path = "./nonblocking" }
 links_blocking = { path = "./blocking" }
 links_core = { path = "./core" }
 bytes = "1.4"
-nix = {version ="0.27", features = ["net"]} # TODO this is not used , remove
+nix = { version = "0.27", features = ["net"] }     # TODO this is not used , remove
 
 # synch
-mio = {version = "0.8", features = ["os-poll" , "net"]}
+mio = { version = "0.8", features = ["os-poll", "net"] }
 # rayon = { version = "1.7" }
 
 # async 
 tokio = { version = "1.29", features = ["full", "rt-multi-thread"] }
-futures = "0.3"                                   # invoke async functions from sync code
+futures = "0.3"                                                      # invoke async functions from sync code
 
 # utils
 rand = "0.8"
@@ -43,7 +57,7 @@ num-format = "0.4"
 # logging
 log = "0.4"
 env_logger = "0.10"
-colored =  "2.0"
+colored = "2.0"
 
 # protocols
 links_soupbintcp_async = { path = "./protocols/soupbintcp" }
@@ -53,8 +67,7 @@ tokio-test = "0.4.2"
 lazy_static = "1.4.0"
 
 # bechmarking only
-criterion = { version= "0.5", features = ["async_tokio", "async_futures"]}
+criterion = { version = "0.5", features = ["async_tokio", "async_futures"] }
 
 # collections
 slab = "0.4"
-

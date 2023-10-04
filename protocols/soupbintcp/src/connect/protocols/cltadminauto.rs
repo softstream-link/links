@@ -1,4 +1,4 @@
-use bytes::{Bytes, BytesMut};
+use bytes::BytesMut;
 use byteserde::prelude::*;
 use links_network_async::prelude::*;
 use log::warn;
@@ -49,8 +49,8 @@ where
     RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
     #[inline]
-    fn get_frame(bytes: &mut BytesMut) -> Option<Bytes> {
-        SoupBinFramer::get_frame(bytes)
+    fn get_frame_length(bytes: &mut BytesMut) -> Option<usize> {
+        SoupBinFramer::get_frame_length(bytes)
     }
 }
 
