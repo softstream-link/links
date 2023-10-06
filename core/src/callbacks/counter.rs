@@ -56,7 +56,7 @@ impl<M: MessengerOld> CallbackSendRecvOld<M> for CounterCallback<M> {
 #[cfg(test)]
 mod test {
 
-    use crate::unittest::setup::messenger_old::TestCltMessenger;
+    use crate::unittest::setup::messenger_old::CltTestMessenger;
     use crate::unittest::setup::model::*;
     use crate::unittest::setup;
 
@@ -67,7 +67,7 @@ mod test {
     #[test]
     fn test_callback() {
         setup::log::configure();
-        let clbk = CounterCallback::<TestCltMessenger>::default();
+        let clbk = CounterCallback::<CltTestMessenger>::default();
 
         for _ in 0..1000 {
             let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));

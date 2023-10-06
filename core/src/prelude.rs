@@ -34,3 +34,8 @@ pub use crate::callbacks::CallbackSend;
 
 pub use crate::callbacks::devnull_new::DevNullCallback;
 pub use crate::callbacks::logger_new::LoggerCallback;
+
+
+
+#[cfg(feature = "unittest")]
+pub use num_format;

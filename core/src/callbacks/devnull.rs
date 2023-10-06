@@ -40,7 +40,7 @@ impl<M: MessengerOld> CallbackSendRecvOld<M> for DevNullCallbackOld<M> {
 #[cfg(test)]
 mod test {
 
-    use crate::unittest::setup::messenger_old::TestCltMessenger;
+    use crate::unittest::setup::messenger_old::CltTestMessenger;
     use crate::unittest::setup::model::*;
     use crate::unittest::setup;
 
@@ -49,7 +49,7 @@ mod test {
     #[test]
     fn test_callback() {
         setup::log::configure();
-        let clbk = DevNullCallbackOld::<TestCltMessenger>::default();
+        let clbk = DevNullCallbackOld::<CltTestMessenger>::default();
 
         for _ in 0..2 {
             let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));

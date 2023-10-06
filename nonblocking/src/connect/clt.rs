@@ -197,14 +197,14 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
 /// # Example
 /// ```
 /// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::{framer::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg}};
+/// use links_core::unittest::setup::{framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg}};
 /// use std::time::Duration;
 ///
 /// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
 ///         "127.0.0.1:8080",
 ///         Duration::from_millis(100),
 ///         Duration::from_millis(10),
-///         DevNullCallback::<TestCltMessenger>::default().into(),
+///         DevNullCallback::<CltTestMessenger>::default().into(),
 ///         Some("unittest"),
 ///     );
 ///
@@ -310,14 +310,14 @@ mod test {
     use links_core::callbacks::logger_new::LoggerCallback;
     use links_core::unittest::setup::{
         self,
-        framer::{TestCltMessenger, TEST_MSG_FRAME_SIZE},
+        framer::{CltTestMessenger, TEST_MSG_FRAME_SIZE},
     };
 
     #[test]
     fn test_clt_not_connected() {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
-        let callback = LoggerCallback::<TestCltMessenger>::new_ref();
+        let callback = LoggerCallback::<CltTestMessenger>::new_ref();
         let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr,
             setup::net::default_connect_timeout(),

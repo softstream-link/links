@@ -1,19 +1,12 @@
-use std::{
-    error::Error,
-    io::ErrorKind,
-    num::NonZeroUsize,
-    sync::Arc,
-    thread::Builder,
-    time::{Duration, Instant},
-};
+use std::{error::Error, io::ErrorKind, num::NonZeroUsize, thread::Builder, time::Instant};
 
 use links_core::{
     fmt_num,
-    prelude::{CallbackRecvSend, DevNullCallback, Messenger},
+    prelude::DevNullCallback,
     unittest::setup::{
         self,
         framer::TEST_MSG_FRAME_SIZE,
-        messenger::{TestCltMessenger, TestSvcMessenger},
+        messenger::{CltTestMessenger, SvcTestMessenger},
         model::*,
     },
 };
@@ -29,42 +22,28 @@ fn test() -> Result<(), Box<dyn Error>> {
 }
 fn run() -> Result<(), Box<dyn Error>> {
     setup::log::configure_level(log::LevelFilter::Info);
-    let (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after) = setup();
 
-    let mut svc = Svc::<TestSvcMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
-        addr,
-        svc_callback.clone(),
-        max_connections,
-        name.clone(),
-    )
-    .unwrap();
-
-    info!("svc: {}", svc);
-
-    let mut clt = Clt::<TestCltMessenger, _, TEST_MSG_FRAME_SIZE>::connect(
-        addr,
-        timeout,
-        retry_after,
-        clt_callback.clone(),
-        name.clone(),
-    )
-    .unwrap();
-    info!("clt: {}", clt);
-
-    svc.pool_accept_busywait_timeout(timeout)?.unwrap();
-
-    info!("svc: {}", svc);
-
-    let mut clt_send_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
-    clt.send_busywait_timeout(&mut clt_send_msg, timeout)?;
-    let svc_recv_msg = svc.recv_busywait()?.unwrap();
-
-    assert_eq!(clt_send_msg, svc_recv_msg);
-
+    let addr = setup::net::rand_avail_addr_port();
     const WRITE_N_TIMES: usize = 100_000;
+
     let svc_jh = Builder::new()
         .name("Svc-Thread".to_owned())
         .spawn(move || {
+            let mut svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
+                addr,
+                DevNullCallback::<SvcTestMessenger>::new_ref(),
+                NonZeroUsize::new(1).unwrap(),
+                Some("example/svc"),
+            )
+            .unwrap();
+
+            info!("svc: {}", svc);
+            svc.pool_accept_busywait_timeout(setup::net::default_connect_timeout())
+                .unwrap()
+                .unwrap();
+
+            info!("svc: {}", svc);
+
             let mut svc_send_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Client Msg"));
             let mut msg_recv_count = 0_usize;
 
@@ -72,9 +51,23 @@ fn run() -> Result<(), Box<dyn Error>> {
                 msg_recv_count += 1;
                 svc.send_busywait(&mut svc_send_msg).unwrap();
             }
+
             (msg_recv_count, svc)
         })
         .unwrap();
+
+    let mut clt = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(
+        addr,
+        setup::net::default_connect_timeout(),
+        setup::net::default_connect_retry_after(),
+        DevNullCallback::<CltTestMessenger>::new_ref(),
+        Some("example/clt"),
+    )
+    .unwrap();
+    info!("clt: {}", clt);
+
+    let mut clt_send_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+    clt.send_busywait_timeout(&mut clt_send_msg, setup::net::default_connect_timeout())?;
 
     let now = Instant::now();
     for _ in 0..WRITE_N_TIMES {
@@ -94,12 +87,12 @@ fn run() -> Result<(), Box<dyn Error>> {
         elapsed / WRITE_N_TIMES as u32,
         elapsed
     );
-    assert_eq!(msg_recv_count, WRITE_N_TIMES);
+    assert_eq!(msg_recv_count, WRITE_N_TIMES + 1); // +1 for the fist message to connect
 
     // VERIFY svc internal pool returns None to all calls.
     let svc_recv_err = svc.recv_busywait().unwrap_err();
     info!("svc_recv_err: {}", svc_recv_err);
-    assert_eq!(svc.len(), 0); 
+    assert_eq!(svc.len(), 0);
     assert_eq!(svc_recv_err.kind(), ErrorKind::NotConnected); // if there are no receives pool returns NotConnected
 
     let mut svc_send_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Client Msg"));
@@ -110,33 +103,4 @@ fn run() -> Result<(), Box<dyn Error>> {
     assert_eq!(svc_send_err.kind(), ErrorKind::NotConnected); // if there are no sends pool returns NotConnected
 
     Ok(())
-}
-
-fn setup<MSvc: Messenger, MClt: Messenger>() -> (
-    &'static str,
-    Arc<impl CallbackRecvSend<MSvc>>,
-    Arc<impl CallbackRecvSend<MClt>>,
-    NonZeroUsize,
-    Option<&'static str>,
-    Duration,
-    Duration,
-) {
-    let addr = setup::net::rand_avail_addr_port();
-    // let svc_callback = LoggerCallbackNew::<MSvc>::with_level_ref(Level::Debug, Level::Debug);
-    // let clt_callback = LoggerCallbackNew::<MClt>::with_level_ref(Level::Debug, Level::Debug);
-    let svc_callback = DevNullCallback::<MSvc>::new_ref();
-    let clt_callback = DevNullCallback::<MClt>::new_ref();
-    let name = Some("example");
-    let max_connections = NonZeroUsize::new(1).unwrap();
-    let timeout = Duration::from_micros(1_000);
-    let retry_after = Duration::from_micros(100);
-    (
-        addr,
-        svc_callback,
-        clt_callback,
-        max_connections,
-        name,
-        timeout,
-        retry_after,
-    )
 }

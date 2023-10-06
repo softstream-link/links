@@ -9,7 +9,7 @@ use links_core::{
     fmt_num,
     unittest::setup::{
         self,
-        messenger::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE},
+        messenger::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE},
         model::*,
     },
 };
@@ -31,7 +31,7 @@ fn send_msg(c: &mut Criterion) {
             let listener = TcpListener::bind(addr).unwrap();
             let (stream, _) = listener.accept().unwrap();
             let (mut svc_reader, _svc_writer) =
-                into_split_messenger::<TestSvcMessenger, TEST_MSG_FRAME_SIZE>(
+                into_split_messenger::<SvcTestMessenger, TEST_MSG_FRAME_SIZE>(
                     ConId::svc(Some("unittest"), addr, None),
                     stream,
                 );
@@ -58,7 +58,7 @@ fn send_msg(c: &mut Criterion) {
 
     // CONFIGURE clt
     let (_clt_reader, mut clt_writer) =
-        into_split_messenger::<TestCltMessenger, TEST_MSG_FRAME_SIZE>(
+        into_split_messenger::<CltTestMessenger, TEST_MSG_FRAME_SIZE>(
             ConId::clt(Some("unittest"), None, addr),
             TcpStream::connect(addr).unwrap(),
         );
@@ -100,7 +100,7 @@ fn recv_msg(c: &mut Criterion) {
             let listener = TcpListener::bind(addr).unwrap();
             let (stream, _) = listener.accept().unwrap();
             let (_clt_reader, mut svc_writer) = into_split_messenger::<
-                TestSvcMessenger,
+                SvcTestMessenger,
                 TEST_MSG_FRAME_SIZE,
             >(ConId::svc(None, addr, None), stream);
             // info!("svc: writer: {}", writer);
@@ -121,7 +121,7 @@ fn recv_msg(c: &mut Criterion) {
 
     // CONFIGURE clt
     let (mut clt_reader, _clt_writer) =
-        into_split_messenger::<TestCltMessenger, TEST_MSG_FRAME_SIZE>(
+        into_split_messenger::<CltTestMessenger, TEST_MSG_FRAME_SIZE>(
             ConId::clt(Some("unittest"), None, addr),
             TcpStream::connect(addr).unwrap(),
         );
@@ -166,7 +166,7 @@ fn round_trip_msg(c: &mut Criterion) {
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
                 let (mut reader, mut writer) =
-                    into_split_messenger::<TestSvcMessenger, TEST_MSG_FRAME_SIZE>(
+                    into_split_messenger::<SvcTestMessenger, TEST_MSG_FRAME_SIZE>(
                         ConId::svc(Some("unittest"), addr, None),
                         stream,
                     );
@@ -193,7 +193,7 @@ fn round_trip_msg(c: &mut Criterion) {
 
     // CONFIGURE clt
     let stream = TcpStream::connect(addr).unwrap();
-    let (mut reader, mut writer) = into_split_messenger::<TestCltMessenger, TEST_MSG_FRAME_SIZE>(
+    let (mut reader, mut writer) = into_split_messenger::<CltTestMessenger, TEST_MSG_FRAME_SIZE>(
         ConId::clt(Some("unittest"), None, addr),
         stream,
     );

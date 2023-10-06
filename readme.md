@@ -12,7 +12,8 @@
     boe - https://cdn.cboe.com/resources/membership/Cboe_US_Equities_BOE_Specification.pdf
     fixp - https://www.cmegroup.com/confluence/display/EPICSANDBOX/iLink+3+Binary+Order+Entry
     mit - london stock exchange group - https://docs.londonstockexchange.com/sites/default/files/   documents/mit203_-_native_trading_gateway_specification_-_issue_13.2.pdf
-    optiq - https://connect2.euronext.com/sites/default/files/it-documentation/Euronext_Markets_-_Optiq_OEG_Client_Specifications_-_SBE_Interface_-_v4.1.0%5B1%5D_0.pdf
+    optiq - 
+    https://connect2.euronext.com/sites/default/files/it-documentation/Optiq%20OEG%20SBE%20Messages%20-%20Interface%20Specification%20-%20Euronext%20Cash%20and%20Derivatives%20Markets%20-%20External%20-%20v5.24.0%20%2BTC.pdf
 
     
 

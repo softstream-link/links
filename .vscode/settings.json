@@ -1,13 +1,16 @@
 {
     "cSpell.words": [
-        "hbeat",
-        "nanos",
+        "busywait",
         "byteserde",
+        "clippy",
         "cltpool",
         "clts",
         "doctest",
         "endianess",
+        "hbeat",
         "msger",
+        "nanos",
+        "nextest",
         "nonblocking",
         "Recver",
         "recvers",
@@ -19,8 +22,6 @@
         "svcs",
         "Uninit",
         "unsequenced",
-        "wouldblock",
-        "nextest",
-        "clippy",
+        "wouldblock"
     ]
 }

@@ -211,18 +211,18 @@ pub mod setup {
         pub type TestMsgFramer = FixedSizeFramer<TEST_MSG_FRAME_SIZE>;
 
         #[derive(Debug, Clone, PartialEq)]
-        pub struct TestCltMessenger;
+        pub struct CltTestMessenger;
 
-        impl Framer for TestCltMessenger {
+        impl Framer for CltTestMessenger {
             fn get_frame_length(bytes: &mut BytesMut) -> Option<usize> {
                 TestMsgFramer::get_frame_length(bytes)
             }
         }
 
         #[derive(Debug, Clone, PartialEq)]
-        pub struct TestSvcMessenger;
+        pub struct SvcTestMessenger;
 
-        impl Framer for TestSvcMessenger {
+        impl Framer for SvcTestMessenger {
             fn get_frame_length(bytes: &mut BytesMut) -> Option<usize> {
                 TestMsgFramer::get_frame_length(bytes)
             }
@@ -237,7 +237,7 @@ pub mod setup {
 
         use crate::prelude::*;
 
-        impl Messenger for TestSvcMessenger {
+        impl Messenger for SvcTestMessenger {
             type SendT = TestSvcMsg;
             type RecvT = TestCltMsg;
 
@@ -257,7 +257,7 @@ pub mod setup {
                 }
             }
         }
-        impl Messenger for TestCltMessenger {
+        impl Messenger for CltTestMessenger {
             type SendT = TestCltMsg;
             type RecvT = TestSvcMsg;
             #[inline(always)]
@@ -280,16 +280,16 @@ pub mod setup {
 
     // TODO remove
     pub mod messenger_old {
-        pub use super::framer::TestCltMessenger;
-        pub use super::framer::TestSvcMessenger;
+        pub use super::framer::CltTestMessenger;
+        pub use super::framer::SvcTestMessenger;
 
         use crate::prelude::*;
         use crate::unittest::setup::model::*;
-        impl MessengerOld for TestSvcMessenger {
+        impl MessengerOld for SvcTestMessenger {
             type SendT = TestSvcMsg;
             type RecvT = TestCltMsg;
         }
-        impl MessengerOld for TestCltMessenger {
+        impl MessengerOld for CltTestMessenger {
             type SendT = TestCltMsg;
             type RecvT = TestSvcMsg;
         }

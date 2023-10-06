@@ -16,13 +16,13 @@ use crate::prelude::*;
 /// # Example
 /// ```
 /// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::messenger::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE};
+/// use links_core::unittest::setup::messenger::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
 ///
 /// let addr = "127.0.0.1:8080";
 /// let acceptor = SvcAcceptor::<_, _, TEST_MSG_FRAME_SIZE>::new(
 ///     ConId::svc(Some("doctest"), addr, None),
 ///     std::net::TcpListener::bind(addr).unwrap(),
-///     DevNullCallback::<TestSvcMessenger>::default().into(),
+///     DevNullCallback::<SvcTestMessenger>::default().into(),
 /// );
 ///
 /// let status = acceptor.accept_nonblocking().unwrap();
@@ -96,13 +96,13 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 /// # Example
 /// ```
 /// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::messenger::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE};
+/// use links_core::unittest::setup::messenger::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
 /// use std::num::NonZeroUsize;
 /// use std::{io::ErrorKind, fmt::Display};
 /// let addr = "127.0.0.1:8080";
 /// let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
 ///     addr,
-///     DevNullCallback::<TestSvcMessenger>::default().into(),
+///     DevNullCallback::<SvcTestMessenger>::default().into(),
 ///     NonZeroUsize::new(1).unwrap(),
 ///     Some("doctest"),
 /// ).unwrap();
@@ -220,7 +220,7 @@ mod test {
     use crate::prelude::*;
     use links_core::unittest::setup::{
         self,
-        framer::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE},
+        framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE},
         model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
     };
 
@@ -232,7 +232,7 @@ mod test {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
 
-        let callback = LoggerCallback::<TestSvcMessenger>::new_ref();
+        let callback = LoggerCallback::<SvcTestMessenger>::new_ref();
         let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
             addr,
             callback.clone(),
@@ -251,7 +251,7 @@ mod test {
 
         let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
             addr,
-            LoggerCallback::<TestSvcMessenger>::with_level_ref(Level::Info, Level::Debug),
+            LoggerCallback::<SvcTestMessenger>::with_level_ref(Level::Info, Level::Debug),
             NonZeroUsize::new(1).unwrap(),
             Some("unittest"),
         )
@@ -262,7 +262,7 @@ mod test {
             addr,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
-            LoggerCallback::<TestCltMessenger>::with_level_ref(Level::Info, Level::Debug),
+            LoggerCallback::<CltTestMessenger>::with_level_ref(Level::Info, Level::Debug),
             Some("unittest"),
         )
         .unwrap();

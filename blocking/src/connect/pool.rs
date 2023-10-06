@@ -21,7 +21,7 @@ use log::{info, log_enabled, warn, Level};
 /// # Example
 /// ```
 /// use links_blocking::prelude::*;
-/// use links_core::unittest::setup::{framer::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug}};
+/// use links_core::unittest::setup::{framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug}};
 /// use std::time::Duration;
 ///
 ///
@@ -31,7 +31,7 @@ use log::{info, log_enabled, warn, Level};
 ///     "127.0.0.1:8080",
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
-///     DevNullCallback::<TestCltMessenger>::default().into(),
+///     DevNullCallback::<CltTestMessenger>::default().into(),
 ///     Some("unittest"),
 /// );
 ///
@@ -190,7 +190,7 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = (
 /// # Example
 /// ```
 /// use links_blocking::prelude::*;
-/// use links_core::unittest::setup::framer::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE};
+/// use links_core::unittest::setup::framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
 /// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
 ///
 ///
@@ -201,7 +201,7 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = (
 ///     "127.0.0.1:8080",
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
-///     DevNullCallback::<TestCltMessenger>::default().into(),
+///     DevNullCallback::<CltTestMessenger>::default().into(),
 ///     Some("doctest"),
 /// );
 ///
@@ -320,7 +320,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
 /// # Example
 /// ```
 /// use links_blocking::prelude::*;
-/// use links_core::unittest::setup::framer::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE};
+/// use links_core::unittest::setup::framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
 /// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
 ///
 ///
@@ -331,7 +331,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
 ///     "127.0.0.1:8080",
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
-///     DevNullCallback::<TestCltMessenger>::default().into(),
+///     DevNullCallback::<CltTestMessenger>::default().into(),
 ///     Some("doctest"),
 /// );
 ///
@@ -442,13 +442,13 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
 /// # Example
 /// ```
 /// use links_blocking::prelude::*;
-/// use links_core::unittest::setup::framer::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE};
+/// use links_core::unittest::setup::framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
 ///
 /// let addr = "127.0.0.1:8080";
 /// let acceptor = SvcAcceptor::<_,_, TEST_MSG_FRAME_SIZE>::new(
 ///     ConId::svc(Some("doctest"), addr, None),
 ///     std::net::TcpListener::bind(addr).unwrap(),
-///     DevNullCallback::<TestSvcMessenger>::default().into(),
+///     DevNullCallback::<SvcTestMessenger>::default().into(),
 /// );
 ///
 /// let (tx_recver, rx_recver) = std::sync::mpsc::channel();
@@ -523,7 +523,7 @@ mod test {
     use crate::prelude::*;
     use links_core::unittest::setup::{
         self,
-        framer::{TestCltMessenger, TestSvcMessenger, TEST_MSG_FRAME_SIZE},
+        framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE},
         model::{TestCltMsg, TestCltMsgDebug},
     };
 
@@ -537,7 +537,7 @@ mod test {
 
         let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
             addr,
-            DevNullCallback::<TestSvcMessenger>::new_ref(),
+            DevNullCallback::<SvcTestMessenger>::new_ref(),
             max_connections,
             Some("unittest"),
         )
@@ -550,7 +550,7 @@ mod test {
                 addr,
                 setup::net::default_connect_timeout(),
                 setup::net::default_connect_retry_after(),
-                DevNullCallback::<TestCltMessenger>::new_ref(),
+                DevNullCallback::<CltTestMessenger>::new_ref(),
                 Some("unittest"),
             )
             .unwrap();

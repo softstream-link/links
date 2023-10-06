@@ -218,6 +218,7 @@ pub enum SendStatus {
 }
 impl SendStatus {
     /// Will panic if the variant is [SendStatus::WouldBlock], otherwise unwraps into [()] from [SendStatus::Completed]
+    #[inline(always)]
     pub fn unwrap(self) {
         match self {
             SendStatus::Completed => {}

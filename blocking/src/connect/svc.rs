@@ -168,8 +168,8 @@ mod test {
         prelude::{DevNullCallback, LoggerCallback},
         unittest::setup::{
             self,
-            framer::{TestSvcMessenger, TEST_MSG_FRAME_SIZE},
-            messenger_old::TestCltMessenger,
+            framer::{SvcTestMessenger, TEST_MSG_FRAME_SIZE},
+            messenger_old::CltTestMessenger,
             model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
         },
     };
@@ -185,7 +185,7 @@ mod test {
 
         let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
             addr,
-            DevNullCallback::<TestSvcMessenger>::new_ref(),
+            DevNullCallback::<SvcTestMessenger>::new_ref(),
             NonZeroUsize::new(2).unwrap(),
             Some("unittest"),
         )
@@ -201,7 +201,7 @@ mod test {
 
         let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
             addr,
-            LoggerCallback::<TestSvcMessenger>::new_ref(),
+            LoggerCallback::<SvcTestMessenger>::new_ref(),
             NonZeroUsize::new(2).unwrap(),
             Some("unittest"),
         )
@@ -212,7 +212,7 @@ mod test {
             addr,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
-            LoggerCallback::<TestCltMessenger>::new_ref(),
+            LoggerCallback::<CltTestMessenger>::new_ref(),
             Some("unittest"),
         )
         .unwrap();

@@ -47,7 +47,7 @@ mod test {
 
     use super::*;
     use crate::unittest::setup::model::*;
-    use crate::unittest::setup::messenger_old::TestCltMessenger;
+    use crate::unittest::setup::messenger_old::CltTestMessenger;
     use crate::unittest::setup;
     // use log::info;
     use log::Level;
@@ -57,8 +57,8 @@ mod test {
         // let store = EventStoreAsync::new_ref();
 
         let clbk = ChainCallback::new(vec![
-            LoggerCallbackOld::<TestCltMessenger>::new_ref(Level::Info, Level::Info),
-            // EventStoreCallback::<TestMsg, TestCltMessenger>::new_ref(store.clone()),
+            LoggerCallbackOld::<CltTestMessenger>::new_ref(Level::Info, Level::Info),
+            // EventStoreCallback::<TestMsg, CltTestMessenger>::new_ref(store.clone()),
         ]);
 
         for _ in 0..2 {

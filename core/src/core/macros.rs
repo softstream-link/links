@@ -1,4 +1,5 @@
 /// converts a number to a string with thousands separator
+#[cfg(feature = "unittest")]
 #[macro_export]
 macro_rules! fmt_num {
     ($num:expr) => {

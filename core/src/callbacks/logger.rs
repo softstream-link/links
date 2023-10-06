@@ -81,7 +81,7 @@ impl<M: MessengerOld> CallbackSendRecvOld<M> for LoggerCallbackOld<M> {
 #[cfg(test)]
 mod test {
 
-    use crate::unittest::setup::messenger_old::TestCltMessenger;
+    use crate::unittest::setup::messenger_old::CltTestMessenger;
     use crate::unittest::setup::model::*;
     use crate::unittest::setup;
 
@@ -90,7 +90,7 @@ mod test {
     #[test]
     fn test_callback() {
         setup::log::configure_level(log::LevelFilter::Trace);
-        let clbk = LoggerCallbackOld::<TestCltMessenger>::new_ref(Level::Trace, Level::Trace);
+        let clbk = LoggerCallbackOld::<CltTestMessenger>::new_ref(Level::Trace, Level::Trace);
 
         for _ in 0..2 {
             let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));

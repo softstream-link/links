@@ -86,7 +86,7 @@ impl<M: Messenger> CallbackSend<M> for LoggerCallback<M> {
 // #[cfg(test)]
 // mod test {
 
-//     use crate::unittest::setup::messenger::TestCltMessenger;
+//     use crate::unittest::setup::messenger::CltTestMessenger;
 //     use links_core::unittest::setup;
 //     use links_testing::unittest::setup::model::*;
 
@@ -95,7 +95,7 @@ impl<M: Messenger> CallbackSend<M> for LoggerCallback<M> {
 //     #[test]
 //     fn test_callback() {
 //         setup::log::configure_level(log::LevelFilter::Trace);
-//         let clbk = LoggerCallbackRecv::<TestCltMessenger>::with_level(Level::Trace, Level::Trace);
+//         let clbk = LoggerCallbackRecv::<CltTestMessenger>::with_level(Level::Trace, Level::Trace);
 
 //         for _ in 0..2 {
 //             let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
