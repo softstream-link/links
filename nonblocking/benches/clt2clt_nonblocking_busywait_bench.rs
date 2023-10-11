@@ -63,7 +63,7 @@ fn send_msg(c: &mut Criterion) {
 
             let mut clt_acceptor_msg_recv_count = 0_usize;
             loop {
-                match clt_acceptor.recv_nonblocking() {
+                match clt_acceptor.recv() {
                     Ok(RecvStatus::Completed(Some(_recv_msg))) => {
                         clt_acceptor_msg_recv_count += 1;
                     }
@@ -145,7 +145,7 @@ fn recv_msg(c: &mut Criterion) {
             let mut clt_acceptor_msg_send =
                 TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
             loop {
-                match clt_acceptor.send_nonblocking(&mut clt_acceptor_msg_send) {
+                match clt_acceptor.send(&mut clt_acceptor_msg_send) {
                     Ok(SendStatus::Completed) => {
                         clt_acceptor_msg_recv_count += 1;
                     }

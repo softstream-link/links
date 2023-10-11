@@ -99,7 +99,7 @@ impl<T> AcceptStatus<T> {
     }
 }
 pub trait AcceptCltNonBlocking<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
-    fn accept_nonblocking(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error>;
+    fn accept(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error>;
 
     fn accept_busywait_timeout(
         &self,
@@ -108,7 +108,7 @@ pub trait AcceptCltNonBlocking<M: Messenger, C: CallbackRecvSend<M>, const MAX_M
         use AcceptStatus::{Accepted, WouldBlock};
         let start = Instant::now();
         loop {
-            match self.accept_nonblocking()? {
+            match self.accept()? {
                 Accepted(clt) => return Ok(Accepted(clt)),
                 WouldBlock => {
                     if start.elapsed() > timeout {
@@ -122,7 +122,7 @@ pub trait AcceptCltNonBlocking<M: Messenger, C: CallbackRecvSend<M>, const MAX_M
     fn accept_busywait(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error> {
         use AcceptStatus::{Accepted, WouldBlock};
         loop {
-            match self.accept_nonblocking()? {
+            match self.accept()? {
                 Accepted(clt) => return Ok(clt),
                 WouldBlock => continue,
             }
@@ -171,18 +171,18 @@ impl<T> RecvStatus<T> {
     }
 }
 
-pub trait RecvMsgNonBlocking<M: Messenger> {
+pub trait RecvNonBlocking<M: Messenger> {
     /// Will attempt to read a message from the stream. Each call to this method will
     /// attempt to read data from the stream via system call and if sufficient number of bytes were read to
     /// make a single frame it will attempt to deserialize it into a message and return it
-    fn recv_nonblocking(&mut self) -> Result<RecvStatus<M::RecvT>, Error>;
+    fn recv(&mut self) -> Result<RecvStatus<M::RecvT>, Error>;
 
     /// Will call [Self::recv_nonblocking] until it returns [RecvStatus::Completed] or [RecvStatus::WouldBlock] after the timeout.
     fn recv_busywait_timeout(&mut self, timeout: Duration) -> Result<RecvStatus<M::RecvT>, Error> {
         use RecvStatus::{Completed, WouldBlock};
         let start = Instant::now();
         loop {
-            match self.recv_nonblocking()? {
+            match self.recv()? {
                 Completed(o) => return Ok(Completed(o)),
                 WouldBlock => {
                     if start.elapsed() > timeout {
@@ -196,7 +196,7 @@ pub trait RecvMsgNonBlocking<M: Messenger> {
     fn recv_busywait(&mut self) -> Result<Option<M::RecvT>, Error> {
         use RecvStatus::{Completed, WouldBlock};
         loop {
-            match self.recv_nonblocking()? {
+            match self.recv()? {
                 Completed(o) => return Ok(o),
                 WouldBlock => continue,
             }
@@ -236,14 +236,14 @@ impl SendStatus {
     }
 }
 
-pub trait SendMsgNonBlocking<M: Messenger> {
+pub trait SendNonBlocking<M: Messenger> {
     /// The call will internally serialize the msg and attempt to write the resulting bytes into a stream.
     /// If there was a successfull attempt which wrote some bytes from serialized message
     /// into the stream but the write was only partial then the call will busy wait until all of
     /// remaining bytes were written before returning [SendStatus::Completed].
     /// [SendStatus::WouldBlock] is returned only if the attempt did not write any bytes to the stream
     /// after the first attempt
-    fn send_nonblocking(&mut self, msg: &mut M::SendT) -> Result<SendStatus, Error>;
+    fn send(&mut self, msg: &mut M::SendT) -> Result<SendStatus, Error>;
 
     /// Will call [Self::send_nonblocking] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
     #[inline(always)]
@@ -254,7 +254,7 @@ pub trait SendMsgNonBlocking<M: Messenger> {
     ) -> Result<SendStatus, Error> {
         let start = Instant::now();
         loop {
-            match self.send_nonblocking(msg)? {
+            match self.send(msg)? {
                 SendStatus::Completed => return Ok(SendStatus::Completed),
                 SendStatus::WouldBlock => {
                     if start.elapsed() > timeout {
@@ -269,7 +269,7 @@ pub trait SendMsgNonBlocking<M: Messenger> {
     fn send_busywait(&mut self, msg: &mut M::SendT) -> Result<(), Error> {
         use SendStatus::{Completed, WouldBlock};
         loop {
-            match self.send_nonblocking(msg)? {
+            match self.send(msg)? {
                 Completed => return Ok(()),
                 WouldBlock => continue,
             }
@@ -277,14 +277,14 @@ pub trait SendMsgNonBlocking<M: Messenger> {
     }
 }
 
-pub trait SendMsgNonBlockingNonMut<M: Messenger> {
+pub trait SendNonBlockingNonMut<M: Messenger> {
     /// The call will internally serialize the msg and attempt to write the resulting bytes into a stream.
     /// If there was a successfull attempt which wrote some bytes from serialized message
     /// into the stream but the write was only partial then the call will busy wait until all of
     /// remaining bytes were written before returning [SendStatus::Completed].
     /// [SendStatus::WouldBlock] is returned only if the attempt did not write any bytes to the stream
     /// after the first attempt
-    fn send_nonblocking(&mut self, msg: &<M as Messenger>::SendT) -> Result<SendStatus, Error>;
+    fn send(&mut self, msg: &<M as Messenger>::SendT) -> Result<SendStatus, Error>;
 
     /// Will call [Self::send_nonblocking] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
     #[inline(always)]
@@ -295,7 +295,7 @@ pub trait SendMsgNonBlockingNonMut<M: Messenger> {
     ) -> Result<SendStatus, Error> {
         let start = Instant::now();
         loop {
-            match self.send_nonblocking(msg)? {
+            match self.send(msg)? {
                 SendStatus::Completed => return Ok(SendStatus::Completed),
                 SendStatus::WouldBlock => {
                     if start.elapsed() > timeout {
@@ -310,7 +310,7 @@ pub trait SendMsgNonBlockingNonMut<M: Messenger> {
     fn send_busywait(&mut self, msg: &<M as Messenger>::SendT) -> Result<(), Error> {
         use SendStatus::{Completed, WouldBlock};
         loop {
-            match self.send_nonblocking(msg)? {
+            match self.send(msg)? {
                 Completed => return Ok(()),
                 WouldBlock => continue,
             }

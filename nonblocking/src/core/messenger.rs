@@ -47,8 +47,8 @@ use std::{
 };
 
 use crate::prelude::{
-    ConId, FrameReader, FrameWriter, Messenger, RecvMsgNonBlocking, RecvStatus,
-    SendMsgNonBlockingNonMut, SendStatus,
+    ConId, FrameReader, FrameWriter, Messenger, RecvNonBlocking, RecvStatus,
+    SendNonBlockingNonMut, SendStatus,
 };
 
 /// Represents an abstraction for receiving exactly one message utilizing the underlying [FrameReader]
@@ -65,11 +65,11 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageRecver<M, MAX_MSG_SIZE> {
         }
     }
 }
-impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
+impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvNonBlocking<M>
     for MessageRecver<M, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn recv_nonblocking(&mut self) -> Result<RecvStatus<M::RecvT>, Error> {
+    fn recv(&mut self) -> Result<RecvStatus<M::RecvT>, Error> {
         let status = self.frm_reader.read_frame()?;
         match status {
             RecvStatus::Completed(Some(frame)) => {
@@ -106,11 +106,11 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
         }
     }
 }
-impl<M: Messenger, const MAX_MSG_SIZE: usize> SendMsgNonBlockingNonMut<M>
+impl<M: Messenger, const MAX_MSG_SIZE: usize> SendNonBlockingNonMut<M>
     for MessageSender<M, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn send_nonblocking(&mut self, msg: &<M as Messenger>::SendT) -> Result<SendStatus, Error> {
+    fn send(&mut self, msg: &<M as Messenger>::SendT) -> Result<SendStatus, Error> {
         let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
         self.frm_writer.write_frame(&bytes[..size])
     }
@@ -242,12 +242,12 @@ mod test {
                     );
                 info!("svc recver: {}", svc_recver);
 
-                while let Ok(status) = svc_recver.recv_nonblocking() {
+                while let Ok(status) = svc_recver.recv() {
                     match status {
                         RecvStatus::Completed(Some(_recv_msg)) => {
                             svc_msg_recv_count += 1;
                             while let SendStatus::WouldBlock =
-                                svc_sender.send_nonblocking(&inp_svc_msg).unwrap()
+                                svc_sender.send(&inp_svc_msg).unwrap()
                             {
                             }
                             svc_msg_sent_count += 1;
@@ -276,9 +276,9 @@ mod test {
         info!("clt sender: {}", clt_sender);
         let start = Instant::now();
         for _ in 0..WRITE_N_TIMES {
-            while let SendStatus::WouldBlock = clt_sender.send_nonblocking(&inp_clt_msg).unwrap() {}
+            while let SendStatus::WouldBlock = clt_sender.send(&inp_clt_msg).unwrap() {}
             clt_msg_sent_count += 1;
-            while let RecvStatus::WouldBlock = clt_recver.recv_nonblocking().unwrap() {}
+            while let RecvStatus::WouldBlock = clt_recver.recv().unwrap() {}
             clt_msg_recv_count += 1;
         }
         let elapsed = start.elapsed();

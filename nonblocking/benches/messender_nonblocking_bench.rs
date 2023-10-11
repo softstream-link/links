@@ -14,7 +14,7 @@ use links_core::{
     },
 };
 use links_nonblocking::prelude::{
-    into_split_messenger, ConId, RecvMsgNonBlocking, RecvStatus, SendMsgNonBlockingNonMut,
+    into_split_messenger, ConId, RecvNonBlocking, RecvStatus, SendNonBlockingNonMut,
     SendStatus,
 };
 use log::info;
@@ -38,7 +38,7 @@ fn send_msg(c: &mut Criterion) {
             // info!("svc: reader: {}", reader);
             let mut frame_recv_count = 0_u32;
             loop {
-                let status = svc_reader.recv_nonblocking().unwrap();
+                let status = svc_reader.recv().unwrap();
                 match status {
                     RecvStatus::Completed(Some(_)) => {
                         frame_recv_count += 1;
@@ -71,7 +71,7 @@ fn send_msg(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                while let SendStatus::WouldBlock = clt_writer.send_nonblocking(&msg).unwrap() {}
+                while let SendStatus::WouldBlock = clt_writer.send(&msg).unwrap() {}
                 msg_send_count += 1;
             })
         })
@@ -105,7 +105,7 @@ fn recv_msg(c: &mut Criterion) {
             >(ConId::svc(None, addr, None), stream);
             // info!("svc: writer: {}", writer);
             let mut msg_send_count = 0_u32;
-            while let Ok(status) = svc_writer.send_nonblocking(&msg) {
+            while let Ok(status) = svc_writer.send(&msg) {
                 match status {
                     SendStatus::WouldBlock => continue,
                     SendStatus::Completed => {
@@ -132,7 +132,7 @@ fn recv_msg(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                while let RecvStatus::WouldBlock = clt_reader.recv_nonblocking().unwrap() {}
+                while let RecvStatus::WouldBlock = clt_reader.recv().unwrap() {}
                 msg_recv_count += 1;
             })
         })
@@ -171,11 +171,11 @@ fn round_trip_msg(c: &mut Criterion) {
                         stream,
                     );
                 // info!("svc: reader: {}", reader);
-                while let Ok(status) = reader.recv_nonblocking() {
+                while let Ok(status) = reader.recv() {
                     match status {
                         RecvStatus::Completed(Some(_msg)) => {
                             while let SendStatus::WouldBlock =
-                                writer.send_nonblocking(&msg).unwrap()
+                                writer.send(&msg).unwrap()
                             {}
                         }
                         RecvStatus::Completed(None) => {
@@ -206,11 +206,11 @@ fn round_trip_msg(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                while let SendStatus::WouldBlock = writer.send_nonblocking(&msg).unwrap() {}
+                while let SendStatus::WouldBlock = writer.send(&msg).unwrap() {}
                 msg_send_count += 1;
 
                 loop {
-                    match reader.recv_nonblocking().unwrap() {
+                    match reader.recv().unwrap() {
                         RecvStatus::Completed(Some(_msg)) => {
                             msg_recv_count += 1;
                             break;

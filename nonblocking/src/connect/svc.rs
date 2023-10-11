@@ -54,7 +54,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
-    fn accept_nonblocking(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
+    fn accept(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
         match self.listener.accept() {
             Ok((stream, addr)) => {
                 // TODO add rate limiter
@@ -170,7 +170,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PoolAccept
 {
     /// Will attempt to accept a new connection and add it to the pool. If the pool is full it will return an error.
     fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error> {
-        match self.acceptor.accept_nonblocking()? {
+        match self.acceptor.accept()? {
             AcceptStatus::Accepted(clt) => {
                 self.clts_pool.add(clt)?;
                 Ok(PoolAcceptStatus::Accepted)
@@ -183,26 +183,26 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
 {
     /// Instead of adding the accepted connection to the pool it will return it to the caller.
-    fn accept_nonblocking(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
-        self.acceptor.accept_nonblocking()
+    fn accept(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
+        self.acceptor.accept()
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendNonBlocking<M>
     for Svc<M, C, MAX_MSG_SIZE>
 {
     /// Will use the underling [CltsPool] to deliver the message to one of the [Clt]'s in the pool.
     #[inline(always)]
-    fn send_nonblocking(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
-        self.clts_pool.send_nonblocking(msg)
+    fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
+        self.clts_pool.send(msg)
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvNonBlocking<M>
     for Svc<M, C, MAX_MSG_SIZE>
 {
     /// Will use the underling [CltsPool] to receive a message from one of the [Clt]'s in the pool.
     #[inline(always)]
-    fn recv_nonblocking(&mut self) -> Result<RecvStatus<<M as Messenger>::RecvT>, Error> {
-        self.clts_pool.recv_nonblocking()
+    fn recv(&mut self) -> Result<RecvStatus<<M as Messenger>::RecvT>, Error> {
+        self.clts_pool.recv()
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
@@ -311,13 +311,13 @@ mod test {
         if drop_send {
             info!("dropping clt_send");
             drop(clt_send);
-            let opt = clt_recv.recv_nonblocking().unwrap().unwrap_completed();
+            let opt = clt_recv.recv().unwrap().unwrap_completed();
             info!("clt_recv opt: {:?}", opt);
             assert_eq!(opt, None);
         } else {
             info!("dropping clt_recv");
             drop(clt_recv); // drop of recv shuts down Write half of cloned stream and hence impacts clt_send
-            let err = clt_send.send_nonblocking(&mut clt_msg_inp).unwrap_err();
+            let err = clt_send.send(&mut clt_msg_inp).unwrap_err();
             info!("clt_send err: {}", err);
             assert_eq!(err.kind(), ErrorKind::BrokenPipe);
         }
@@ -333,7 +333,7 @@ mod test {
         // because pool_recver will get None it will understand that the client socket is closed and hence will shutdown the write
         // direction which in turn will force send to fail with ErrorKind::BrokenPipe
         let err = svc_pool_sender
-            .send_nonblocking(&mut svc_msg_inp)
+            .send(&mut svc_msg_inp)
             .unwrap_err();
         info!("pool_sender err: {}", err);
         assert_eq!(err.kind(), ErrorKind::BrokenPipe);

@@ -2,7 +2,7 @@ pub use crate::core::{
     framer::{into_split_framer, FrameReader, FrameWriter},
     messenger::{into_split_messenger, MessageRecver, MessageSender},
     AcceptCltNonBlocking, AcceptStatus, NonBlockingServiceLoop, PoolAcceptCltNonBlocking,
-    PoolAcceptStatus, RecvMsgNonBlocking, RecvStatus, SendMsgNonBlocking, SendMsgNonBlockingNonMut,
+    PoolAcceptStatus, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut,
     SendStatus, ServiceLoopStatus,
 };
 

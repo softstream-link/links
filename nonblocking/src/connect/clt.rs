@@ -9,8 +9,8 @@ use std::{
 
 use crate::prelude::{
     into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, MessageRecver,
-    MessageSender, Messenger, NonBlockingServiceLoop, RecvMsgNonBlocking, RecvStatus,
-    SendMsgNonBlocking, SendMsgNonBlockingNonMut, SendStatus, ServiceLoopStatus,
+    MessageSender, Messenger, NonBlockingServiceLoop, RecvNonBlocking, RecvStatus,
+    SendNonBlocking, SendNonBlockingNonMut, SendStatus, ServiceLoopStatus,
 };
 use links_core::asserted_short_name;
 use log::debug;
@@ -30,12 +30,12 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> CltRecver<M, C
         }
     }
 }
-impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
+impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvNonBlocking<M>
     for CltRecver<M, C, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn recv_nonblocking(&mut self) -> Result<RecvStatus<M::RecvT>, Error> {
-        match self.msg_recver.recv_nonblocking()? {
+    fn recv(&mut self) -> Result<RecvStatus<M::RecvT>, Error> {
+        match self.msg_recver.recv()? {
             RecvStatus::Completed(Some(msg)) => {
                 self.callback
                     .on_recv(&self.msg_recver.frm_reader.con_id, &msg);
@@ -51,7 +51,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingSer
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
         use RecvStatus::*;
-        match self.recv_nonblocking()? {
+        match self.recv()? {
             Completed(Some(_)) => Ok(ServiceLoopStatus::Completed),
             WouldBlock => Ok(ServiceLoopStatus::WouldBlock),
             Completed(None) => Ok(ServiceLoopStatus::Terminate),
@@ -92,15 +92,15 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> CltSender<M, C
         }
     }
 }
-impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M>
+impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlocking<M>
     for CltSender<M, C, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn send_nonblocking(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
+    fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
         self.callback
             .on_send(&self.msg_sender.frm_writer.con_id, msg);
 
-        match self.msg_sender.send_nonblocking(msg) {
+        match self.msg_sender.send(msg) {
             Ok(SendStatus::Completed) => {
                 self.callback
                     .on_sent(&self.msg_sender.frm_writer.con_id, msg);
@@ -274,20 +274,20 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Clt<M, C, 
         (self.clt_recver, self.clt_sender)
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBlocking<M>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendNonBlocking<M>
     for Clt<M, C, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn send_nonblocking(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
-        self.clt_sender.send_nonblocking(msg)
+    fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
+        self.clt_sender.send(msg)
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBlocking<M>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvNonBlocking<M>
     for Clt<M, C, MAX_MSG_SIZE>
 {
     #[inline(always)]
-    fn recv_nonblocking(&mut self) -> Result<RecvStatus<<M as Messenger>::RecvT>, Error> {
-        self.clt_recver.recv_nonblocking()
+    fn recv(&mut self) -> Result<RecvStatus<<M as Messenger>::RecvT>, Error> {
+        self.clt_recver.recv()
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
