@@ -21,7 +21,7 @@ impl<M: Messenger> Default for DevNullCallback<M> {
 
 impl<M: Messenger> DevNullCallback<M> {
     pub fn new_ref() -> Arc<Self> {
-        Arc::new(Self::default())
+        Self::default().into()
     }
 }
 

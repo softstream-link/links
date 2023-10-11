@@ -50,11 +50,11 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingSer
     for CltRecver<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
+        use RecvStatus::*;
         match self.recv_nonblocking()? {
-            RecvStatus::WouldBlock | RecvStatus::Completed(Some(_)) => {
-                Ok(ServiceLoopStatus::Continue)
-            }
-            RecvStatus::Completed(None) => Ok(ServiceLoopStatus::Stop),
+            Completed(Some(_)) => Ok(ServiceLoopStatus::Completed),
+            WouldBlock => Ok(ServiceLoopStatus::WouldBlock),
+            Completed(None) => Ok(ServiceLoopStatus::Terminate),
         }
     }
 }

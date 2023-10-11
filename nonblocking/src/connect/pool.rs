@@ -92,16 +92,22 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> CltsPool<M
             tx_recver
                 .send(clt_recver)
                 .expect("CltsPool::into_split - Failed to send CltRecver to CltRecversPool");
-            assert!(recver_pool
-                .service_once_rx_queue()
-                .expect("CltsPool::into_split - Failed to service CltRecversPool rx_queue"));
+            assert_eq!(
+                recver_pool
+                    .pool_accept_nonblocking()
+                    .expect("CltsPool::into_split - Failed to service CltRecversPool rx_queue"),
+                PoolAcceptStatus::Accepted
+            );
 
             tx_sender
                 .send(clt_sender)
                 .expect("CltsPool::into_split - Failed to send CltSender to CltSendersPool");
-            assert!(sender_pool
-                .service_once_rx_queue()
-                .expect("CltsPool::into_split - Failed to service CltSendersPool rx_queue"));
+            assert_eq!(
+                sender_pool
+                    .pool_accept_nonblocking()
+                    .expect("CltsPool::into_split - Failed to service CltSendersPool rx_queue"),
+                PoolAcceptStatus::Accepted
+            );
         }
         ((tx_recver, tx_sender), (recver_pool, sender_pool))
     }
@@ -240,21 +246,32 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize>
     }
     #[inline]
     pub fn has_capacity(&self) -> bool {
-        self.recvers.len() < self.recvers.capacity()
+        self.recvers.has_capacity()
     }
-    /// returns true if a recver was added
     #[inline]
-    pub(crate) fn service_once_rx_queue(&mut self) -> Result<bool, Error> {
+    pub(crate) fn rx_queue(&mut self) -> Result<Option<CltRecver<M, C, MAX_MSG_SIZE>>, Error> {
         match self.rx_recver.try_recv() {
-            Ok(recver) => match self.recvers.add(recver) {
-                Ok(_) => Ok(true),
+            Ok(recver) => Ok(Some(recver)),
+            Err(std::sync::mpsc::TryRecvError::Empty) => Ok(None),
+            Err(e) => Err(Error::new(ErrorKind::Other, e)),
+        }
+    }
+}
+impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PoolAcceptCltNonBlocking
+    for CltRecversPool<M, C, MAX_MSG_SIZE>
+{
+    fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error> {
+        use PoolAcceptStatus::{Accepted, WouldBlock};
+        let recver = self.rx_queue()?;
+        match recver {
+            Some(recver) => match self.recvers.add(recver) {
+                Ok(_t) => Ok(Accepted),
                 Err(e) => {
                     warn!("Failed to add recver to pool, {}", e);
-                    Ok(false)
+                    Ok(WouldBlock)
                 }
             },
-            Err(std::sync::mpsc::TryRecvError::Empty) => Ok(false),
-            Err(e) => Err(Error::new(ErrorKind::Other, e)),
+            None => Ok(WouldBlock),
         }
     }
 }
@@ -296,7 +313,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvMsgNonBloc
             },
             None => {
                 // no receivers available try processing rx_queue
-                if self.service_once_rx_queue()? {
+                if let PoolAcceptStatus::Accepted = self.pool_accept_nonblocking()? {
                     self.recv_nonblocking()
                 } else {
                     Err(Error::new(
@@ -312,9 +329,12 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingSer
     for CltRecversPool<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
-        self.service_once_rx_queue()?;
-        let _ = self.recv_nonblocking()?;
-        Ok(ServiceLoopStatus::Continue)
+        use RecvStatus::*;
+        self.pool_accept_nonblocking()?;
+        match self.recv_nonblocking()? {
+            Completed(_) => Ok(ServiceLoopStatus::Completed), // This is a pool and hence shall never return terminate
+            WouldBlock => Ok(ServiceLoopStatus::WouldBlock),
+        }
     }
 }
 impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
@@ -384,17 +404,30 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize>
         self.senders.has_capacity()
     }
     #[inline]
-    pub(crate) fn service_once_rx_queue(&mut self) -> Result<bool, Error> {
+    pub fn rx_queue(&mut self) -> Result<Option<CltSender<M, C, MAX_MSG_SIZE>>, Error> {
         match self.rx_sender.try_recv() {
-            Ok(sender) => match self.senders.add(sender) {
-                Ok(_) => Ok(true),
+            Ok(sender) => Ok(Some(sender)),
+            Err(std::sync::mpsc::TryRecvError::Empty) => Ok(None),
+            Err(e) => Err(Error::new(ErrorKind::Other, e)),
+        }
+    }
+}
+
+impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> PoolAcceptCltNonBlocking
+    for CltSendersPool<M, C, MAX_MSG_SIZE>
+{
+    fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error> {
+        use PoolAcceptStatus::{Accepted, WouldBlock};
+        let sender = self.rx_queue()?;
+        match sender {
+            Some(sender) => match self.senders.add(sender) {
+                Ok(_t) => Ok(Accepted),
                 Err(e) => {
                     warn!("Failed to add sender to pool, {}", e);
-                    Ok(false)
+                    Ok(WouldBlock)
                 }
             },
-            Err(std::sync::mpsc::TryRecvError::Empty) => Ok(false),
-            Err(e) => Err(Error::new(ErrorKind::Other, e)),
+            None => Ok(WouldBlock),
         }
     }
 }
@@ -425,7 +458,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsgNonBloc
             },
             None => {
                 // no senders available try processing rx_queue
-                if self.service_once_rx_queue()? {
+                if let PoolAcceptStatus::Accepted = self.pool_accept_nonblocking()? {
                     self.send_nonblocking(msg)
                 } else {
                     Err(Error::new(
@@ -442,8 +475,11 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> NonBlockingSer
 {
     #[inline]
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
-        self.service_once_rx_queue()?;
-        Ok(ServiceLoopStatus::Continue)
+        use PoolAcceptStatus::*;
+        match self.pool_accept_nonblocking()? {
+            Accepted => Ok(ServiceLoopStatus::Completed), // This is a listener and hence shall never return terminate
+            WouldBlock => Ok(ServiceLoopStatus::WouldBlock),
+        }
     }
 }
 impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
@@ -489,7 +525,7 @@ pub struct PoolCltAcceptor<
 > {
     tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
     tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>,
-    acceptor: SvcAcceptor<M, C, MAX_MSG_SIZE>,
+    pub(crate) acceptor: SvcAcceptor<M, C, MAX_MSG_SIZE>,
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     PoolCltAcceptor<M, C, MAX_MSG_SIZE>
@@ -505,9 +541,24 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
             acceptor,
         }
     }
+    pub(crate) fn pool_accept_sender_return_recver(
+        &mut self,
+    ) -> Result<Option<CltRecver<M, C, MAX_MSG_SIZE>>, Error> {
+        use AcceptStatus::{Accepted, WouldBlock};
+        match self.acceptor.accept_nonblocking()? {
+            Accepted(clt) => {
+                let (recver, sender) = clt.into_split();
+                if let Err(e) = self.tx_sender.send(sender) {
+                    return Err(Error::new(ErrorKind::Other, e.to_string()));
+                }
+                Ok(Some(recver))
+            }
+            WouldBlock => Ok(None),
+        }
+    }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    PoolAcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for PoolCltAcceptor<M, C, MAX_MSG_SIZE>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PoolAcceptCltNonBlocking
+    for PoolCltAcceptor<M, C, MAX_MSG_SIZE>
 {
     /// Will interrogate the [SvcAcceptor] for new connections and if available will send them to the respective [CltRecver] & [CltSender] pools.
     fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error> {
@@ -531,8 +582,11 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> NonBlockin
     for PoolCltAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
-        self.pool_accept_nonblocking()?;
-        Ok(ServiceLoopStatus::Continue)
+        use PoolAcceptStatus::*;
+        match self.pool_accept_nonblocking()? {
+            Accepted => Ok(ServiceLoopStatus::Completed),
+            WouldBlock => Ok(ServiceLoopStatus::WouldBlock),
+        }
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display

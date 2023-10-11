@@ -32,7 +32,7 @@ use crate::prelude::*;
 #[derive(Debug)]
 pub struct SvcAcceptor<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
-    listener: mio::net::TcpListener,
+    pub(crate) listener: mio::net::TcpListener,
     callback: Arc<C>,
     phantom: std::marker::PhantomData<M>,
 }
@@ -87,6 +87,13 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
             asserted_short_name!("SvcAcceptor", Self),
             self.con_id
         )
+    }
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> From<Svc<M, C, MAX_MSG_SIZE>>
+    for SvcAcceptor<M, C, MAX_MSG_SIZE>
+{
+    fn from(svc: Svc<M, C, MAX_MSG_SIZE>) -> Self {
+        svc.acceptor
     }
 }
 
@@ -158,8 +165,8 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
         (acceptor, svc_recver, svc_sender)
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    PoolAcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PoolAcceptCltNonBlocking
+    for Svc<M, C, MAX_MSG_SIZE>
 {
     /// Will attempt to accept a new connection and add it to the pool. If the pool is full it will return an error.
     fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error> {
@@ -325,7 +332,9 @@ mod test {
         assert_eq!(opt, None);
         // because pool_recver will get None it will understand that the client socket is closed and hence will shutdown the write
         // direction which in turn will force send to fail with ErrorKind::BrokenPipe
-        let err = svc_pool_sender.send_nonblocking(&mut svc_msg_inp).unwrap_err();
+        let err = svc_pool_sender
+            .send_nonblocking(&mut svc_msg_inp)
+            .unwrap_err();
         info!("pool_sender err: {}", err);
         assert_eq!(err.kind(), ErrorKind::BrokenPipe);
     }

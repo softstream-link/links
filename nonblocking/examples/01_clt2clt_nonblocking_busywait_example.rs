@@ -46,7 +46,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             let mut clt_send_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Client Msg"));
             let mut msg_recv_count = 0_usize;
             loop {
-                if let Some(_msg) = clt.recv_busywait().unwrap() {
+                if let Ok(Some(_msg)) = clt.recv_busywait() {
                     msg_recv_count += 1;
                     clt.send_busywait(&mut clt_send_msg).unwrap();
                     continue;

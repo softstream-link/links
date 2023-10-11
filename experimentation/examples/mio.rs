@@ -6,5 +6,6 @@ fn main() {
     let p = mio::Poll::new().unwrap();
     let x = p.registry();
 
+
     info!("x: {:?}", x);
 }

@@ -40,7 +40,7 @@ impl PoolAcceptStatus {
         !self.is_accepted()
     }
 }
-pub trait PoolAcceptCltNonBlocking<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
+pub trait PoolAcceptCltNonBlocking
 {
     fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error>;
     fn pool_accept_busywait_timeout(
@@ -321,8 +321,9 @@ pub trait SendMsgNonBlockingNonMut<M: Messenger> {
 
 #[derive(Debug)]
 pub enum ServiceLoopStatus {
-    Continue,
-    Stop,
+    Completed,
+    WouldBlock,
+    Terminate,
 }
 pub trait NonBlockingServiceLoop {
     fn service_once(&mut self) -> Result<ServiceLoopStatus, Error>;

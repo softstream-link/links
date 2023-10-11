@@ -74,9 +74,13 @@ required-features = ["unittest"]
 # EXAMPLES
 
 [[example]]
-name = "clt2clt_nonblocking_busywait_example"
+name = "01_clt2clt_nonblocking_busywait_example"
 required-features = ["full"]
 
 [[example]]
-name = "clt2svcpool_nonblocking_busywait_example"
+name = "02_clt2svcpool_nonblocking_busywait_example"
+required-features = ["full"]
+
+[[example]]
+name = "03_cltsplit2svcpool_nonblocking_busywait_example"
 required-features = ["full"]
