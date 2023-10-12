@@ -1,6 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_core::{fmt_num, unittest::setup};
-use links_nonblocking::prelude::{into_split_framer, ConId, RecvStatus, SendStatus, FixedSizeFramer};
+use links_nonblocking::prelude::{
+    into_split_framer, ConId, FixedSizeFramer, RecvStatus, SendStatus,
+};
 
 use log::{error, info};
 use std::{

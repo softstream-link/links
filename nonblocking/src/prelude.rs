@@ -1,10 +1,11 @@
 pub use crate::core::{
     framer::{into_split_framer, FrameReader, FrameWriter},
     messenger::{into_split_messenger, MessageRecver, MessageSender},
-    AcceptCltNonBlocking, AcceptStatus, NonBlockingServiceLoop, PoolAcceptCltNonBlocking,
-    PoolAcceptStatus, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut,
-    SendStatus, ServiceLoopStatus,
+    AcceptNonBlocking, AcceptStatus, PoolAcceptCltNonBlocking, PoolAcceptStatus, RecvNonBlocking,
+    RecvStatus, SendNonBlocking, SendNonBlockingNonMut, SendStatus,
 };
+
+pub use crate::core::{PollAccept, PollEventStatus, PollObject};
 
 pub use crate::connect::{
     clt::{Clt, CltRecver, CltSender},

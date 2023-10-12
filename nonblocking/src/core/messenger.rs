@@ -47,8 +47,8 @@ use std::{
 };
 
 use crate::prelude::{
-    ConId, FrameReader, FrameWriter, Messenger, RecvNonBlocking, RecvStatus,
-    SendNonBlockingNonMut, SendStatus,
+    ConId, FrameReader, FrameWriter, Messenger, RecvNonBlocking, RecvStatus, SendNonBlockingNonMut,
+    SendStatus,
 };
 
 /// Represents an abstraction for receiving exactly one message utilizing the underlying [FrameReader]
@@ -248,8 +248,7 @@ mod test {
                             svc_msg_recv_count += 1;
                             while let SendStatus::WouldBlock =
                                 svc_sender.send(&inp_svc_msg).unwrap()
-                            {
-                            }
+                            {}
                             svc_msg_sent_count += 1;
                         }
                         RecvStatus::Completed(None) => {

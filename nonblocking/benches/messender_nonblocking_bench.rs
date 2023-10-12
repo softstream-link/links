@@ -14,8 +14,7 @@ use links_core::{
     },
 };
 use links_nonblocking::prelude::{
-    into_split_messenger, ConId, RecvNonBlocking, RecvStatus, SendNonBlockingNonMut,
-    SendStatus,
+    into_split_messenger, ConId, RecvNonBlocking, RecvStatus, SendNonBlockingNonMut, SendStatus,
 };
 use log::info;
 
@@ -57,11 +56,10 @@ fn send_msg(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGURE clt
-    let (_clt_reader, mut clt_writer) =
-        into_split_messenger::<CltTestMessenger, TEST_MSG_FRAME_SIZE>(
-            ConId::clt(Some("unittest"), None, addr),
-            TcpStream::connect(addr).unwrap(),
-        );
+    let (_clt_reader, mut clt_writer) = into_split_messenger::<CltTestMessenger, TEST_MSG_FRAME_SIZE>(
+        ConId::clt(Some("unittest"), None, addr),
+        TcpStream::connect(addr).unwrap(),
+    );
     // info!("clt: writer: {}", writer);
 
     let id = format!("messenger_nonblocking_send_msg TestCltMsg");
@@ -120,11 +118,10 @@ fn recv_msg(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGURE clt
-    let (mut clt_reader, _clt_writer) =
-        into_split_messenger::<CltTestMessenger, TEST_MSG_FRAME_SIZE>(
-            ConId::clt(Some("unittest"), None, addr),
-            TcpStream::connect(addr).unwrap(),
-        );
+    let (mut clt_reader, _clt_writer) = into_split_messenger::<CltTestMessenger, TEST_MSG_FRAME_SIZE>(
+        ConId::clt(Some("unittest"), None, addr),
+        TcpStream::connect(addr).unwrap(),
+    );
     // info!("clt: reader: {}", reader);
 
     let id = format!("messenger_nonblocking_recv_msg TestSvcMsg");
@@ -174,9 +171,7 @@ fn round_trip_msg(c: &mut Criterion) {
                 while let Ok(status) = reader.recv() {
                     match status {
                         RecvStatus::Completed(Some(_msg)) => {
-                            while let SendStatus::WouldBlock =
-                                writer.send(&msg).unwrap()
-                            {}
+                            while let SendStatus::WouldBlock = writer.send(&msg).unwrap() {}
                         }
                         RecvStatus::Completed(None) => {
                             info!("{} Connection Closed by Client", reader);

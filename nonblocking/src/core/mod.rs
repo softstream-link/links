@@ -1,19 +1,21 @@
 pub mod framer;
 pub mod messenger;
 
+pub mod poller;
+pub mod poller1;
+
 use std::{
+    fmt::Display,
     io::Error,
     time::{Duration, Instant},
 };
 
-use links_core::prelude::{CallbackRecvSend, Messenger};
-
-use crate::prelude::Clt;
+use links_core::prelude::Messenger;
 
 // ---- Acceptor ----
 
 /// Represents the state of a non-blocking accept operation on a pool
-/// 
+///
 /// # Variants
 ///  * [PoolAcceptStatus::Accepted] - indicates that accept was successful
 ///  * [PoolAcceptStatus::WouldBlock] - indicates that no connection was accepted
@@ -40,9 +42,8 @@ impl PoolAcceptStatus {
         !self.is_accepted()
     }
 }
-pub trait PoolAcceptCltNonBlocking
-{
-    fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error>;
+pub trait PoolAcceptCltNonBlocking {
+    fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error>;
     fn pool_accept_busywait_timeout(
         &mut self,
         timeout: Duration,
@@ -50,7 +51,7 @@ pub trait PoolAcceptCltNonBlocking
         use PoolAcceptStatus::{Accepted, WouldBlock};
         let start = Instant::now();
         loop {
-            match self.pool_accept_nonblocking()? {
+            match self.pool_accept()? {
                 Accepted => return Ok(Accepted),
                 WouldBlock => {
                     if start.elapsed() > timeout {
@@ -63,7 +64,7 @@ pub trait PoolAcceptCltNonBlocking
     fn pool_accept_busywait(&mut self) -> Result<(), Error> {
         use PoolAcceptStatus::{Accepted, WouldBlock};
         loop {
-            match self.pool_accept_nonblocking()? {
+            match self.pool_accept()? {
                 Accepted => return Ok(()),
                 WouldBlock => continue,
             }
@@ -98,18 +99,15 @@ impl<T> AcceptStatus<T> {
         !self.is_accepted()
     }
 }
-pub trait AcceptCltNonBlocking<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
-    fn accept(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error>;
+pub trait AcceptNonBlocking<T> {
+    fn accept(&self) -> Result<AcceptStatus<T>, Error>;
 
-    fn accept_busywait_timeout(
-        &self,
-        timeout: Duration,
-    ) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
+    fn accept_busywait_timeout(&self, timeout: Duration) -> Result<AcceptStatus<T>, Error> {
         use AcceptStatus::{Accepted, WouldBlock};
         let start = Instant::now();
         loop {
             match self.accept()? {
-                Accepted(clt) => return Ok(Accepted(clt)),
+                Accepted(t) => return Ok(Accepted(t)),
                 WouldBlock => {
                     if start.elapsed() > timeout {
                         return Ok(WouldBlock);
@@ -119,7 +117,7 @@ pub trait AcceptCltNonBlocking<M: Messenger, C: CallbackRecvSend<M>, const MAX_M
         }
     }
 
-    fn accept_busywait(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error> {
+    fn accept_busywait(&self) -> Result<T, Error> {
         use AcceptStatus::{Accepted, WouldBlock};
         loop {
             match self.accept()? {
@@ -317,14 +315,20 @@ pub trait SendNonBlockingNonMut<M: Messenger> {
         }
     }
 }
-// ---- Service Loop ----
+
+// ---- Pool ----
 
 #[derive(Debug)]
-pub enum ServiceLoopStatus {
+pub enum PollEventStatus {
     Completed,
     WouldBlock,
     Terminate,
 }
-pub trait NonBlockingServiceLoop {
-    fn service_once(&mut self) -> Result<ServiceLoopStatus, Error>;
+
+pub trait PollObject: Display + Send {
+    fn source(&mut self) -> Box<&mut dyn mio::event::Source>;
+    fn on_event(&mut self) -> Result<PollEventStatus, Error>;
+}
+pub trait PollAccept: PollObject {
+    fn poll_accept(&mut self) -> Result<Option<Box<dyn PollObject>>, Error>;
 }

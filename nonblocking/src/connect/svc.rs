@@ -52,7 +52,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE>
+    AcceptNonBlocking<Clt<M, C, MAX_MSG_SIZE>> for SvcAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn accept(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
         match self.listener.accept() {
@@ -169,7 +169,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PoolAccept
     for Svc<M, C, MAX_MSG_SIZE>
 {
     /// Will attempt to accept a new connection and add it to the pool. If the pool is full it will return an error.
-    fn pool_accept_nonblocking(&mut self) -> Result<PoolAcceptStatus, Error> {
+    fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error> {
         match self.acceptor.accept()? {
             AcceptStatus::Accepted(clt) => {
                 self.clts_pool.add(clt)?;
@@ -180,7 +180,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PoolAccept
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    AcceptCltNonBlocking<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
+    AcceptNonBlocking<Clt<M, C, MAX_MSG_SIZE>> for Svc<M, C, MAX_MSG_SIZE>
 {
     /// Instead of adding the accepted connection to the pool it will return it to the caller.
     fn accept(&self) -> Result<AcceptStatus<Clt<M, C, MAX_MSG_SIZE>>, Error> {
@@ -332,9 +332,7 @@ mod test {
         assert_eq!(opt, None);
         // because pool_recver will get None it will understand that the client socket is closed and hence will shutdown the write
         // direction which in turn will force send to fail with ErrorKind::BrokenPipe
-        let err = svc_pool_sender
-            .send(&mut svc_msg_inp)
-            .unwrap_err();
+        let err = svc_pool_sender.send(&mut svc_msg_inp).unwrap_err();
         info!("pool_sender err: {}", err);
         assert_eq!(err.kind(), ErrorKind::BrokenPipe);
     }

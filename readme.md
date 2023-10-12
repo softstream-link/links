@@ -15,6 +15,19 @@
     optiq - 
     https://connect2.euronext.com/sites/default/files/it-documentation/Optiq%20OEG%20SBE%20Messages%20-%20Interface%20Specification%20-%20Euronext%20Cash%20and%20Derivatives%20Markets%20-%20External%20-%20v5.24.0%20%2BTC.pdf
 
+    QAUISATP
+    BATSBOE
+    CDG
+    ETI
+    EURONEXT CCGD
+    Exture Korea
+    FIX 4.2 4.5
+    FIXP
+    Nnf NSE
+    OMnet
+    OMNetIF
+    OPTIQSBE
+    XETI
     
 
 run tests

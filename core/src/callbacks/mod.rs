@@ -17,7 +17,7 @@ pub trait CallbackSendRecvOld<M: MessengerOld>: Debug+Display+Send+Sync+'static 
     fn on_send(&self, con_id: &ConId, msg: &M::SendT);
 }
 
-pub trait CallbackRecv<M: Messenger>: Debug {
+pub trait CallbackRecv<M: Messenger>: Debug+Send+Sync+'static {
     /// Will be called after message is received and deserialized.
     fn on_recv(&self, con_id: &ConId, msg: &M::RecvT);
 }

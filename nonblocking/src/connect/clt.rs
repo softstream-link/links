@@ -9,8 +9,8 @@ use std::{
 
 use crate::prelude::{
     into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, MessageRecver,
-    MessageSender, Messenger, NonBlockingServiceLoop, RecvNonBlocking, RecvStatus,
-    SendNonBlocking, SendNonBlockingNonMut, SendStatus, ServiceLoopStatus,
+    MessageSender, Messenger, PollEventStatus, PollObject, RecvNonBlocking, RecvStatus,
+    SendNonBlocking, SendNonBlockingNonMut, SendStatus,
 };
 use links_core::asserted_short_name;
 use log::debug;
@@ -19,7 +19,7 @@ use log::debug;
 /// It is designed to work in a thread that is different from [CltSender]
 #[derive(Debug)]
 pub struct CltRecver<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
-    pub(crate) msg_recver: MessageRecver<M, MAX_MSG_SIZE>,
+    msg_recver: MessageRecver<M, MAX_MSG_SIZE>,
     callback: Arc<C>,
 }
 impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> CltRecver<M, C, MAX_MSG_SIZE> {
@@ -46,15 +46,18 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvNonBlockin
         }
     }
 }
-impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
+impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PollObject
     for CltRecver<M, C, MAX_MSG_SIZE>
 {
-    fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
+    fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
+        Box::new(&mut self.msg_recver.frm_reader.stream_reader)
+    }
+    fn on_event(&mut self) -> Result<PollEventStatus, Error> {
         use RecvStatus::*;
         match self.recv()? {
-            Completed(Some(_)) => Ok(ServiceLoopStatus::Completed),
-            WouldBlock => Ok(ServiceLoopStatus::WouldBlock),
-            Completed(None) => Ok(ServiceLoopStatus::Terminate),
+            Completed(Some(_)) => Ok(PollEventStatus::Completed),
+            WouldBlock => Ok(PollEventStatus::WouldBlock),
+            Completed(None) => Ok(PollEventStatus::Terminate),
         }
     }
 }
@@ -81,7 +84,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
 /// It is designed to work in a thread that is different from [CltRecver]
 #[derive(Debug)]
 pub struct CltSender<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> {
-    pub(crate) msg_sender: MessageSender<M, MAX_MSG_SIZE>,
+    msg_sender: MessageSender<M, MAX_MSG_SIZE>,
     callback: Arc<C>,
 }
 impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> CltSender<M, C, MAX_MSG_SIZE> {

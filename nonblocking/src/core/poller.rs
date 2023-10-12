@@ -1,4 +1,7 @@
-use std::io::{self, Error};
+use std::{
+    io::{self, Error},
+    thread::Builder,
+};
 
 use links_core::prelude::Messenger;
 use log::{info, log_enabled, Level};
@@ -19,7 +22,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
 {
 }
 
-pub struct CallBackLoopHandler<
+pub struct PollHandler<
     M: Messenger+'static,
     C: CallbackRecvSend<M>+'static,
     const MAX_MSG_SIZE: usize,
@@ -28,48 +31,39 @@ pub struct CallBackLoopHandler<
     serviceable: Slab<Serviceable<M, C, MAX_MSG_SIZE>>,
     events: Events,
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    CallBackLoopHandler<M, C, MAX_MSG_SIZE>
+impl<M: Messenger+Send+Sync, C: CallbackRecvSend<M>+Send+Sync, const MAX_MSG_SIZE: usize>
+    PollHandler<M, C, MAX_MSG_SIZE>
 {
     pub fn add(&mut self, acceptor: PoolCltAcceptor<M, C, MAX_MSG_SIZE>) -> io::Result<()> {
         self.add_serviceable(Serviceable::PoolCltAcceptor(acceptor))
     }
+    pub fn spawn(mut self, name: &str) {
+        Builder::new()
+            .name(format!("{}-Thread", name).to_owned())
+            .spawn(move || loop {
+                self.service().unwrap();
+            })
+            .unwrap();
+    }
 
     fn add_serviceable(&mut self, recver: Serviceable<M, C, MAX_MSG_SIZE>) -> io::Result<()> {
         let key = self.serviceable.insert(recver);
-        let token = Token(key);
-        let registry = self.poll.registry();
         match self.serviceable[key] {
-            Serviceable::CltRecver(ref mut recver) => registry.register(
-                &mut recver.msg_recver.frm_reader.stream_reader,
-                token,
-                mio::Interest::READABLE,
-            ),
-            Serviceable::PoolCltAcceptor(ref mut acceptor) => registry.register(
-                &mut acceptor.acceptor.listener,
-                token,
+            Serviceable::CltRecver(ref mut recver) => {
+                self.poll
+                    .registry()
+                    .register(*recver.source(), Token(key), mio::Interest::READABLE)
+            }
+            Serviceable::PoolCltAcceptor(ref mut acceptor) => self.poll.registry().register(
+                *acceptor.source(),
+                Token(key),
                 mio::Interest::READABLE,
             ),
         }
     }
-}
-impl<M: Messenger, C: CallbackRecvSend<M>+Send, const MAX_MSG_SIZE: usize> Default
-    for CallBackLoopHandler<M, C, MAX_MSG_SIZE>
-{
-    fn default() -> Self {
-        Self {
-            poll: Poll::new().expect("Failed to create Poll"),
-            serviceable: Slab::new(),
-            events: Events::with_capacity(1024),
-        }
-    }
-}
 
-impl<M: Messenger, C: CallbackRecvSend<M>+Send, const MAX_MSG_SIZE: usize> NonBlockingServiceLoop
-    for CallBackLoopHandler<M, C, MAX_MSG_SIZE>
-{
-    fn service_once(&mut self) -> Result<ServiceLoopStatus, Error> {
-        use ServiceLoopStatus::*;
+    pub fn service(&mut self) -> Result<(), Error> {
+        use PollEventStatus::*;
         use Serviceable::*;
         self.poll.poll(&mut self.events, None).unwrap();
 
@@ -80,7 +74,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>+Send, const MAX_MSG_SIZE: usize> NonBl
             for event in self.events.iter() {
                 let token = event.token().into();
                 match self.serviceable.get_mut(token) {
-                    Some(CltRecver(recver)) => match recver.service_once() {
+                    Some(CltRecver(recver)) => match recver.on_event() {
                         Ok(Completed) => {
                             at_least_one_completed = true;
                             continue;
@@ -90,9 +84,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>+Send, const MAX_MSG_SIZE: usize> NonBl
                             if log_enabled!(Level::Info) {
                                 info!("Clean, service loop termination recver: {}", recver);
                             }
-                            self.poll
-                                .registry()
-                                .deregister(&mut recver.msg_recver.frm_reader.stream_reader)?;
+                            self.poll.registry().deregister(*recver.source())?;
                             self.serviceable.remove(token);
                         }
                         Err(e) => {
@@ -102,57 +94,56 @@ impl<M: Messenger, C: CallbackRecvSend<M>+Send, const MAX_MSG_SIZE: usize> NonBl
                                     recver, e
                                 );
                             }
-                            self.poll
-                                .registry()
-                                .deregister(&mut recver.msg_recver.frm_reader.stream_reader)
-                                .expect("Failed to deregister recver");
+                            self.poll.registry().deregister(*recver.source())?;
                             self.serviceable.remove(token);
                         }
                     },
-                    Some(PoolCltAcceptor(acceptor)) => {
-                        match acceptor.pool_accept_sender_return_recver() {
-                            Ok(Some(recver)) => {
-                                let key = self.serviceable.insert(CltRecver(recver));
-                                if let CltRecver(ref mut recver) = self.serviceable[key] {
-                                    self.poll.registry().register(
-                                        &mut recver.msg_recver.frm_reader.stream_reader,
-                                        Token(key),
-                                        mio::Interest::READABLE,
-                                    )?;
-                                }
+                    Some(PoolCltAcceptor(acceptor)) => match acceptor.accept_recver() {
+                        Ok(AcceptStatus::Accepted(recver)) => {
+                            let key = self.serviceable.insert(CltRecver(recver));
+                            if let CltRecver(ref mut recver) = self.serviceable[key] {
+                                self.poll.registry().register(
+                                    *recver.source(),
+                                    Token(key),
+                                    mio::Interest::READABLE,
+                                )?;
                             }
-                            Ok(None) => {}
-                            Err(e) => {
-                                if log_enabled!(Level::Info) {
-                                    info!(
-                                        "Error, service loop termination acceptor: {}, error: {}",
-                                        acceptor, e
-                                    );
-                                }
-                                self.poll
-                                    .registry()
-                                    .deregister(&mut acceptor.acceptor.listener)
-                                    .expect("Failed to deregister acceptor");
-                                self.serviceable.remove(token);
-                            }
+                            at_least_one_completed = true;
                         }
-                    }
+                        Ok(AcceptStatus::WouldBlock) => {}
+                        Err(e) => {
+                            if log_enabled!(Level::Info) {
+                                info!(
+                                    "Error, service loop termination acceptor: {}, error: {}",
+                                    acceptor, e
+                                );
+                            }
+                            self.poll.registry().deregister(*acceptor.source())?;
+                            self.serviceable.remove(token);
+                        }
+                    },
                     None => {} // possible when the serviceable is removed with error or terminate from the service loop but other serviceable are still responding in this iteration
                 }
             }
         }
-
-        Ok(Completed) // never return WouldBlock as we are using poll
+        Ok(())
+    }
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Default
+    for PollHandler<M, C, MAX_MSG_SIZE>
+{
+    fn default() -> Self {
+        Self {
+            poll: Poll::new().expect("Failed to create Poll"),
+            serviceable: Slab::new(),
+            events: Events::with_capacity(1024),
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use std::{
-        num::NonZeroUsize,
-        thread::{sleep, Builder},
-        time::Duration,
-    };
+    use std::{num::NonZeroUsize, thread::sleep, time::Duration};
 
     use links_core::unittest::setup::{
         self,
@@ -160,12 +151,11 @@ mod test {
         messenger_old::CltTestMessenger,
         model::{TestCltMsg, TestCltMsgDebug},
     };
-
-    use super::CallBackLoopHandler;
+    use super::PollHandler;
     use crate::prelude::*;
 
     #[test]
-    fn test_scheduler() {
+    fn test_poller() {
         setup::log::configure_level(log::LevelFilter::Info);
 
         let addr = setup::net::rand_avail_addr_port();
@@ -178,8 +168,6 @@ mod test {
         )
         .unwrap();
 
-        let mut handler = CallBackLoopHandler::<_, _, TEST_MSG_FRAME_SIZE>::default();
-
         let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr,
             setup::net::default_connect_timeout(),
@@ -191,20 +179,16 @@ mod test {
 
         let (acceptor, _, _sender_pool) = svc.into_split();
 
-        handler.add(acceptor).unwrap();
+        let mut poll_handler = PollHandler::<_, _, TEST_MSG_FRAME_SIZE>::default();
+        poll_handler.add(acceptor).unwrap();
 
-        Builder::new()
-            .name("Svc-Blah".to_owned())
-            .spawn(move || loop {
-                handler.service_once().unwrap();
-            })
-            .unwrap();
+        poll_handler.spawn("Svc-Poll");
 
         let mut msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
         for _ in 0..4 {
             clt.send_busywait(&mut msg).unwrap();
         }
-        drop(clt);
+
         sleep(Duration::from_millis(200));
     }
 }
