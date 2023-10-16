@@ -1,5 +1,4 @@
 use std::{
-    fmt::Display,
     io::{self, Error},
     thread::Builder,
 };
@@ -8,21 +7,34 @@ use log::{info, log_enabled, Level};
 use mio::{Events, Poll, Token};
 use slab::Slab;
 
-use crate::{core::PollAcceptStatic, prelude::*};
-pub enum Serviceable<R: PollRecv, A: PollAcceptStatic<R>> {
+use crate::{core::PollAccept, prelude::*};
+pub enum Serviceable<R: PollRecv, A: PollAccept<R>> {
     Acceptor(A),
     Recver(R),
 }
 
-pub struct PollHandler<R: PollRecv, A: PollAcceptStatic<R>> {
+/// A wrapper struct to that will use a designated thread to handle all of its [PoolCltAcceptor]s events and resulting [CltRecver]s
+pub struct PollHandler<R: PollRecv, A: PollAccept<R>> {
     poll: Poll,
     serviceable: Slab<Serviceable<R, A>>,
     events: Events,
 }
-impl<R: PollRecv, A: PollAcceptStatic<R>> PollHandler<R, A> {
+
+impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
+    /// Create a new [PollHandler] with a given capacity of Events on a single poll call
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            poll: Poll::new().expect("Failed to create Poll"),
+            serviceable: Slab::new(),
+            events: Events::with_capacity(capacity),
+        }
+    }
+    /// Add a [PoolCltAcceptor] to the [PollHandler] to be polled for incoming connections. All resulting connections in the form
+    /// of [CltRecver] will also be serviced by this [PollHandler] instance.
     pub fn add(&mut self, acceptor: A) -> io::Result<()> {
         self.add_serviceable(Serviceable::Acceptor(acceptor))
     }
+    /// Spawns a new thread with a given name that will continuously poll for events on all of its [PoolCltAcceptor]s and resulting [CltRecver]s instances
     pub fn spawn(mut self, name: &str) {
         Builder::new()
             .name(format!("{}-Thread", name).to_owned())
@@ -60,7 +72,8 @@ impl<R: PollRecv, A: PollAcceptStatic<R>> PollHandler<R, A> {
             for event in self.events.iter() {
                 let token = event.token().into();
                 match self.serviceable.get_mut(token) {
-                    Some(Recver(recver)) => match recver.on_event() {
+                    // handle readable event
+                    Some(Recver(recver)) => match recver.on_readable_event() {
                         Ok(Completed) => {
                             at_least_one_completed = true;
                             continue;
@@ -84,6 +97,7 @@ impl<R: PollRecv, A: PollAcceptStatic<R>> PollHandler<R, A> {
                             self.serviceable.remove(token);
                         }
                     },
+                    // accept new connection and register it for READABLE events
                     Some(Acceptor(acceptor)) => match acceptor.poll_accept() {
                         Ok(AcceptStatus::Accepted(recver)) => {
                             let key = self.serviceable.insert(Recver(recver));
@@ -115,47 +129,41 @@ impl<R: PollRecv, A: PollAcceptStatic<R>> PollHandler<R, A> {
         Ok(())
     }
 }
-impl<R: PollRecv, A: PollAcceptStatic<R>> Default for PollHandler<R, A> {
+
+impl<R: PollRecv, A: PollAccept<R>> Default for PollHandler<R, A> {
     fn default() -> Self {
-        Self {
-            poll: Poll::new().expect("Failed to create Poll"),
-            serviceable: Slab::new(),
-            events: Events::with_capacity(1024),
-        }
+        Self::with_capacity(1024)
     }
 }
 
-pub struct PollAcceptDyn(Box<dyn PollAcceptStatic<Box<dyn PollRecv>>>);
-
-impl PollAcceptStatic<Box<dyn PollRecv>> for PollAcceptDyn {
-    fn poll_accept(&mut self) -> io::Result<AcceptStatus<Box<dyn PollRecv>>> {
-        self.0.poll_accept()
+impl PollAccept<Box<dyn PollRecv>> for Box<dyn PollAccept<Box<dyn PollRecv>>> {
+    fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollRecv>>, Error> {
+        self.as_mut().poll_accept()
     }
 }
-impl PollRecv for PollAcceptDyn {
-    fn on_event(&mut self) -> Result<PollEventStatus, Error> {
-        self.0.on_event()
-    }
-    fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
-        self.0.source()
-    }
-}
-impl Display for PollAcceptDyn {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl PollRecv for Box<dyn PollRecv> {
-    fn on_event(&mut self) -> Result<PollEventStatus, Error> {
-        self.as_mut().on_event()
+impl PollRecv for Box<dyn PollAccept<Box<dyn PollRecv>>> {
+    fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
+        self.as_mut().on_readable_event()
     }
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         self.as_mut().source()
     }
 }
 
-pub type PollHandlerDyn = PollHandler<Box<dyn PollRecv>, PollAcceptDyn>;
+impl PollRecv for Box<dyn PollRecv> {
+    fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
+        self.as_mut().on_readable_event()
+    }
+    fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
+        self.as_mut().source()
+    }
+}
+
+/// A [PollHandler] that can handle any [PollAccept] and [PollRecv] instances using dynamic dispatch at the cost of performance
+pub type PollHandlerDynamic =
+    PollHandler<Box<dyn PollRecv>, Box<dyn PollAccept<Box<dyn PollRecv>>>>;
+
+/// A [PollHandler] that will only handle [PollAccept] and [PollRecv] of same type
 pub type PollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> =
     PollHandler<CltRecver<M, C, MAX_MSG_SIZE>, PoolCltAcceptor<M, C, MAX_MSG_SIZE>>;
 
@@ -163,13 +171,12 @@ pub type PollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> =
 mod test {
     use std::{num::NonZeroUsize, thread::sleep, time::Duration};
 
-    use super::{PollAcceptDyn, PollHandlerDyn, PollHandlerStatic};
     use crate::prelude::*;
     use links_core::unittest::setup::{
         self,
         messenger::{SvcTestMessenger, TEST_MSG_FRAME_SIZE},
         messenger_old::CltTestMessenger,
-        model::{TestCltMsg, TestCltMsgDebug},
+        model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
     };
 
     #[test]
@@ -180,7 +187,7 @@ mod test {
 
         let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
             addr,
-            LoggerCallback::<SvcTestMessenger>::new_ref(), // TODO callback shall not be Arc, but an owned and create a wrap for arc
+            LoggerCallback::<SvcTestMessenger>::new_ref(),
             NonZeroUsize::new(1).unwrap(),
             Some("unittest/svc"),
         )
@@ -203,7 +210,7 @@ mod test {
         poll_handler.spawn("Svc-Poll");
 
         let mut msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
-        for _ in 0..4 {
+        for _ in 0..2 {
             clt.send_busywait(&mut msg).unwrap();
         }
 
@@ -214,37 +221,61 @@ mod test {
     fn test_poller_dynamic() {
         setup::log::configure_level(log::LevelFilter::Info);
 
-        let addr = setup::net::rand_avail_addr_port();
+        let addr1 = setup::net::rand_avail_addr_port();
+        let addr2 = setup::net::rand_avail_addr_port();
 
-        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
-            addr,
-            LoggerCallback::<SvcTestMessenger>::new_ref(), // TODO callback shall not be Arc, but an owned and create a wrap for arc
+        let svc1 = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
+            addr1,
+            LoggerCallback::<SvcTestMessenger>::new_ref(),
             NonZeroUsize::new(1).unwrap(),
-            Some("unittest/svc"),
+            Some("unittest/svc1"),
         )
         .unwrap();
 
-        let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-            addr,
+        let mut clt1 = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+            addr1,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
             DevNullCallback::<CltTestMessenger>::new_ref(),
-            Some("unittest/clt"),
+            Some("unittest/clt1"),
         )
         .unwrap();
 
-        let (acceptor, _, _sender_pool) = svc.into_split();
+        let svc2 = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
+            addr2,
+            LoggerCallback::<CltTestMessenger>::new_ref(),
+            NonZeroUsize::new(1).unwrap(),
+            Some("unittest/svc2"),
+        )
+        .unwrap();
 
-        let mut poll_handler = PollHandlerDyn::default();
-        poll_handler.add(PollAcceptDyn(Box::new(acceptor))).unwrap();
+        let mut clt2 = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+            addr2,
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
+            DevNullCallback::<SvcTestMessenger>::new_ref(),
+            Some("unittest/clt2"),
+        )
+        .unwrap();
+
+        let (acceptor1, _, _sender_pool_1) = svc1.into_split();
+        let (acceptor2, _, _sender_pool_2) = svc2.into_split();
+
+        let mut poll_handler = PollHandlerDynamic::default();
+        poll_handler.add(acceptor1.into()).unwrap();
+        poll_handler.add(acceptor2.into()).unwrap();
 
         poll_handler.spawn("Svc-Poll");
 
-        let mut msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
-        for _ in 0..4 {
-            clt.send_busywait(&mut msg).unwrap();
+        let mut msg1 = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Clt Messenger"));
+        let mut msg2 = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Svc Messenger "));
+        for _ in 0..2 {
+            clt1.send_busywait(&mut msg1).unwrap();
+            clt2.send_busywait(&mut msg2).unwrap();
         }
 
+        // TODO replace both callbacks with accumulator and test that messages arrived but first eliminate Arc from callback
+        // then remove this sleep
         sleep(Duration::from_millis(200));
     }
 }

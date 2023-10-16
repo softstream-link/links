@@ -52,7 +52,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PollRecv
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         Box::new(&mut self.msg_recver.frm_reader.stream_reader)
     }
-    fn on_event(&mut self) -> Result<PollEventStatus, Error> {
+    fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
         use RecvStatus::*;
         match self.recv()? {
             Completed(Some(_)) => Ok(PollEventStatus::Completed),

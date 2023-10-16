@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    core::PollAcceptStatic,
+    core::PollAccept,
     prelude::{
         AcceptNonBlocking, AcceptStatus, CallbackRecv, CallbackRecvSend, CallbackSend, Clt,
         CltRecver, CltSender, Messenger, PollEventStatus, PollRecv, PoolAcceptCltNonBlocking,
@@ -573,7 +573,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollRecv
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         Box::new(&mut self.acceptor.listener)
     }
-    fn on_event(&mut self) -> Result<PollEventStatus, Error> {
+    fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
         use PoolAcceptStatus::*;
         match self.pool_accept()? {
             Accepted => Ok(PollEventStatus::Completed),
@@ -582,7 +582,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollRecv
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    PollAcceptStatic<CltRecver<M, C, MAX_MSG_SIZE>> for PoolCltAcceptor<M, C, MAX_MSG_SIZE>
+    PollAccept<CltRecver<M, C, MAX_MSG_SIZE>> for PoolCltAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn poll_accept(&mut self) -> Result<AcceptStatus<CltRecver<M, C, MAX_MSG_SIZE>>, Error> {
         use AcceptStatus::{Accepted, WouldBlock};
@@ -592,8 +592,8 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
         }
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    PollAcceptStatic<Box<dyn PollRecv>> for PoolCltAcceptor<M, C, MAX_MSG_SIZE>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollAccept<Box<dyn PollRecv>>
+    for PoolCltAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollRecv>>, Error> {
         use AcceptStatus::{Accepted, WouldBlock};
@@ -613,6 +613,13 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
             asserted_short_name!("PoolCltAcceptor", Self),
             self.acceptor.con_id
         )
+    }
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
+    From<PoolCltAcceptor<M, C, MAX_MSG_SIZE>> for Box<dyn PollAccept< Box<dyn PollRecv> > >
+{
+    fn from(value: PoolCltAcceptor<M, C, MAX_MSG_SIZE>) -> Self {
+        Box::new(value)
     }
 }
 

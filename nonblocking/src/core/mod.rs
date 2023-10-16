@@ -324,9 +324,9 @@ pub enum PollEventStatus {
 
 pub trait PollRecv: Display+Send+'static {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source>;
-    fn on_event(&mut self) -> Result<PollEventStatus, Error>;
+    fn on_readable_event(&mut self) -> Result<PollEventStatus, Error>;
 }
 
-pub trait PollAcceptStatic<R: PollRecv>: PollRecv {
+pub trait PollAccept<R: PollRecv>: PollRecv {
     fn poll_accept(&mut self) -> Result<AcceptStatus<R>, Error>;
 }
