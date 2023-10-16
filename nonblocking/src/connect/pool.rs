@@ -5,10 +5,13 @@ use std::{
     sync::mpsc::{channel, Receiver, Sender},
 };
 
-use crate::prelude::{
-    AcceptNonBlocking, AcceptStatus, CallbackRecv, CallbackRecvSend, CallbackSend, Clt, CltRecver,
-    CltSender, Messenger, PollAccept, PollEventStatus, PollObject, PoolAcceptCltNonBlocking,
-    PoolAcceptStatus, RecvNonBlocking, RecvStatus, SendNonBlocking, SendStatus, SvcAcceptor,
+use crate::{
+    core::PollAcceptStatic,
+    prelude::{
+        AcceptNonBlocking, AcceptStatus, CallbackRecv, CallbackRecvSend, CallbackSend, Clt,
+        CltRecver, CltSender, Messenger, PollEventStatus, PollRecv, PoolAcceptCltNonBlocking,
+        PoolAcceptStatus, RecvNonBlocking, RecvStatus, SendNonBlocking, SendStatus, SvcAcceptor,
+    },
 };
 use links_core::{asserted_short_name, prelude::RoundRobinPool};
 use log::{info, log_enabled, warn, Level};
@@ -564,7 +567,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PoolAccept
         }
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollObject
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollRecv
     for PoolCltAcceptor<M, C, MAX_MSG_SIZE>
 {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
@@ -578,14 +581,25 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollObject
         }
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollAccept
-    for PoolCltAcceptor<M, C, MAX_MSG_SIZE>
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
+    PollAcceptStatic<CltRecver<M, C, MAX_MSG_SIZE>> for PoolCltAcceptor<M, C, MAX_MSG_SIZE>
 {
-    fn poll_accept(&mut self) -> Result<Option<Box<dyn PollObject>>, Error> {
+    fn poll_accept(&mut self) -> Result<AcceptStatus<CltRecver<M, C, MAX_MSG_SIZE>>, Error> {
         use AcceptStatus::{Accepted, WouldBlock};
         match self.accept_recver()? {
-            Accepted(recver) => Ok(Some(Box::new(recver))),
-            WouldBlock => Ok(None),
+            Accepted(recver) => Ok(Accepted(recver)),
+            WouldBlock => Ok(WouldBlock),
+        }
+    }
+}
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
+    PollAcceptStatic<Box<dyn PollRecv>> for PoolCltAcceptor<M, C, MAX_MSG_SIZE>
+{
+    fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollRecv>>, Error> {
+        use AcceptStatus::{Accepted, WouldBlock};
+        match self.accept_recver()? {
+            Accepted(recver) => Ok(Accepted(Box::new(recver))),
+            WouldBlock => Ok(WouldBlock),
         }
     }
 }
@@ -599,13 +613,6 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
             asserted_short_name!("PoolCltAcceptor", Self),
             self.acceptor.con_id
         )
-    }
-}
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    From<PoolCltAcceptor<M, C, MAX_MSG_SIZE>> for Box<dyn PollAccept>
-{
-    fn from(pool: PoolCltAcceptor<M, C, MAX_MSG_SIZE>) -> Self {
-        Box::new(pool)
     }
 }
 

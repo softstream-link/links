@@ -9,7 +9,7 @@ use std::{
 
 use crate::prelude::{
     into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, MessageRecver,
-    MessageSender, Messenger, PollEventStatus, PollObject, RecvNonBlocking, RecvStatus,
+    MessageSender, Messenger, PollEventStatus, PollRecv, RecvNonBlocking, RecvStatus,
     SendNonBlocking, SendNonBlockingNonMut, SendStatus,
 };
 use links_core::asserted_short_name;
@@ -46,7 +46,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvNonBlockin
         }
     }
 }
-impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PollObject
+impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PollRecv
     for CltRecver<M, C, MAX_MSG_SIZE>
 {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {

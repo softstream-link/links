@@ -1,9 +1,6 @@
 pub mod framer;
 pub mod messenger;
 
-pub mod poller;
-pub mod poller1;
-
 use std::{
     fmt::Display,
     io::Error,
@@ -325,10 +322,11 @@ pub enum PollEventStatus {
     Terminate,
 }
 
-pub trait PollObject: Display + Send {
+pub trait PollRecv: Display+Send+'static {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source>;
     fn on_event(&mut self) -> Result<PollEventStatus, Error>;
 }
-pub trait PollAccept: PollObject {
-    fn poll_accept(&mut self) -> Result<Option<Box<dyn PollObject>>, Error>;
+
+pub trait PollAcceptStatic<R: PollRecv>: PollRecv {
+    fn poll_accept(&mut self) -> Result<AcceptStatus<R>, Error>;
 }
