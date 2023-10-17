@@ -245,7 +245,7 @@ pub mod setup {
             fn serialize<const MMS: usize>(msg: &Self::SendT) -> Result<([u8; MMS], usize), Error> {
                 match to_bytes_stack::<MMS, Self::SendT>(msg) {
                     Ok(res) => Ok(res),
-                    Err(e) => Err(Error::new(std::io::ErrorKind::Other, e)),
+                    Err(e) => Err(Error::new(std::io::ErrorKind::Other, e.message)),
                 }
             }
 
@@ -253,7 +253,7 @@ pub mod setup {
             fn deserialize(frame: &[u8]) -> Result<Self::RecvT, Error> {
                 match from_slice::<Self::RecvT>(frame) {
                     Ok(res) => Ok(res),
-                    Err(e) => Err(Error::new(std::io::ErrorKind::Other, e)),
+                    Err(e) => Err(Error::new(std::io::ErrorKind::Other, e.message)),
                 }
             }
         }
@@ -264,7 +264,7 @@ pub mod setup {
             fn serialize<const MMS: usize>(msg: &Self::SendT) -> Result<([u8; MMS], usize), Error> {
                 match to_bytes_stack::<MMS, Self::SendT>(msg) {
                     Ok(res) => Ok(res),
-                    Err(e) => Err(Error::new(std::io::ErrorKind::Other, e)),
+                    Err(e) => Err(Error::new(std::io::ErrorKind::Other, e.message)),
                 }
             }
 
@@ -272,7 +272,7 @@ pub mod setup {
             fn deserialize(frame: &[u8]) -> Result<Self::RecvT, Error> {
                 match from_slice::<Self::RecvT>(frame) {
                     Ok(res) => Ok(res),
-                    Err(e) => Err(Error::new(std::io::ErrorKind::Other, e)),
+                    Err(e) => Err(Error::new(std::io::ErrorKind::Other,  e.message)),
                 }
             }
         }

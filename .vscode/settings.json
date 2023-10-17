@@ -2,9 +2,11 @@
     "cSpell.words": [
         "busywait",
         "byteserde",
+        "clbk",
         "clippy",
         "cltpool",
         "clts",
+        "devnull",
         "doctest",
         "endianess",
         "hbeat",

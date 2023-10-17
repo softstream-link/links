@@ -5,7 +5,7 @@ use std::{
 
 use log::{debug, error, info, log_enabled, trace, warn, Level};
 
-use crate::prelude::*;
+use crate::{asserted_short_name, prelude::*};
 
 use super::CallbackRecvSend;
 
@@ -45,8 +45,10 @@ impl<M: Messenger> Display for LoggerCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "LoggerCallback<recv: {}, send: {}>",
-            self.level_recv, self.level_send
+            "{}<recv: {}, send: {}>",
+            asserted_short_name!("LoggerCallback", Self),
+            self.level_recv,
+            self.level_send
         )
     }
 }
@@ -83,27 +85,26 @@ impl<M: Messenger> CallbackSend<M> for LoggerCallback<M> {
     }
 }
 
-// #[cfg(test)]
-// mod test {
+#[cfg(test)]
+#[cfg(feature = "unittest")]
+mod test {
 
-//     use crate::unittest::setup::messenger::CltTestMessenger;
-//     use links_core::unittest::setup;
-//     use links_testing::unittest::setup::model::*;
+    use crate::prelude::*;
+    use crate::unittest::setup::{self, messenger::CltTestMessenger, model::*};
+    use log::Level;
 
-//     use super::*;
+    #[test]
+    fn test_callback() {
+        setup::log::configure_level(log::LevelFilter::Trace);
+        let clbk = LoggerCallback::<CltTestMessenger>::with_level(Level::Trace, Level::Trace);
 
-//     #[test]
-//     fn test_callback() {
-//         setup::log::configure_level(log::LevelFilter::Trace);
-//         let clbk = LoggerCallbackRecv::<CltTestMessenger>::with_level(Level::Trace, Level::Trace);
-
-//         for _ in 0..2 {
-//             let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
-//             clbk.on_send(&ConId::default(), &msg);
-//         }
-//         for _ in 0..2 {
-//             let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"hello".as_slice()));
-//             clbk.on_recv(&ConId::default(), msg);
-//         }
-//     }
-// }
+        for _ in 0..2 {
+            let mut msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
+            clbk.on_send(&ConId::default(), &mut msg);
+        }
+        for _ in 0..2 {
+            let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"hello".as_slice()));
+            clbk.on_recv(&ConId::default(), &msg);
+        }
+    }
+}

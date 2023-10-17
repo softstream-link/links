@@ -1,6 +1,6 @@
 use std::{
     io::{self, Error},
-    thread::Builder,
+    thread::{Builder, JoinHandle},
 };
 
 use log::{info, log_enabled, Level};
@@ -35,13 +35,18 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
         self.add_serviceable(Serviceable::Acceptor(acceptor))
     }
     /// Spawns a new thread with a given name that will continuously poll for events on all of its [PoolCltAcceptor]s and resulting [CltRecver]s instances
-    pub fn spawn(mut self, name: &str) {
+    pub fn spawn(mut self, name: &str) -> JoinHandle<()> {
         Builder::new()
-            .name(format!("{}-Thread", name).to_owned())
+            .name(format!("{}", name).to_owned())
             .spawn(move || loop {
-                self.service().unwrap();
+                match self.service() {
+                    Ok(_) => {}
+                    Err(e) => {
+                        panic!("Error, service loop termination: {}", e);
+                    }
+                }
             })
-            .unwrap();
+            .expect(format!("Failed to start a poll thread name: '{}'", name).as_str())
     }
 
     fn add_serviceable(&mut self, recver: Serviceable<R, A>) -> io::Result<()> {
@@ -63,7 +68,7 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
     pub fn service(&mut self) -> Result<(), Error> {
         use PollEventStatus::*;
         use Serviceable::*;
-        self.poll.poll(&mut self.events, None).unwrap();
+        self.poll.poll(&mut self.events, None)?;
 
         let mut at_least_one_completed = true;
         while at_least_one_completed {

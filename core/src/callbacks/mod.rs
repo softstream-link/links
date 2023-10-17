@@ -17,13 +17,13 @@ pub trait CallbackSendRecvOld<M: MessengerOld>: Debug+Display+Send+Sync+'static 
     fn on_send(&self, con_id: &ConId, msg: &M::SendT);
 }
 
-pub trait CallbackRecv<M: Messenger>: Debug+Send+Sync+'static {
+pub trait CallbackRecv<M: Messenger>: Clone+Debug+Send+Sync+'static {
     /// Will be called after message is received and deserialized.
     fn on_recv(&self, con_id: &ConId, msg: &M::RecvT);
 }
 
 #[allow(unused_variables)]
-pub trait CallbackSend<M: Messenger>: Debug {
+pub trait CallbackSend<M: Messenger>: Clone+Debug {
     /// Will be called before message is serialized and sent and gives you ability to modify message.
     /// Default implementation does nothing and will be optimized away, only override if you need to modify message.
     #[inline(always)]

@@ -82,5 +82,5 @@ name = "02_clt2svcpool_nonblocking_busywait_example"
 required-features = ["full"]
 
 [[example]]
-name = "03_cltsplit2svcpool_nonblocking_busywait_example"
+name = "03_cltsplit2svcpoll_nonblocking_busywait_example"
 required-features = ["full"]
