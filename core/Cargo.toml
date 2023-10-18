@@ -9,7 +9,9 @@ edition = "2021"
 bytes = { workspace = true }
 
 log = { workspace = true }
-slab = { workspace = true }       # slab allocator
+slab = { workspace = true } # slab allocator
+
+chrono = { workspace = true }
 
 byteserde = { workspace = true } # TODO should be eliminated once trait Messenger is moved to tempalte serializization
 
@@ -18,7 +20,7 @@ byteserde_derive = { workspace = true, optional = true } # required to setup uni
 rand = { workspace = true, optional = true }             # required to setup unit test ports
 colored = { workspace = true, optional = true }          # required to setup logging
 env_logger = { workspace = true, optional = true }
-num-format = { workspace = true, optional = true}
+num-format = { workspace = true, optional = true }
 
 
 [dev-dependencies]

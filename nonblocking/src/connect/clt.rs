@@ -310,7 +310,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
 #[cfg(test)]
 mod test {
     use super::Clt;
-    use links_core::callbacks::logger_new::LoggerCallback;
+    use links_core::callbacks::logger::LoggerCallback;
     use links_core::unittest::setup::{
         self,
         framer::{CltTestMessenger, TEST_MSG_FRAME_SIZE},

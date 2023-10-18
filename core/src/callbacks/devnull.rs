@@ -3,61 +3,62 @@ use std::{
     sync::Arc,
 };
 
+use crate::{asserted_short_name, prelude::*};
 
-use crate::prelude::*;
-
-use super::CallbackSendRecvOld;
-
-#[derive(Debug)]
-pub struct DevNullCallbackOld<M: MessengerOld> {
-    p1: std::marker::PhantomData<M>,
+#[derive(Debug, Clone)]
+pub struct DevNullCallback<M: Messenger> {
+    phantom: std::marker::PhantomData<M>,
 }
-impl<M: MessengerOld> Default for DevNullCallbackOld<M> {
+impl<M: Messenger> Default for DevNullCallback<M> {
     fn default() -> Self {
         Self {
-            p1: std::marker::PhantomData,
+            phantom: std::marker::PhantomData,
         }
     }
 }
 
-impl<M: MessengerOld> DevNullCallbackOld<M> {
+impl<M: Messenger> DevNullCallback<M> {
     pub fn new_ref() -> Arc<Self> {
-        Arc::new(Self::default())
+        Self::default().into()
     }
 }
 
-impl<M: MessengerOld> Display for DevNullCallbackOld<M> {
+impl<M: Messenger> Display for DevNullCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "DevNullCallback")
+        write!(f, "{}", asserted_short_name!("DevNullCallback", Self))
     }
 }
-
-impl<M: MessengerOld> CallbackSendRecvOld<M> for DevNullCallbackOld<M> {
-    fn on_recv(&self, _con_id: &ConId, _msg: M::RecvT) {}
-    fn on_send(&self, _con_id: &ConId, _msg: &M::SendT) {}
+impl<M: Messenger> CallbackRecvSend<M> for DevNullCallback<M> {}
+impl<M: Messenger> CallbackRecv<M> for DevNullCallback<M> {
+    #[allow(unused_variables)]
+    #[inline(always)]
+    fn on_recv(&self, con_id: &ConId, msg: &<M as Messenger>::RecvT) {}
+}
+impl<M: Messenger> CallbackSend<M> for DevNullCallback<M> {
+    #[allow(unused_variables)]
+    #[inline(always)]
+    fn on_sent(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {}
 }
 
 #[cfg(test)]
+#[cfg(feature = "unittest")]
 mod test {
 
-    use crate::unittest::setup::messenger_old::CltTestMessenger;
-    use crate::unittest::setup::model::*;
-    use crate::unittest::setup;
-
-    use super::*;
+    use crate::prelude::*;
+    use crate::unittest::setup::{self, messenger::CltTestMessenger, model::*};
 
     #[test]
     fn test_callback() {
-        setup::log::configure();
-        let clbk = DevNullCallbackOld::<CltTestMessenger>::default();
+        setup::log::configure_level(log::LevelFilter::Trace);
+        let clbk = DevNullCallback::<CltTestMessenger>::new_ref();
 
         for _ in 0..2 {
-            let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
-            clbk.on_send(&ConId::default(), &msg);
+            let mut msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
+            clbk.on_send(&ConId::default(), &mut msg);
         }
         for _ in 0..2 {
             let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"hello".as_slice()));
-            clbk.on_recv(&ConId::default(), msg);
+            clbk.on_recv(&ConId::default(), &msg);
         }
     }
 }

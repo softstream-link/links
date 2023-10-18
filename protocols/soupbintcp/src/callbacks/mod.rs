@@ -17,14 +17,14 @@ pub type SBCltLoggerCallback<Messenger> = LoggerCallbackOld<Messenger>;
 pub type SBSvcLoggerCallback<Messenger> = LoggerCallbackOld<Messenger>;
 
 // chain
-pub type SBCltChainCallback<Messenger> = ChainCallback<Messenger>;
-pub type SBSvcChainCallback<Messenger> = ChainCallback<Messenger>;
+pub type SBCltChainCallback<Messenger> = ChainCallbackOld<Messenger>;
+pub type SBSvcChainCallback<Messenger> = ChainCallbackOld<Messenger>;
 
 // dev null
 pub type SBCltDevNullCallback<Messenger> = DevNullCallbackOld<Messenger>;
 pub type SBSvcDevNullCallback<Messenger> = DevNullCallbackOld<Messenger>;
 
 // counters
-pub type SBCltCounterCallback<Messenger> = CounterCallback<Messenger>;
-pub type SBSvcCounterCallback<Messenger> = CounterCallback<Messenger>;
+pub type SBCltCounterCallback<Messenger> = CounterCallbackOld<Messenger>;
+pub type SBSvcCounterCallback<Messenger> = CounterCallbackOld<Messenger>;
 

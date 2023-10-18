@@ -14,15 +14,11 @@ pub use crate::callbacks::CallbackSendRecvOld;
 // pub use crate::callbacks::eventstore::{
 //     Entry, EventStoreAsync, EventStoreCallback, EventStoreSync,
 // };
-pub use crate::callbacks::eventstore::{CallbackEvent, Dir, Entry};
-// // loggers
-pub use crate::callbacks::logger::LoggerCallbackOld;
-// // chain
-pub use crate::callbacks::chain::ChainCallback;
-// // dev null
-pub use crate::callbacks::devnull::DevNullCallbackOld;
-// // counters
-pub use crate::callbacks::counter::CounterCallback;
+pub use crate::callbacks::chain_old::ChainCallbackOld;
+pub use crate::callbacks::counter_old::CounterCallbackOld;
+pub use crate::callbacks::devnull_old::DevNullCallbackOld;
+pub use crate::callbacks::eventstore_old::{CallbackEvent, DirOld, EntryOld};
+pub use crate::callbacks::logger_old::LoggerCallbackOld;
 
 // counters
 pub use crate::core::counters::EventIntervalTracker;
@@ -32,10 +28,13 @@ pub use crate::callbacks::CallbackRecv;
 pub use crate::callbacks::CallbackRecvSend;
 pub use crate::callbacks::CallbackSend;
 
-pub use crate::callbacks::devnull_new::DevNullCallback;
-pub use crate::callbacks::logger_new::LoggerCallback;
+pub use crate::callbacks::chain::ChainCallback;
+pub use crate::callbacks::counter::CounterCallback;
+pub use crate::callbacks::devnull::DevNullCallback;
+pub use crate::callbacks::logger::LoggerCallback;
+pub use crate::callbacks::store::{Message, Storage, StoreCallback};
 
-
+// pub use crate::stores::canonical_store::{CanonicalEntry, CanonicalStore};
 
 #[cfg(feature = "unittest")]
 pub use num_format;

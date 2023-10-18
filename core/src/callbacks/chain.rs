@@ -3,19 +3,16 @@ use std::{
     sync::Arc,
 };
 
-use crate::core::MessengerOld;
-use crate::prelude::*;
+use crate::{asserted_short_name, prelude::*};
 
-use super::CallbackSendRecvOld;
-
-pub type Chain<M> = Vec<Arc<dyn CallbackSendRecvOld<M>>>;
+pub type Chain<M> = Vec<Arc<dyn CallbackRecvSend<M>>>;
 
 #[derive(Debug)]
-pub struct ChainCallback<M: MessengerOld> {
+pub struct ChainCallback<M: Messenger> {
     chain: Chain<M>,
 }
 
-impl<M: MessengerOld> ChainCallback<M> {
+impl<M: Messenger> ChainCallback<M> {
     pub fn new(chain: Chain<M>) -> Self {
         Self { chain }
     }
@@ -23,20 +20,43 @@ impl<M: MessengerOld> ChainCallback<M> {
         Arc::new(Self::new(chain))
     }
 }
-impl<M: MessengerOld> Display for ChainCallback<M> {
+impl<M: Messenger> Display for ChainCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ChainCallback<{}>", self.chain.len())
+        write!(
+            f,
+            "{}<{}, [{}]>",
+            asserted_short_name!("ChainCallback", Self),
+            self.chain.len(),
+            self.chain
+                .iter()
+                .map(|c| format!("{}", c))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }
-impl<M: MessengerOld> CallbackSendRecvOld<M> for ChainCallback<M> {
-    fn on_recv(&self, con_id: &ConId, msg: M::RecvT) {
+impl<M: Messenger> CallbackRecvSend<M> for ChainCallback<M> {}
+impl<M: Messenger> CallbackRecv<M> for ChainCallback<M> {
+    fn on_recv(&self, con_id: &ConId, msg: &<M as Messenger>::RecvT) {
         for callback in self.chain.iter() {
-            callback.on_recv(con_id, msg.clone());
+            callback.on_recv(con_id, &msg);
         }
     }
-    fn on_send(&self, con_id: &ConId, msg: &M::SendT) {
+}
+impl<M: Messenger> CallbackSend<M> for ChainCallback<M> {
+    fn on_fail(&self, con_id: &ConId, msg: &<M as Messenger>::SendT, e: &std::io::Error) {
+        for callback in self.chain.iter() {
+            callback.on_fail(con_id, msg, e);
+        }
+    }
+    fn on_send(&self, con_id: &ConId, msg: &mut <M as Messenger>::SendT) {
         for callback in self.chain.iter() {
             callback.on_send(con_id, msg);
+        }
+    }
+    fn on_sent(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {
+        for callback in self.chain.iter() {
+            callback.on_sent(con_id, msg);
         }
     }
 }
@@ -45,27 +65,28 @@ impl<M: MessengerOld> CallbackSendRecvOld<M> for ChainCallback<M> {
 #[cfg(feature = "unittest")]
 mod test {
 
-    use super::*;
-    use crate::unittest::setup::model::*;
-    use crate::unittest::setup::messenger_old::CltTestMessenger;
-    use crate::unittest::setup;
-    // use log::info;
-    use log::Level;
+    use crate::prelude::*;
+    use crate::unittest::setup::{self, messenger::CltTestMessenger, model::*};
+    use log::info;
+
     #[test]
     fn test_callback() {
         setup::log::configure();
-        // let store = EventStoreAsync::new_ref();
+        let counter = CounterCallback::new_ref();
 
-        let clbk = ChainCallback::new(vec![
-            LoggerCallbackOld::<CltTestMessenger>::new_ref(Level::Info, Level::Info),
-            // EventStoreCallback::<TestMsg, CltTestMessenger>::new_ref(store.clone()),
+        let clbk = ChainCallback::<CltTestMessenger>::new(vec![
+            LoggerCallback::new_ref(),
+            counter.clone(),
         ]);
 
         for _ in 0..2 {
             let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
-            clbk.on_send(&ConId::default(), &msg);
+            clbk.on_sent(&ConId::default(), &msg);
         }
-        // info!("store: {}", store);
-        // assert_eq!(store.len(), 2);
+        info!("clbk: {}", clbk);
+        assert_eq!(counter.sent(), 2);
+        assert_eq!(counter.send(), 0);
+        assert_eq!(counter.fail(), 0);
+        assert_eq!(counter.recv(), 0);
     }
 }
