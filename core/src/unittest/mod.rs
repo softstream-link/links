@@ -167,6 +167,26 @@ pub mod setup {
             Clt(TestCltMsg),
             Svc(TestSvcMsg),
         }
+        impl TestMsg {
+            pub fn try_into_clt(self) -> TestCltMsg {
+                match self {
+                    Self::Clt(msg) => msg,
+                    _ => panic!("Not a Clt message"),
+                }
+            }
+            pub fn try_into_svc(self) -> TestSvcMsg {
+                match self {
+                    Self::Svc(msg) => msg,
+                    _ => panic!("Not a Svc message"),
+                }
+            }
+            pub fn is_clt(&self) -> bool {
+                matches!(self, Self::Clt(_))
+            }
+            pub fn is_svc(&self) -> bool {
+                matches!(self, Self::Svc(_))
+            }
+        }
         impl From<TestCltMsg> for TestMsg {
             fn from(msg: TestCltMsg) -> Self {
                 Self::Clt(msg)
@@ -272,7 +292,7 @@ pub mod setup {
             fn deserialize(frame: &[u8]) -> Result<Self::RecvT, Error> {
                 match from_slice::<Self::RecvT>(frame) {
                     Ok(res) => Ok(res),
-                    Err(e) => Err(Error::new(std::io::ErrorKind::Other,  e.message)),
+                    Err(e) => Err(Error::new(std::io::ErrorKind::Other, e.message)),
                 }
             }
         }

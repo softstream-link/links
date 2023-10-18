@@ -31,25 +31,25 @@ pub trait Storage<T: Debug+Send+Sync>: Debug+Send+Sync {
 }
 
 #[derive(Debug)]
-pub struct StoreCallback<INTO: Debug+Send+Sync, M: Messenger, S: Storage<INTO>>
+pub struct StoreCallback<M: Messenger, INTO: Debug+Send+Sync, S: Storage<INTO>>
 where INTO: From<M::RecvT>+From<M::SendT>
 {
     storage: Arc<S>,
     phantom: std::marker::PhantomData<(INTO, M)>,
 }
-impl<INTO, M: Messenger, S: Storage<INTO>> StoreCallback<INTO, M, S>
+impl<INTO, M: Messenger, S: Storage<INTO>> StoreCallback<M, INTO, S>
 where INTO: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync
 {
-    pub fn new(storage: Arc<S>) -> Self {
-        Self {
+    pub fn new_ref(storage: Arc<S>) -> Arc<Self> {
+        Arc::new(Self {
             storage,
             phantom: std::marker::PhantomData,
-        }
+        })
     }
 }
-impl<INTO, M: Messenger, S: Storage<INTO>+'static> CallbackRecvSend<M> for StoreCallback<INTO, M, S> where INTO: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync+'static
+impl<M: Messenger, INTO, S: Storage<INTO>+'static> CallbackRecvSend<M> for StoreCallback<M, INTO, S> where INTO: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync+'static
 {}
-impl<INTO, M: Messenger, S: Storage<INTO>+'static> CallbackRecv<M> for StoreCallback<INTO, M, S>
+impl<M: Messenger, INTO, S: Storage<INTO>+'static> CallbackRecv<M> for StoreCallback<M, INTO, S>
 where INTO: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync+'static
 {
     #[inline(always)]
@@ -59,7 +59,7 @@ where INTO: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync+'static
             .on_msg(con_id.clone(), Message::Recv(INTO::from(msg)));
     }
 }
-impl<INTO, M: Messenger, S: Storage<INTO>> CallbackSend<M> for StoreCallback<INTO, M, S>
+impl<M: Messenger, INTO, S: Storage<INTO>> CallbackSend<M> for StoreCallback<M, INTO, S>
 where INTO: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync+'static
 {
     #[inline(always)]
@@ -69,7 +69,7 @@ where INTO: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync+'static
             .on_msg(con_id.clone(), Message::Sent(INTO::from(msg)));
     }
 }
-impl<INTO, M: Messenger, S: Storage<INTO>> Display for StoreCallback<INTO, M, S>
+impl<M: Messenger, INTO, S: Storage<INTO>> Display for StoreCallback<M, INTO, S>
 where INTO: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -117,7 +117,7 @@ mod test {
             .spawn({
                 let log_store = log_store.clone();
                 move || {
-                    let clbk = StoreCallback::<_, CltTestMessenger, _>::new(log_store);
+                    let clbk = StoreCallback::<CltTestMessenger, _, _>::new_ref(log_store);
                     let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
                     clbk.on_sent(&ConId::default(), &msg);
                     let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"hello".as_slice()));

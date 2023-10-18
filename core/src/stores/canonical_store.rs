@@ -1,5 +1,4 @@
 use std::{
-    any::type_name,
     fmt::{Debug, Display},
     sync::{Arc, Mutex, MutexGuard},
     thread::yield_now,
@@ -77,7 +76,7 @@ impl<T: Debug+Send+Sync+Clone> CanonicalEntryStore<T> {
                     .rev()
                     .find(|entry| entry.con_id.name() == con_id_name && predicate(*entry));
                 if opt.is_some() {
-                    return opt.cloned(); // because the resutl is behind a mutex must clone in order to return
+                    return opt.cloned(); // because the result is behind a mutex must clone in order to return
                 }
             }
 
@@ -221,8 +220,8 @@ mod test {
 
         // let event_store_async = EventStoreAsync::new_ref();
         let store = CanonicalEntryStore::<TestMsg>::new_ref();
-        let clt_clb = StoreCallback::<TestMsg, CltTestMessenger, _>::new(store.clone());
-        let svc_clb = StoreCallback::<TestMsg, SvcTestMessenger, _>::new(store.clone());
+        let clt_clb = StoreCallback::<CltTestMessenger, _, _>::new_ref(store.clone());
+        let svc_clb = StoreCallback::<SvcTestMessenger, _, _>::new_ref(store.clone());
         info!("clt_clb: {}", clt_clb);
         info!("svc_clb: {}", svc_clb);
 

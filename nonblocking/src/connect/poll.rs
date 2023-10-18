@@ -181,8 +181,9 @@ mod test {
         self,
         messenger::{SvcTestMessenger, TEST_MSG_FRAME_SIZE},
         messenger_old::CltTestMessenger,
-        model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
+        model::{TestCltMsg, TestCltMsgDebug, TestMsg, TestSvcMsg, TestSvcMsgDebug},
     };
+    use log::info;
 
     #[test]
     fn test_poller_static() {
@@ -229,9 +230,11 @@ mod test {
         let addr1 = setup::net::rand_avail_addr_port();
         let addr2 = setup::net::rand_avail_addr_port();
 
-        let svc1 = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
+        let store = CanonicalEntryStore::<TestMsg>::new_ref();
+
+        let svc1 = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
             addr1,
-            LoggerCallback::<SvcTestMessenger>::new_ref(),
+            StoreCallback::new_ref(store.clone()),
             NonZeroUsize::new(1).unwrap(),
             Some("unittest/svc1"),
         )
@@ -246,9 +249,9 @@ mod test {
         )
         .unwrap();
 
-        let svc2 = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
+        let svc2 = Svc::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
             addr2,
-            LoggerCallback::<CltTestMessenger>::new_ref(),
+            StoreCallback::new_ref(store.clone()),
             NonZeroUsize::new(1).unwrap(),
             Some("unittest/svc2"),
         )
@@ -274,13 +277,28 @@ mod test {
 
         let mut msg1 = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Clt Messenger"));
         let mut msg2 = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Svc Messenger "));
-        for _ in 0..2 {
-            clt1.send_busywait(&mut msg1).unwrap();
-            clt2.send_busywait(&mut msg2).unwrap();
-        }
 
-        // TODO replace both callbacks with accumulator and test that messages arrived but first eliminate Arc from callback
-        // then remove this sleep
-        sleep(Duration::from_millis(200));
+        clt1.send_busywait(&mut msg1).unwrap();
+        clt2.send_busywait(&mut msg2).unwrap();
+
+        let found = store
+            .find_recv(
+                "unittest/svc1",
+                |_x| true,
+                setup::net::optional_find_timeout(),
+            )
+            .unwrap();
+        info!("found: {:?}", found);
+
+        let found = store
+            .find_recv(
+                "unittest/svc2",
+                |_x| true,
+                setup::net::optional_find_timeout(),
+            )
+            .unwrap();
+        info!("found: {:?}", found);
+
+        info!("store: {}", store);
     }
 }

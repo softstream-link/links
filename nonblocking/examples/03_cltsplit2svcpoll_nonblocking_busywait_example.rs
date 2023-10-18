@@ -24,11 +24,13 @@ fn run() -> Result<(), Box<dyn Error>> {
     setup::log::configure_level(log::LevelFilter::Info);
 
     let addr = setup::net::rand_avail_addr_port();
-    const WRITE_N_TIMES: usize = 3;
+
+    let store = CanonicalEntryStore::<TestMsg>::new_ref();
+    // let clbk = StoreCallback::<SvcTestMessenger, _, _>::new_ref(store.clone());
 
     let svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
         addr,
-        LoggerCallback::<SvcTestMessenger>::new_ref(),
+        StoreCallback::new_ref(store.clone()),
         NonZeroUsize::new(1).unwrap(),
         Some("example/svc"),
     )
@@ -44,22 +46,26 @@ fn run() -> Result<(), Box<dyn Error>> {
         addr,
         setup::net::default_connect_timeout(),
         setup::net::default_connect_retry_after(),
-        DevNullCallback::<CltTestMessenger>::new_ref(),
+        DevNullCallback::new_ref(),
         Some("example/clt"),
     )
     .unwrap();
     info!("clt: {}", clt);
     let (_clt_recver, mut clt_sender) = clt.into_split();
 
-    let mut clt_send_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+    let mut clt_msgs = vec![
+        TestCltMsg::Login(TestCltMsgLoginReq::default()),
+        TestCltMsg::HBeat(TestHBeatMsgDebug::default()),
+        TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg")),
+    ];
 
     info!("clt_sender: {}", clt_sender);
 
     let now = Instant::now();
-    for _ in 0..WRITE_N_TIMES {
-        clt_sender.send_busywait(&mut clt_send_msg)?;
-        // let _msg = clt_recver.recv_busywait().unwrap().unwrap();
+    for msg in clt_msgs.iter_mut() {
+        clt_sender.send_busywait(msg)?;
     }
+
     let elapsed = now.elapsed();
 
     drop(clt_sender);
@@ -68,14 +74,25 @@ fn run() -> Result<(), Box<dyn Error>> {
     let msg_recv_count = 0; //svc_jh.join().unwrap();
     info!(
         "msg_send_count: {}, msg_recv_count: {} , per/write {:?}, total: {:?}",
-        fmt_num!(WRITE_N_TIMES),
-        fmt_num!(msg_recv_count),
-        elapsed / WRITE_N_TIMES as u32,
+        fmt_num!(clt_msgs.len()),
+        fmt_num!(msg_recv_count), // TODO add counter on the way back
+        elapsed / clt_msgs.len() as u32,
         elapsed
     );
-    // TODO complete assert once a Arc callback is removed
-    // assert_eq!(msg_recv_count, WRITE_N_TIMES + 1); // +1 for the fist message to connect
 
+    let found = store
+        .find_recv(
+            "example/svc",
+            |msg| matches!(msg, TestMsg::Clt(TestCltMsg::Dbg(TestCltMsgDebug{text, ..})) if text == &b"Hello Frm Client Msg".as_slice().into()),
+            setup::net::optional_find_timeout(),
+        )
+        .unwrap();
+
+    info!("found: {:?}", found);
+    assert_eq!(found.try_into_clt(), clt_msgs[2]);
+
+    info!("store: {}", store);
+    assert_eq!(store.len(), clt_msgs.len());
 
     Ok(())
 }

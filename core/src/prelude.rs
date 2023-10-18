@@ -34,7 +34,7 @@ pub use crate::callbacks::devnull::DevNullCallback;
 pub use crate::callbacks::logger::LoggerCallback;
 pub use crate::callbacks::store::{Message, Storage, StoreCallback};
 
-// pub use crate::stores::canonical_store::{CanonicalEntry, CanonicalStore};
+pub use crate::stores::canonical_store::{CanonicalEntry, CanonicalEntryStore};
 
 #[cfg(feature = "unittest")]
 pub use num_format;
