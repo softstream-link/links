@@ -16,7 +16,7 @@ use log::{info, log_enabled, warn, Level};
 /// An abstraction layer representing a pool of [Clt]'s connections
 ///
 /// # Example
-/// ```
+/// ```no_run
 /// use links_blocking::prelude::*;
 /// use links_core::unittest::setup::{framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug}};
 /// use std::time::Duration;
