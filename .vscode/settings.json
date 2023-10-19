@@ -8,6 +8,8 @@
         "cltpool",
         "clts",
         "conid",
+        "devcontainer",
+        "devcontainers",
         "devnull",
         "doctest",
         "endianess",
