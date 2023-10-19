@@ -41,6 +41,7 @@ impl PoolAcceptStatus {
 }
 pub trait PoolAcceptCltNonBlocking {
     fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error>;
+    /// Will call [Self::pool_accept] until it returns [PoolAcceptStatus::Accepted] or [PoolAcceptStatus::WouldBlock] after the timeout.
     fn pool_accept_busywait_timeout(&mut self, timeout: Duration) -> Result<PoolAcceptStatus, Error> {
         use PoolAcceptStatus::{Accepted, WouldBlock};
         let start = Instant::now();
@@ -55,6 +56,7 @@ pub trait PoolAcceptCltNonBlocking {
             }
         }
     }
+    /// Will call [Self::pool_accept] until it returns [PoolAcceptStatus::Accepted]
     fn pool_accept_busywait(&mut self) -> Result<(), Error> {
         use PoolAcceptStatus::{Accepted, WouldBlock};
         loop {
@@ -238,15 +240,17 @@ pub trait SendNonBlocking<M: Messenger> {
     fn send(&mut self, msg: &mut M::SendT) -> Result<SendStatus, Error>;
 
     /// Will call [Self::send] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
+    /// while propagating all errors from [Self::send] 
     #[inline(always)]
     fn send_busywait_timeout(&mut self, msg: &mut M::SendT, timeout: Duration) -> Result<SendStatus, Error> {
+        use SendStatus::{Completed, WouldBlock};
         let start = Instant::now();
         loop {
             match self.send(msg)? {
-                SendStatus::Completed => return Ok(SendStatus::Completed),
-                SendStatus::WouldBlock => {
+                Completed => return Ok(Completed),
+                WouldBlock => {
                     if start.elapsed() > timeout {
-                        return Ok(SendStatus::WouldBlock);
+                        return Ok(WouldBlock);
                     }
                 }
             }

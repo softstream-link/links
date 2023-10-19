@@ -61,6 +61,7 @@ impl<T: Debug+Display> RoundRobinPool<T> {
         }
         None
     }
+    /// Adds an element to the pool or returns an [Err] if the pool is at max capacity. Error message will include capacity and element being dropped.
     #[inline(always)]
     pub fn add(&mut self, element: T) -> Result<(), Error> {
         if !self.has_capacity() {

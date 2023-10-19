@@ -65,7 +65,6 @@ fn run() -> Result<(), Box<dyn Error>> {
         clt_sender.send_busywait(msg)?;
     }
 
-    // svc_sender.pool_accept_busywait()?;
     for msg in svc_msgs.iter_mut() {
         svc_sender.send_busywait(msg)?;
     }

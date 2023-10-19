@@ -256,19 +256,26 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvNonBlockin
         use RecvStatus::{Completed, WouldBlock};
         match self.recvers.round_robin() {
             Some(clt) => match clt.recv() {
-                Ok(Completed(Some(msg))) => Ok(Completed(Some(msg))),
-                Ok(WouldBlock) => Ok(WouldBlock),
+                Ok(Completed(Some(msg))) => {
+                    self.pool_accept()?;
+                    Ok(Completed(Some(msg)))
+                }
+                Ok(WouldBlock) => {
+                    self.pool_accept()?;
+                    Ok(WouldBlock)
+                }
                 Ok(Completed(None)) => {
                     let recver = self.recvers.remove_last_used();
                     if log_enabled!(Level::Info) {
                         info!("recver: {} is dead and will be dropped, connection reset by peer. recvers: {}", recver, self);
                     }
+                    self.pool_accept()?;
                     Ok(Completed(None))
                 }
                 Err(e) => {
                     let recver = self.recvers.remove_last_used();
-                    let msg = format!("recver: {} is dead and will be dropped. recvers: {} error: ({}). ", recver, self, e,);
-                    Err(Error::new(e.kind(), msg))
+                    self.pool_accept()?;
+                    Err(Error::new(e.kind(), format!("recver: {} is dead and will be dropped. recvers: {} error: ({}). ", recver, self, e,)))
                 }
             },
             None => {
@@ -276,7 +283,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvNonBlockin
                 if let PoolAcceptStatus::Accepted = self.pool_accept()? {
                     self.recv()
                 } else {
-                    Err(Error::new(ErrorKind::NotConnected, "Not Connected, 0 recvers available in the pool"))
+                    Ok(WouldBlock)
                 }
             }
         }
@@ -355,12 +362,15 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> AcceptNonBlock
     }
 }
 impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> PoolAcceptCltNonBlocking for CltSendersPool<M, C, MAX_MSG_SIZE> {
+    /// Will `once ` interrogate internal `channel` for a new [CltSender] and add it to the connection pool
+    /// If the pool is at capacity the [CltSender] will be dropped and [Ok(PoolAcceptStatus::WouldBlock)] returned
+    #[inline(always)]
     fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error> {
         use AcceptStatus::{Accepted, WouldBlock};
         let sender = self.accept()?;
         match sender {
             Accepted(sender) => match self.senders.add(sender) {
-                Ok(_t) => Ok(PoolAcceptStatus::Accepted),
+                Ok(_) => Ok(PoolAcceptStatus::Accepted),
                 Err(e) => {
                     warn!("Failed to add sender to pool, {}", e);
                     Ok(PoolAcceptStatus::WouldBlock)
@@ -380,14 +390,25 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlockin
     /// In the event there are no receivers in the channel or the pool the method will return an [Error] where `e.kind() == ErrorKind::NotConnected`
     #[inline(always)]
     fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
+        // 1. get next
+        // 1.a. if Some()
+        //  2.a. if Ok run pool_accept once and return Ok
+        //  2.b. if Err remove it, run pool_accept once, and return Err
+        // 1.b. if None
+        //  2.a. run pool_accept once and try send again
         match self.senders.round_robin() {
             Some(clt) => match clt.send(msg) {
-                Ok(s) => Ok(s),
+                Ok(s) => {
+                    self.pool_accept()?;
+                    Ok(s)
+                }
                 Err(e) => {
                     let sender = self.senders.remove_last_used();
-                    let msg = format!("sender: {} is dead and will be dropped, senders: {}.  error: ({})", sender, self.senders, e);
-
-                    Err(Error::new(e.kind(), msg))
+                    self.pool_accept()?;
+                    Err(Error::new(
+                        e.kind(),
+                        format!("sender: {} is dead and will be dropped, senders: {}.  error: ({})", sender, self.senders, e),
+                    ))
                 }
             },
             None => {
@@ -395,7 +416,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlockin
                 if let PoolAcceptStatus::Accepted = self.pool_accept()? {
                     self.send(msg)
                 } else {
-                    Err(Error::new(ErrorKind::NotConnected, "Not Connected, 0 senders available in the pool"))
+                    Ok(SendStatus::WouldBlock)
                 }
             }
         }
