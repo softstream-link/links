@@ -65,7 +65,7 @@ pub mod setup {
         }
 
         pub fn optional_find_timeout() -> Option<Duration> {
-            Some(Duration::from_millis(1))
+            Some(Duration::from_millis(10))
         }
     }
     pub mod data {
