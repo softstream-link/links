@@ -57,10 +57,7 @@ impl FrameReader {
                 if self.buffer.is_empty() {
                     Ok(RecvStatus::Completed(None))
                 } else {
-                    let msg = format!(
-                        "FrameReader::read_frame connection reset by peer, residual buf:\n{:x?}",
-                        &self.buffer[..]
-                    );
+                    let msg = format!("FrameReader::read_frame connection reset by peer, residual buf:\n{:x?}", &self.buffer[..]);
                     Err(Error::new(ErrorKind::ConnectionReset, msg))
                 }
             }
@@ -75,11 +72,7 @@ impl FrameReader {
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(RecvStatus::WouldBlock),
             Err(e) => {
                 self.shutdown(Shutdown::Write, "read_frame error"); // remember to shutdown on both exception and on EOF
-                let msg = format!(
-                    "rameReader::read_frame caused by: [{}] residual buf:\n{:?}",
-                    e,
-                    &self.buffer[..]
-                );
+                let msg = format!("rameReader::read_frame caused by: [{}] residual buf:\n{:?}", e, &self.buffer[..]);
 
                 Err(Error::new(e.kind(), msg))
             }
@@ -93,16 +86,10 @@ impl FrameReader {
                 println!("{:?}::shutdown how: {:?}, reason: {}", self, how, reason);
             }
             Err(e) if e.kind() == ErrorKind::NotConnected => {
-                println!(
-                    "{:?}::shutdown while diconnected how: {:?}, reason: {}",
-                    self, how, reason
-                );
+                println!("{:?}::shutdown while diconnected how: {:?}, reason: {}", self, how, reason);
             }
             Err(e) => {
-                panic!(
-                    "{:?}::shutdown how: {:?}, reason: {}, caused by: [{}]",
-                    self, how, reason, e
-                );
+                panic!("{:?}::shutdown how: {:?}, reason: {}, caused by: [{}]", self, how, reason, e);
             }
         }
     }
@@ -121,9 +108,7 @@ pub struct FrameWriter {
 }
 impl FrameWriter {
     pub fn new(stream: mio::net::TcpStream) -> Self {
-        Self {
-            stream_writer: stream,
-        }
+        Self { stream_writer: stream }
     }
     #[inline]
     pub fn write_frame(&mut self, bytes: &[u8]) -> Result<SendStatus, Error> {
@@ -155,12 +140,7 @@ impl FrameWriter {
                 }
                 Err(e) => {
                     self.shutdown(Shutdown::Both, "write_frame error"); // remember to shutdown on both exception and on EOF
-                    let msg = format!(
-                        "FrameWriter::writer_frame caused by: [{}], residual len: {}\n{:?}",
-                        e,
-                        residual.len(),
-                        residual
-                    );
+                    let msg = format!("FrameWriter::writer_frame caused by: [{}], residual len: {}\n{:?}", e, residual.len(), residual);
                     return Err(Error::new(e.kind(), msg));
                 }
             }
@@ -174,16 +154,10 @@ impl FrameWriter {
                 println!("{:?}::shutdown how: {:?}, reason: {}", self, how, reason);
             }
             Err(e) if e.kind() == ErrorKind::NotConnected => {
-                println!(
-                    "{:?}::shutdown while disconnected how: {:?}, reason: {}",
-                    self, how, reason
-                );
+                println!("{:?}::shutdown while disconnected how: {:?}, reason: {}", self, how, reason);
             }
             Err(e) => {
-                panic!(
-                    "{:?}::shutdown how: {:?}, reason: {}, caused by: [{}]",
-                    self, how, reason, e
-                );
+                panic!("{:?}::shutdown how: {:?}, reason: {}, caused by: [{}]", self, how, reason, e);
             }
         }
     }
@@ -194,21 +168,11 @@ impl Drop for FrameWriter {
     }
 }
 pub fn into_split_framer(stream: std::net::TcpStream) -> (FrameReader, FrameWriter) {
-    stream
-        .set_nonblocking(true)
-        .expect("Failed to set_nonblocking on TcpStream");
+    stream.set_nonblocking(true).expect("Failed to set_nonblocking on TcpStream");
 
-    let (reader, writer) = (
-        stream
-            .try_clone()
-            .expect("Failed to try_clone TcpStream for FrameReader"),
-        stream,
-    );
+    let (reader, writer) = (stream.try_clone().expect("Failed to try_clone TcpStream for FrameReader"), stream);
 
-    let (reader, writer) = (
-        mio::net::TcpStream::from_std(reader),
-        mio::net::TcpStream::from_std(writer),
-    );
+    let (reader, writer) = (mio::net::TcpStream::from_std(reader), mio::net::TcpStream::from_std(writer));
 
     (FrameReader::new(reader), FrameWriter::new(writer))
 }

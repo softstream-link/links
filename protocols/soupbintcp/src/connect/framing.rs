@@ -56,12 +56,7 @@ mod test {
             // info!("msg_inp {:?}", msg);
             let len = ser.len();
             let _ = ser.serialize(msg).unwrap();
-            info!(
-                "msg.len() {}, \tser.len(): {},\tmsg_inp {:?}",
-                ser.len() - len,
-                ser.len(),
-                msg
-            );
+            info!("msg.len() {}, \tser.len(): {},\tmsg_inp {:?}", ser.len() - len, ser.len(), msg);
         }
         info!("ser: {:#x}", ser);
 
@@ -79,12 +74,7 @@ mod test {
                 Some(frame) => {
                     let des = &mut ByteDeserializerSlice::new(&frame[..]);
                     let msg = SBSvcMsg::byte_deserialize(des).unwrap();
-                    info!(
-                        "frame.len(): {}, \tbyte.len(): {}, msg_out {:?}",
-                        frame.len(),
-                        len,
-                        msg
-                    );
+                    info!("frame.len(): {}, \tbyte.len(): {}, msg_out {:?}", frame.len(), len, msg);
                     msg_out.push(msg);
                 }
                 None => {

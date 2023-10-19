@@ -28,19 +28,10 @@ fn run() -> Result<(), Box<dyn Error>> {
     let svc_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
-                addr,
-                DevNullCallback::<SvcTestMessenger>::new_ref(),
-                NonZeroUsize::new(1).unwrap(),
-                Some("example/clt"),
-            )
-            .unwrap();
+            let svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::<SvcTestMessenger>::new_ref(), NonZeroUsize::new(1).unwrap(), Some("example/clt")).unwrap();
 
             info!("svc: {}", svc);
-            let mut clt = svc
-                .accept_busywait_timeout(setup::net::default_connect_timeout())
-                .unwrap()
-                .unwrap();
+            let mut clt = svc.accept_busywait_timeout(setup::net::default_connect_timeout()).unwrap().unwrap();
             info!("clt: {}", clt);
 
             let mut clt_send_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Client Msg"));

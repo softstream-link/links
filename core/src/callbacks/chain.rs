@@ -27,11 +27,7 @@ impl<M: Messenger> Display for ChainCallback<M> {
             "{}<{}, [{}]>",
             asserted_short_name!("ChainCallback", Self),
             self.chain.len(),
-            self.chain
-                .iter()
-                .map(|c| format!("{}", c))
-                .collect::<Vec<_>>()
-                .join(", ")
+            self.chain.iter().map(|c| format!("{}", c)).collect::<Vec<_>>().join(", ")
         )
     }
 }
@@ -74,10 +70,7 @@ mod test {
         setup::log::configure();
         let counter = CounterCallback::new_ref();
 
-        let clbk = ChainCallback::<CltTestMessenger>::new(vec![
-            LoggerCallback::new_ref(),
-            counter.clone(),
-        ]);
+        let clbk = ChainCallback::<CltTestMessenger>::new(vec![LoggerCallback::new_ref(), counter.clone()]);
 
         for _ in 0..2 {
             let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));

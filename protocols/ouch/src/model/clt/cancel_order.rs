@@ -10,11 +10,11 @@ pub struct CancelOrder {
     pub quantity: Quantity,
 }
 pub trait CancelableOrder {
-    /// Copy 
+    /// Copy
     fn user_ref_number(&self) -> UserRefNumber;
-    /// Copy 
+    /// Copy
     fn quantity(&self) -> Quantity;
-    /// Copy 
+    /// Copy
     fn cl_ord_id(&self) -> CltOrderId;
 }
 impl<T: CancelableOrder> From<&T> for CancelOrder {
@@ -39,9 +39,9 @@ impl CancelOrder {
 #[cfg(test)]
 mod test {
     use super::*;
+    use byteserde::prelude::*;
     use links_core::unittest::setup;
     use log::info;
-    use byteserde::prelude::*;
 
     #[test]
     fn test_msg() {

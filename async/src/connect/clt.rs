@@ -50,23 +50,11 @@ impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> CltSenderAsync<P,
         &self.con_id
     }
 }
-impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display
-    for CltSenderAsync<P, C, MMS>
-{
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display for CltSenderAsync<P, C, MMS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg_name = type_name::<P>().split("::").last().unwrap_or("Unknown");
-        let clb_name = type_name::<C>()
-            .split('<')
-            .next()
-            .unwrap_or("Unknown")
-            .split("::")
-            .last()
-            .unwrap_or("Unknown");
-        write!(
-            f,
-            "{} CltSender<{}, {}, {}>",
-            self.con_id, msg_name, clb_name, MMS
-        )
+        let clb_name = type_name::<C>().split('<').next().unwrap_or("Unknown").split("::").last().unwrap_or("Unknown");
+        write!(f, "{} CltSender<{}, {}, {}>", self.con_id, msg_name, clb_name, MMS)
     }
 }
 impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Drop for CltSenderAsync<P, C, MMS> {
@@ -95,9 +83,7 @@ impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> CltSenderSync<P, 
         self.clt.con_id()
     }
 }
-impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display
-    for CltSenderSync<P, C, MMS>
-{
+impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display for CltSenderSync<P, C, MMS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.clt)
     }
@@ -121,14 +107,7 @@ impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Clt<P, C, MMS> {
         name: Option<&str>,
         runtime: Arc<Runtime>,
     ) -> Result<CltSenderSync<P, C, MMS>, Box<dyn Error+Send+Sync>> {
-        let clt = runtime.block_on(Self::connect_async(
-            addr,
-            timeout,
-            retry_after,
-            callback,
-            protocol,
-            name,
-        ))?;
+        let clt = runtime.block_on(Self::connect_async(addr, timeout, retry_after, callback, protocol, name))?;
         Ok(CltSenderSync { clt, runtime })
     }
     pub async fn connect_async(
@@ -163,15 +142,8 @@ impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Clt<P, C, MMS> {
         }
         Err(format!("{:?} connect timeout: {:?}", con_id, timeout).into())
     }
-    pub(crate) async fn from_stream(
-        stream: TcpStream,
-        callback: Arc<C>,
-        protocol: Option<Arc<P>>,
-        con_id: ConId,
-    ) -> Result<CltSenderAsync<P, C, MMS>, Box<dyn Error+Send+Sync>> {
-        stream
-            .set_nodelay(true)
-            .expect("failed to set_nodelay=true");
+    pub(crate) async fn from_stream(stream: TcpStream, callback: Arc<C>, protocol: Option<Arc<P>>, con_id: ConId) -> Result<CltSenderAsync<P, C, MMS>, Box<dyn Error+Send+Sync>> {
+        stream.set_nodelay(true).expect("failed to set_nodelay=true");
         stream.set_linger(None).expect("failed to set_linger=None");
         let (sender, recver) = into_split_messenger::<P, MMS, P>(stream, con_id.clone());
 
@@ -294,11 +266,7 @@ impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Display for Clt<P
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let hdl_name = type_name::<P>().split("::").last().unwrap_or("Unknown");
         let clb_name = type_name::<C>().split("::").last().unwrap_or("Unknown");
-        write!(
-            f,
-            "{} Clt<{}, {}, {}>",
-            self.con_id, hdl_name, clb_name, MMS
-        )
+        write!(f, "{} Clt<{}, {}, {}>", self.con_id, hdl_name, clb_name, MMS)
     }
 }
 impl<P: Protocol, C: CallbackSendRecvOld<P>, const MMS: usize> Drop for Clt<P, C, MMS> {

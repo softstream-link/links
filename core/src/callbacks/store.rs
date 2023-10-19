@@ -41,16 +41,14 @@ where INTO: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync
         })
     }
 }
-impl<M: Messenger, INTO, S: Storage<INTO>+'static> CallbackRecvSend<M> for StoreCallback<M, INTO, S> where INTO: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync+'static
-{}
+impl<M: Messenger, INTO, S: Storage<INTO>+'static> CallbackRecvSend<M> for StoreCallback<M, INTO, S> where INTO: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync+'static {}
 impl<M: Messenger, INTO, S: Storage<INTO>+'static> CallbackRecv<M> for StoreCallback<M, INTO, S>
 where INTO: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync+'static
 {
     #[inline(always)]
     fn on_recv(&self, con_id: &ConId, msg: &<M as Messenger>::RecvT) {
         let msg = msg.clone();
-        self.storage
-            .on_msg(con_id.clone(), Message::Recv(INTO::from(msg)));
+        self.storage.on_msg(con_id.clone(), Message::Recv(INTO::from(msg)));
     }
 }
 impl<M: Messenger, INTO, S: Storage<INTO>> CallbackSend<M> for StoreCallback<M, INTO, S>
@@ -59,20 +57,14 @@ where INTO: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync+'static
     #[inline(always)]
     fn on_sent(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {
         let msg = msg.clone();
-        self.storage
-            .on_msg(con_id.clone(), Message::Sent(INTO::from(msg)));
+        self.storage.on_msg(con_id.clone(), Message::Sent(INTO::from(msg)));
     }
 }
 impl<M: Messenger, INTO, S: Storage<INTO>> Display for StoreCallback<M, INTO, S>
 where INTO: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}<{}>",
-            asserted_short_name!("StoreCallback", Self),
-            short_type_name::<INTO>()
-        )
+        write!(f, "{}<{}>", asserted_short_name!("StoreCallback", Self), short_type_name::<INTO>())
     }
 }
 

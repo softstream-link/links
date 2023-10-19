@@ -10,7 +10,4 @@ pub use crate::connect::{
     svc::{Svc, SvcAcceptor},
 };
 
-pub use links_core::prelude::{
-    CallbackRecv, CallbackRecvSend, CallbackSend, ConId, DevNullCallback, FixedSizeFramer, Framer,
-    LoggerCallback, Messenger,
-};
+pub use links_core::prelude::{CallbackRecv, CallbackRecvSend, CallbackSend, ConId, DevNullCallback, FixedSizeFramer, Framer, LoggerCallback, Messenger};

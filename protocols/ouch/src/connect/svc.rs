@@ -16,21 +16,9 @@ mod test {
     #[tokio::test]
     async fn test_svc_not_connected() {
         setup::log::configure();
-        let prcl = OuchSvcAdminProtocol::new_ref(
-            b"abcdef".into(),
-            b"++++++++++".into(),
-            Default::default(),
-            Default::default(),
-        );
+        let prcl = OuchSvcAdminProtocol::new_ref(b"abcdef".into(), b"++++++++++".into(), Default::default(), Default::default());
         let clbk = OuchSvcLoggerCallback::new_ref(Level::Info, Level::Info);
-        let svc = OuchSvc::bind_async(
-            setup::net::rand_avail_addr_port(),
-            clbk,
-            Some(prcl),
-            Some("ouch5/venue"),
-        )
-        .await
-        .unwrap();
+        let svc = OuchSvc::bind_async(setup::net::rand_avail_addr_port(), clbk, Some(prcl), Some("ouch5/venue")).await.unwrap();
         info!("{}", svc);
         assert!(!svc.is_connected(None).await);
         assert!(!svc.is_accepted().await);
@@ -41,21 +29,9 @@ mod test {
         setup::log::configure_level(log::LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
         // CONFIGURE
-        let svc_prcl = OuchSvcAdminProtocol::new_ref(
-            b"abcdef".into(),
-            b"++++++++++".into(),
-            Default::default(),
-            1.,
-        );
+        let svc_prcl = OuchSvcAdminProtocol::new_ref(b"abcdef".into(), b"++++++++++".into(), Default::default(), 1.);
         let clt_hbeat_inverval = Duration::from_millis(200);
-        let clt_prcl = OuchCltAdminProtocol::new_ref(
-            b"abcdef".into(),
-            b"++++++++++".into(),
-            Default::default(),
-            Default::default(),
-            clt_hbeat_inverval,
-            1.,
-        );
+        let clt_prcl = OuchCltAdminProtocol::new_ref(b"abcdef".into(), b"++++++++++".into(), Default::default(), Default::default(), clt_hbeat_inverval, 1.);
         // let svc_clbk = OuchSvcLoggerCallback::new_ref(Level::Info, Level::Debug);
         // let clt_clbk = OuchCltLoggerCallback::new_ref(Level::Info, Level::Debug);
 
@@ -64,9 +40,7 @@ mod test {
         let clt_clbk = OuchCltEvenStoreCallback::new_ref(Arc::clone(&event_store));
 
         // START
-        let svc = OuchSvc::bind_async(addr, svc_clbk, Some(svc_prcl), Some("ouch5/venue"))
-            .await
-            .unwrap();
+        let svc = OuchSvc::bind_async(addr, svc_clbk, Some(svc_prcl), Some("ouch5/venue")).await.unwrap();
 
         info!("STARTED {}", svc);
         let clt = OuchClt::connect_async(

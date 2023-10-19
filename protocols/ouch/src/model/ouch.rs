@@ -1,8 +1,6 @@
 use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 use derive_more::TryInto;
-use links_soupbintcp_async::prelude::{
-    SBCltMsg, SBMsg, SBSvcMsg, MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG,
-};
+use links_soupbintcp_async::prelude::{SBCltMsg, SBMsg, SBSvcMsg, MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG};
 
 use crate::prelude::*;
 
@@ -26,12 +24,10 @@ pub enum OuchCltPld {
 }
 
 pub const MAX_FRAME_SIZE_OUCH_SVC_PLD: usize = 72; // TODO revise Options fields and remeasure
-pub const MAX_FRAME_SIZE_OUCH_SVC_MSG: usize =
-    MAX_FRAME_SIZE_OUCH_SVC_PLD + MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
+pub const MAX_FRAME_SIZE_OUCH_SVC_MSG: usize = MAX_FRAME_SIZE_OUCH_SVC_PLD + MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
 
 pub const MAX_FRAME_SIZE_OUCH_CLT_PLD: usize = 51; // TODO revise Options fields and remeasure
-pub const MAX_FRAME_SIZE_OUCH_CLT_MSG: usize =
-    MAX_FRAME_SIZE_OUCH_CLT_PLD + MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
+pub const MAX_FRAME_SIZE_OUCH_CLT_MSG: usize = MAX_FRAME_SIZE_OUCH_CLT_PLD + MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG;
 /// Both [ReplaceOrder] & [OrderReplaced] are serialized as b'U' hence it is impossible to distinguish deserialization type unless they are in two different enums.
 #[rustfmt::skip]
 #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, TryInto)]
@@ -443,10 +439,7 @@ mod test {
             OuchSvcPld::AccQryRes(AccountQueryResponse::default()),
         ];
 
-        let inb = inb
-            .into_iter()
-            .map(|msg| (msg.byte_len(), msg))
-            .collect::<Vec<_>>();
+        let inb = inb.into_iter().map(|msg| (msg.byte_len(), msg)).collect::<Vec<_>>();
         // for (len, msg) in inb.iter() {
         //     info!("len: {:>3}, msg: Ouch5Inb::{:?}", len,  msg);
         // }
@@ -454,10 +447,7 @@ mod test {
         info!("max_frame_size_clt: {}", max_frame_size_clt);
         assert_eq!(max_frame_size_clt, MAX_FRAME_SIZE_OUCH_CLT_PLD);
 
-        let oub = oub
-            .into_iter()
-            .map(|msg| (msg.byte_len(), msg))
-            .collect::<Vec<_>>();
+        let oub = oub.into_iter().map(|msg| (msg.byte_len(), msg)).collect::<Vec<_>>();
         // for (len, msg) in oub.iter() {
         //     info!("len: {:>3}, msg: Ouch5Oub::{:?}", len, msg);
         // }

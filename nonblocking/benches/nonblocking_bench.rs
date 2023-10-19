@@ -62,10 +62,7 @@ fn send_random_frame(c: &mut Criterion) {
     clt.set_nonblocking(true).unwrap();
     info!("clt: {:?}", clt);
 
-    let id = format!(
-        "nonblocking_send_random_frame size: {} bytes",
-        fmt_num!(BENCH_MAX_FRAME_SIZE)
-    );
+    let id = format!("nonblocking_send_random_frame size: {} bytes", fmt_num!(BENCH_MAX_FRAME_SIZE));
     let mut frame_send_count = 0_usize;
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
@@ -95,11 +92,7 @@ fn send_random_frame(c: &mut Criterion) {
 
     drop(clt); // this will allow svc.join to complete
     let frame_recv_count = svc_reader.join().unwrap();
-    info!(
-        "frame_send_count: {:?} = frame_recv_count: {:?}",
-        fmt_num!(frame_send_count),
-        fmt_num!(frame_recv_count)
-    );
+    info!("frame_send_count: {:?} = frame_recv_count: {:?}", fmt_num!(frame_send_count), fmt_num!(frame_recv_count));
 
     assert_eq!(frame_send_count, frame_recv_count);
 }
@@ -160,10 +153,7 @@ fn recv_random_frame(c: &mut Criterion) {
     info!("clt: {:?}", clt);
 
     sleep(Duration::from_millis(1000));
-    let id = format!(
-        "nonblocking_recv_random_frame size: {} bytes",
-        fmt_num!(BENCH_MAX_FRAME_SIZE)
-    );
+    let id = format!("nonblocking_recv_random_frame size: {} bytes", fmt_num!(BENCH_MAX_FRAME_SIZE));
 
     let mut byte_recv_count = 0;
     c.bench_function(id.as_str(), |b| {

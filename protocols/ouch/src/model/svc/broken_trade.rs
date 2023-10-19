@@ -16,8 +16,7 @@ pub struct BrokenTrade {
 }
 
 impl<T> From<&T> for BrokenTrade
-where
-    T: CancelableOrder,
+where T: CancelableOrder
 {
     fn from(ord: &T) -> Self {
         Self {
@@ -36,8 +35,8 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use links_core::unittest::setup;
     use byteserde::prelude::*;
+    use links_core::unittest::setup;
     use log::info;
 
     #[test]

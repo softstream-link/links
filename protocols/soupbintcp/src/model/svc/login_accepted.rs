@@ -36,19 +36,15 @@ impl Default for LoginAccepted {
 
 impl Display for LoginAccepted {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Login Accepted, your session \"{}\", next sequence number \"{}\"",
-            self.session_id, self.sequence_number
-        )
+        write!(f, "Login Accepted, your session \"{}\", next sequence number \"{}\"", self.session_id, self.sequence_number)
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use links_core::unittest::setup;
     use byteserde::prelude::*;
+    use links_core::unittest::setup;
     use log::info;
 
     #[test]

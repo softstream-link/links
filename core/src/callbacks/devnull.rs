@@ -11,9 +11,7 @@ pub struct DevNullCallback<M: Messenger> {
 }
 impl<M: Messenger> Default for DevNullCallback<M> {
     fn default() -> Self {
-        Self {
-            phantom: std::marker::PhantomData,
-        }
+        Self { phantom: std::marker::PhantomData }
     }
 }
 

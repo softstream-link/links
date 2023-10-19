@@ -83,15 +83,15 @@ where
     CltPayload: ByteSerializeStack+ByteDeserializeSlice<CltPayload>+ByteSerializedLenOf+PartialEq+Clone+fmt::Debug,
     SvcPayload: ByteSerializeStack+ByteDeserializeSlice<SvcPayload>+ByteSerializedLenOf+PartialEq+Clone+fmt::Debug,
 {
-    pub fn unwrap_clt_u(&self) -> &CltPayload{
+    pub fn unwrap_clt_u(&self) -> &CltPayload {
         match self {
-            SBMsg::Clt(SBCltMsg::U(UPayload{body, ..})) => body,
+            SBMsg::Clt(SBCltMsg::U(UPayload { body, .. })) => body,
             _ => panic!("SoupBinTcp message is not Clt and/or UPayload, instead it is: {:?}", self),
         }
     }
-    pub fn unwrap_svc_u(&self) -> &SvcPayload{
+    pub fn unwrap_svc_u(&self) -> &SvcPayload {
         match self {
-            SBMsg::Svc(SBSvcMsg::U(UPayload{body, ..})) => body,
+            SBMsg::Svc(SBSvcMsg::U(UPayload { body, .. })) => body,
             _ => panic!("SoupBinTcp message is not Svc and/or UPayload, instead it is: {:?}", self),
         }
     }
@@ -171,28 +171,16 @@ mod test {
     #[test]
     fn test_soup_max_frame_size() {
         setup::log::configure();
-        let msg_inp_clt = clt_msgs_default::<Nil>()
-            .into_iter()
-            .map(|msg| (msg.byte_len(), msg))
-            .collect::<Vec<_>>();
-        let msg_inp_svc = svc_msgs_default::<Nil>()
-            .into_iter()
-            .map(|msg| (msg.byte_len(), msg))
-            .collect::<Vec<_>>();
+        let msg_inp_clt = clt_msgs_default::<Nil>().into_iter().map(|msg| (msg.byte_len(), msg)).collect::<Vec<_>>();
+        let msg_inp_svc = svc_msgs_default::<Nil>().into_iter().map(|msg| (msg.byte_len(), msg)).collect::<Vec<_>>();
         for (len, msg) in msg_inp_clt.iter() {
             info!("len: {:>3}, msg: {:?} ", len, msg);
         }
         for (len, msg) in msg_inp_svc.iter() {
             info!("len: {:>3}, msg: {:?} ", len, msg);
         }
-        let max_frame_size_no_payload = std::cmp::max(
-            msg_inp_clt.iter().map(|(len, _)| *len).max().unwrap(),
-            msg_inp_svc.iter().map(|(len, _)| *len).max().unwrap(),
-        );
+        let max_frame_size_no_payload = std::cmp::max(msg_inp_clt.iter().map(|(len, _)| *len).max().unwrap(), msg_inp_svc.iter().map(|(len, _)| *len).max().unwrap());
         info!("max_frame_size_no_payload: {}", max_frame_size_no_payload);
-        assert_eq!(
-            max_frame_size_no_payload,
-            MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG
-        )
+        assert_eq!(max_frame_size_no_payload, MAX_FRAME_SIZE_SOUPBIN_EXC_PAYLOAD_DEBUG)
     }
 }

@@ -52,16 +52,8 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
     fn add_serviceable(&mut self, recver: Serviceable<R, A>) -> io::Result<()> {
         let key = self.serviceable.insert(recver);
         match self.serviceable[key] {
-            Serviceable::Recver(ref mut recver) => {
-                self.poll
-                    .registry()
-                    .register(*recver.source(), Token(key), mio::Interest::READABLE)
-            }
-            Serviceable::Acceptor(ref mut acceptor) => self.poll.registry().register(
-                *acceptor.source(),
-                Token(key),
-                mio::Interest::READABLE,
-            ),
+            Serviceable::Recver(ref mut recver) => self.poll.registry().register(*recver.source(), Token(key), mio::Interest::READABLE),
+            Serviceable::Acceptor(ref mut acceptor) => self.poll.registry().register(*acceptor.source(), Token(key), mio::Interest::READABLE),
         }
     }
 
@@ -93,10 +85,7 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
                         }
                         Err(e) => {
                             if log_enabled!(Level::Info) {
-                                info!(
-                                    "Error, service loop termination recver: {}, error: {}",
-                                    recver, e
-                                );
+                                info!("Error, service loop termination recver: {}, error: {}", recver, e);
                             }
                             self.poll.registry().deregister(*recver.source())?;
                             self.serviceable.remove(token);
@@ -107,21 +96,14 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
                         Ok(AcceptStatus::Accepted(recver)) => {
                             let key = self.serviceable.insert(Recver(recver));
                             if let Recver(ref mut recver) = self.serviceable[key] {
-                                self.poll.registry().register(
-                                    *recver.source(),
-                                    Token(key),
-                                    mio::Interest::READABLE,
-                                )?;
+                                self.poll.registry().register(*recver.source(), Token(key), mio::Interest::READABLE)?;
                             }
                             at_least_one_completed = true;
                         }
                         Ok(AcceptStatus::WouldBlock) => {}
                         Err(e) => {
                             if log_enabled!(Level::Info) {
-                                info!(
-                                    "Error, service loop termination acceptor: {}, error: {}",
-                                    acceptor, e
-                                );
+                                info!("Error, service loop termination acceptor: {}, error: {}", acceptor, e);
                             }
                             self.poll.registry().deregister(*acceptor.source())?;
                             self.serviceable.remove(token);
@@ -165,12 +147,10 @@ impl PollRecv for Box<dyn PollRecv> {
 }
 
 /// A [PollHandler] that can handle any [PollAccept] and [PollRecv] instances using dynamic dispatch at the cost of performance
-pub type PollHandlerDynamic =
-    PollHandler<Box<dyn PollRecv>, Box<dyn PollAccept<Box<dyn PollRecv>>>>;
+pub type PollHandlerDynamic = PollHandler<Box<dyn PollRecv>, Box<dyn PollAccept<Box<dyn PollRecv>>>>;
 
 /// A [PollHandler] that will only handle [PollAccept] and [PollRecv] of same type
-pub type PollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> =
-    PollHandler<CltRecver<M, C, MAX_MSG_SIZE>, PoolCltAcceptor<M, C, MAX_MSG_SIZE>>;
+pub type PollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = PollHandler<CltRecver<M, C, MAX_MSG_SIZE>, PoolCltAcceptor<M, C, MAX_MSG_SIZE>>;
 
 #[cfg(test)]
 mod test {
@@ -191,13 +171,7 @@ mod test {
 
         let addr = setup::net::rand_avail_addr_port();
 
-        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
-            addr,
-            LoggerCallback::<SvcTestMessenger>::new_ref(),
-            NonZeroUsize::new(1).unwrap(),
-            Some("unittest/svc"),
-        )
-        .unwrap();
+        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, LoggerCallback::<SvcTestMessenger>::new_ref(), NonZeroUsize::new(1).unwrap(), Some("unittest/svc")).unwrap();
 
         let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr,
@@ -232,13 +206,7 @@ mod test {
 
         let store = CanonicalEntryStore::<TestMsg>::new_ref();
 
-        let svc1 = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
-            addr1,
-            StoreCallback::new_ref(store.clone()),
-            NonZeroUsize::new(1).unwrap(),
-            Some("unittest/svc1"),
-        )
-        .unwrap();
+        let svc1 = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr1, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), Some("unittest/svc1")).unwrap();
 
         let mut clt1 = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr1,
@@ -249,13 +217,7 @@ mod test {
         )
         .unwrap();
 
-        let svc2 = Svc::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
-            addr2,
-            StoreCallback::new_ref(store.clone()),
-            NonZeroUsize::new(1).unwrap(),
-            Some("unittest/svc2"),
-        )
-        .unwrap();
+        let svc2 = Svc::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr2, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), Some("unittest/svc2")).unwrap();
 
         let mut clt2 = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr2,
@@ -281,22 +243,10 @@ mod test {
         clt1.send_busywait(&mut msg1).unwrap();
         clt2.send_busywait(&mut msg2).unwrap();
 
-        let found = store
-            .find_recv(
-                "unittest/svc1",
-                |_x| true,
-                setup::net::optional_find_timeout(),
-            )
-            .unwrap();
+        let found = store.find_recv("unittest/svc1", |_x| true, setup::net::optional_find_timeout()).unwrap();
         info!("found: {:?}", found);
 
-        let found = store
-            .find_recv(
-                "unittest/svc2",
-                |_x| true,
-                setup::net::optional_find_timeout(),
-            )
-            .unwrap();
+        let found = store.find_recv("unittest/svc2", |_x| true, setup::net::optional_find_timeout()).unwrap();
         info!("found: {:?}", found);
 
         info!("store: {}", store);

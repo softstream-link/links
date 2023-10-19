@@ -55,11 +55,7 @@ pub struct MessageRecver<M: MessengerOld, F: Framer> {
     phantom: std::marker::PhantomData<M>,
 }
 impl<M: MessengerOld, F: Framer> MessageRecver<M, F> {
-    pub fn with_max_frame_size(
-        reader: OwnedReadHalf,
-        reader_max_frame_size: usize,
-        con_id: ConId,
-    ) -> Self {
+    pub fn with_max_frame_size(reader: OwnedReadHalf, reader_max_frame_size: usize, con_id: ConId) -> Self {
         Self {
             con_id,
             reader: FrameReader::with_max_frame_size(reader, reader_max_frame_size),
@@ -93,15 +89,9 @@ impl<M: MessengerOld, F: Framer> Display for MessageRecver<M, F> {
 #[rustfmt::skip]
 type MessageProcessor<M, const MMS: usize, F> = (MessageSender<M, MMS>, MessageRecver<M, F>);
 
-pub fn into_split_messenger<M: MessengerOld, const MMS: usize, F: Framer>(
-    stream: TcpStream,
-    con_id: ConId,
-) -> MessageProcessor<M, MMS, F> {
+pub fn into_split_messenger<M: MessengerOld, const MMS: usize, F: Framer>(stream: TcpStream, con_id: ConId) -> MessageProcessor<M, MMS, F> {
     let (reader, writer) = stream.into_split();
-    (
-        MessageSender::new(writer, con_id.clone()),
-        MessageRecver::with_max_frame_size(reader, MMS, con_id),
-    )
+    (MessageSender::new(writer, con_id.clone()), MessageRecver::with_max_frame_size(reader, MMS, con_id))
 }
 
 #[cfg(test)]
@@ -126,11 +116,7 @@ mod test {
                     let listener = TcpListener::bind(addr).await.unwrap();
 
                     let (stream, _) = listener.accept().await.unwrap();
-                    let (mut sender, mut recver) =
-                        into_split_messenger::<TestSvcMsgProtocol, MMS, TestSvcMsgProtocol>(
-                            stream,
-                            ConId::svc(Some("unittest"), addr, None),
-                        );
+                    let (mut sender, mut recver) = into_split_messenger::<TestSvcMsgProtocol, MMS, TestSvcMsgProtocol>(stream, ConId::svc(Some("unittest"), addr, None));
                     info!("{} connected", sender);
                     let mut out_svc_msg: Option<TestCltMsg> = None;
                     loop {
@@ -156,11 +142,7 @@ mod test {
                 let inp_clt_msg = inp_clt_msg.clone();
                 async move {
                     let stream = TcpStream::connect(addr).await.unwrap();
-                    let (mut sender, mut recver) =
-                        into_split_messenger::<TestCltMsgProtocol, MMS, TestCltMsgProtocol>(
-                            stream,
-                            ConId::clt(Some("unittest"), None, addr),
-                        );
+                    let (mut sender, mut recver) = into_split_messenger::<TestCltMsgProtocol, MMS, TestCltMsgProtocol>(stream, ConId::clt(Some("unittest"), None, addr));
                     info!("{} connected", sender);
                     sender.send(&inp_clt_msg).await.unwrap();
                     let out_clt_msg = recver.recv().await.unwrap();

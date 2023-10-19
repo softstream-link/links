@@ -38,12 +38,7 @@ pub mod setup {
         }
 
         impl Protocol for TestSvcMsgProtocol {
-            async fn handshake<
-                's,
-                P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-                C: CallbackSendRecvOld<P>,
-                const MMS: usize,
-            >(
+            async fn handshake<'s, P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>, C: CallbackSendRecvOld<P>, const MMS: usize>(
                 &'s self,
                 clt: &'s Clt<P, C, MMS>,
             ) -> Result<(), Box<dyn Error+Send+Sync>> {
@@ -54,11 +49,7 @@ pub mod setup {
                 info!("{}->{:?}", clt.con_id(), auth);
                 Ok(())
             }
-            async fn keep_alive_loop<
-                P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-                C: CallbackSendRecvOld<P>,
-                const MMS: usize,
-            >(
+            async fn keep_alive_loop<P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>, C: CallbackSendRecvOld<P>, const MMS: usize>(
                 &self,
                 clt: CltSenderAsync<P, C, MMS>,
             ) -> Result<(), Box<dyn Error+Send+Sync>> {
@@ -71,12 +62,7 @@ pub mod setup {
         }
 
         impl Protocol for TestCltMsgProtocol {
-            async fn handshake<
-                's,
-                P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-                C: CallbackSendRecvOld<P>,
-                const MMS: usize,
-            >(
+            async fn handshake<'s, P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>, C: CallbackSendRecvOld<P>, const MMS: usize>(
                 &'s self,
                 clt: &'s Clt<P, C, MMS>,
             ) -> Result<(), Box<dyn Error+Send+Sync>> {
@@ -94,11 +80,7 @@ pub mod setup {
                     _ => Err(format!("Not Expected {}<-{:?}", clt.con_id(), msg).into()),
                 }
             }
-            async fn keep_alive_loop<
-                P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-                C: CallbackSendRecvOld<P>,
-                const MMS: usize,
-            >(
+            async fn keep_alive_loop<P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>, C: CallbackSendRecvOld<P>, const MMS: usize>(
                 &self,
                 clt: CltSenderAsync<P, C, MMS>,
             ) -> Result<(), Box<dyn Error+Send+Sync>> {

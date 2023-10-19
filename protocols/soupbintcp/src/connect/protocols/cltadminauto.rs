@@ -2,19 +2,19 @@ use bytes::BytesMut;
 use byteserde::prelude::*;
 use links_async::prelude::*;
 use log::warn;
-use tokio::sync::Mutex;
-use tokio::task::yield_now;
-use tokio::time::Instant;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
 use std::{error::Error, sync::Arc};
+use tokio::sync::Mutex;
+use tokio::task::yield_now;
+use tokio::time::Instant;
 
 use crate::prelude::*;
 
 #[derive(Debug, Clone)]
-pub struct SBCltAdminProtocol<SendPayload,RecvPayload>
-where 
+pub struct SBCltAdminProtocol<SendPayload, RecvPayload>
+where
     SendPayload: ByteDeserializeSlice<SendPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
     RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
@@ -29,11 +29,10 @@ where
 }
 
 impl<SendPayload, RecvPayload> SBCltAdminProtocol<SendPayload, RecvPayload>
-where 
+where
     SendPayload: ByteDeserializeSlice<SendPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
     RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
-    
     #[rustfmt::skip]
     pub fn new_ref(username: UserName, password: Password, session_id: SessionId, sequence_number: SequenceNumber, hbeat_interval: Duration, hbeat_tolerance_factor: f64) -> Arc<Self> {
         Arc::new(Self {username, password, session_id, sequence_number, hbeat_interval, hbeat_tolerance_factor,
@@ -44,7 +43,7 @@ where
 }
 
 impl<SendPayload, RecvPayload> Framer for SBCltAdminProtocol<SendPayload, RecvPayload>
-where 
+where
     SendPayload: ByteDeserializeSlice<SendPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
     RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
@@ -55,7 +54,7 @@ where
 }
 
 impl<SendPayload, RecvPayload> MessengerOld for SBCltAdminProtocol<SendPayload, RecvPayload>
-where 
+where
     SendPayload: ByteDeserializeSlice<SendPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
     RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
@@ -64,37 +63,32 @@ where
 }
 
 impl<SendPayload, RecvPayload> Protocol for SBCltAdminProtocol<SendPayload, RecvPayload>
-where 
+where
     SendPayload: ByteDeserializeSlice<SendPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
     RecvPayload: ByteDeserializeSlice<RecvPayload>+ByteSerializeStack+ByteSerializedLenOf+PartialEq+Debug+Clone+Send+Sync+'static,
 {
-    async fn handshake<
-        's,
-        P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-        C: CallbackSendRecvOld<P>,
-        const MMS: usize,
-    >(
-        &'s self,
-        clt: &'s Clt<P, C, MMS>,
-    ) -> Result<(), Box<dyn Error+Send+Sync>> {
-        clt.send(&mut SBCltMsg::login(self.username, self.password, self.session_id, self.sequence_number, (self.hbeat_interval.as_millis() as u16).into(),)).await?;
+    async fn handshake<'s, P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>, C: CallbackSendRecvOld<P>, const MMS: usize>(&'s self, clt: &'s Clt<P, C, MMS>) -> Result<(), Box<dyn Error+Send+Sync>> {
+        clt.send(&mut SBCltMsg::login(
+            self.username,
+            self.password,
+            self.session_id,
+            self.sequence_number,
+            (self.hbeat_interval.as_millis() as u16).into(),
+        ))
+        .await?;
         let msg = clt.recv().await?;
         match msg {
             Some(SBSvcMsg::LoginAcc(_)) => {
                 let recv_tracker = EventIntervalTracker::new(clt.con_id().clone(), self.hbeat_interval, self.hbeat_tolerance_factor);
                 *self.recv_tracker.lock().await = Some(recv_tracker);
                 Ok(())
-            },
+            }
             Some(SBSvcMsg::LoginRej(msg)) => Err(format!("{} msg: {:?}", clt.con_id(), msg).into()),
             _ => Err(format!("{} Unexpected msg: {:?}", clt.con_id(), msg).into()),
         }
     }
 
-    async fn keep_alive_loop<
-        P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-        C: CallbackSendRecvOld<P>,
-        const MMS: usize,
-    >(
+    async fn keep_alive_loop<P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>, C: CallbackSendRecvOld<P>, const MMS: usize>(
         &self,
         clt: CltSenderAsync<P, C, MMS>,
     ) -> Result<(), Box<dyn Error+Send+Sync>> {
@@ -106,40 +100,41 @@ where
     }
 
     async fn is_connected(&self, timeout: Option<Duration>) -> bool {
-        let (now, timeout )= (Instant::now(), match timeout{
-            Some(timeout) => timeout,
-            None => Duration::from_secs(0),
-        });
-        
+        let (now, timeout) = (
+            Instant::now(),
+            match timeout {
+                Some(timeout) => timeout,
+                None => Duration::from_secs(0),
+            },
+        );
+
         loop {
             let recv_tracker = (*self.recv_tracker.lock().await).clone();
             let is_heart_beating = {
-                match recv_tracker{
+                match recv_tracker {
                     Some(ref recv_tracker) => recv_tracker.is_within_tolerance_factor(),
                     None => panic!("self.recv_tracker is None, must be set to Some EventIntervalTracker during handshake"),
-                }   
+                }
             };
             if is_heart_beating {
                 return true;
-            }else if now.elapsed() > timeout{
+            } else if now.elapsed() > timeout {
                 let is_connected = match recv_tracker {
                     Some(ref recv_tracker) => format!("{}", recv_tracker),
                     None => "None".to_owned(),
                 };
                 warn!("{} timeout: {:?}", is_connected, timeout);
                 return false;
-            }else{
+            } else {
                 yield_now().await;
             }
-            
         }
     }
     #[inline(always)]
-    async fn on_recv<'s>(&'s self, _con_id: &'s ConId, _msg: &'s Self::RecvT)  {
-        match *self.recv_tracker.lock().await{
+    async fn on_recv<'s>(&'s self, _con_id: &'s ConId, _msg: &'s Self::RecvT) {
+        match *self.recv_tracker.lock().await {
             Some(ref mut recv_tracker) => recv_tracker.occurred(),
             None => panic!("self.recv_tracker is None, must be set to Some EventIntervalTracker during handshake"),
-        }  
+        }
     }
-
 }

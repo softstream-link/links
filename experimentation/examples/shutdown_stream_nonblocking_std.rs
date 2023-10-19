@@ -55,8 +55,8 @@ fn write_busywait(stream: &mut TcpStream) -> Result<(), Error> {
             }
             Err(e) if e.kind() == ErrorKind::WouldBlock => {
                 would_block_count += 1;
-                if would_block_count % 10_000 == 0{
-                    println!("write_busywait: would_block_count: {}, written: {}, remaining: {}", would_block_count, written, FRAME_SIZE - written );
+                if would_block_count % 10_000 == 0 {
+                    println!("write_busywait: would_block_count: {}, written: {}, remaining: {}", would_block_count, written, FRAME_SIZE - written);
                 }
                 continue;
             }

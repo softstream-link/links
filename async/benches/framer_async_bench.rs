@@ -30,8 +30,7 @@ fn send_random_frame_as_asynch_block_on(c: &mut Criterion) {
         let listener = TcpListener::bind(addr).await.unwrap();
 
         let (stream, _) = listener.accept().await.unwrap();
-        let (mut reader, _) =
-            into_split_frame_manager::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
+        let (mut reader, _) = into_split_frame_manager::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
         // info!("svc: reader: {}", reader);
         let mut frame_recv_count = 0_u32;
         loop {
@@ -65,10 +64,7 @@ fn send_random_frame_as_asynch_block_on(c: &mut Criterion) {
 
     let mut frame_send_count = 0_u32;
     let random_frame = random_bytes(BENCH_MAX_FRAME_SIZE);
-    let id = format!(
-        "send_random_frame_as_async_block_on size: {} bytes",
-        fmt_num!(BENCH_MAX_FRAME_SIZE)
-    );
+    let id = format!("send_random_frame_as_async_block_on size: {} bytes", fmt_num!(BENCH_MAX_FRAME_SIZE));
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
@@ -80,11 +76,7 @@ fn send_random_frame_as_asynch_block_on(c: &mut Criterion) {
 
     drop(writer); // this will allow svc.join to complete
     let frame_recv_count = svc_runtime.block_on(async move { svc.await.unwrap() });
-    info!(
-        "send_count: {:?}, recv_count: {:?}",
-        fmt_num!(frame_send_count),
-        fmt_num!(frame_recv_count)
-    );
+    info!("send_count: {:?}, recv_count: {:?}", fmt_num!(frame_send_count), fmt_num!(frame_recv_count));
 
     assert_eq!(frame_send_count, frame_recv_count);
 }
@@ -100,8 +92,7 @@ fn send_random_frame_as_async(c: &mut Criterion) {
         let listener = TcpListener::bind(addr).await.unwrap();
         loop {
             let (stream, _) = listener.accept().await.unwrap();
-            let (mut reader, _) =
-                into_split_frame_manager::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
+            let (mut reader, _) = into_split_frame_manager::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
             // info!("svc: reader: {}", reader);
             loop {
                 let res = reader.read_frame().await;
@@ -122,18 +113,14 @@ fn send_random_frame_as_async(c: &mut Criterion) {
 
     sleep(Duration::from_millis(100)); // wait for svc to start
     let random_frame = random_bytes(BENCH_MAX_FRAME_SIZE);
-    let id = format!(
-        "send_random_frame_as_async size: {} bytes",
-        fmt_num!(BENCH_MAX_FRAME_SIZE)
-    );
+    let id = format!("send_random_frame_as_async size: {} bytes", fmt_num!(BENCH_MAX_FRAME_SIZE));
     c.bench_function(id.as_str(), {
         |b| {
             let clt_runtime = Builder::new_multi_thread().enable_all().build().unwrap();
 
             b.to_async(clt_runtime).iter_custom(|n| async move {
                 let stream = TcpStream::connect(addr).await.unwrap();
-                let (_, mut writer) =
-                    into_split_frame_manager::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
+                let (_, mut writer) = into_split_frame_manager::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
                 // info!("clt: writer: {}", n);
 
                 let start = std::time::Instant::now();
@@ -159,8 +146,7 @@ fn recv_random_frame_as_async(c: &mut Criterion) {
         let listener = TcpListener::bind(addr).await.unwrap();
         loop {
             let (stream, _) = listener.accept().await.unwrap();
-            let (_, mut writer) =
-                into_split_frame_manager::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
+            let (_, mut writer) = into_split_frame_manager::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
             // info!("svc: reader: {}", reader);
             loop {
                 let res = writer.write_frame(random_frame).await;
@@ -176,10 +162,7 @@ fn recv_random_frame_as_async(c: &mut Criterion) {
     });
 
     sleep(Duration::from_millis(100)); // wait for svc to start
-    let id = format!(
-        "recv_random_frame_as_async size: {} bytes",
-        fmt_num!(BENCH_MAX_FRAME_SIZE)
-    );
+    let id = format!("recv_random_frame_as_async size: {} bytes", fmt_num!(BENCH_MAX_FRAME_SIZE));
 
     c.bench_function(id.as_str(), {
         |b| {
@@ -187,8 +170,7 @@ fn recv_random_frame_as_async(c: &mut Criterion) {
 
             b.to_async(clt_runtime).iter_custom(|n| async move {
                 let stream = TcpStream::connect(addr).await.unwrap();
-                let (mut reader, _) =
-                    into_split_frame_manager::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
+                let (mut reader, _) = into_split_frame_manager::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
                 // info!("clt: reader: {}", n);
 
                 let start = std::time::Instant::now();
@@ -211,8 +193,7 @@ fn round_trip_random_frame_as_async(c: &mut Criterion) {
         let listener = TcpListener::bind(addr).await.unwrap();
         loop {
             let (stream, _) = listener.accept().await.unwrap();
-            let (mut reader, mut writer) =
-                into_split_frame_manager::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
+            let (mut reader, mut writer) = into_split_frame_manager::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
             // info!("svc: reader: {}", reader);
             loop {
                 let res = reader.read_frame().await;
@@ -235,18 +216,14 @@ fn round_trip_random_frame_as_async(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // wait for svc to start
 
     let random_frame = random_bytes(BENCH_MAX_FRAME_SIZE);
-    let id = format!(
-        "round_trip_random_frame_as_async size: {} bytes",
-        fmt_num!(BENCH_MAX_FRAME_SIZE)
-    );
+    let id = format!("round_trip_random_frame_as_async size: {} bytes", fmt_num!(BENCH_MAX_FRAME_SIZE));
     c.bench_function(id.as_str(), {
         |b| {
             let clt_runtime = Builder::new_multi_thread().enable_all().build().unwrap();
 
             b.to_async(clt_runtime).iter_custom(|n| async move {
                 let stream = TcpStream::connect(addr).await.unwrap();
-                let (mut reader, mut writer) =
-                    into_split_frame_manager::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
+                let (mut reader, mut writer) = into_split_frame_manager::<BenchMsgFramer>(stream, BENCH_MAX_FRAME_SIZE);
                 // info!("clt: writer: {}", n);
 
                 let start = std::time::Instant::now();

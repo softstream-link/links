@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
-use links_ouch_async::prelude::*;
 use links_core::unittest::setup;
+use links_ouch_async::prelude::*;
 use log::{info, Level};
 
 #[tokio::test]
@@ -13,7 +13,6 @@ async fn test() {
 async fn main() {
     test_clt_svc_connect().await;
 }
-
 
 async fn test_clt_svc_connect() {
     setup::log::configure_level(log::LevelFilter::Info);
@@ -30,29 +29,15 @@ async fn test_clt_svc_connect() {
         OuchCltEvenStoreCallback::new_ref(Arc::clone(&event_store)),
     ]);
 
-    let svc_prcl = OuchSvcAdminProtocol::new_ref(
-        b"abcdef".into(),
-        b"++++++++++".into(),
-        Default::default(),
-        1.,
-    );
+    let svc_prcl = OuchSvcAdminProtocol::new_ref(b"abcdef".into(), b"++++++++++".into(), Default::default(), 1.);
     // START SVC
-    let svc = OuchSvc::bind_async(addr, svc_clbk, Some(svc_prcl), Some("ouch/venue"))
-        .await
-        .unwrap();
+    let svc = OuchSvc::bind_async(addr, svc_clbk, Some(svc_prcl), Some("ouch/venue")).await.unwrap();
     let svc_is_connected = svc.is_connected(None).await;
     info!("{} Status connected: {}", svc, svc_is_connected);
     assert!(!svc_is_connected);
 
     let hbeat_interval = Duration::from_millis(250);
-    let clt_prcl = OuchCltAdminProtocol::new_ref(
-        b"abcdef".into(),
-        b"++++++++++".into(),
-        Default::default(),
-        Default::default(),
-        hbeat_interval,
-        1.,
-    );
+    let clt_prcl = OuchCltAdminProtocol::new_ref(b"abcdef".into(), b"++++++++++".into(), Default::default(), Default::default(), hbeat_interval, 1.);
     // START CLT
     let clt = OuchClt::connect_async(
         addr,
@@ -78,30 +63,28 @@ async fn test_clt_svc_connect() {
     let mut enter_order = EnterOrder::default().into();
     clt.send(&mut enter_order).await.unwrap();
 
-    let ouch_msg  = event_store
+    let ouch_msg = event_store
         .find_recv(
             svc.con_id().name(),
-            |sb_msg| 
-                matches!(sb_msg, OuchMsg::Clt(OuchCltMsg::U(UPayload{body: OuchCltPld::Enter(ord), ..})) if ord.user_ref_number == UserRefNumber::new(1)),
+            |sb_msg| matches!(sb_msg, OuchMsg::Clt(OuchCltMsg::U(UPayload{body: OuchCltPld::Enter(ord), ..})) if ord.user_ref_number == UserRefNumber::new(1)),
             setup::net::optional_find_timeout(),
         )
-        .await.unwrap();
-    
+        .await
+        .unwrap();
+
     let enter_order: &EnterOrder = ouch_msg.unwrap_clt_u().try_into().unwrap();
-    
-    let mut order_accepted= OrderAccepted::from(enter_order).into();
+
+    let mut order_accepted = OrderAccepted::from(enter_order).into();
     svc.send(&mut order_accepted).await.unwrap();
 
-
-    let _  = event_store
+    let _ = event_store
         .find_recv(
             clt.con_id().name(),
-            |sb_msg| 
-                matches!(sb_msg, OuchMsg::Svc(OuchSvcMsg::U(UPayload{body: OuchSvcPld::Accepted(ord), ..})) if ord.user_ref_number == UserRefNumber::new(1)),
+            |sb_msg| matches!(sb_msg, OuchMsg::Svc(OuchSvcMsg::U(UPayload{body: OuchSvcPld::Accepted(ord), ..})) if ord.user_ref_number == UserRefNumber::new(1)),
             setup::net::optional_find_timeout(),
         )
-        .await.unwrap();
-    
+        .await
+        .unwrap();
+
     info!("event_store: {}", event_store);
 }
-

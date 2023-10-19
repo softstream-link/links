@@ -30,8 +30,8 @@ impl Display for LogoutRequest {
 #[cfg(test)]
 mod test {
     use super::*;
-    use links_core::unittest::setup;
     use byteserde::prelude::*;
+    use links_core::unittest::setup;
     use log::info;
 
     #[test]

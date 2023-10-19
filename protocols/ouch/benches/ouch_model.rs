@@ -64,10 +64,10 @@ fn ouch_order_ser(c: &mut Criterion) {
     ///////
     // let msg = order; // 9ns
     let msg = OuchCltPld1::Enter(order); // 10ns
-    // let msg = OuchCltPld1::X(OuchSvcPld::SysEvt(SystemEvent::default())); // 2s
-    // let msg = SBCltMsg1::W(UPayload::new(OuchCltPld1::X(OuchSvcPld::SysEvt(
-    //     SystemEvent::default(),
-    // )))); //7ns seemd due to enum
+                                         // let msg = OuchCltPld1::X(OuchSvcPld::SysEvt(SystemEvent::default())); // 2s
+                                         // let msg = SBCltMsg1::W(UPayload::new(OuchCltPld1::X(OuchSvcPld::SysEvt(
+                                         //     SystemEvent::default(),
+                                         // )))); //7ns seemd due to enum
 
     // let msg = UPayload::new(OuchCltPld::Enter(order)); // 10ns
     // let msg = OuchCltMsg::U(UPayload::new(OuchCltPld::Enter(order))); // 28ns // TODO WHY??

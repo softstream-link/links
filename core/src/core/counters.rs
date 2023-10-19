@@ -1,8 +1,7 @@
 use std::{
     fmt::{Display, Formatter},
-    time::{Duration, Instant}
+    time::{Duration, Instant},
 };
-
 
 use super::conid::ConId;
 
@@ -33,27 +32,27 @@ impl EventIntervalTracker {
             None => false,
             Some(last_occurrence) => {
                 let elapsed = Instant::now() - last_occurrence;
-                elapsed.as_secs_f64()
-                    < self.expected_interval.as_secs_f64() * self.tolerance_factor
+                elapsed.as_secs_f64() < self.expected_interval.as_secs_f64() * self.tolerance_factor
             }
         }
     }
 }
 impl Display for EventIntervalTracker {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} EventIntervalTracker {{ is_on_time: {}, last_occurrence: {:?}, expected_interval: {:?}, tolerance_factor: {:?},  }}", 
+        write!(
+            f,
+            "{} EventIntervalTracker {{ is_on_time: {}, last_occurrence: {:?}, expected_interval: {:?}, tolerance_factor: {:?},  }}",
             self.con_id,
             self.is_within_tolerance_factor(),
-            match self.last_occurrence{
+            match self.last_occurrence {
                 None => "None".to_owned(),
-                Some(last_occurrence) => format!("{:?}", last_occurrence.elapsed())
-            }, 
-            self.expected_interval, 
+                Some(last_occurrence) => format!("{:?}", last_occurrence.elapsed()),
+            },
+            self.expected_interval,
             self.tolerance_factor,
-        ) 
+        )
     }
 }
-
 
 #[cfg(test)]
 mod test {
@@ -76,6 +75,5 @@ mod test {
         std::thread::sleep(Duration::from_secs_f64(0.010));
         info!("tracker: {}", tracker);
         assert_eq!(tracker.is_within_tolerance_factor(), false);
-        
     }
 }

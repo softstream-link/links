@@ -1,9 +1,11 @@
-use std::{fmt::{Debug, Display}, time::{Instant, SystemTime}};
+use std::{
+    fmt::{Debug, Display},
+    time::{Instant, SystemTime},
+};
 
-use crate::prelude::{MessengerOld, ConId};
+use crate::prelude::{ConId, MessengerOld};
 
 use super::CallbackSendRecvOld;
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DirOld<T> {
@@ -24,7 +26,6 @@ where T: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync+'static
 {
     fn on_event(&self, cond_id: &ConId, event: DirOld<T>);
 }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EntryOld<T> {

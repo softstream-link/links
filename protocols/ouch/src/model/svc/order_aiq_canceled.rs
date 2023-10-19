@@ -20,8 +20,7 @@ pub struct OrderAiqCanceled {
 
 }
 impl<T> From<&T> for OrderAiqCanceled
-where
-    T: CancelableOrder,
+where T: CancelableOrder
 {
     fn from(enter_order: &T) -> Self {
         Self {
@@ -40,8 +39,8 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use links_core::unittest::setup;
     use byteserde::prelude::*;
+    use links_core::unittest::setup;
     use log::info;
 
     #[test]

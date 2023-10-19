@@ -1,6 +1,4 @@
-use byteserde_derive::{
-    ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf, ByteSerializedSizeOf,
-};
+use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf, ByteSerializedSizeOf};
 use byteserde_types::string_ascii_fixed;
 
 #[rustfmt::skip]

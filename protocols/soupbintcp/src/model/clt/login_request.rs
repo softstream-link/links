@@ -1,13 +1,13 @@
+use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
 use std::fmt::{Debug, Display};
-use byteserde_derive::{ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf};
 
-use crate::model::types::{PacketTypeLoginRequest, UserName, Password, SessionId, SequenceNumber, TimeoutMs};
+use crate::model::types::{PacketTypeLoginRequest, Password, SequenceNumber, SessionId, TimeoutMs, UserName};
 
 // packet_type/1 + usr/6 + pwd/10 + requested_session/10 + requested_sequence_number/20 + heartbeat_timeout_ms/5
-pub const LOGIN_REQUEST_PACKET_LENGTH: u16 = 52; 
+pub const LOGIN_REQUEST_PACKET_LENGTH: u16 = 52;
 pub const LOGIN_REQUEST_BYTE_LEN: usize = LOGIN_REQUEST_PACKET_LENGTH as usize + 2;
 
-#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf,PartialEq, Clone)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone)]
 #[byteserde(endian = "be")]
 pub struct LoginRequest {
     packet_length: u16,
@@ -19,13 +19,7 @@ pub struct LoginRequest {
     pub hbeat_timeout_ms: TimeoutMs,
 }
 impl LoginRequest {
-    pub fn new(
-        username: UserName,
-        password: Password,
-        session_id: SessionId,
-        sequence_number: SequenceNumber,
-        hbeat_timeout_ms: TimeoutMs,
-    ) -> LoginRequest {
+    pub fn new(username: UserName, password: Password, session_id: SessionId, sequence_number: SequenceNumber, hbeat_timeout_ms: TimeoutMs) -> LoginRequest {
         LoginRequest {
             packet_length: LOGIN_REQUEST_PACKET_LENGTH,
             packet_type: Default::default(),
@@ -56,13 +50,7 @@ impl Debug for LoginRequest {
 }
 impl Default for LoginRequest {
     fn default() -> Self {
-        LoginRequest::new(
-            b"dummy".as_slice().into(),
-            b"dummy".as_slice().into(),
-            b"session #1".into(),
-            1_u64.into(),
-            5000_u16.into(),
-        )
+        LoginRequest::new(b"dummy".as_slice().into(), b"dummy".as_slice().into(), b"session #1".into(), 1_u64.into(), 5000_u16.into())
     }
 }
 
@@ -71,11 +59,7 @@ impl Display for LoginRequest {
         write!(
             f,
             "Login Request, as username \"{}\" requested for session \"{}\", sequence \"{}\", heartbeat timeout {}ms",
-            self.username,
-            self.session_id,
-            self.sequence_number,
-            self.hbeat_timeout_ms,
-        
+            self.username, self.session_id, self.sequence_number, self.hbeat_timeout_ms,
         )
     }
 }
@@ -95,12 +79,7 @@ mod test {
         info!("msg_inp: {}", msg_inp);
         info!("msg_inp:? {:?}", msg_inp);
 
-        let msg_inp = LoginRequest::new(
-            b"abcdef".into(),
-            b"1234567890".into(), 
-b"session #1".into(),
-1_u64.into(),
-5000_u16.into());
+        let msg_inp = LoginRequest::new(b"abcdef".into(), b"1234567890".into(), b"session #1".into(), 1_u64.into(), 5000_u16.into());
         info!("msg_inp: {}", msg_inp);
         info!("msg_inp:? {:?}", msg_inp);
 

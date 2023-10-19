@@ -28,13 +28,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let store = CanonicalEntryStore::<TestMsg>::new_ref();
     // let clbk = StoreCallback::<SvcTestMessenger, _, _>::new_ref(store.clone());
 
-    let svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
-        addr,
-        StoreCallback::new_ref(store.clone()),
-        NonZeroUsize::new(1).unwrap(),
-        Some("example/svc"),
-    )
-    .unwrap();
+    let svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), Some("example/svc")).unwrap();
     info!("svc: {}", svc);
 
     let (pool_acceptor, _, mut svc_sender) = svc.into_split();
@@ -71,6 +65,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         clt_sender.send_busywait(msg)?;
     }
 
+    // svc_sender.pool_accept_busywait()?;
     for msg in svc_msgs.iter_mut() {
         svc_sender.send_busywait(msg)?;
     }

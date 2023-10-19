@@ -73,5 +73,3 @@ pub use crate::callbacks::OuchSvcDevNullCallback;
 // // counters
 pub use crate::callbacks::OuchCltCounterCallback;
 pub use crate::callbacks::OuchSvcCounterCallback;
-
-

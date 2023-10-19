@@ -30,15 +30,7 @@ fn setup<MSvc: Messenger, MClt: Messenger>() -> (
     let max_connections = NonZeroUsize::new(1).unwrap();
     let timeout = Duration::from_micros(1_000);
     let retry_after = timeout / 10;
-    (
-        addr,
-        svc_callback,
-        clt_callback,
-        max_connections,
-        name,
-        timeout,
-        retry_after,
-    )
+    (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after)
 }
 
 fn send_msg(c: &mut Criterion) {
@@ -48,13 +40,7 @@ fn send_msg(c: &mut Criterion) {
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
-                addr,
-                svc_callback,
-                max_connections,
-                name.clone(),
-            )
-            .unwrap();
+            let svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr, svc_callback, max_connections, name.clone()).unwrap();
 
             // info!("svc: {}", svc);
 
@@ -68,18 +54,12 @@ fn send_msg(c: &mut Criterion) {
                         clt_acceptor_msg_recv_count += 1;
                     }
                     Ok(RecvStatus::Completed(None)) => {
-                        info!(
-                            "Connection Closed by clt_initiator clt_acceptor: {}",
-                            clt_acceptor
-                        );
+                        info!("Connection Closed by clt_initiator clt_acceptor: {}", clt_acceptor);
                         break;
                     }
                     Ok(RecvStatus::WouldBlock) => continue,
                     Err(err) => {
-                        panic!(
-                            "Connection Closed by clt_initiator, clt_acceptor: {}, err: {}",
-                            clt_acceptor, err
-                        );
+                        panic!("Connection Closed by clt_initiator, clt_acceptor: {}, err: {}", clt_acceptor, err);
                     }
                 }
             }
@@ -87,14 +67,7 @@ fn send_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let mut clt_initiator = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(
-        addr,
-        timeout,
-        retry_after,
-        clt_callback,
-        name.clone(),
-    )
-    .unwrap();
+    let mut clt_initiator = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, name.clone()).unwrap();
     info!("clt_initiator: {}", clt_initiator);
 
     let id = format!("clt2clt_nonblocking_busywait_send_msg TestSvcMsg");
@@ -103,9 +76,7 @@ fn send_msg(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                clt_initiator
-                    .send_busywait(&mut clt_initiator_send_msg)
-                    .unwrap();
+                clt_initiator.send_busywait(&mut clt_initiator_send_msg).unwrap();
                 clt_initiator_msg_send_count += 1;
             })
         })
@@ -130,20 +101,13 @@ fn recv_msg(c: &mut Criterion) {
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
-                addr,
-                svc_callback,
-                max_connections,
-                name.clone(),
-            )
-            .unwrap();
+            let svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr, svc_callback, max_connections, name.clone()).unwrap();
 
             let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap();
             info!("clt_acceptor: {}", clt_acceptor);
 
             let mut clt_acceptor_msg_recv_count = 0_usize;
-            let mut clt_acceptor_msg_send =
-                TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
+            let mut clt_acceptor_msg_send = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
             loop {
                 match clt_acceptor.send(&mut clt_acceptor_msg_send) {
                     Ok(SendStatus::Completed) => {
@@ -151,10 +115,7 @@ fn recv_msg(c: &mut Criterion) {
                     }
                     Ok(SendStatus::WouldBlock) => continue,
                     Err(err) => {
-                        info!(
-                            "Connection Closed by clt_initiator, clt_acceptor: {}, err: {}",
-                            clt_acceptor, err
-                        );
+                        info!("Connection Closed by clt_initiator, clt_acceptor: {}, err: {}", clt_acceptor, err);
                         break;
                     }
                 }
@@ -163,14 +124,7 @@ fn recv_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let mut clt_initiator = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(
-        addr,
-        timeout,
-        retry_after,
-        clt_callback,
-        name.clone(),
-    )
-    .unwrap();
+    let mut clt_initiator = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, name.clone()).unwrap();
 
     let id = format!("clt2clt_nonblocking_busywait_recv_msg TestSvcMsg");
     let mut clt_initiator_msg_recv_count = 0_usize;
@@ -202,13 +156,7 @@ fn round_trip_msg(c: &mut Criterion) {
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(
-                addr,
-                svc_callback,
-                max_connections,
-                name.clone(),
-            )
-            .unwrap();
+            let svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr, svc_callback, max_connections, name.clone()).unwrap();
 
             // info!("svc: {}", svc);
 
@@ -216,28 +164,19 @@ fn round_trip_msg(c: &mut Criterion) {
             info!("clt_acceptor: {}", clt_acceptor);
 
             let mut clt_acceptor_msg_recv_count = 0_usize;
-            let mut clt_acceptor_msg_send =
-                TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
+            let mut clt_acceptor_msg_send = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
             loop {
                 match clt_acceptor.recv_busywait() {
                     Ok(Some(_recv_msg)) => {
-                        clt_acceptor
-                            .send_busywait(&mut clt_acceptor_msg_send)
-                            .unwrap();
+                        clt_acceptor.send_busywait(&mut clt_acceptor_msg_send).unwrap();
                         clt_acceptor_msg_recv_count += 1;
                     }
                     Ok(None) => {
-                        info!(
-                            "Connection Closed by clt_initiator clt_acceptor: {}",
-                            clt_acceptor
-                        );
+                        info!("Connection Closed by clt_initiator clt_acceptor: {}", clt_acceptor);
                         break;
                     }
                     Err(err) => {
-                        info!(
-                            "Connection Closed by clt_initiator, clt_acceptor: {}, err: {}",
-                            clt_acceptor, err
-                        );
+                        info!("Connection Closed by clt_initiator, clt_acceptor: {}, err: {}", clt_acceptor, err);
                         break;
                     }
                 }
@@ -246,14 +185,7 @@ fn round_trip_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let mut clt_initiator = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(
-        addr,
-        timeout,
-        retry_after,
-        clt_callback,
-        name.clone(),
-    )
-    .unwrap();
+    let mut clt_initiator = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, name.clone()).unwrap();
     info!("clt_initiator: {}", clt_initiator);
 
     let id = format!("clt2clt_nonblocking_busywait_round_trip_msg TestSvcMsg");
@@ -262,9 +194,7 @@ fn round_trip_msg(c: &mut Criterion) {
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({
-                clt_initiator
-                    .send_busywait(&mut clt_initiator_send_msg)
-                    .unwrap();
+                clt_initiator.send_busywait(&mut clt_initiator_send_msg).unwrap();
                 let _msg = clt_initiator.recv_busywait().unwrap().unwrap();
                 clt_initiator_msg_send_count += 1;
             })

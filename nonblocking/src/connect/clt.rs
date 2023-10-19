@@ -8,9 +8,8 @@ use std::{
 };
 
 use crate::prelude::{
-    into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, MessageRecver,
-    MessageSender, Messenger, PollEventStatus, PollRecv, RecvNonBlocking, RecvStatus,
-    SendNonBlocking, SendNonBlockingNonMut, SendStatus,
+    into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, MessageRecver, MessageSender, Messenger, PollEventStatus, PollRecv, RecvNonBlocking, RecvStatus, SendNonBlocking,
+    SendNonBlockingNonMut, SendStatus,
 };
 use links_core::asserted_short_name;
 use log::debug;
@@ -24,21 +23,15 @@ pub struct CltRecver<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize
 }
 impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> CltRecver<M, C, MAX_MSG_SIZE> {
     pub fn new(recver: MessageRecver<M, MAX_MSG_SIZE>, callback: Arc<C>) -> Self {
-        Self {
-            msg_recver: recver,
-            callback,
-        }
+        Self { msg_recver: recver, callback }
     }
 }
-impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvNonBlocking<M>
-    for CltRecver<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvNonBlocking<M> for CltRecver<M, C, MAX_MSG_SIZE> {
     #[inline(always)]
     fn recv(&mut self) -> Result<RecvStatus<M::RecvT>, Error> {
         match self.msg_recver.recv()? {
             RecvStatus::Completed(Some(msg)) => {
-                self.callback
-                    .on_recv(&self.msg_recver.frm_reader.con_id, &msg);
+                self.callback.on_recv(&self.msg_recver.frm_reader.con_id, &msg);
                 Ok(RecvStatus::Completed(Some(msg)))
             }
             RecvStatus::Completed(None) => Ok(RecvStatus::Completed(None)),
@@ -46,9 +39,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvNonBlockin
         }
     }
 }
-impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PollRecv
-    for CltRecver<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PollRecv for CltRecver<M, C, MAX_MSG_SIZE> {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         Box::new(&mut self.msg_recver.frm_reader.stream_reader)
     }
@@ -61,14 +52,9 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PollRecv
         }
     }
 }
-impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display
-    for CltRecver<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for CltRecver<M, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msger_name = std::any::type_name::<M>()
-            .split("::")
-            .last()
-            .unwrap_or("Unknown");
+        let msger_name = std::any::type_name::<M>().split("::").last().unwrap_or("Unknown");
         write!(
             f,
             "{}<{}, {}, {}>",
@@ -89,99 +75,68 @@ pub struct CltSender<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize
 }
 impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> CltSender<M, C, MAX_MSG_SIZE> {
     pub fn new(sender: MessageSender<M, MAX_MSG_SIZE>, callback: Arc<C>) -> Self {
-        Self {
-            msg_sender: sender,
-            callback,
-        }
+        Self { msg_sender: sender, callback }
     }
 }
-impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlocking<M>
-    for CltSender<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlocking<M> for CltSender<M, C, MAX_MSG_SIZE> {
     #[inline(always)]
     fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
-        self.callback
-            .on_send(&self.msg_sender.frm_writer.con_id, msg);
+        self.callback.on_send(&self.msg_sender.frm_writer.con_id, msg);
 
         match self.msg_sender.send(msg) {
             Ok(SendStatus::Completed) => {
-                self.callback
-                    .on_sent(&self.msg_sender.frm_writer.con_id, msg);
+                self.callback.on_sent(&self.msg_sender.frm_writer.con_id, msg);
                 Ok(SendStatus::Completed)
             }
             Ok(SendStatus::WouldBlock) => {
-                self.callback.on_fail(
-                    &self.msg_sender.frm_writer.con_id,
-                    msg,
-                    &ErrorKind::WouldBlock.into(),
-                );
+                self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &ErrorKind::WouldBlock.into());
                 Ok(SendStatus::WouldBlock)
             }
             Err(e) => {
-                self.callback
-                    .on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
+                self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
                 Err(e)
             }
         }
     }
     #[inline(always)]
-    fn send_busywait_timeout(
-        &mut self,
-        msg: &mut <M as Messenger>::SendT,
-        timeout: Duration,
-    ) -> Result<SendStatus, Error> {
-        self.callback
-            .on_send(&self.msg_sender.frm_writer.con_id, msg);
+    fn send_busywait_timeout(&mut self, msg: &mut <M as Messenger>::SendT, timeout: Duration) -> Result<SendStatus, Error> {
+        self.callback.on_send(&self.msg_sender.frm_writer.con_id, msg);
 
         match self.msg_sender.send_busywait_timeout(msg, timeout) {
             Ok(SendStatus::Completed) => {
-                self.callback
-                    .on_sent(&self.msg_sender.frm_writer.con_id, msg);
+                self.callback.on_sent(&self.msg_sender.frm_writer.con_id, msg);
                 Ok(SendStatus::Completed)
             }
             Ok(SendStatus::WouldBlock) => {
-                self.callback.on_fail(
-                    &self.msg_sender.frm_writer.con_id,
-                    msg,
-                    &ErrorKind::WouldBlock.into(),
-                );
+                self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &ErrorKind::WouldBlock.into());
                 Ok(SendStatus::WouldBlock)
             }
             Err(e) => {
-                self.callback
-                    .on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
+                self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
                 Err(e)
             }
         }
     }
     #[inline(always)]
     fn send_busywait(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<(), Error> {
-        self.callback
-            .on_send(&self.msg_sender.frm_writer.con_id, msg);
+        self.callback.on_send(&self.msg_sender.frm_writer.con_id, msg);
 
         match self.msg_sender.send_busywait(msg) {
             Ok(()) => {
-                self.callback
-                    .on_sent(&self.msg_sender.frm_writer.con_id, msg);
+                self.callback.on_sent(&self.msg_sender.frm_writer.con_id, msg);
                 Ok(())
             }
             Err(e) => {
-                self.callback
-                    .on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
+                self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
                 Err(e)
             }
         }
     }
 }
 
-impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
-    for CltSender<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for CltSender<M, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msger_name = std::any::type_name::<M>()
-            .split("::")
-            .last()
-            .unwrap_or("Unknown");
+        let msger_name = std::any::type_name::<M>().split("::").last().unwrap_or("Unknown");
         write!(
             f,
             "{}<{}, {}, {}>",
@@ -235,19 +190,8 @@ pub struct Clt<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> 
 }
 
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Clt<M, C, MAX_MSG_SIZE> {
-    pub fn connect(
-        addr: &str,
-        timeout: Duration,
-        retry_after: Duration,
-        callback: Arc<C>,
-        name: Option<&str>,
-    ) -> Result<Self, Error> {
-        assert!(
-            timeout > retry_after,
-            "timeout: {:?}, retry_after: {:?}",
-            timeout,
-            retry_after
-        );
+    pub fn connect(addr: &str, timeout: Duration, retry_after: Duration, callback: Arc<C>, name: Option<&str>) -> Result<Self, Error> {
+        assert!(timeout > retry_after, "timeout: {:?}, retry_after: {:?}", timeout, retry_after);
         let now = Instant::now();
         let con_id = ConId::clt(name, None, addr);
         while now.elapsed() < timeout {
@@ -277,33 +221,21 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Clt<M, C, 
         (self.clt_recver, self.clt_sender)
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendNonBlocking<M>
-    for Clt<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendNonBlocking<M> for Clt<M, C, MAX_MSG_SIZE> {
     #[inline(always)]
     fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
         self.clt_sender.send(msg)
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvNonBlocking<M>
-    for Clt<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvNonBlocking<M> for Clt<M, C, MAX_MSG_SIZE> {
     #[inline(always)]
     fn recv(&mut self) -> Result<RecvStatus<<M as Messenger>::RecvT>, Error> {
         self.clt_recver.recv()
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
-    for Clt<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display for Clt<M, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}<{}, {}>",
-            asserted_short_name!("Clt", Self),
-            self.clt_recver,
-            self.clt_sender
-        )
+        write!(f, "{}<{}, {}>", asserted_short_name!("Clt", Self), self.clt_recver, self.clt_sender)
     }
 }
 
@@ -321,13 +253,7 @@ mod test {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::<CltTestMessenger>::new_ref();
-        let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-            addr,
-            setup::net::default_connect_timeout(),
-            setup::net::default_connect_retry_after(),
-            callback,
-            Some("unittest"),
-        );
+        let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, Some("unittest"));
         assert!(res.is_err());
     }
 }

@@ -25,12 +25,8 @@ pub use timestamp::Timestamp;
 pub use user_ref::*;
 
 use byteserde::prelude::*;
-use byteserde_derive::{
-    ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf, ByteSerializedSizeOf,
-};
-use byteserde_types::{
-    char_ascii, const_char_ascii, string_ascii_fixed, u16_tuple, u32_tuple, u64_tuple,
-};
+use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf, ByteSerializedSizeOf};
+use byteserde_types::{char_ascii, const_char_ascii, string_ascii_fixed, u16_tuple, u32_tuple, u64_tuple};
 
 // const char ascii
 #[rustfmt::skip]
@@ -298,9 +294,7 @@ pub mod price {
     }
     impl Debug for Price {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.debug_tuple("Price")
-                .field(&(self.0 as f64 / PRICE_SCALE))
-                .finish()
+            f.debug_tuple("Price").field(&(self.0 as f64 / PRICE_SCALE)).finish()
         }
     }
 }
@@ -355,10 +349,7 @@ pub mod timestamp {
 
             // from an arbitrary date
             let nanos_shift = 1000;
-            let nanos_shift_past_midnight = Local::now()
-                .date_naive()
-                .and_hms_nano_opt(0, 0, 0, nanos_shift)
-                .unwrap();
+            let nanos_shift_past_midnight = Local::now().date_naive().and_hms_nano_opt(0, 0, 0, nanos_shift).unwrap();
 
             info!("one_th_nano_past_midnight: {:?}", nanos_shift_past_midnight);
             let timestamp = Timestamp::from(nanos_shift_past_midnight);

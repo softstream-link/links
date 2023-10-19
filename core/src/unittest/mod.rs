@@ -23,10 +23,7 @@ pub mod setup {
                         let args = record.args();
                         let thread = std::thread::current();
                         let id = thread.id();
-                        let name = thread
-                            .name()
-                            .unwrap_or(format!("Thread-{id:?}").as_str())
-                            .to_owned();
+                        let name = thread.name().unwrap_or(format!("Thread-{id:?}").as_str()).to_owned();
                         writeln!(buf, "{ts} {level} ({name}) {target} {args}")
                     })
                     // .format_timestamp_micro s()
@@ -58,14 +55,14 @@ pub mod setup {
         }
 
         pub fn default_connect_timeout() -> Duration {
-            Duration::from_millis(500)
+            Duration::from_millis(500) // 0.5 sec
         }
         pub fn default_connect_retry_after() -> Duration {
-            default_connect_timeout() / 5
+            default_connect_timeout() / 5 // 0.1 sec
         }
 
         pub fn optional_find_timeout() -> Option<Duration> {
-            Some(Duration::from_millis(10))
+            Some(Duration::from_millis(10)) // 0.01 sec
         }
     }
     pub mod data {
@@ -206,15 +203,9 @@ pub mod setup {
             #[test]
             fn test_msg_len() {
                 assert_eq!(TestCltMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
-                assert_eq!(
-                    TestCltMsgLoginReq::default().byte_len(),
-                    TEST_MSG_FRAME_SIZE
-                );
+                assert_eq!(TestCltMsgLoginReq::default().byte_len(), TEST_MSG_FRAME_SIZE);
                 assert_eq!(TestSvcMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
-                assert_eq!(
-                    TestSvcMsgLoginAcpt::default().byte_len(),
-                    TEST_MSG_FRAME_SIZE
-                );
+                assert_eq!(TestSvcMsgLoginAcpt::default().byte_len(), TEST_MSG_FRAME_SIZE);
                 assert_eq!(TestHBeatMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
             }
         }

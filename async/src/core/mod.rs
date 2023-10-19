@@ -4,9 +4,7 @@ use std::{error::Error, future::Future, time::Duration};
 
 use crate::prelude::*;
 
-use links_core::prelude::{
-    CallbackSendRecvOld, ConId, EventIntervalTracker, Framer, MessengerOld,
-};
+use links_core::prelude::{CallbackSendRecvOld, ConId, EventIntervalTracker, Framer, MessengerOld};
 
 /// This trait brings the Framer and Messenger traits together as well as provides a series of functions
 /// that can be used to enable automated reply logics or provide telemetry information on the connection
@@ -22,32 +20,24 @@ pub trait Protocol: Clone+MessengerOld+Framer+Send+Sync+'static {
     fn is_connected(&self, timeout: Option<Duration>) -> impl Future<Output=bool>+'_ {
         async {
             todo!(
-            "
+                "
             Default implementation of this method is not provided.
             Typicall implementaiton involves you implementing {}::on_recv( ... ) and then track if the last message arrived 
             with in allowed tolerance Interval. {}::is_within_tolerance_factor() can be used to help track arrival frequency.
-            ", std::any::type_name::<Self>()
-            , std::any::type_name::<EventIntervalTracker>()
-        )
+            ",
+                std::any::type_name::<Self>(),
+                std::any::type_name::<EventIntervalTracker>()
+            )
         }
     }
-    fn handshake<
-        's,
-        P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-        C: CallbackSendRecvOld<P>,
-        const MMS: usize,
-    >(
+    fn handshake<'s, P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>, C: CallbackSendRecvOld<P>, const MMS: usize>(
         &'s self,
         clt: &'s Clt<P, C, MMS>,
     ) -> impl Future<Output=Result<(), Box<dyn Error+Send+Sync>>>+Send+'_ {
         async { Ok(()) }
     }
 
-    fn keep_alive_loop<
-        P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>,
-        C: CallbackSendRecvOld<P>,
-        const MMS: usize,
-    >(
+    fn keep_alive_loop<P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>, C: CallbackSendRecvOld<P>, const MMS: usize>(
         &self,
         clt: CltSenderAsync<P, C, MMS>,
     ) -> impl Future<Output=Result<(), Box<dyn Error+Send+Sync>>>+Send+'_ {
@@ -55,19 +45,11 @@ pub trait Protocol: Clone+MessengerOld+Framer+Send+Sync+'static {
     }
 
     #[inline(always)]
-    fn on_recv<'s>(
-        &'s self,
-        con_id: &'s ConId,
-        msg: &'s Self::RecvT,
-    ) -> impl Future<Output=()>+Send+'_ {
+    fn on_recv<'s>(&'s self, con_id: &'s ConId, msg: &'s Self::RecvT) -> impl Future<Output=()>+Send+'_ {
         async {}
     }
     #[inline(always)]
-    fn on_send<'s>(
-        &'s self,
-        con_id: &'s ConId,
-        msg: &'s mut Self::SendT,
-    ) -> impl Future<Output=()>+Send+'_ {
+    fn on_send<'s>(&'s self, con_id: &'s ConId, msg: &'s mut Self::SendT) -> impl Future<Output=()>+Send+'_ {
         async {}
     }
 }

@@ -16,12 +16,11 @@ pub struct OrderModified {
 }
 
 impl<T> From<(&T, Side)> for OrderModified
-where
-    T: CancelableOrder,
+where T: CancelableOrder
 {
     fn from(value: (&T, Side)) -> Self {
         let (ord, side) = value;
-        Self {            
+        Self {
             packet_type: PacketTypeOrderModified::default(),
 
             timestamp: Timestamp::default(), // Venue assigned
@@ -36,8 +35,8 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use links_core::unittest::setup;
     use byteserde::prelude::*;
+    use links_core::unittest::setup;
     use log::info;
 
     #[test]

@@ -5,7 +5,6 @@ use std::{
 
 use log::{debug, error, info, log_enabled, trace, warn, Level};
 
-
 use crate::prelude::*;
 
 use super::CallbackSendRecvOld;
@@ -41,11 +40,7 @@ impl<M: MessengerOld> LoggerCallbackOld<M> {
 
 impl<M: MessengerOld> Display for LoggerCallbackOld<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "LoggerCallback<recv: {}, send: {}>",
-            self.level_recv, self.level_send
-        )
+        write!(f, "LoggerCallback<recv: {}, send: {}>", self.level_recv, self.level_send)
     }
 }
 
@@ -81,9 +76,9 @@ impl<M: MessengerOld> CallbackSendRecvOld<M> for LoggerCallbackOld<M> {
 #[cfg(test)]
 mod test {
 
+    use crate::unittest::setup;
     use crate::unittest::setup::messenger_old::CltTestMessenger;
     use crate::unittest::setup::model::*;
-    use crate::unittest::setup;
 
     use super::*;
 

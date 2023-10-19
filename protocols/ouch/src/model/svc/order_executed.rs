@@ -34,13 +34,10 @@ impl From<&EnterOrder> for OrderExecuted {
             liquidity_flag: LiquidityFlag::added(),
             match_number: MatchNumber::default(),
             appendage_length: enter_order.appendages.byte_len() as u16,
-            appendages: enter_order.appendages, 
-
+            appendages: enter_order.appendages,
         }
     }
 }
-
-
 
 #[cfg(test)]
 mod test {

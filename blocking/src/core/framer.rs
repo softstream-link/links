@@ -103,10 +103,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
                         if self.buffer.is_empty() {
                             return Ok(None);
                         } else {
-                            let msg = format!(
-                                "FrameReader::read_frame connection reset by peer, residual buf:\n{}",
-                                to_hex_pretty(&self.buffer[..])
-                            );
+                            let msg = format!("FrameReader::read_frame connection reset by peer, residual buf:\n{}", to_hex_pretty(&self.buffer[..]));
                             return Err(Error::new(std::io::ErrorKind::ConnectionReset, msg));
                         }
                     }
@@ -116,12 +113,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
                     }
                     Err(e) => {
                         self.shutdown(Shutdown::Write, "read_frame error");
-                        let msg = format!(
-                            "{} FrameReader::read_frame caused by: [{}] residual buf:\n{}",
-                            self.con_id,
-                            e,
-                            to_hex_pretty(&self.buffer[..])
-                        );
+                        let msg = format!("{} FrameReader::read_frame caused by: [{}] residual buf:\n{}", self.con_id, e, to_hex_pretty(&self.buffer[..]));
                         return Err(Error::new(e.kind(), msg));
                     }
                 }
@@ -138,17 +130,11 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             }
             Err(e) if e.kind() == ErrorKind::NotConnected => {
                 if log_enabled!(log::Level::Debug) {
-                    debug!(
-                        "{}::shutdown while disconnected how: {:?}, reason: {}",
-                        self, how, reason
-                    );
+                    debug!("{}::shutdown while disconnected how: {:?}, reason: {}", self, how, reason);
                 }
             }
             Err(e) => {
-                panic!(
-                    "{}::shutdown how: {:?}, reason: {}, caused by: [{}]",
-                    self, how, reason, e
-                );
+                panic!("{}::shutdown how: {:?}, reason: {}, caused by: [{}]", self, how, reason, e);
             }
         }
     }
@@ -166,10 +152,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SI
         write!(
             f,
             "FrameReader<{}> {{ {}, addr: {}, peer: {}, fd: {} }}",
-            std::any::type_name::<F>()
-                .split("::")
-                .last()
-                .unwrap_or("Unknown"),
+            std::any::type_name::<F>().split("::").last().unwrap_or("Unknown"),
             self.con_id,
             match self.stream_reader.local_addr() {
                 Ok(_) => "connected",
@@ -196,10 +179,7 @@ impl FrameWriter {
     /// * `con_id` - [ConId] a unique identifier for the connection and used for logging
     /// * `stream` - [TcpStream] the underlying stream that will be used for writing
     pub fn new(con_id: ConId, stream: TcpStream) -> Self {
-        Self {
-            con_id,
-            stream_writer: stream,
-        }
+        Self { con_id, stream_writer: stream }
     }
     /// Writes a single frame to the underlying [TcpStream].
     ///
@@ -211,10 +191,7 @@ impl FrameWriter {
             Ok(_) => Ok(()),
             Err(e) => {
                 self.shutdown(Shutdown::Write, "write_frame error");
-                let msg = format!(
-                    "{} FrameWriter::write_frame caused by: [{}]",
-                    self.con_id, e
-                );
+                let msg = format!("{} FrameWriter::write_frame caused by: [{}]", self.con_id, e);
                 Err(Error::new(e.kind(), msg))
             }
         }
@@ -230,17 +207,11 @@ impl FrameWriter {
             }
             Err(e) if e.kind() == ErrorKind::NotConnected => {
                 if log_enabled!(log::Level::Debug) {
-                    debug!(
-                        "{}::shutdown while disconnected how: {:?}, reason: {}",
-                        self, how, reason
-                    );
+                    debug!("{}::shutdown while disconnected how: {:?}, reason: {}", self, how, reason);
                 }
             }
             Err(e) => {
-                panic!(
-                    "{}::shutdown how: {:?}, reason: {}, caused by: [{}]",
-                    self, how, reason, e
-                );
+                panic!("{}::shutdown how: {:?}, reason: {}, caused by: [{}]", self, how, reason, e);
             }
         }
     }
@@ -280,22 +251,11 @@ type FrameProcessor<F, const MAX_MSG_SIZE: usize> = (FrameReader<F, MAX_MSG_SIZE
 ///
 /// # Important
 /// If either the [FrameReader] or [FrameWriter] are dropped the underlying stream will be shutdown and all actions on the remaining `pair` will fail
-pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
-    mut con_id: ConId,
-    stream: TcpStream,
-) -> FrameProcessor<F, MAX_MSG_SIZE> {
+pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(mut con_id: ConId, stream: TcpStream) -> FrameProcessor<F, MAX_MSG_SIZE> {
     con_id.set_local(stream.local_addr().unwrap());
     con_id.set_peer(stream.peer_addr().unwrap());
-    let (reader, writer) = (
-        stream
-            .try_clone()
-            .expect("Failed to try_clone TcpStream for FrameReader"),
-        stream,
-    );
-    (
-        FrameReader::<F, MAX_MSG_SIZE>::new(con_id.clone(), reader),
-        FrameWriter::new(con_id, writer),
-    )
+    let (reader, writer) = (stream.try_clone().expect("Failed to try_clone TcpStream for FrameReader"), stream);
+    (FrameReader::<F, MAX_MSG_SIZE>::new(con_id.clone(), reader), FrameWriter::new(con_id, writer))
 }
 
 #[cfg(test)]
@@ -347,11 +307,7 @@ mod test {
                 move || {
                     let listener = TcpListener::bind(addr).unwrap();
                     let (stream, _) = listener.accept().unwrap();
-                    let (mut svc_reader, _svc_writer) =
-                        into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
-                            ConId::svc(Some("unittest"), addr, None),
-                            stream,
-                        );
+                    let (mut svc_reader, _svc_writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(ConId::svc(Some("unittest"), addr, None), stream);
                     info!("svc: reader: {}", svc_reader);
                     let mut frame_recv_count = 0_usize;
                     loop {
@@ -378,10 +334,7 @@ mod test {
 
         sleep(Duration::from_millis(100)); // allow the spawned to bind
                                            // CONFIGURE clt
-        let (mut clt_reader, mut clt_writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
-            ConId::clt(Some("unittest"), None, addr),
-            TcpStream::connect(addr).unwrap(),
-        );
+        let (mut clt_reader, mut clt_writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(ConId::clt(Some("unittest"), None, addr), TcpStream::connect(addr).unwrap());
 
         info!("clt: {}", clt_writer);
 
@@ -409,16 +362,8 @@ mod test {
         }
         let frame_recv_count = svc.join().unwrap();
 
-        info!(
-            "frame_send_count: {}, frame_recv_count: {}",
-            fmt_num!(frame_send_count),
-            fmt_num!(frame_recv_count)
-        );
-        info!(
-            "per send elapsed: {:?}, total elapsed: {:?} ",
-            elapsed / WRITE_N_TIMES as u32,
-            elapsed
-        );
+        info!("frame_send_count: {}, frame_recv_count: {}", fmt_num!(frame_send_count), fmt_num!(frame_recv_count));
+        info!("per send elapsed: {:?}, total elapsed: {:?} ", elapsed / WRITE_N_TIMES as u32, elapsed);
         assert_eq!(frame_send_count, frame_recv_count);
         assert_eq!(frame_send_count, WRITE_N_TIMES);
     }

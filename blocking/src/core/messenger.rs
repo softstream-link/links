@@ -76,11 +76,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvMsg<M> for MessageRecver<M, MA
 impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageRecver<M, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
-        write!(
-            f,
-            "{:?} MessageRecver<{}, {}>",
-            self.frm_reader.con_id, name, MAX_MSG_SIZE
-        )
+        write!(f, "{:?} MessageRecver<{}, {}>", self.frm_reader.con_id, name, MAX_MSG_SIZE)
     }
 }
 
@@ -109,18 +105,11 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> SendMsgNonMut<M> for MessageSender
 impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let messenger_name = type_name::<M>().split("::").last().unwrap_or("Unknown");
-        write!(
-            f,
-            "{} MessageSender<{}, {}>",
-            self.frm_writer.con_id, messenger_name, MAX_MSG_SIZE
-        )
+        write!(f, "{} MessageSender<{}, {}>", self.frm_writer.con_id, messenger_name, MAX_MSG_SIZE)
     }
 }
 
-pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (
-    MessageRecver<M, MAX_MSG_SIZE>,
-    MessageSender<M, MAX_MSG_SIZE>,
-);
+pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (MessageRecver<M, MAX_MSG_SIZE>, MessageSender<M, MAX_MSG_SIZE>);
 
 /// Creates a `paired` [MessageRecver] and [MessageSender] from a [std::net::TcpStream] by cloning it.
 ///
@@ -130,22 +119,11 @@ pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (
 ///
 /// # Important
 /// if either [MessageRecver] or [MessageSender] is dropped, the underlying stream will be shutdown and all actions on the remaining `pair` will fail
-pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
-    mut con_id: ConId,
-    stream: TcpStream,
-) -> MessageProcessor<M, MAX_MSG_SIZE> {
+pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(mut con_id: ConId, stream: TcpStream) -> MessageProcessor<M, MAX_MSG_SIZE> {
     con_id.set_local(stream.local_addr().unwrap());
     con_id.set_peer(stream.peer_addr().unwrap());
-    let (reader, writer) = (
-        stream
-            .try_clone()
-            .expect("Failed to try_clone TcpStream for MessageRecver"),
-        stream,
-    );
-    (
-        MessageRecver::<M, MAX_MSG_SIZE>::new(con_id.clone(), reader),
-        MessageSender::<M, MAX_MSG_SIZE>::new(con_id, writer),
-    )
+    let (reader, writer) = (stream.try_clone().expect("Failed to try_clone TcpStream for MessageRecver"), stream);
+    (MessageRecver::<M, MAX_MSG_SIZE>::new(con_id.clone(), reader), MessageSender::<M, MAX_MSG_SIZE>::new(con_id, writer))
 }
 
 #[cfg(test)]
@@ -167,9 +145,7 @@ mod test {
         unittest::setup::{
             self,
             framer::{CltTestMessenger, SvcTestMessenger},
-            model::{
-                TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug, TEST_MSG_FRAME_SIZE,
-            },
+            model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug, TEST_MSG_FRAME_SIZE},
         },
     };
     use log::info;
@@ -189,11 +165,7 @@ mod test {
                 let (mut svc_msg_sent_count, mut svc_msg_recv_count) = (0_usize, 0_usize);
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
-                let (mut svc_recver, mut svc_sender) =
-                    into_split_messenger::<SvcTestMessenger, TEST_MSG_FRAME_SIZE>(
-                        ConId::svc(Some("unittest"), addr, None),
-                        stream,
-                    );
+                let (mut svc_recver, mut svc_sender) = into_split_messenger::<SvcTestMessenger, TEST_MSG_FRAME_SIZE>(ConId::svc(Some("unittest"), addr, None), stream);
                 info!("{} connected", svc_sender);
 
                 while let Some(_) = svc_recver.recv().unwrap() {
@@ -212,11 +184,7 @@ mod test {
         let inp_clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
         let (mut clt_msg_sent_count, mut clt_msg_recv_count) = (0, 0);
         let stream = TcpStream::connect(addr).unwrap();
-        let (mut clt_recver, mut clt_sender) =
-            into_split_messenger::<CltTestMessenger, TEST_MSG_FRAME_SIZE>(
-                ConId::clt(Some("unittest"), None, addr),
-                stream,
-            );
+        let (mut clt_recver, mut clt_sender) = into_split_messenger::<CltTestMessenger, TEST_MSG_FRAME_SIZE>(ConId::clt(Some("unittest"), None, addr), stream);
         info!("{} connected", clt_sender);
         let start = Instant::now();
         for _ in 0..WRITE_N_TIMES {
@@ -242,21 +210,9 @@ mod test {
         }
 
         let (svc_msg_sent_count, svc_msg_recv_count) = svc.join().unwrap();
-        info!(
-            "clt_msg_sent_count: {}, clt_msg_recv_count: {}",
-            fmt_num!(clt_msg_sent_count),
-            fmt_num!(clt_msg_recv_count)
-        );
-        info!(
-            "svc_msg_sent_count: {}, svc_msg_recv_count: {}",
-            fmt_num!(svc_msg_sent_count),
-            fmt_num!(svc_msg_recv_count)
-        );
-        info!(
-            "per round trip elapsed: {:?}, total elapsed: {:?} ",
-            elapsed / WRITE_N_TIMES as u32,
-            elapsed
-        );
+        info!("clt_msg_sent_count: {}, clt_msg_recv_count: {}", fmt_num!(clt_msg_sent_count), fmt_num!(clt_msg_recv_count));
+        info!("svc_msg_sent_count: {}, svc_msg_recv_count: {}", fmt_num!(svc_msg_sent_count), fmt_num!(svc_msg_recv_count));
+        info!("per round trip elapsed: {:?}, total elapsed: {:?} ", elapsed / WRITE_N_TIMES as u32, elapsed);
 
         assert_eq!(clt_msg_sent_count, svc_msg_sent_count);
         assert_eq!(clt_msg_recv_count, svc_msg_recv_count);

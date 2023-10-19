@@ -66,11 +66,7 @@ impl<T: Debug+Display> RoundRobinPool<T> {
         if !self.has_capacity() {
             return Err(Error::new(
                 ErrorKind::OutOfMemory,
-                format!(
-                    "RoundRobinPool at max capacity: {}, element: {} will be dropped",
-                    self.len(),
-                    element
-                ),
+                format!("RoundRobinPool at max capacity: {}, element: {} will be dropped", self.len(), element),
             ));
         }
 
@@ -102,11 +98,7 @@ impl<T: Debug+Display> Display for RoundRobinPool<T> {
             asserted_short_name!("RoundRobinPool", Self),
             self.elements.len(),
             self.elements.capacity(),
-            self.elements
-                .iter()
-                .map(|(_, element)| format!("{}", element))
-                .collect::<Vec<_>>()
-                .join(",")
+            self.elements.iter().map(|(_, element)| format!("{}", element)).collect::<Vec<_>>().join(",")
         )
     }
 }

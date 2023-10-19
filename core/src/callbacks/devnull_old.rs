@@ -3,7 +3,6 @@ use std::{
     sync::Arc,
 };
 
-
 use crate::prelude::*;
 
 use super::CallbackSendRecvOld;
@@ -14,9 +13,7 @@ pub struct DevNullCallbackOld<M: MessengerOld> {
 }
 impl<M: MessengerOld> Default for DevNullCallbackOld<M> {
     fn default() -> Self {
-        Self {
-            p1: std::marker::PhantomData,
-        }
+        Self { p1: std::marker::PhantomData }
     }
 }
 
@@ -40,9 +37,9 @@ impl<M: MessengerOld> CallbackSendRecvOld<M> for DevNullCallbackOld<M> {
 #[cfg(test)]
 mod test {
 
+    use crate::unittest::setup;
     use crate::unittest::setup::messenger_old::CltTestMessenger;
     use crate::unittest::setup::model::*;
-    use crate::unittest::setup;
 
     use super::*;
 

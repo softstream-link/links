@@ -104,11 +104,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
                 if self.buffer.is_empty() {
                     Ok(RecvStatus::Completed(None))
                 } else {
-                    let msg = format!(
-                        "{} FrameReader::read_frame connection reset by peer, residual buf:\n{}",
-                        self.con_id,
-                        to_hex_pretty(&self.buffer[..])
-                    );
+                    let msg = format!("{} FrameReader::read_frame connection reset by peer, residual buf:\n{}", self.con_id, to_hex_pretty(&self.buffer[..]));
                     Err(Error::new(ErrorKind::ConnectionReset, msg))
                 }
             }
@@ -123,12 +119,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(RecvStatus::WouldBlock),
             Err(e) => {
                 self.shutdown(Shutdown::Write, "read_frame error"); // remember to shutdown on both exception and on EOF
-                let msg = format!(
-                    "{} FrameReader::read_frame caused by: [{}] residual buf:\n{}",
-                    self.con_id,
-                    e,
-                    to_hex_pretty(&self.buffer[..])
-                );
+                let msg = format!("{} FrameReader::read_frame caused by: [{}] residual buf:\n{}", self.con_id, e, to_hex_pretty(&self.buffer[..]));
 
                 Err(Error::new(e.kind(), msg))
             }
@@ -150,17 +141,11 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             }
             Err(e) if e.kind() == ErrorKind::NotConnected => {
                 if log_enabled!(log::Level::Debug) {
-                    debug!(
-                        "{}::shutdown while disconnected how: {:?}, reason: {}",
-                        self, how, reason
-                    );
+                    debug!("{}::shutdown while disconnected how: {:?}, reason: {}", self, how, reason);
                 }
             }
             Err(e) => {
-                panic!(
-                    "{}::shutdown how: {:?}, reason: {}, caused by: [{}]",
-                    self, how, reason, e
-                );
+                panic!("{}::shutdown how: {:?}, reason: {}, caused by: [{}]", self, how, reason, e);
             }
         }
     }
@@ -178,10 +163,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SI
         write!(
             f,
             "FrameReader<{}> {{ {}, addr: {}, peer: {}, fd: {} }}",
-            std::any::type_name::<F>()
-                .split("::")
-                .last()
-                .unwrap_or("Unknown"),
+            std::any::type_name::<F>().split("::").last().unwrap_or("Unknown"),
             self.con_id,
             match self.stream_reader.local_addr() {
                 Ok(_) => "connected",
@@ -205,10 +187,7 @@ pub struct FrameWriter {
 impl FrameWriter {
     /// Constructs a new instance of [FrameWriter]
     pub fn new(con_id: ConId, stream: mio::net::TcpStream) -> Self {
-        Self {
-            con_id,
-            stream_writer: stream,
-        }
+        Self { con_id, stream_writer: stream }
     }
     /// Writes `entire` frame or `no` bytes at all to the underlying stream, see [SendStatus] for more details on the meaning of
     /// each variant in the successful scenario.
@@ -233,10 +212,7 @@ impl FrameWriter {
                 // note: can't use write_all https://github.com/rust-lang/rust/issues/115451
                 Ok(EOF) => {
                     self.shutdown(Shutdown::Both, "write_frame EOF"); // remember to shutdown on both exception and on EOF
-                    let msg = format!(
-                        "connection reset by peer, residual buf:\n{}",
-                        to_hex_pretty(residual)
-                    );
+                    let msg = format!("connection reset by peer, residual buf:\n{}", to_hex_pretty(residual));
                     return Err(Error::new(ErrorKind::ConnectionReset, msg));
                 }
                 Ok(len) => {
@@ -282,17 +258,11 @@ impl FrameWriter {
             }
             Err(e) if e.kind() == ErrorKind::NotConnected => {
                 if log_enabled!(log::Level::Debug) {
-                    debug!(
-                        "{}::shutdown while disconnected how: {:?}, reason: {}",
-                        self, how, reason
-                    );
+                    debug!("{}::shutdown while disconnected how: {:?}, reason: {}", self, how, reason);
                 }
             }
             Err(e) => {
-                panic!(
-                    "{}::shutdown how: {:?}, reason: {}, caused by: [{}]",
-                    self, how, reason, e
-                );
+                panic!("{}::shutdown how: {:?}, reason: {}, caused by: [{}]", self, how, reason, e);
             }
         }
     }
@@ -333,31 +303,15 @@ type FrameProcessor<F, const MAX_MSG_SIZE: usize> = (FrameReader<F, MAX_MSG_SIZE
 ///
 /// # Important
 /// If either the [FrameReader] or [FrameWriter] are dropped the underlying stream will be shutdown and all actions on the remaining `pair` will fail
-pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(
-    mut con_id: ConId,
-    stream: std::net::TcpStream,
-) -> FrameProcessor<F, MAX_MSG_SIZE> {
-    stream
-        .set_nonblocking(true)
-        .expect("Failed to set_nonblocking on TcpStream");
+pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(mut con_id: ConId, stream: std::net::TcpStream) -> FrameProcessor<F, MAX_MSG_SIZE> {
+    stream.set_nonblocking(true).expect("Failed to set_nonblocking on TcpStream");
     con_id.set_local(stream.local_addr().unwrap());
     con_id.set_peer(stream.peer_addr().unwrap());
-    let (reader, writer) = (
-        stream
-            .try_clone()
-            .expect("Failed to try_clone TcpStream for FrameReader"),
-        stream,
-    );
+    let (reader, writer) = (stream.try_clone().expect("Failed to try_clone TcpStream for FrameReader"), stream);
 
-    let (reader, writer) = (
-        mio::net::TcpStream::from_std(reader),
-        mio::net::TcpStream::from_std(writer),
-    );
+    let (reader, writer) = (mio::net::TcpStream::from_std(reader), mio::net::TcpStream::from_std(writer));
 
-    (
-        FrameReader::<F, MAX_MSG_SIZE>::new(con_id.clone(), reader),
-        FrameWriter::new(con_id, writer),
-    )
+    (FrameReader::<F, MAX_MSG_SIZE>::new(con_id.clone(), reader), FrameWriter::new(con_id, writer))
 }
 
 #[cfg(test)]
@@ -401,64 +355,56 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
 
         // CONFIGURE svc
-        let svc =
-            thread::Builder::new()
-                .name("Thread-Svc".to_owned())
-                .spawn({
-                    move || {
-                        let listener = TcpListener::bind(addr).unwrap();
-                        let (stream, _) = listener.accept().unwrap();
-                        // keep _writer because if you drop it the reader connection will also be closed
+        let svc = thread::Builder::new()
+            .name("Thread-Svc".to_owned())
+            .spawn({
+                move || {
+                    let listener = TcpListener::bind(addr).unwrap();
+                    let (stream, _) = listener.accept().unwrap();
+                    // keep _writer because if you drop it the reader connection will also be closed
 
-                        let (mut reader, _writer) =
-                            into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
-                                ConId::svc(Some("unittest"), addr, None),
-                                stream,
-                            );
-                        info!("svc: reader: {}", reader);
-                        let mut frame_recv_count = 0_usize;
-                        loop {
-                            let res = reader.read_frame();
-                            match res {
-                                Ok(RecvStatus::Completed(None)) => {
-                                    info!("svc: read_frame is None, client closed connection");
-                                    break;
-                                }
-                                Ok(RecvStatus::Completed(Some(recv_frame))) => {
-                                    frame_recv_count += 1;
-                                    let recv_frame = &recv_frame[..];
-                                    assert_eq!(
-                                        send_frame,
-                                        recv_frame,
-                                        "send_frame: \n{}\nrecv_frame:\n{}\nframe_recv_count: {}",
-                                        to_hex_pretty(send_frame),
-                                        to_hex_pretty(recv_frame),
-                                        frame_recv_count
-                                    );
-                                }
-                                Ok(RecvStatus::WouldBlock) => {
-                                    continue; // try reading again
-                                }
-                                Err(e) => {
-                                    error!("Svc read_frame error: {}", e.to_string());
-                                    break;
-                                }
+                    let (mut reader, _writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(ConId::svc(Some("unittest"), addr, None), stream);
+                    info!("svc: reader: {}", reader);
+                    let mut frame_recv_count = 0_usize;
+                    loop {
+                        let res = reader.read_frame();
+                        match res {
+                            Ok(RecvStatus::Completed(None)) => {
+                                info!("svc: read_frame is None, client closed connection");
+                                break;
+                            }
+                            Ok(RecvStatus::Completed(Some(recv_frame))) => {
+                                frame_recv_count += 1;
+                                let recv_frame = &recv_frame[..];
+                                assert_eq!(
+                                    send_frame,
+                                    recv_frame,
+                                    "send_frame: \n{}\nrecv_frame:\n{}\nframe_recv_count: {}",
+                                    to_hex_pretty(send_frame),
+                                    to_hex_pretty(recv_frame),
+                                    frame_recv_count
+                                );
+                            }
+                            Ok(RecvStatus::WouldBlock) => {
+                                continue; // try reading again
+                            }
+                            Err(e) => {
+                                error!("Svc read_frame error: {}", e.to_string());
+                                break;
                             }
                         }
-                        frame_recv_count
                     }
-                })
-                .unwrap();
+                    frame_recv_count
+                }
+            })
+            .unwrap();
 
         sleep(Duration::from_millis(100)); // allow the spawned to bind
 
         // CONFIGURE clt
         let stream = TcpStream::connect(addr).unwrap();
 
-        let (mut clt_reader, mut clt_writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(
-            ConId::clt(Some("unittest"), None, addr),
-            stream,
-        );
+        let (mut clt_reader, mut clt_writer) = into_split_framer::<MsgFramer, TEST_SEND_FRAME_SIZE>(ConId::clt(Some("unittest"), None, addr), stream);
 
         info!("clt: writer: {}", clt_writer);
 
@@ -497,16 +443,8 @@ mod test {
             assert_eq!(err.kind(), ErrorKind::BrokenPipe);
         }
         let frame_recv_count = svc.join().unwrap();
-        info!(
-            "frame_send_count: {}, frame_recv_count: {}",
-            fmt_num!(frame_send_count),
-            fmt_num!(frame_recv_count)
-        );
-        info!(
-            "per send elapsed: {:?}, total elapsed: {:?} ",
-            elapsed / WRITE_N_TIMES as u32,
-            elapsed
-        );
+        info!("frame_send_count: {}, frame_recv_count: {}", fmt_num!(frame_send_count), fmt_num!(frame_recv_count));
+        info!("per send elapsed: {:?}, total elapsed: {:?} ", elapsed / WRITE_N_TIMES as u32, elapsed);
         assert_eq!(frame_send_count, frame_recv_count);
         assert_eq!(frame_send_count, WRITE_N_TIMES);
     }

@@ -36,18 +36,12 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
 
         let event_store = SBEventStoreAsync::new_ref();
-        let svc_callback = SBSvcChainCallback::<SBSvcAdminProtocol<Nil, Nil>>::new_ref(vec![
-            SBSvcLoggerCallback::new_ref(Level::Info, Level::Info),
-            SBSvcEvenStoreCallback::new_ref(Arc::clone(&event_store)),
-        ]);
-        let clt_callback = SBCltChainCallback::<SBCltAdminProtocol<Nil, Nil>>::new_ref(vec![
-            SBCltLoggerCallback::new_ref(Level::Info, Level::Info),
-            SBCltEvenStoreCallback::new_ref(Arc::clone(&event_store)),
-        ]);
+        let svc_callback =
+            SBSvcChainCallback::<SBSvcAdminProtocol<Nil, Nil>>::new_ref(vec![SBSvcLoggerCallback::new_ref(Level::Info, Level::Info), SBSvcEvenStoreCallback::new_ref(Arc::clone(&event_store))]);
+        let clt_callback =
+            SBCltChainCallback::<SBCltAdminProtocol<Nil, Nil>>::new_ref(vec![SBCltLoggerCallback::new_ref(Level::Info, Level::Info), SBCltEvenStoreCallback::new_ref(Arc::clone(&event_store))]);
 
-        let svc = SBSvc::<_, _, MMS>::bind_async(addr, svc_callback, None, Some("soupbin/venue"))
-            .await
-            .unwrap();
+        let svc = SBSvc::<_, _, MMS>::bind_async(addr, svc_callback, None, Some("soupbin/venue")).await.unwrap();
 
         info!("{} started", svc);
 
@@ -71,11 +65,7 @@ mod test {
         svc.send(&mut msg_svc_inp).await.unwrap();
 
         let msg_clt_out = event_store
-            .find_recv(
-                clt.con_id().name(),
-                |into| matches!(into, SBMsg::Svc(msg) if msg == &msg_svc_inp),
-                setup::net::optional_find_timeout(),
-            )
+            .find_recv(clt.con_id().name(), |into| matches!(into, SBMsg::Svc(msg) if msg == &msg_svc_inp), setup::net::optional_find_timeout())
             .await
             .unwrap();
         let msg_svc_out = event_store

@@ -2,39 +2,26 @@ use std::{fmt::Display, net::SocketAddr};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConId {
-    Initiatr {
-        name: String,
-        local: Option<SocketAddr>,
-        peer: SocketAddr,
-    },
-    Acceptor {
-        name: String,
-        local: SocketAddr,
-        peer: Option<SocketAddr>,
-    },
+    Initiator { name: String, local: Option<SocketAddr>, peer: SocketAddr },
+    Acceptor { name: String, local: SocketAddr, peer: Option<SocketAddr> },
 }
 impl ConId {
     pub fn clt(name: Option<&str>, local: Option<&str>, peer: &str) -> Self {
-        ConId::Initiatr {
+        ConId::Initiator {
             name: name.unwrap_or("unknown").to_owned(),
-            local: local.map(|addr| {
-                addr.parse()
-                    .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", addr))
-            }),
-            peer: peer
-                .parse()
-                .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", peer)),
+            local: local.map(|addr| addr.parse().unwrap_or_else(|_| panic!("unable to parse addr: {:?}", addr))),
+            peer: peer.parse().unwrap_or_else(|_| panic!("unable to parse addr: {:?}", peer)),
         }
     }
     pub fn set_local(&mut self, local: SocketAddr) {
         match self {
-            ConId::Initiatr { local: l, .. } => *l = Some(local),
+            ConId::Initiator { local: l, .. } => *l = Some(local),
             ConId::Acceptor { local: l, .. } => *l = local,
         }
     }
     pub fn set_peer(&mut self, peer: SocketAddr) {
         match self {
-            ConId::Initiatr { peer: p, .. } => *p = peer,
+            ConId::Initiator { peer: p, .. } => *p = peer,
             ConId::Acceptor { peer: p, .. } => *p = Some(peer),
         }
     }
@@ -42,30 +29,25 @@ impl ConId {
     pub fn svc(name: Option<&str>, local: &str, peer: Option<&str>) -> Self {
         ConId::Acceptor {
             name: name.unwrap_or("unknown").to_owned(),
-            local: local
-                .parse()
-                .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", local)),
-            peer: peer.map(|addr| {
-                addr.parse()
-                    .unwrap_or_else(|_| panic!("unable to parse addr: {:?}", addr))
-            }),
+            local: local.parse().unwrap_or_else(|_| panic!("unable to parse addr: {:?}", local)),
+            peer: peer.map(|addr| addr.parse().unwrap_or_else(|_| panic!("unable to parse addr: {:?}", addr))),
         }
     }
     pub fn name(&self) -> &str {
         match self {
-            ConId::Initiatr { name, .. } => name,
+            ConId::Initiator { name, .. } => name,
             ConId::Acceptor { name, .. } => name,
         }
     }
     pub fn get_peer(&self) -> Option<SocketAddr> {
         match self {
-            ConId::Initiatr { peer, .. } => Some(*peer),
+            ConId::Initiator { peer, .. } => Some(*peer),
             ConId::Acceptor { peer, .. } => *peer,
         }
     }
     pub fn get_local(&self) -> Option<SocketAddr> {
         match self {
-            ConId::Initiatr { local, .. } => *local,
+            ConId::Initiator { local, .. } => *local,
             ConId::Acceptor { local, .. } => Some(*local),
         }
     }
@@ -78,10 +60,10 @@ impl Default for ConId {
 impl Display for ConId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ConId::Initiatr { name, local, peer } => {
+            ConId::Initiator { name, local, peer } => {
                 write!(
                     f,
-                    "Initiatr({name}@{}->{peer})",
+                    "Initiator({name}@{}->{peer})",
                     match local {
                         Some(local) => format!("{}", local),
                         None => "pending".to_owned(),
@@ -117,7 +99,7 @@ mod test {
         let con_id = ConId::clt(Some("unittest"), None, "0.0.0.0:1");
         info!("con_id: {:?}", con_id);
         info!("con_id: {}", con_id);
-        assert_eq!(con_id.to_string(), "Initiatr(unittest@pending->0.0.0.0:1)");
+        assert_eq!(con_id.to_string(), "Initiator(unittest@pending->0.0.0.0:1)");
 
         let con_id = ConId::svc(Some("unittest"), "0.0.0.0:1", None);
         info!("con_id: {:?}", con_id);

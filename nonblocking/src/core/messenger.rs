@@ -46,10 +46,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::prelude::{
-    ConId, FrameReader, FrameWriter, Messenger, RecvNonBlocking, RecvStatus, SendNonBlockingNonMut,
-    SendStatus,
-};
+use crate::prelude::{ConId, FrameReader, FrameWriter, Messenger, RecvNonBlocking, RecvStatus, SendNonBlockingNonMut, SendStatus};
 
 /// Represents an abstraction for receiving exactly one message utilizing the underlying [FrameReader]
 #[derive(Debug)]
@@ -65,9 +62,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageRecver<M, MAX_MSG_SIZE> {
         }
     }
 }
-impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvNonBlocking<M>
-    for MessageRecver<M, MAX_MSG_SIZE>
-{
+impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvNonBlocking<M> for MessageRecver<M, MAX_MSG_SIZE> {
     #[inline(always)]
     fn recv(&mut self) -> Result<RecvStatus<M::RecvT>, Error> {
         let status = self.frm_reader.read_frame()?;
@@ -84,11 +79,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvNonBlocking<M>
 impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageRecver<M, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = type_name::<M>().split("::").last().unwrap_or("Unknown");
-        write!(
-            f,
-            "{} MessageRecver<{}, {}>",
-            self.frm_reader.con_id, name, MAX_MSG_SIZE
-        )
+        write!(f, "{} MessageRecver<{}, {}>", self.frm_reader.con_id, name, MAX_MSG_SIZE)
     }
 }
 
@@ -106,9 +97,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
         }
     }
 }
-impl<M: Messenger, const MAX_MSG_SIZE: usize> SendNonBlockingNonMut<M>
-    for MessageSender<M, MAX_MSG_SIZE>
-{
+impl<M: Messenger, const MAX_MSG_SIZE: usize> SendNonBlockingNonMut<M> for MessageSender<M, MAX_MSG_SIZE> {
     #[inline(always)]
     fn send(&mut self, msg: &<M as Messenger>::SendT) -> Result<SendStatus, Error> {
         let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
@@ -118,11 +107,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> SendNonBlockingNonMut<M>
     /// This implementation overrides default trait implementation by optimizing serialization of the message to only
     /// happen once in the event that the under socket is busy and returns [SendStatus::WouldBlock]  
     #[inline(always)]
-    fn send_busywait_timeout(
-        &mut self,
-        msg: &<M as Messenger>::SendT,
-        timeout: Duration,
-    ) -> Result<SendStatus, Error> {
+    fn send_busywait_timeout(&mut self, msg: &<M as Messenger>::SendT, timeout: Duration) -> Result<SendStatus, Error> {
         let start = Instant::now();
         let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;
         loop {
@@ -152,18 +137,11 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> SendNonBlockingNonMut<M>
 impl<M: Messenger, const MAX_MSG_SIZE: usize> Display for MessageSender<M, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let messenger_name = type_name::<M>().split("::").last().unwrap_or("Unknown");
-        write!(
-            f,
-            "{} MessageSender<{}, {}>",
-            self.frm_writer.con_id, messenger_name, MAX_MSG_SIZE
-        )
+        write!(f, "{} MessageSender<{}, {}>", self.frm_writer.con_id, messenger_name, MAX_MSG_SIZE)
     }
 }
 
-pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (
-    MessageRecver<M, MAX_MSG_SIZE>,
-    MessageSender<M, MAX_MSG_SIZE>,
-);
+pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (MessageRecver<M, MAX_MSG_SIZE>, MessageSender<M, MAX_MSG_SIZE>);
 
 /// Creates a `paired` [MessageRecver] and [MessageSender] from a [std::net::TcpStream] by cloning it and converting
 /// the underlying stream to [mio::net::TcpStream]
@@ -174,31 +152,15 @@ pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (
 ///
 /// # Important
 /// if either [MessageRecver] or [MessageSender] is dropped, the underlying stream will be shutdown and all actions on the remaining `pair` will fail
-pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(
-    mut con_id: ConId,
-    stream: std::net::TcpStream,
-) -> MessageProcessor<M, MAX_MSG_SIZE> {
-    stream
-        .set_nonblocking(true)
-        .expect("Failed to set nonblocking on TcpStream");
+pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(mut con_id: ConId, stream: std::net::TcpStream) -> MessageProcessor<M, MAX_MSG_SIZE> {
+    stream.set_nonblocking(true).expect("Failed to set nonblocking on TcpStream");
 
     con_id.set_local(stream.local_addr().unwrap());
     con_id.set_peer(stream.peer_addr().unwrap());
-    let (reader, writer) = (
-        stream
-            .try_clone()
-            .expect("Failed to try_clone TcpStream for MessageRecver"),
-        stream,
-    );
+    let (reader, writer) = (stream.try_clone().expect("Failed to try_clone TcpStream for MessageRecver"), stream);
 
-    let (reader, writer) = (
-        mio::net::TcpStream::from_std(reader),
-        mio::net::TcpStream::from_std(writer),
-    );
-    (
-        MessageRecver::<M, MAX_MSG_SIZE>::new(con_id.clone(), reader),
-        MessageSender::<M, MAX_MSG_SIZE>::new(con_id, writer),
-    )
+    let (reader, writer) = (mio::net::TcpStream::from_std(reader), mio::net::TcpStream::from_std(writer));
+    (MessageRecver::<M, MAX_MSG_SIZE>::new(con_id.clone(), reader), MessageSender::<M, MAX_MSG_SIZE>::new(con_id, writer))
 }
 
 #[cfg(test)]
@@ -235,20 +197,14 @@ mod test {
                 let (mut svc_msg_sent_count, mut svc_msg_recv_count) = (0_usize, 0_usize);
                 let listener = std::net::TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
-                let (mut svc_recver, mut svc_sender) =
-                    into_split_messenger::<SvcTestMessenger, TEST_MSG_FRAME_SIZE>(
-                        ConId::svc(Some("unittest"), addr, None),
-                        stream,
-                    );
+                let (mut svc_recver, mut svc_sender) = into_split_messenger::<SvcTestMessenger, TEST_MSG_FRAME_SIZE>(ConId::svc(Some("unittest"), addr, None), stream);
                 info!("svc recver: {}", svc_recver);
 
                 while let Ok(status) = svc_recver.recv() {
                     match status {
                         RecvStatus::Completed(Some(_recv_msg)) => {
                             svc_msg_recv_count += 1;
-                            while let SendStatus::WouldBlock =
-                                svc_sender.send(&inp_svc_msg).unwrap()
-                            {}
+                            while let SendStatus::WouldBlock = svc_sender.send(&inp_svc_msg).unwrap() {}
                             svc_msg_sent_count += 1;
                         }
                         RecvStatus::Completed(None) => {
@@ -267,11 +223,7 @@ mod test {
         let inp_clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
         let (mut clt_msg_sent_count, mut clt_msg_recv_count) = (0, 0);
         let stream = std::net::TcpStream::connect(addr).unwrap();
-        let (mut clt_recver, mut clt_sender) =
-            into_split_messenger::<CltTestMessenger, TEST_MSG_FRAME_SIZE>(
-                ConId::clt(Some("unittest"), None, addr),
-                stream,
-            );
+        let (mut clt_recver, mut clt_sender) = into_split_messenger::<CltTestMessenger, TEST_MSG_FRAME_SIZE>(ConId::clt(Some("unittest"), None, addr), stream);
         info!("clt sender: {}", clt_sender);
         let start = Instant::now();
         for _ in 0..WRITE_N_TIMES {
@@ -297,20 +249,8 @@ mod test {
         }
 
         let (svc_msg_sent_count, svc_msg_recv_count) = svc.join().unwrap();
-        info!(
-            "clt_msg_sent_count: {}, clt_msg_recv_count: {}",
-            fmt_num!(clt_msg_sent_count),
-            fmt_num!(clt_msg_recv_count)
-        );
-        info!(
-            "svc_msg_sent_count: {}, svc_msg_recv_count: {}",
-            fmt_num!(svc_msg_sent_count),
-            fmt_num!(svc_msg_recv_count)
-        );
-        info!(
-            "per round trip elapsed: {:?}, total elapsed: {:?} ",
-            elapsed / WRITE_N_TIMES as u32,
-            elapsed
-        );
+        info!("clt_msg_sent_count: {}, clt_msg_recv_count: {}", fmt_num!(clt_msg_sent_count), fmt_num!(clt_msg_recv_count));
+        info!("svc_msg_sent_count: {}, svc_msg_recv_count: {}", fmt_num!(svc_msg_sent_count), fmt_num!(svc_msg_recv_count));
+        info!("per round trip elapsed: {:?}, total elapsed: {:?} ", elapsed / WRITE_N_TIMES as u32, elapsed);
     }
 }

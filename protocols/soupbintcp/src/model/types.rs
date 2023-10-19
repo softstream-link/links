@@ -2,9 +2,7 @@ pub use field_types::*;
 pub use packet_types::*;
 
 use byteserde::prelude::*;
-use byteserde_derive::{
-    ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf, ByteSerializedSizeOf,
-};
+use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf, ByteSerializedSizeOf};
 
 #[rustfmt::skip]
 pub mod packet_types{

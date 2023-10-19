@@ -30,11 +30,7 @@ fn send_random_frame(c: &mut Criterion) {
             move || {
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
-                let (mut svc_reader, _svc_writer) =
-                    into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
-                        ConId::svc(Some("bench"), addr, None),
-                        stream,
-                    );
+                let (mut svc_reader, _svc_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(ConId::svc(Some("bench"), addr, None), stream);
                 // info!("svc: reader: {}", reader);
                 let mut frame_recv_count = 0_u32;
                 loop {
@@ -62,16 +58,10 @@ fn send_random_frame(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGURE clt
-    let (_clt_reader, mut clt_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
-        ConId::clt(Some("bench"), None, addr),
-        TcpStream::connect(addr).unwrap(),
-    );
+    let (_clt_reader, mut clt_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(ConId::clt(Some("bench"), None, addr), TcpStream::connect(addr).unwrap());
     // info!("clt: writer: {}", writer);
 
-    let id = format!(
-        "framer_blocking_send_random_frame size: {} bytes",
-        fmt_num!(BENCH_MAX_FRAME_SIZE)
-    );
+    let id = format!("framer_blocking_send_random_frame size: {} bytes", fmt_num!(BENCH_MAX_FRAME_SIZE));
     let mut frame_send_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
@@ -84,11 +74,7 @@ fn send_random_frame(c: &mut Criterion) {
 
     drop(clt_writer); // this will allow svc.join to complete
     let frame_recv_count = reader.join().unwrap();
-    info!(
-        "frame_send_count: {:?} = frame_recv_count: {:?}",
-        fmt_num!(frame_send_count),
-        fmt_num!(frame_recv_count)
-    );
+    info!("frame_send_count: {:?} = frame_recv_count: {:?}", fmt_num!(frame_send_count), fmt_num!(frame_recv_count));
 
     assert_eq!(frame_send_count, frame_recv_count);
 }
@@ -105,11 +91,7 @@ fn recv_random_frame(c: &mut Criterion) {
             move || {
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
-                let (_svc_reader, mut svc_writer) =
-                    into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
-                        ConId::svc(Some("bench"), addr, None),
-                        stream,
-                    );
+                let (_svc_reader, mut svc_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(ConId::svc(Some("bench"), addr, None), stream);
                 // info!("svc: writer: {}", writer);
                 let mut frame_send_count = 0_u32;
                 loop {
@@ -132,16 +114,10 @@ fn recv_random_frame(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGURE clt
-    let (mut clt_reader, _clt_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
-        ConId::clt(Some("bench"), None, addr),
-        TcpStream::connect(addr).unwrap(),
-    );
+    let (mut clt_reader, _clt_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(ConId::clt(Some("bench"), None, addr), TcpStream::connect(addr).unwrap());
     // info!("clt: reader: {}", reader);
 
-    let id = format!(
-        "framer_blocking_recv_random_frame size: {} bytes",
-        fmt_num!(BENCH_MAX_FRAME_SIZE)
-    );
+    let id = format!("framer_blocking_recv_random_frame size: {} bytes", fmt_num!(BENCH_MAX_FRAME_SIZE));
     let mut frame_recv_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
@@ -178,11 +154,7 @@ fn round_trip_random_frame(c: &mut Criterion) {
             move || {
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
-                let (mut svc_reader, mut svc_writer) =
-                    into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
-                        ConId::svc(Some("bench"), addr, None),
-                        stream,
-                    );
+                let (mut svc_reader, mut svc_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(ConId::svc(Some("bench"), addr, None), stream);
                 // info!("svc: reader: {}", reader);
                 loop {
                     let res = svc_reader.read_frame();
@@ -207,16 +179,10 @@ fn round_trip_random_frame(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGURE clt
-    let (mut clt_reader, mut clt_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(
-        ConId::clt(Some("bench"), None, addr),
-        TcpStream::connect(addr).unwrap(),
-    );
+    let (mut clt_reader, mut clt_writer) = into_split_framer::<BenchMsgFramer, BENCH_MAX_FRAME_SIZE>(ConId::clt(Some("bench"), None, addr), TcpStream::connect(addr).unwrap());
     // info!("clt: writer: {}", writer);
 
-    let id = format!(
-        "framer_blocking_round_trip_random_frame size: {} bytes",
-        fmt_num!(BENCH_MAX_FRAME_SIZE)
-    );
+    let id = format!("framer_blocking_round_trip_random_frame size: {} bytes", fmt_num!(BENCH_MAX_FRAME_SIZE));
     let mut frame_send_count = 0_u32;
     let mut frame_recv_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
@@ -243,20 +209,11 @@ fn round_trip_random_frame(c: &mut Criterion) {
     drop(clt_writer); // this will allow svc.join to complete
     drop(clt_reader);
     svc.join().unwrap();
-    info!(
-        "frame_send_count: {:?} = frame_recv_count: {:?}",
-        fmt_num!(frame_send_count),
-        fmt_num!(frame_recv_count)
-    );
+    info!("frame_send_count: {:?} = frame_recv_count: {:?}", fmt_num!(frame_send_count), fmt_num!(frame_recv_count));
 
     assert_eq!(frame_send_count, frame_recv_count);
 }
 
-criterion_group!(
-    benches,
-    send_random_frame,
-    recv_random_frame,
-    round_trip_random_frame
-);
+criterion_group!(benches, send_random_frame, recv_random_frame, round_trip_random_frame);
 // criterion_group!(benches, recv_random_frame);
 criterion_main!(benches);

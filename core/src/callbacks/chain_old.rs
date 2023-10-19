@@ -46,9 +46,9 @@ impl<M: MessengerOld> CallbackSendRecvOld<M> for ChainCallbackOld<M> {
 mod test {
 
     use super::*;
-    use crate::unittest::setup::model::*;
-    use crate::unittest::setup::messenger_old::CltTestMessenger;
     use crate::unittest::setup;
+    use crate::unittest::setup::messenger_old::CltTestMessenger;
+    use crate::unittest::setup::model::*;
     // use log::info;
     use log::Level;
     #[test]

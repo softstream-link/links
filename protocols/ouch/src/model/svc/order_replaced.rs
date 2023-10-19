@@ -39,7 +39,7 @@ impl From<(&EnterOrder, &ReplaceOrder)> for OrderReplaced {
         OrderReplaced {
             packet_type: PacketTypeOrderReplaced::default(),
 
-            timestamp: Timestamp::default(), // Venue assigned
+            timestamp: Timestamp::default(),                         // Venue assigned
             order_reference_number: OrderReferenceNumber::default(), // default placeholder must be replaced
             order_state: OrderState::live(),                         // Venue assigned
 

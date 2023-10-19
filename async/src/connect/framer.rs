@@ -56,16 +56,9 @@ impl<F: Framer> Display for FrameReader<F> {
         write!(
             f,
             "FrameReader<{}> {{ {:?}->{:?} }}",
-            std::any::type_name::<F>()
-                .split("::")
-                .last()
-                .unwrap_or("Unknown"),
-            self.reader
-                .local_addr()
-                .expect("could not get reader's local address"),
-            self.reader
-                .peer_addr()
-                .expect("could not get reader's peer address"),
+            std::any::type_name::<F>().split("::").last().unwrap_or("Unknown"),
+            self.reader.local_addr().expect("could not get reader's local address"),
+            self.reader.peer_addr().expect("could not get reader's peer address"),
         )
     }
 }
@@ -89,27 +82,17 @@ impl Display for FrameWriter {
         write!(
             f,
             "FrameWriter {{ {:?}->{:?} }}",
-            self.writer
-                .local_addr()
-                .expect("could not get reader's local address"),
-            self.writer
-                .peer_addr()
-                .expect("could not get reader's peer address"),
+            self.writer.local_addr().expect("could not get reader's local address"),
+            self.writer.peer_addr().expect("could not get reader's peer address"),
         )
     }
 }
 
 type FrameManger<F> = (FrameReader<F>, FrameWriter);
 
-pub fn into_split_frame_manager<F: Framer>(
-    stream: TcpStream,
-    reader_capacity: usize,
-) -> FrameManger<F> {
+pub fn into_split_frame_manager<F: Framer>(stream: TcpStream, reader_capacity: usize) -> FrameManger<F> {
     let (reader, writer) = stream.into_split();
-    (
-        FrameReader::<F>::with_max_frame_size(reader, reader_capacity),
-        FrameWriter::new(writer),
-    )
+    (FrameReader::<F>::with_max_frame_size(reader, reader_capacity), FrameWriter::new(writer))
 }
 
 #[cfg(test)]
@@ -136,8 +119,7 @@ mod test {
                     let listener = TcpListener::bind(addr).await.unwrap();
                     let (stream, _) = listener.accept().await.unwrap();
 
-                    let (mut reader, mut writer) =
-                        into_split_frame_manager::<TestSvcMsgProtocol>(stream, CAP);
+                    let (mut reader, mut writer) = into_split_frame_manager::<TestSvcMsgProtocol>(stream, CAP);
                     info!("svc: writer: {}, reader: {}", writer, reader);
                     let mut out_svc_msg: Option<TestCltMsgDebug> = None;
                     loop {
@@ -146,8 +128,7 @@ mod test {
                             let msg: TestCltMsgDebug = from_slice(&frm[..]).unwrap();
                             out_svc_msg = Some(msg);
 
-                            let (slice, size): ([u8; CAP], _) =
-                                to_bytes_stack(&inp_svc_msg).unwrap();
+                            let (slice, size): ([u8; CAP], _) = to_bytes_stack(&inp_svc_msg).unwrap();
                             let slice = &slice[..size];
                             writer.write_frame(slice).await.unwrap();
                             info!("svc: write_frame: \n{}", to_hex_pretty(slice))
@@ -166,8 +147,7 @@ mod test {
                 let inp_clt_msg = inp_clt_msg.clone();
                 async move {
                     let stream = TcpStream::connect(addr).await.unwrap();
-                    let (mut reader, mut writer) =
-                        into_split_frame_manager::<TestCltMsgProtocol>(stream, CAP);
+                    let (mut reader, mut writer) = into_split_frame_manager::<TestCltMsgProtocol>(stream, CAP);
 
                     info!("clt: writer: {}, reader: {}", writer, reader);
                     let (slice, size): ([u8; CAP], _) = to_bytes_stack(&inp_clt_msg).unwrap();

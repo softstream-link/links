@@ -16,12 +16,11 @@ pub struct OrderRejected {
 }
 
 impl<T> From<(&T, RejectReason)> for OrderRejected
-where
-    T: CancelableOrder,
+where T: CancelableOrder
 {
     fn from(value: (&T, RejectReason)) -> Self {
         let (ord, reason) = value;
-        Self {            
+        Self {
             packet_type: PacketTypeOrderRejected::default(),
 
             timestamp: Timestamp::default(), // Venue assigned
@@ -36,8 +35,8 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use links_core::unittest::setup;
     use byteserde::prelude::*;
+    use links_core::unittest::setup;
     use log::info;
 
     #[test]

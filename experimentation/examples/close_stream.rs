@@ -93,20 +93,14 @@ fn clt2clt_noclone() -> Result<(), Error> {
 fn pause_for_input(message: &str) {
     let mut buf = String::new();
     let msg = format!("Press Enter to continue with {}...\n", message);
-    std::io::stdout()
-        .write_all(msg.as_str().as_bytes())
-        .unwrap();
+    std::io::stdout().write_all(msg.as_str().as_bytes()).unwrap();
     std::io::stdin().read_line(&mut buf).unwrap();
 }
 
 pub fn netstat(message: &str) {
     use std::process::{Command, Stdio};
     use std::str;
-    let netstat = Command::new("netstat")
-        .arg("-nat")
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
+    let netstat = Command::new("netstat").arg("-nat").stdout(Stdio::piped()).spawn().unwrap();
     let grep = Command::new("grep")
         .arg("8080")
         .stdin(Stdio::from(netstat.stdout.unwrap()))

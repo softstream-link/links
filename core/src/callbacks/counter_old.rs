@@ -56,9 +56,9 @@ impl<M: MessengerOld> CallbackSendRecvOld<M> for CounterCallbackOld<M> {
 #[cfg(test)]
 mod test {
 
+    use crate::unittest::setup;
     use crate::unittest::setup::messenger_old::CltTestMessenger;
     use crate::unittest::setup::model::*;
-    use crate::unittest::setup;
 
     use log::info;
 

@@ -9,25 +9,13 @@ macro_rules! fmt_num {
 
 pub fn short_type_name<T: ?Sized>() -> &'static str {
     use std::any::type_name;
-    type_name::<T>()
-        .split('<')
-        .next()
-        .unwrap()
-        .split("::")
-        .last()
-        .unwrap_or("Unknown")
+    type_name::<T>().split('<').next().unwrap().split("::").last().unwrap_or("Unknown")
 }
 
 #[cfg(debug_assertions)]
 pub fn ty_name<T: ?Sized>(name: &'static str) -> &'static str {
     use std::any::type_name;
-    let expected_short_name = type_name::<T>()
-        .split('<')
-        .next()
-        .unwrap()
-        .split("::")
-        .last()
-        .unwrap_or("Unknown");
+    let expected_short_name = type_name::<T>().split('<').next().unwrap().split("::").last().unwrap_or("Unknown");
     debug_assert_eq!(name, expected_short_name);
     expected_short_name
 }

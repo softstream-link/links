@@ -3,10 +3,7 @@ use std::{fmt::Display, io::Error, net::TcpListener, num::NonZeroUsize, sync::Ar
 use links_core::asserted_short_name;
 use log::{debug, log_enabled};
 
-use crate::prelude::{
-    AcceptClt, CallbackRecvSend, Clt, CltRecversPool, CltSendersPool, CltsPool, ConId, Messenger,
-    PoolAcceptClt, RecvMsg, SendMsg,
-};
+use crate::prelude::{AcceptClt, CallbackRecvSend, Clt, CltRecversPool, CltSendersPool, CltsPool, ConId, Messenger, PoolAcceptClt, RecvMsg, SendMsg};
 
 use super::pool::PoolCltAcceptor;
 
@@ -17,9 +14,7 @@ pub struct SvcAcceptor<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE:
     listener: TcpListener,
     phantom: std::marker::PhantomData<M>,
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    SvcAcceptor<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SvcAcceptor<M, C, MAX_MSG_SIZE> {
     pub fn new(con_id: ConId, listener: TcpListener, callback: Arc<C>) -> Self {
         Self {
             con_id,
@@ -29,9 +24,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
         }
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> AcceptClt<M, C, MAX_MSG_SIZE>
-    for SvcAcceptor<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> AcceptClt<M, C, MAX_MSG_SIZE> for SvcAcceptor<M, C, MAX_MSG_SIZE> {
     fn accept(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error> {
         match self.listener.accept() {
             Ok((stream, addr)) => {
@@ -41,27 +34,16 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> AcceptClt<
                 if log_enabled!(log::Level::Debug) {
                     debug!("{} Accepted", con_id);
                 }
-                let clt = Clt::<_, _, MAX_MSG_SIZE>::from_stream(
-                    stream,
-                    con_id.clone(),
-                    self.callback.clone(),
-                );
+                let clt = Clt::<_, _, MAX_MSG_SIZE>::from_stream(stream, con_id.clone(), self.callback.clone());
                 Ok(clt)
             }
             Err(e) => Err(e),
         }
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
-    for SvcAcceptor<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display for SvcAcceptor<M, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}<{}>",
-            asserted_short_name!("SvcAcceptor", Self),
-            self.con_id
-        )
+        write!(f, "{}<{}>", asserted_short_name!("SvcAcceptor", Self), self.con_id)
     }
 }
 
@@ -86,10 +68,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
         };
         let clts_pool = CltsPool::with_capacity(max_connections);
 
-        Ok(Self {
-            acceptor,
-            clts_pool,
-        })
+        Ok(Self { acceptor, clts_pool })
     }
     #[inline(always)]
     pub fn len(&self) -> usize {
@@ -104,42 +83,28 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
         &self.clts_pool
     }
     #[inline(always)]
-    pub fn into_split(
-        self,
-    ) -> (
-        PoolCltAcceptor<M, C, MAX_MSG_SIZE>,
-        CltRecversPool<M, C, MAX_MSG_SIZE>,
-        CltSendersPool<M, C, MAX_MSG_SIZE>,
-    ) {
+    pub fn into_split(self) -> (PoolCltAcceptor<M, C, MAX_MSG_SIZE>, CltRecversPool<M, C, MAX_MSG_SIZE>, CltSendersPool<M, C, MAX_MSG_SIZE>) {
         let ((tx_recver, tx_sender), (svc_recv, svc_send)) = self.clts_pool.into_split();
         let pool_acceptor = PoolCltAcceptor::new(tx_recver, tx_sender, self.acceptor);
         (pool_acceptor, svc_recv, svc_send)
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> AcceptClt<M, C, MAX_MSG_SIZE>
-    for Svc<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> AcceptClt<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE> {
     fn accept(&self) -> Result<Clt<M, C, MAX_MSG_SIZE>, Error> {
         self.acceptor.accept()
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsg<M>
-    for Svc<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendMsg<M> for Svc<M, C, MAX_MSG_SIZE> {
     fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<(), Error> {
         self.clts_pool.send(msg)
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvMsg<M>
-    for Svc<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvMsg<M> for Svc<M, C, MAX_MSG_SIZE> {
     fn recv(&mut self) -> Result<Option<<M as Messenger>::RecvT>, Error> {
         self.clts_pool.recv()
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
-    PoolAcceptClt<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PoolAcceptClt<M, C, MAX_MSG_SIZE> for Svc<M, C, MAX_MSG_SIZE> {
     fn pool_accept(&mut self) -> Result<(), Error> {
         match self.acceptor.accept() {
             Ok(clt) => self.clts_pool.add(clt),
@@ -148,17 +113,9 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>
     }
 }
 
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display
-    for Svc<M, C, MAX_MSG_SIZE>
-{
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display for Svc<M, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}<{}, {}>",
-            asserted_short_name!("Svc", Self),
-            self.acceptor,
-            self.clts_pool,
-        )
+        write!(f, "{}<{}, {}>", asserted_short_name!("Svc", Self), self.acceptor, self.clts_pool,)
     }
 }
 
@@ -187,13 +144,7 @@ mod test {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
 
-        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
-            addr,
-            DevNullCallback::<SvcTestMessenger>::new_ref(),
-            NonZeroUsize::new(2).unwrap(),
-            Some("unittest"),
-        )
-        .unwrap();
+        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::<SvcTestMessenger>::new_ref(), NonZeroUsize::new(2).unwrap(), Some("unittest")).unwrap();
         info!("svc: {}", svc);
         assert_eq!(svc.pool().len(), 0);
     }
@@ -203,13 +154,7 @@ mod test {
         setup::log::configure_level(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
 
-        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
-            addr,
-            LoggerCallback::<SvcTestMessenger>::new_ref(),
-            NonZeroUsize::new(2).unwrap(),
-            Some("unittest"),
-        )
-        .unwrap();
+        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, LoggerCallback::<SvcTestMessenger>::new_ref(), NonZeroUsize::new(2).unwrap(), Some("unittest")).unwrap();
         info!("svc: {}", svc);
 
         let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(

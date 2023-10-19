@@ -32,17 +32,8 @@ impl<const FRAME_SIZE: usize> Framer for FixedSizeFramer<FRAME_SIZE> {
     }
 }
 
-pub struct PacketLengthU16Framer<
-    const START_IDX: usize,
-    const IS_BIG_ENDIAN: bool,
-    const ADD_PACKET_LEN_TO_FRAME_SIZE: bool,
->;
-impl<
-        const START_IDX: usize,
-        const IS_BIG_ENDIAN: bool,
-        const ADD_PACKET_LEN_TO_FRAME_SIZE: bool,
-    > PacketLengthU16Framer<START_IDX, IS_BIG_ENDIAN, ADD_PACKET_LEN_TO_FRAME_SIZE>
-{
+pub struct PacketLengthU16Framer<const START_IDX: usize, const IS_BIG_ENDIAN: bool, const ADD_PACKET_LEN_TO_FRAME_SIZE: bool>;
+impl<const START_IDX: usize, const IS_BIG_ENDIAN: bool, const ADD_PACKET_LEN_TO_FRAME_SIZE: bool> PacketLengthU16Framer<START_IDX, IS_BIG_ENDIAN, ADD_PACKET_LEN_TO_FRAME_SIZE> {
     #[inline(always)]
     pub fn packet_len(bytes: &BytesMut) -> Option<u16> {
         const LEN: usize = std::mem::size_of::<u16>();
@@ -82,12 +73,7 @@ impl<
         Some(packet_length)
     }
 }
-impl<
-        const START_IDX: usize,
-        const IS_BIG_ENDIAN: bool,
-        const ADD_PACKET_LEN_TO_FRAME_SIZE: bool,
-    > Framer for PacketLengthU16Framer<START_IDX, IS_BIG_ENDIAN, ADD_PACKET_LEN_TO_FRAME_SIZE>
-{
+impl<const START_IDX: usize, const IS_BIG_ENDIAN: bool, const ADD_PACKET_LEN_TO_FRAME_SIZE: bool> Framer for PacketLengthU16Framer<START_IDX, IS_BIG_ENDIAN, ADD_PACKET_LEN_TO_FRAME_SIZE> {
     #[inline(always)]
     fn get_frame_length(bytes: &mut BytesMut) -> Option<usize> {
         let packet_length = Self::packet_len(bytes)?;
@@ -150,59 +136,27 @@ mod test {
             let mut bytes = BytesMut::from(expected_packet_len.to_be_bytes().as_slice());
             bytes.put_bytes(0, 1);
 
-            let actual_packet_len =
-                PacketLengthU16Framer::<START, true, ADD_PACKET_LEN_TO_FRAME_SIZE>::packet_len(
-                    &mut bytes,
-                )
-                .unwrap();
+            let actual_packet_len = PacketLengthU16Framer::<START, true, ADD_PACKET_LEN_TO_FRAME_SIZE>::packet_len(&mut bytes).unwrap();
             info!("bytes: {:x?}", &bytes[..]);
-            info!(
-                "expected_packet_len: {:x?} {:?}",
-                expected_packet_len.to_be_bytes(),
-                expected_packet_len,
-            );
-            info!(
-                "actual_packet_len: {:x?} {:?}",
-                actual_packet_len.to_be_bytes(),
-                actual_packet_len,
-            );
+            info!("expected_packet_len: {:x?} {:?}", expected_packet_len.to_be_bytes(), expected_packet_len,);
+            info!("actual_packet_len: {:x?} {:?}", actual_packet_len.to_be_bytes(), actual_packet_len,);
 
             assert_eq!(actual_packet_len, expected_packet_len);
 
-            let frame_len =
-                PacketLengthU16Framer::<START, true, ADD_PACKET_LEN_TO_FRAME_SIZE>::get_frame_length(
-                    &mut bytes,
-                )
-                ;
+            let frame_len = PacketLengthU16Framer::<START, true, ADD_PACKET_LEN_TO_FRAME_SIZE>::get_frame_length(&mut bytes);
             info!("frame_len: {:?}", frame_len);
             assert_eq!(frame_len, frame_lens_big[idx]);
 
             info!("idx: ==== {:?} ==== LIT ENDIAN", idx);
 
-            let actual_packet_len =
-                PacketLengthU16Framer::<START, false, ADD_PACKET_LEN_TO_FRAME_SIZE>::packet_len(
-                    &mut bytes,
-                )
-                .unwrap();
+            let actual_packet_len = PacketLengthU16Framer::<START, false, ADD_PACKET_LEN_TO_FRAME_SIZE>::packet_len(&mut bytes).unwrap();
             let expected_packet_len = u16::from_be_bytes(expected_packet_len.to_le_bytes()); // flip byte order to match Framer
             info!("bytes: {:x?}", &bytes[..]);
-            info!(
-                "expected_packet_len: {:x?} {:?}",
-                expected_packet_len.to_be_bytes(),
-                expected_packet_len,
-            );
-            info!(
-                "actual_packet_len: {:x?} {:?}",
-                actual_packet_len.to_be_bytes(),
-                actual_packet_len,
-            );
+            info!("expected_packet_len: {:x?} {:?}", expected_packet_len.to_be_bytes(), expected_packet_len,);
+            info!("actual_packet_len: {:x?} {:?}", actual_packet_len.to_be_bytes(), actual_packet_len,);
             assert_eq!(actual_packet_len, expected_packet_len);
 
-            let frame_len =
-            PacketLengthU16Framer::<START, false, ADD_PACKET_LEN_TO_FRAME_SIZE>::get_frame_length(
-                &mut bytes,
-            )
-            ;
+            let frame_len = PacketLengthU16Framer::<START, false, ADD_PACKET_LEN_TO_FRAME_SIZE>::get_frame_length(&mut bytes);
             info!("frame_len: {:?}", frame_len);
             assert_eq!(frame_len, frame_lens_lit[idx]);
         }

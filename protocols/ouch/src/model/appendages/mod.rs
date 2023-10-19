@@ -1,7 +1,5 @@
 use byteserde::prelude::*;
-use byteserde_derive::{
-    ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf, ByteSerializedSizeOf,
-};
+use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf, ByteSerializedSizeOf};
 use byteserde_types::{char_ascii, i32_tuple, string_ascii_fixed, u16_tuple, u32_tuple, u64_tuple};
 use std::fmt;
 
@@ -244,17 +242,9 @@ mod optional_values{
     }
 }
 
-#[derive(
-    ByteSerializeStack, ByteDeserializeSlice, PartialEq, ByteSerializedLenOf, Debug, Clone, Copy,
-)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, PartialEq, ByteSerializedLenOf, Debug, Clone, Copy)]
 pub struct TagValueElement<T>
-where
-    T: ByteSerializeStack
-        + ByteDeserializeSlice<T>
-        + ByteSerializedLenOf
-        + Clone
-        + Copy
-        + fmt::Debug,
+where T: ByteSerializeStack+ByteDeserializeSlice<T>+ByteSerializedLenOf+Clone+Copy+fmt::Debug
 {
     length: u8,
     option_tag: u8,
@@ -353,8 +343,7 @@ mod test {
         use log::info;
         setup::log::configure();
 
-        let msg_sec_ord_ref =
-            TagValueElement::<SecondaryOrdRefNum>::new(SecondaryOrdRefNum::new(1));
+        let msg_sec_ord_ref = TagValueElement::<SecondaryOrdRefNum>::new(SecondaryOrdRefNum::new(1));
         let msg_firm = TagValueElement::<Firm>::new(Firm::new(*b"ABCD"));
         let msg_min_qty = TagValueElement::<MinQty>::new(MinQty::new(1));
         info!("msg_sec_ord_ref: \t{:?}", msg_sec_ord_ref);

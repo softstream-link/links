@@ -53,7 +53,7 @@ impl Default for UPayload<SamplePayload> {
         UPayload::new(SamplePayload::default())
     }
 }
-impl Default for UPayload<Nil>{
+impl Default for UPayload<Nil> {
     fn default() -> Self {
         UPayload::new(Nil)
     }

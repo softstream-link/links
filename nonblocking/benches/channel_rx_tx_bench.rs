@@ -53,11 +53,7 @@ fn channel_rx_tx_send_random_frame(c: &mut Criterion) {
     drop(rx); // this will allow svc.join to complete
     let frame_send_count = sender.join().unwrap();
 
-    info!(
-        "frame_send_count: {:?} > frame_recv_count: {:?}",
-        fmt_num!(frame_send_count),
-        fmt_num!(frame_recv_count)
-    );
+    info!("frame_send_count: {:?} > frame_recv_count: {:?}", fmt_num!(frame_send_count), fmt_num!(frame_recv_count));
 
     assert!(frame_send_count > frame_recv_count);
 }
@@ -106,19 +102,11 @@ fn channel_rx_tx_send_random_frame_sync(c: &mut Criterion) {
     drop(rx); // this will allow svc.join to complete
     let frame_send_count = sender.join().unwrap();
 
-    info!(
-        "frame_send_count: {:?} = frame_recv_count: {:?}",
-        fmt_num!(frame_send_count),
-        fmt_num!(frame_recv_count)
-    );
+    info!("frame_send_count: {:?} = frame_recv_count: {:?}", fmt_num!(frame_send_count), fmt_num!(frame_recv_count));
 
     assert_eq!(frame_send_count, frame_recv_count);
 }
 
-criterion_group!(
-    benches,
-    channel_rx_tx_send_random_frame,
-    channel_rx_tx_send_random_frame_sync
-);
+criterion_group!(benches, channel_rx_tx_send_random_frame, channel_rx_tx_send_random_frame_sync);
 
 criterion_main!(benches);

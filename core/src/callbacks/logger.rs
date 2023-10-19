@@ -41,13 +41,7 @@ impl<M: Messenger> LoggerCallback<M> {
 
 impl<M: Messenger> Display for LoggerCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}<recv: {}, send: {}>",
-            asserted_short_name!("LoggerCallback", Self),
-            self.level_recv,
-            self.level_send
-        )
+        write!(f, "{}<recv: {}, send: {}>", asserted_short_name!("LoggerCallback", Self), self.level_recv, self.level_send)
     }
 }
 
@@ -57,12 +51,7 @@ impl<M: Messenger> CallbackRecv<M> for LoggerCallback<M> {
         if !log_enabled!(self.level_recv) {
             return;
         }
-        let text = format!(
-            "{}::on_recv {} {:?}",
-            asserted_short_name!("LoggerCallback", Self),
-            con_id,
-            msg
-        );
+        let text = format!("{}::on_recv {} {:?}", asserted_short_name!("LoggerCallback", Self), con_id, msg);
         match self.level_recv {
             Level::Error => error!("{}", text),
             Level::Warn => warn!("{}", text),
@@ -77,12 +66,7 @@ impl<M: Messenger> CallbackSend<M> for LoggerCallback<M> {
         if !log_enabled!(self.level_send) {
             return;
         }
-        let text = format!(
-            "{}::on_sent {} {:?}",
-            asserted_short_name!("LoggerCallback", Self),
-            con_id,
-            msg
-        );
+        let text = format!("{}::on_sent {} {:?}", asserted_short_name!("LoggerCallback", Self), con_id, msg);
         match self.level_send {
             Level::Error => error!("{}", text),
             Level::Warn => warn!("{}", text),
@@ -95,12 +79,7 @@ impl<M: Messenger> CallbackSend<M> for LoggerCallback<M> {
         if !log_enabled!(self.level_send) {
             return;
         }
-        let text = format!(
-            "{}::on_fail {} {:?}",
-            asserted_short_name!("LoggerCallback", Self),
-            con_id,
-            msg
-        );
+        let text = format!("{}::on_fail {} {:?}", asserted_short_name!("LoggerCallback", Self), con_id, msg);
         match self.level_send {
             Level::Error => error!("{}, error: {}", text, e),
             Level::Warn => warn!("{}, error: {}", text, e),
@@ -113,12 +92,7 @@ impl<M: Messenger> CallbackSend<M> for LoggerCallback<M> {
         if !log_enabled!(self.level_send) {
             return;
         }
-        let text = format!(
-            "{}::on_send {} {:?}",
-            asserted_short_name!("LoggerCallback", Self),
-            con_id,
-            msg
-        );
+        let text = format!("{}::on_send {} {:?}", asserted_short_name!("LoggerCallback", Self), con_id, msg);
         match self.level_send {
             Level::Error => error!("{}", text),
             Level::Warn => warn!("{}", text),

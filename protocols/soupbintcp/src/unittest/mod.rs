@@ -33,6 +33,5 @@ pub mod setup {
                 SBCltMsg::U(UPayload::new(T::default())),
             ]
         }
-        
     }
 }

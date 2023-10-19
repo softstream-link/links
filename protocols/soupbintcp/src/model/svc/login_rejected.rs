@@ -6,9 +6,7 @@ use crate::model::types::{PacketTypeLoginRejected, RejectReason};
 
 pub const LOGIN_REJECTED_PACKET_LENGTH: u16 = 2;
 pub const LOGIN_REJECTED_BYTE_LEN: usize = LOGIN_REJECTED_PACKET_LENGTH as usize + 2;
-#[derive(
-    ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug,
-)]
+#[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
 #[byteserde(endian = "be")]
 pub struct LoginRejected {
     packet_length: u16,
