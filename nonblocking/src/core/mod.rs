@@ -172,7 +172,7 @@ pub trait RecvNonBlocking<M: Messenger> {
     /// make a single frame it will attempt to deserialize it into a message and return it
     fn recv(&mut self) -> Result<RecvStatus<M::RecvT>, Error>;
 
-    /// Will call [Self::recv_nonblocking] until it returns [RecvStatus::Completed] or [RecvStatus::WouldBlock] after the timeout.
+    /// Will call [Self::recv] until it returns [RecvStatus::Completed] or [RecvStatus::WouldBlock] after the timeout.
     fn recv_busywait_timeout(&mut self, timeout: Duration) -> Result<RecvStatus<M::RecvT>, Error> {
         use RecvStatus::{Completed, WouldBlock};
         let start = Instant::now();
@@ -187,7 +187,7 @@ pub trait RecvNonBlocking<M: Messenger> {
             }
         }
     }
-    /// Will busywait block on [Self::recv_nonblocking] until it returns [RecvStatus::Completed]
+    /// Will busywait block on [Self::recv] until it returns [RecvStatus::Completed]
     fn recv_busywait(&mut self) -> Result<Option<M::RecvT>, Error> {
         use RecvStatus::{Completed, WouldBlock};
         loop {
@@ -240,7 +240,7 @@ pub trait SendNonBlocking<M: Messenger> {
     /// after the first attempt
     fn send(&mut self, msg: &mut M::SendT) -> Result<SendStatus, Error>;
 
-    /// Will call [Self::send_nonblocking] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
+    /// Will call [Self::send] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
     #[inline(always)]
     fn send_busywait_timeout(
         &mut self,
@@ -259,7 +259,7 @@ pub trait SendNonBlocking<M: Messenger> {
             }
         }
     }
-    /// Will call [Self::send_nonblocking] until it returns [SendStatus::Completed]
+    /// Will call [Self::send] until it returns [SendStatus::Completed]
     #[inline(always)]
     fn send_busywait(&mut self, msg: &mut M::SendT) -> Result<(), Error> {
         use SendStatus::{Completed, WouldBlock};
@@ -281,7 +281,7 @@ pub trait SendNonBlockingNonMut<M: Messenger> {
     /// after the first attempt
     fn send(&mut self, msg: &<M as Messenger>::SendT) -> Result<SendStatus, Error>;
 
-    /// Will call [Self::send_nonblocking] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
+    /// Will call [Self::send] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
     #[inline(always)]
     fn send_busywait_timeout(
         &mut self,
@@ -300,7 +300,7 @@ pub trait SendNonBlockingNonMut<M: Messenger> {
             }
         }
     }
-    /// Will call [Self::send_nonblocking] until it returns [SendStatus::Completed]
+    /// Will call [Self::send] until it returns [SendStatus::Completed]
     #[inline(always)]
     fn send_busywait(&mut self, msg: &<M as Messenger>::SendT) -> Result<(), Error> {
         use SendStatus::{Completed, WouldBlock};

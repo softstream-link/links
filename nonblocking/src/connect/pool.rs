@@ -503,7 +503,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display
 ///
 /// println!("pool: {}", pool);
 ///
-/// pool.pool_accept_nonblocking().unwrap();
+/// pool.pool_accept().unwrap();
 ///
 /// ```
 #[derive(Debug)]

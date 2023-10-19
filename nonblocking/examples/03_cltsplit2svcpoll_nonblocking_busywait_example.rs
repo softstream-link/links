@@ -37,7 +37,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     .unwrap();
     info!("svc: {}", svc);
 
-    let (pool_acceptor, _, _pool_svc_sender) = svc.into_split();
+    let (pool_acceptor, _, mut svc_sender) = svc.into_split();
     let mut poll_handler = PollHandlerStatic::default();
     poll_handler.add(pool_acceptor).unwrap();
     poll_handler.spawn("Svc-Poll-Thread");
@@ -58,6 +58,11 @@ fn run() -> Result<(), Box<dyn Error>> {
         TestCltMsg::HBeat(TestHBeatMsgDebug::default()),
         TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg")),
     ];
+    let mut svc_msgs = vec![
+        TestSvcMsg::Accept(TestSvcMsgLoginAcpt::default()),
+        TestSvcMsg::HBeat(TestHBeatMsgDebug::default()),
+        TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg")),
+    ];
 
     info!("clt_sender: {}", clt_sender);
 
@@ -66,16 +71,18 @@ fn run() -> Result<(), Box<dyn Error>> {
         clt_sender.send_busywait(msg)?;
     }
 
+    for msg in svc_msgs.iter_mut() {
+        svc_sender.send_busywait(msg)?;
+    }
+
     let elapsed = now.elapsed();
 
     drop(clt_sender);
 
     // VERIFY numbers of messages sent and received
-    let msg_recv_count = 0; //svc_jh.join().unwrap();
     info!(
-        "msg_send_count: {}, msg_recv_count: {} , per/write {:?}, total: {:?}",
-        fmt_num!(clt_msgs.len()),
-        fmt_num!(msg_recv_count), // TODO add counter on the way back
+        "msg_send_count: {}, per/write {:?}, total: {:?}",
+        fmt_num!(clt_msgs.len() + svc_msgs.len()),
         elapsed / clt_msgs.len() as u32,
         elapsed
     );
@@ -92,7 +99,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     assert_eq!(found.try_into_clt(), clt_msgs[2]);
 
     info!("store: {}", store);
-    assert_eq!(store.len(), clt_msgs.len());
+    assert_eq!(store.len(), clt_msgs.len() + clt_msgs.len());
 
     Ok(())
 }

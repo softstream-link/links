@@ -25,7 +25,7 @@ use crate::prelude::*;
 ///     DevNullCallback::<SvcTestMessenger>::default().into(),
 /// );
 ///
-/// let status = acceptor.accept_nonblocking().unwrap();
+/// let status = acceptor.accept().unwrap();
 /// assert!(status.is_wouldblock());
 ///
 /// ```
@@ -114,9 +114,9 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> From<Svc<M
 ///     Some("doctest"),
 /// ).unwrap();
 ///
-/// let status = svc.pool_accept_nonblocking().unwrap();
+/// let status = svc.pool_accept().unwrap();
 ///
-/// let err = svc.recv_nonblocking().unwrap_err();
+/// let err = svc.recv().unwrap_err();
 /// assert_eq!(err.kind(), ErrorKind::NotConnected);
 /// ```
 #[derive(Debug)]

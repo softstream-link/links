@@ -3,12 +3,6 @@ name = "links_nonblocking"
 version.workspace = true
 edition.workspace = true
 
-[features]
-default = ["full"]  # TODO desable all default features during release
-full = ["unittest"]
-unittest = []
-
-
 
 [dependencies]
 # networking nonblocking
@@ -22,7 +16,7 @@ links_core = { workspace = true } # traits
 
 log = { workspace = true }
 
-slab = { workspace = true } # slab allocator # TODO remove after moved to core
+slab = { workspace = true } # used by poller
 
 byteserde = { workspace = true } # byteserde::utils::hex::to_hex_pretty #TODO move to seperate crate
 
@@ -52,8 +46,6 @@ harness = false
 [[bench]]
 name = "message_ser_des"
 harness = false
-required-features = ["unittest"]
-
 
 [[bench]]
 name = "framer_nonblocking_bench"
@@ -63,24 +55,19 @@ harness = false
 [[bench]]
 name = "messender_nonblocking_bench"
 harness = false
-required-features = ["unittest"]
 
 
 [[bench]]
 name = "clt2clt_nonblocking_busywait_bench"
 harness = false
-required-features = ["unittest"]
+
 
 # EXAMPLES
-
 [[example]]
 name = "01_clt2clt_nonblocking_busywait_example"
-required-features = ["full"]
 
 [[example]]
 name = "02_clt2svcpool_nonblocking_busywait_example"
-required-features = ["full"]
 
 [[example]]
 name = "03_cltsplit2svcpoll_nonblocking_busywait_example"
-required-features = ["full"]
