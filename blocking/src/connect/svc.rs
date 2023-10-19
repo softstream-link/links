@@ -96,6 +96,10 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
         self.clts_pool.len()
     }
     #[inline(always)]
+    pub fn is_empty(&self) -> bool {
+        self.clts_pool.is_empty()
+    }
+    #[inline(always)]
     pub fn pool(&self) -> &CltsPool<M, C, MAX_MSG_SIZE> {
         &self.clts_pool
     }

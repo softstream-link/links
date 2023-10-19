@@ -68,6 +68,10 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> CltsPool<M
         self.clts.len()
     }
     #[inline(always)]
+    pub fn is_empty(&self) -> bool {
+        self.clts.is_empty()
+    }
+    #[inline(always)]
     pub fn has_capacity(&self) -> bool {
         self.clts.has_capacity()
     }
@@ -135,7 +139,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendNonBlo
     /// Will round robin [Clt]'s in the pool to propagate the call.
     #[inline(always)]
     fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
-        match self.clts.next() {
+        match self.clts.round_robin() {
             Some(clt) => clt.send(msg),
             None => Err(Error::new(
                 ErrorKind::NotConnected,
@@ -151,7 +155,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvNonBlo
     #[inline(always)]
     fn recv(&mut self) -> Result<RecvStatus<<M as Messenger>::RecvT>, Error> {
         use RecvStatus::{Completed, WouldBlock};
-        match self.clts.next() {
+        match self.clts.round_robin() {
             Some(clt) => match clt.recv() {
                 Ok(Completed(Some(msg))) => Ok(Completed(Some(msg))),
                 Ok(WouldBlock) => Ok(WouldBlock),
@@ -296,7 +300,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvNonBlockin
     #[inline(always)]
     fn recv(&mut self) -> Result<RecvStatus<M::RecvT>, Error> {
         use RecvStatus::{Completed, WouldBlock};
-        match self.recvers.next() {
+        match self.recvers.round_robin() {
             Some(clt) => match clt.recv() {
                 Ok(Completed(Some(msg))) => Ok(Completed(Some(msg))),
                 Ok(WouldBlock) => Ok(WouldBlock),
@@ -444,7 +448,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlockin
     /// In the event there are no receivers in the channel or the pool the method will return an [Error] where `e.kind() == ErrorKind::NotConnected`
     #[inline(always)]
     fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
-        match self.senders.next() {
+        match self.senders.round_robin() {
             Some(clt) => match clt.send(msg) {
                 Ok(s) => Ok(s),
                 Err(e) => {

@@ -150,12 +150,12 @@ impl<T: Debug+Send+Sync+Clone> CanonicalEntryStore<T> {
 }
 impl<T: Debug+Send+Sync+Clone> Storage<T> for CanonicalEntryStore<T> {
     #[inline(always)]
-    fn on_msg(&self, cond_id: ConId, msg: Message<T>) {
+    fn on_msg(&self, con_id: ConId, msg: Message<T>) {
         self.push(CanonicalEntry {
-            con_id: cond_id,
+            con_id,
             instant: Instant::now(),
             time: SystemTime::now(),
-            msg: msg,
+            msg,
         })
     }
 }

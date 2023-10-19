@@ -12,12 +12,12 @@ pub enum Message<T: Debug> {
     // Failed(T),
 }
 impl<T: Debug> Message<T> {
-    pub fn as_ref(&self) -> &T {
-        match self {
-            Self::Recv(t) => &t,
-            Self::Sent(t) => &t,
-        }
-    }
+    // pub fn as_ref(&self) -> &T {
+    //     match self {
+    //         Self::Recv(t) => t,
+    //         Self::Sent(t) => t,
+    //     }
+    // }
     pub fn into_t(self) -> T {
         match self {
             Self::Recv(t) => t,

@@ -44,7 +44,7 @@ impl<
     > PacketLengthU16Framer<START_IDX, IS_BIG_ENDIAN, ADD_PACKET_LEN_TO_FRAME_SIZE>
 {
     #[inline(always)]
-    pub fn packet_len(bytes: &mut BytesMut) -> Option<u16> {
+    pub fn packet_len(bytes: &BytesMut) -> Option<u16> {
         const LEN: usize = std::mem::size_of::<u16>();
         // ensures there is at least [0 1 2 START/3 4 END/5] LEN=2 for u16
         if bytes.len() < START_IDX + LEN {

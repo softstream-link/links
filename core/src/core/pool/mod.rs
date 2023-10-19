@@ -51,7 +51,7 @@ impl<T: Debug+Display> RoundRobinPool<T> {
         self.elements.len() < self.elements.capacity()
     }
     #[inline(always)]
-    pub fn next(&mut self) -> Option<&mut T> {
+    pub fn round_robin(&mut self) -> Option<&mut T> {
         for _ in 0..self.elements.capacity() {
             let key = self.slab_keys.next();
             if self.elements.contains(key) {
@@ -144,14 +144,14 @@ mod test {
         assert_eq!(pool.len(), 2);
 
         // round robin
-        let one = pool.next().unwrap();
+        let one = pool.round_robin().unwrap();
         assert_eq!(one, &"One".to_owned());
-        let two = pool.next().unwrap();
+        let two = pool.round_robin().unwrap();
         assert_eq!(two, &"Two".to_owned());
 
-        let one = pool.next().unwrap();
+        let one = pool.round_robin().unwrap();
         assert_eq!(one, &"One".to_owned());
-        let two = pool.next().unwrap();
+        let two = pool.round_robin().unwrap();
         assert_eq!(two, &"Two".to_owned());
 
         // remove last
@@ -160,9 +160,9 @@ mod test {
         assert_eq!(pool.len(), 1);
 
         // always ONE
-        let one = pool.next().unwrap();
+        let one = pool.round_robin().unwrap();
         assert_eq!(one, &"One".to_owned());
-        let one = pool.next().unwrap();
+        let one = pool.round_robin().unwrap();
         assert_eq!(one, &"One".to_owned());
 
         // max capacity

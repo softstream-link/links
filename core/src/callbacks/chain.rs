@@ -39,7 +39,7 @@ impl<M: Messenger> CallbackRecvSend<M> for ChainCallback<M> {}
 impl<M: Messenger> CallbackRecv<M> for ChainCallback<M> {
     fn on_recv(&self, con_id: &ConId, msg: &<M as Messenger>::RecvT) {
         for callback in self.chain.iter() {
-            callback.on_recv(con_id, &msg);
+            callback.on_recv(con_id, msg);
         }
     }
 }

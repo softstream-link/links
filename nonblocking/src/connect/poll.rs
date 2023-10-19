@@ -37,7 +37,7 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
     /// Spawns a new thread with a given name that will continuously poll for events on all of its [PoolCltAcceptor]s and resulting [CltRecver]s instances
     pub fn spawn(mut self, name: &str) -> JoinHandle<()> {
         Builder::new()
-            .name(format!("{}", name).to_owned())
+            .name(name.to_owned())
             .spawn(move || loop {
                 match self.service() {
                     Ok(_) => {}
@@ -46,7 +46,7 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
                     }
                 }
             })
-            .expect(format!("Failed to start a poll thread name: '{}'", name).as_str())
+            .unwrap_or_else(|_| panic!("Failed to start a poll thread name: '{}'", name))
     }
 
     fn add_serviceable(&mut self, recver: Serviceable<R, A>) -> io::Result<()> {
