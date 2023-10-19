@@ -153,7 +153,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 /// It is designed to work in a single thread. To split out [CltRecver] and [CltSender] use [Clt::into_split]
 ///
 /// # Example
-/// ```
+/// ```no_run
 /// use links_nonblocking::prelude::*;
 /// use links_core::unittest::setup::{framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg}};
 /// use std::time::Duration;

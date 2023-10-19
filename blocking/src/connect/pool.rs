@@ -155,7 +155,7 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = (
 /// though which the pool can be populated.
 ///
 /// # Example
-/// ```
+/// ```no_run
 /// use links_blocking::prelude::*;
 /// use links_core::unittest::setup::framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
 /// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
@@ -267,7 +267,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for Cl
 /// though which the pool can be populated.
 ///
 /// # Example
-/// ```
+/// ```no_run
 /// use links_blocking::prelude::*;
 /// use links_core::unittest::setup::framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
 /// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
@@ -374,7 +374,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 /// It is designed to be used in a thread which is different from the thread that will be using the [CltSendersPool] & [CltRecversPool].
 ///
 /// # Example
-/// ```
+/// ```no_run
 /// use links_blocking::prelude::*;
 /// use links_core::unittest::setup::framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
 ///

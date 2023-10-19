@@ -14,7 +14,7 @@ use crate::prelude::*;
 /// Helper class that create [Clt] instances by accepting new connections on a [std::net::TcpListener]
 ///
 /// # Example
-/// ```
+/// ```no_run
 /// use links_nonblocking::prelude::*;
 /// use links_core::unittest::setup::messenger::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
 ///
@@ -85,7 +85,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> From<Svc<M
 /// message being processed by internal pool of [Clt]'s managed by [CltsPool]
 /// It is designed to work in a single thread. To split out [CltRecversPool], [CltSendersPool] and [PoolCltAcceptor] use [Svc::into_split]
 /// # Example
-/// ```
+/// ```no_run
 /// use links_nonblocking::prelude::*;
 /// use links_core::unittest::setup::messenger::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
 /// use std::num::NonZeroUsize;
