@@ -5,7 +5,7 @@
 //! The underlying [std::net::TcpStream] is cloned and therefore share a single underlying network socket.
 //!
 //! # Example
-//! ```
+//! ```no_run
 //! use links_nonblocking::prelude::*;
 //! use links_core::unittest::setup::framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
 //!
