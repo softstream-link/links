@@ -19,7 +19,7 @@ mod test {
     async fn test_clt_not_connected() {
         setup::log::configure();
 
-        let clt = SBClt::<_, _, 128>::connect_async(
+        let clt = SBClt::<_, _, 128>::connect(
             *ADDR,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),

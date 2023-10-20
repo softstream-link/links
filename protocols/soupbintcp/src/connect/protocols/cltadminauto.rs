@@ -90,7 +90,7 @@ where
 
     async fn keep_alive_loop<P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>, C: CallbackSendRecvOld<P>, const MMS: usize>(
         &self,
-        clt: CltSenderAsync<P, C, MMS>,
+        clt: CltSender<P, C, MMS>,
     ) -> Result<(), Box<dyn Error+Send+Sync>> {
         let mut msg = SBCltMsg::HBeat(CltHeartbeat::default());
         loop {

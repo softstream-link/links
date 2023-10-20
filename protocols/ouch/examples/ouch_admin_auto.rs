@@ -31,7 +31,7 @@ async fn test_clt_svc_connect() {
 
     let svc_prcl = OuchSvcAdminProtocol::new_ref(b"abcdef".into(), b"++++++++++".into(), Default::default(), 1.);
     // START SVC
-    let svc = OuchSvc::bind_async(addr, svc_clbk, Some(svc_prcl), Some("ouch/venue")).await.unwrap();
+    let svc = OuchSvc::bind(addr, svc_clbk, Some(svc_prcl), Some("ouch/venue")).await.unwrap();
     let svc_is_connected = svc.is_connected(None).await;
     info!("{} Status connected: {}", svc, svc_is_connected);
     assert!(!svc_is_connected);
@@ -39,7 +39,7 @@ async fn test_clt_svc_connect() {
     let hbeat_interval = Duration::from_millis(250);
     let clt_prcl = OuchCltAdminProtocol::new_ref(b"abcdef".into(), b"++++++++++".into(), Default::default(), Default::default(), hbeat_interval, 1.);
     // START CLT
-    let clt = OuchClt::connect_async(
+    let clt = OuchClt::connect(
         addr,
         setup::net::default_connect_timeout(),
         setup::net::default_connect_retry_after(),

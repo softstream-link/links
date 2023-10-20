@@ -18,7 +18,7 @@ mod test {
     async fn test_svc_not_connected() {
         setup::log::configure();
 
-        let svc = SBSvc::<_, _, MMS>::bind_async(
+        let svc = SBSvc::<_, _, MMS>::bind(
             setup::net::rand_avail_addr_port(),
             SBSvcLoggerCallback::<SBSvcAdminProtocol<Nil, Nil>>::new_ref(Level::Info, Level::Info),
             None,
@@ -41,11 +41,11 @@ mod test {
         let clt_callback =
             SBCltChainCallback::<SBCltAdminProtocol<Nil, Nil>>::new_ref(vec![SBCltLoggerCallback::new_ref(Level::Info, Level::Info), SBCltEvenStoreCallback::new_ref(Arc::clone(&event_store))]);
 
-        let svc = SBSvc::<_, _, MMS>::bind_async(addr, svc_callback, None, Some("soupbin/venue")).await.unwrap();
+        let svc = SBSvc::<_, _, MMS>::bind(addr, svc_callback, None, Some("soupbin/venue")).await.unwrap();
 
         info!("{} started", svc);
 
-        let clt = SBClt::<_, _, MMS>::connect_async(
+        let clt = SBClt::<_, _, MMS>::connect(
             addr,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),

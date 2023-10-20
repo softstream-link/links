@@ -39,7 +39,7 @@ pub trait Protocol: Clone+MessengerOld+Framer+Send+Sync+'static {
 
     fn keep_alive_loop<P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>, C: CallbackSendRecvOld<P>, const MMS: usize>(
         &self,
-        clt: CltSenderAsync<P, C, MMS>,
+        clt: CltSender<P, C, MMS>,
     ) -> impl Future<Output=Result<(), Box<dyn Error+Send+Sync>>>+Send+'_ {
         async { Ok(()) }
     }

@@ -51,7 +51,7 @@ pub mod setup {
             }
             async fn keep_alive_loop<P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>, C: CallbackSendRecvOld<P>, const MMS: usize>(
                 &self,
-                clt: CltSenderAsync<P, C, MMS>,
+                clt: CltSender<P, C, MMS>,
             ) -> Result<(), Box<dyn Error+Send+Sync>> {
                 loop {
                     let mut msg = TestSvcMsg::HBeat(TestHBeatMsgDebug::new(b"svc ping"));
@@ -82,7 +82,7 @@ pub mod setup {
             }
             async fn keep_alive_loop<P: Protocol<SendT=Self::SendT, RecvT=Self::RecvT>, C: CallbackSendRecvOld<P>, const MMS: usize>(
                 &self,
-                clt: CltSenderAsync<P, C, MMS>,
+                clt: CltSender<P, C, MMS>,
             ) -> Result<(), Box<dyn Error+Send+Sync>> {
                 loop {
                     let mut msg = TestCltMsg::HBeat(TestHBeatMsgDebug::new(b"clt ping"));

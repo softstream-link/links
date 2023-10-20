@@ -21,7 +21,7 @@ mod test {
         setup::log::configure();
         let prcl = OuchCltAdminProtocol::new_ref(b"abcdef".into(), b"++++++++++".into(), Default::default(), Default::default(), Default::default(), 1.);
         let clbk = OuchCltLoggerCallback::new_ref(Level::Info, Level::Info);
-        let res = OuchClt::connect_async(
+        let res = OuchClt::connect(
             &ADDR,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
