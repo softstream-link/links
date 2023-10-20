@@ -36,29 +36,29 @@ rand = { workspace = true }      # required to setup benchmarks
 
 # BENCHMARKS
 [[bench]]
-name = "channel_rx_tx_bench"
+name = "01_channel_rx_tx_bench"
 harness = false
 
 [[bench]]
-name = "nonblocking_bench"
+name = "02_message_ser_des"
 harness = false
 
 [[bench]]
-name = "message_ser_des"
+name = "03_nonblocking_bench"
 harness = false
 
 [[bench]]
-name = "framer_nonblocking_bench"
-harness = false
-
-
-[[bench]]
-name = "messender_nonblocking_bench"
+name = "04_framer_nonblocking_bench"
 harness = false
 
 
 [[bench]]
-name = "clt2clt_nonblocking_busywait_bench"
+name = "05_messender_nonblocking_bench"
+harness = false
+
+
+[[bench]]
+name = "06_clt2clt_nonblocking_busywait_bench"
 harness = false
 
 
