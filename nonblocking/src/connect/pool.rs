@@ -291,7 +291,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvNonBlockin
                 if let PoolAcceptStatus::Accepted = self.pool_accept()? {
                     self.recv()
                 } else {
-                    Err(Error::new(ErrorKind::NotConnected.into(), "Not Connected, 0 recvers available in the pool"))
+                    Err(Error::new(ErrorKind::NotConnected, "Not Connected, 0 recvers available in the pool"))
                 }
             }
         }
@@ -428,7 +428,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlockin
                 if let PoolAcceptStatus::Accepted = self.pool_accept()? {
                     self.send(msg)
                 } else {
-                    Err(Error::new(ErrorKind::NotConnected.into(), "Not Connected, 0 senders available in the pool"))
+                    Err(Error::new(ErrorKind::NotConnected, "Not Connected, 0 senders available in the pool"))
                 }
             }
         }

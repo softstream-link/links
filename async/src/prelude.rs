@@ -9,6 +9,6 @@ pub use crate::connect::svc::SvcSender;
 pub use crate::core::Protocol;
 
 // // store
-pub use crate::callbacks::eventstore::{EventStoreAsync, EventStoreCallback};
+pub use crate::callbacks::eventstore::{EventStore, EventStoreCallback};
 
 pub use links_core::prelude::*;

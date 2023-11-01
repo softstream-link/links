@@ -3,9 +3,7 @@ use links_async::prelude::*;
 use crate::prelude::*;
 
 // event store
-pub type SBEventStoreAsync<CltPayload, SvcPayload> = EventStoreAsync<SBMsg<CltPayload, SvcPayload>>;
-pub type SBEventStoreSync<CltPayload, SvcPayload> = EventStoreSync<SBMsg<CltPayload, SvcPayload>>;
-
+pub type SBEventStoreAsync<CltPayload, SvcPayload> = EventStore<SBMsg<CltPayload, SvcPayload>>;
 pub type SBCltEvenStoreCallback<CltPayload, SvcPayload, Messenger> = EventStoreCallback<SBMsg<CltPayload, SvcPayload>, Messenger>;
 
 pub type SBSvcEvenStoreCallback<CltPayload, SvcPayload, Messenger> = EventStoreCallback<SBMsg<CltPayload, SvcPayload>, Messenger>;

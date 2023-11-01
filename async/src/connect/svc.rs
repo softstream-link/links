@@ -149,7 +149,7 @@ mod test {
     };
 
     use crate::{
-        prelude::{EventStoreAsync, EventStoreCallback},
+        prelude::{EventStore, EventStoreCallback},
         unittest::setup::protocol::*,
     };
 
@@ -170,7 +170,7 @@ mod test {
     async fn test_svc_clt_connected() {
         setup::log::configure_level(log::LevelFilter::Debug);
         let addr = setup::net::rand_avail_addr_port();
-        let event_store = EventStoreAsync::<TestMsg>::new_ref();
+        let event_store = EventStore::<TestMsg>::new_ref();
         // let clt_callback = ChainCallback::new_ref(vec![
         //     LoggerCallback::new_ref(log::Level::Warn),
         //     EventStoreProxyCallback::<Msg, CltMsgProtocol>::new_ref(event_store.clone()),

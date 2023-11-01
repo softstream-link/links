@@ -40,3 +40,12 @@ hong kong hong kong stock exhange (hkse)
 australia RESS australia - vendor link (iress-au)
 new zealand RESS fnz (jarden) & craigs NZ - broker link
 Indonesia jakarta stock exchange (jakse)
+
+
+// TPC trades per second check, 
+// Fat finger tests price vs qty
+// price tolerance check
+// max qty check to avoid moving the market
+// iceberg order, floor vs display  is the size of the order greater then display, unless the total notional exceeds an amount 
+
+// exchange certification document -

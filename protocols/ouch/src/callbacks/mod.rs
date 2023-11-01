@@ -4,8 +4,7 @@ use links_soupbintcp_async::prelude::*;
 use crate::prelude::*;
 
 // event store
-pub type OuchEventStoreAsync = EventStoreAsync<OuchMsg>;
-pub type OuchEventStoreSync = EventStoreSync<OuchMsg>;
+pub type OuchEventStoreAsync = EventStore<OuchMsg>;
 
 pub type OuchCltEvenStoreCallback<Messenger> = EventStoreCallback<OuchMsg, Messenger>;
 pub type OuchSvcEvenStoreCallback<Messenger> = EventStoreCallback<OuchMsg, Messenger>;
