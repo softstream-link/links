@@ -1,4 +1,4 @@
-#![feature(tcp_linger)]
+// #![feature(tcp_linger)]
 
 use std::io::Error;
 use std::io::{Read, Write};
