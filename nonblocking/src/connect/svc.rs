@@ -72,8 +72,8 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> AcceptNonB
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display for SvcAcceptor<M, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace(">", "");
-        let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace(">", "");
+        let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
+        let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
         write!(f, "{}<{}, RecvT:{}, SendT:{}, {}>", asserted_short_name!("SvcAcceptor", Self), self.con_id, recv_t, send_t, MAX_MSG_SIZE)
     }
 }

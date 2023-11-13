@@ -29,8 +29,8 @@ impl<M: Messenger> LoggerCallback<M> {
     }
 
     fn log(&self, level: Level, method: &str, con_id: &ConId, text: &str) {
-        let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace(">", "");
-        let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace(">", "");
+        let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
+        let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
         let text = format!("{}<RecvT:{recv_t}, SendT:{send_t}>::{method} {con_id} {text}", asserted_short_name!("LoggerCallback", Self));
         match level {
             Level::Error => error!("{}", text),

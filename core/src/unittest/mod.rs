@@ -51,7 +51,7 @@ pub mod setup {
                             }; 
                             let pkg_name = record.target().to_owned();
                             let split = pkg_name.split("::").map(|x| x.to_owned()).collect::<Vec<_>>();
-                            
+                            #[allow(clippy::iter_next_slice)] // TODO clippy thinks it has first method
                             let first = split.iter().next().unwrap();
                             let mut it = split.iter().rev();
                             let _ = it.next();
