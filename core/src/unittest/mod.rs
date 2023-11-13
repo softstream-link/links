@@ -180,6 +180,11 @@ pub mod setup {
             #[byteserde(eq(&[b'H']))]
             HBeat(TestHBeatMsgDebug),
         }
+        impl From<TestCltMsgDebug> for TestCltMsg{
+            fn from(msg: TestCltMsgDebug) -> Self {
+                Self::Dbg(msg)
+            }
+        }
 
         #[rustfmt::skip]
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, )]
@@ -191,6 +196,11 @@ pub mod setup {
             Accept(TestSvcMsgLoginAcpt),
             #[byteserde(eq(&[b'H']))]
             HBeat(TestHBeatMsgDebug),
+        }
+        impl From<TestSvcMsgDebug> for TestSvcMsg{
+            fn from(msg: TestSvcMsgDebug) -> Self {
+                Self::Dbg(msg)
+            }
         }
 
         #[derive(PartialEq, Clone, Debug)]

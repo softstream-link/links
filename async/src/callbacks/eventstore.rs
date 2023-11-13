@@ -7,7 +7,7 @@ use std::{
 
 use chrono::{DateTime, Local};
 use links_core::prelude::{ConId, EntryOld, MessengerOld};
-use tokio::{runtime::Runtime, task::yield_now};
+use tokio::task::yield_now;
 
 use links_core::prelude::{CallbackEvent, CallbackSendRecvOld, DirOld};
 

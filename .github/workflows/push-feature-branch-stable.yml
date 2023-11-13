@@ -27,7 +27,19 @@ jobs:
       - name: Clippy Deny Warnings
         run: |
           cargo clippy --all-features -- --deny warnings
-
+      - name: Publish Dry Run to crates.io
+        run: |
+          pwd
+          ls -la
+          pushd core
+          cargo publish --dry-run
+          popd
+          pushd nonblocking
+          cargo publish --dry-run
+          popd
+          pushd blocking
+          cargo publish --dry-run
+          popd      
 
 
     

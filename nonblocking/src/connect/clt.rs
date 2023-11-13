@@ -54,13 +54,15 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PollRecv for C
 }
 impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for CltRecver<M, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msger_name = std::any::type_name::<M>().split("::").last().unwrap_or("Unknown");
+        let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace(">", "");
+        let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace(">", "");
         write!(
             f,
-            "{}<{}, {}, {}>",
+            "{}<{}, RecvT:{}, SendT:{}, {}>",
             asserted_short_name!("CltRecver", Self),
             self.msg_recver.frm_reader.con_id,
-            msger_name,
+            recv_t,
+            send_t,
             MAX_MSG_SIZE
         )
     }
@@ -133,16 +135,17 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlockin
         }
     }
 }
-
 impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for CltSender<M, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msger_name = std::any::type_name::<M>().split("::").last().unwrap_or("Unknown");
+        let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace(">", "");
+        let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace(">", "");
         write!(
             f,
-            "{}<{}, {}, {}>",
+            "{}<{}, RecvT:{}, SendT:{}, {}>",
             asserted_short_name!("CltSender", Self),
             self.msg_sender.frm_writer.con_id,
-            msger_name,
+            recv_t,
+            send_t,
             MAX_MSG_SIZE
         )
     }

@@ -71,7 +71,6 @@ pub type OuchSvcMsg = SBSvcMsg<OuchSvcPld>;
 
 pub type OuchMsg = SBMsg<OuchCltPld, OuchSvcPld>;
 
-pub use from_clt_pld::*;
 mod from_clt_pld {
     use super::*;
     impl From<EnterOrder> for OuchCltMsg {
@@ -136,7 +135,6 @@ mod from_clt_pld {
     }
 }
 
-pub use from_svc_pld::*;
 mod from_svc_pld {
     use super::*;
     impl From<OrderAccepted> for OuchSvcMsg {

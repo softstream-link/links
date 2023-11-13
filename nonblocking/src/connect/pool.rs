@@ -3,6 +3,7 @@ use std::{
     io::{Error, ErrorKind},
     num::NonZeroUsize,
     sync::mpsc::{channel, Receiver, Sender},
+    time::Instant,
 };
 
 use crate::{
@@ -122,6 +123,9 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Default fo
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendNonBlocking<M> for CltsPool<M, C, MAX_MSG_SIZE> {
     /// Will round robin [Clt]'s in the pool to propagate the call.
+    ///
+    /// # Important
+    ///
     /// Will return [Err(ErrorKind::NotConnected)] if the pool is empty, so that the [Self::send_busywait] does not block indefinitely.
     #[inline(always)]
     fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
@@ -296,6 +300,54 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvNonBlockin
             }
         }
     }
+    /// Will call [Self::recv] in a loop until the message is received or an error is returned.
+    ///
+    /// # Important
+    ///
+    /// * In the event there are no [CltRecver] in the channel and the pool is empty the method will continue to call [Self::recv] until timeout,
+    /// hoping that a new [CltRecver] will be added to the pool.
+    #[inline(always)]
+    fn recv_busywait_timeout(&mut self, timeout: std::time::Duration) -> Result<RecvStatus<<M as Messenger>::RecvT>, Error> {
+        use RecvStatus::{Completed, WouldBlock};
+        let start = Instant::now();
+        loop {
+            match self.recv() {
+                Ok(Completed(opt)) => return Ok(Completed(opt)),
+                Ok(WouldBlock) => {
+                    if start.elapsed() > timeout {
+                        return Ok(WouldBlock);
+                    }
+                    continue;
+                }
+                // only raised when pool is empty
+                Err(e) if e.kind() == ErrorKind::NotConnected => {
+                    if start.elapsed() > timeout {
+                        return Err(e);
+                    }
+                    continue;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+    /// Will call [Self::recv] in a loop until the message is received or an error is returned.
+    ///
+    /// # Important
+    ///
+    /// * The call will block indefinitely if the pool is empty.
+    #[inline(always)]
+    fn recv_busywait(&mut self) -> Result<Option<<M as Messenger>::RecvT>, Error> {
+        use RecvStatus::{Completed, WouldBlock};
+        loop {
+            match self.recv() {
+                Ok(Completed(opt)) => return Ok(opt),
+                Ok(WouldBlock) => continue,
+                // only raised when pool is empty
+                Err(e) if e.kind() == ErrorKind::NotConnected => continue,
+                Err(e) => return Err(e),
+            }
+        }
+    }
 }
 impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for CltRecversPool<M, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -399,7 +451,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlockin
     ///
     /// # Important
     ///
-    /// In the event there are no [CltSender] in the channel or the pool the method will return an [Err(ErrorKind::NotConnected)]
+    /// * In the event there are no [CltSender] in the channel and the pool is empty the method will return an [Err(ErrorKind::NotConnected)]
     #[inline(always)]
     fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
         // 1. get next
@@ -430,6 +482,53 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlockin
                 } else {
                     Err(Error::new(ErrorKind::NotConnected, "Not Connected, 0 senders available in the pool"))
                 }
+            }
+        }
+    }
+    /// Will call [Self::send] in a loop until the message is sent or an error is returned.
+    ///
+    /// # Important
+    ///
+    /// * In the event there are no [CltSender] in the channel and the pool is empty the method will continue to call [Self::send] until timeout,
+    /// hoping that a new [CltSender] will be added to the pool.
+    #[inline(always)]
+    fn send_busywait_timeout(&mut self, msg: &mut <M as Messenger>::SendT, timeout: std::time::Duration) -> Result<SendStatus, Error> {
+        use SendStatus::{Completed, WouldBlock};
+        let start = Instant::now();
+        loop {
+            match self.send(msg) {
+                Ok(Completed) => return Ok(Completed),
+                Ok(WouldBlock) => {
+                    if start.elapsed() > timeout {
+                        return Ok(WouldBlock);
+                    }
+                    continue;
+                }
+                // only raised when pool is empty
+                Err(e) if e.kind() == ErrorKind::NotConnected => {
+                    if start.elapsed() > timeout {
+                        return Err(e);
+                    }
+                    continue;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+    /// Will call [Self::send] in a loop until the message is sent or an error is returned.
+    ///
+    /// # Important
+    ///
+    /// * The call will block indefinitely if the pool is empty.
+    #[inline(always)]
+    fn send_busywait(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<(), Error> {
+        use SendStatus::{Completed, WouldBlock};
+        loop {
+            match self.send(msg) {
+                Ok(Completed) => return Ok(()),
+                Ok(WouldBlock) => continue,
+                Err(e) if e.kind() == ErrorKind::NotConnected => continue, // only raised when pool is empty
+                Err(e) => return Err(e),
             }
         }
     }
@@ -625,19 +724,23 @@ mod test {
         info!("clt_recv: {}", clt_recv);
         info!("clt_send: {}", clt_send);
 
-        let res = clt_recv.recv_busywait();
+        // IMPORTANT unlike clt_pool clt_recv and clt_send will block on busy_wait calls since it is possible to accept a new connection while waiting
+        let res = clt_recv.recv_busywait_timeout(Duration::from_millis(100));
         info!("res: {:?}", res);
         assert_eq!(res.unwrap_err().kind(), ErrorKind::NotConnected);
 
-        let res = clt_send.send_busywait(&mut clt_msg);
+        // IMPORTANT unlike clt_pool clt_recv and clt_send will block on busy_wait calls since it is possible to accept a new connection while waiting
+        let res = clt_send.send_busywait_timeout(&mut clt_msg, Duration::from_millis(100));
         info!("res: {:?}", res);
         assert_eq!(res.unwrap_err().kind(), ErrorKind::NotConnected);
 
+        // test that pool_accept error is propagated
         drop(_tx_recver);
         let res = clt_recv.recv_busywait();
         info!("res: {:?}", res);
         assert_eq!(res.unwrap_err().kind(), ErrorKind::Other);
 
+        // test that pool_accept error is propagated
         drop(_tx_sender);
         let res = clt_send.send_busywait(&mut clt_msg);
         info!("res: {:?}", res);
