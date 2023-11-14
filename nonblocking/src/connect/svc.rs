@@ -14,15 +14,15 @@ use crate::prelude::*;
 /// Helper class that create [Clt] instances by accepting new connections on a [std::net::TcpListener]
 ///
 /// # Example
-/// ```no_run
+/// ```
 /// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::messenger::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
+/// use links_core::unittest::setup::{self, messenger::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}};
 ///
-/// let addr = "127.0.0.1:8080";
-/// let acceptor = SvcAcceptor::<_, _, TEST_MSG_FRAME_SIZE>::new(
+/// let addr = setup::net::rand_avail_addr_port(); // "127.0.0.1:8080" generates random port
+/// let acceptor = SvcAcceptor::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::new(
 ///     ConId::svc(Some("doctest"), addr, None),
 ///     std::net::TcpListener::bind(addr).unwrap(),
-///     DevNullCallback::<SvcTestMessenger>::default().into(),
+///     DevNullCallback::default().into(),
 /// );
 ///
 /// let status = acceptor.accept().unwrap();
@@ -85,7 +85,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> From<Svc<M
 
 /// An abstraction over [MessageRecver] and [MessageSender] that calls a respective callback on every
 /// message being processed by internal pool of [Clt]'s managed by [CltsPool]
-/// It is designed to work in a single thread. To split out [CltRecversPool], [CltSendersPool] and [PoolCltAcceptor] use [Svc::into_split]
+/// It is designed to work in a single thread. To split out [CltRecversPool], [CltSendersPool] and [SvcPoolAcceptor] use [Svc::into_split]
 /// # Example
 /// ```no_run
 /// use links_nonblocking::prelude::*;
@@ -136,9 +136,9 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
     pub fn pool(&self) -> &CltsPool<M, C, MAX_MSG_SIZE> {
         &self.clts_pool
     }
-    pub fn into_split(self) -> (PoolCltAcceptor<M, C, MAX_MSG_SIZE>, CltRecversPool<M, C, MAX_MSG_SIZE>, CltSendersPool<M, C, MAX_MSG_SIZE>) {
+    pub fn into_split(self) -> (SvcPoolAcceptor<M, C, MAX_MSG_SIZE>, CltRecversPool<M, C, MAX_MSG_SIZE>, CltSendersPool<M, C, MAX_MSG_SIZE>) {
         let ((tx_recver, tx_sender), (svc_recver, svc_sender)) = self.clts_pool.into_split();
-        let acceptor = PoolCltAcceptor::new(tx_recver, tx_sender, self.acceptor);
+        let acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, self.acceptor);
         (acceptor, svc_recver, svc_sender)
     }
 }

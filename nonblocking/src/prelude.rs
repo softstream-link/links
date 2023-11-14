@@ -7,7 +7,7 @@ pub use crate::core::{
 pub use crate::connect::{
     clt::{Clt, CltRecver, CltSender},
     poll::{PollHandlerDynamic, PollHandlerStatic, PollHandler},
-    pool::{CltRecversPool, CltSendersPool, CltsPool, PoolCltAcceptor},
+    pool::{CltRecversPool, CltSendersPool, CltsPool, SvcPoolAcceptor},
     svc::{Svc, SvcAcceptor},
 };
 

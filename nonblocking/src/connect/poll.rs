@@ -13,7 +13,7 @@ pub enum Serviceable<R: PollRecv, A: PollAccept<R>> {
     Recver(R),
 }
 
-/// A wrapper struct to that will use a designated thread to handle all of its [PoolCltAcceptor]s events and resulting [CltRecver]s
+/// A wrapper struct to that will use a designated thread to handle all of its [SvcPoolAcceptor]s events and resulting [CltRecver]s
 pub struct PollHandler<R: PollRecv, A: PollAccept<R>> {
     poll: Poll,
     serviceable: Slab<Serviceable<R, A>>,
@@ -28,7 +28,7 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
             events: Events::with_capacity(capacity),
         }
     }
-    /// Add a [PoolCltAcceptor] to the [PollHandler] to be polled for incoming connections. All resulting connections in the form
+    /// Add a [SvcPoolAcceptor] to the [PollHandler] to be polled for incoming connections. All resulting connections in the form
     /// of [CltRecver] will also be serviced by this [PollHandler] instance.
     pub fn add(&mut self, acceptor: A) -> io::Result<()> {
         self.add_serviceable(Serviceable::Acceptor(acceptor))
@@ -36,7 +36,7 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
     pub fn add_recver(&mut self, recver: R) -> io::Result<()> {
         self.add_serviceable(Serviceable::Recver(recver))
     }
-    /// Spawns a new thread with a given name that will continuously poll for events on all of its [PoolCltAcceptor]s and resulting [CltRecver]s instances
+    /// Spawns a new thread with a given name that will continuously poll for events on all of its [SvcPoolAcceptor]s and resulting [CltRecver]s instances
     pub fn spawn(mut self, name: &str) -> JoinHandle<()> {
         Builder::new()
             .name(name.to_owned())
@@ -156,7 +156,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> From<CltRecver
 pub type PollHandlerDynamic = PollHandler<Box<dyn PollRecv>, Box<dyn PollAccept<Box<dyn PollRecv>>>>;
 
 /// A [PollHandler] that will only handle [PollAccept] and [PollRecv] of same type
-pub type PollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = PollHandler<CltRecver<M, C, MAX_MSG_SIZE>, PoolCltAcceptor<M, C, MAX_MSG_SIZE>>;
+pub type PollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = PollHandler<CltRecver<M, C, MAX_MSG_SIZE>, SvcPoolAcceptor<M, C, MAX_MSG_SIZE>>;
 
 #[cfg(test)]
 mod test {

@@ -195,7 +195,7 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = (
 /// }
 /// ```
 #[derive(Debug)]
-pub struct CltRecversPool<M: Messenger+'static, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
+pub struct CltRecversPool<M: Messenger + 'static, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
     rx_recver: Receiver<CltRecver<M, C, MAX_MSG_SIZE>>,
     recvers: RoundRobinPool<CltRecver<M, C, MAX_MSG_SIZE>>,
 }
@@ -545,34 +545,40 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 /// It is designed to be used in a thread which is different from the thread that will be using the [CltSendersPool] & [CltRecversPool].
 ///
 /// # Example
-/// ```no_run
+/// ```
 /// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
+/// use links_core::unittest::setup::{self, framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}};
 ///
-/// let addr = "127.0.0.1:8080";
-/// let acceptor = SvcAcceptor::<_,_, TEST_MSG_FRAME_SIZE>::new(
+/// let addr = setup::net::rand_avail_addr_port(); // will return random port "127.0.0.1:8080"
+/// let acceptor = SvcAcceptor::<SvcTestMessenger,_, TEST_MSG_FRAME_SIZE>::new(
 ///     ConId::svc(Some("doctest"), addr, None),
 ///     std::net::TcpListener::bind(addr).unwrap(),
-///     DevNullCallback::<SvcTestMessenger>::default().into(),
+///     DevNullCallback::default().into(),
 /// );
 ///
 /// let (tx_recver, rx_recver) = std::sync::mpsc::channel();
 /// let (tx_sender, rx_sender) = std::sync::mpsc::channel();
 ///
-/// let mut pool = PoolCltAcceptor::new(tx_recver, tx_sender, acceptor);
+/// let mut acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, acceptor);
 ///
-/// println!("pool: {}", pool);
+/// println!("acceptor: {}", acceptor);
 ///
-/// pool.pool_accept().unwrap();
+/// assert_eq!(acceptor.pool_accept().unwrap(),  PoolAcceptStatus::WouldBlock);
 ///
+/// // Create a new
+/// let clt = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::default().into(), Some("unittest")).unwrap();
+///
+/// assert_eq!(acceptor.pool_accept().unwrap(),  PoolAcceptStatus::Accepted);
+/// println!("acceptor: {}", acceptor);
+/// // assert!(false); // uncomment to see output
 /// ```
 #[derive(Debug)]
-pub struct PoolCltAcceptor<M: Messenger+'static, C: CallbackRecvSend<M>+'static, const MAX_MSG_SIZE: usize> {
+pub struct SvcPoolAcceptor<M: Messenger + 'static, C: CallbackRecvSend<M> + 'static, const MAX_MSG_SIZE: usize> {
     tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
     tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>,
     acceptor: SvcAcceptor<M, C, MAX_MSG_SIZE>,
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PoolCltAcceptor<M, C, MAX_MSG_SIZE> {
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SvcPoolAcceptor<M, C, MAX_MSG_SIZE> {
     pub fn new(tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>, tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>, acceptor: SvcAcceptor<M, C, MAX_MSG_SIZE>) -> Self {
         Self { tx_recver, tx_sender, acceptor }
     }
@@ -590,7 +596,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PoolCltAcc
         }
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PoolAcceptCltNonBlocking for PoolCltAcceptor<M, C, MAX_MSG_SIZE> {
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PoolAcceptCltNonBlocking for SvcPoolAcceptor<M, C, MAX_MSG_SIZE> {
     /// Will interrogate the [SvcAcceptor] for new connections and if available will send them to the respective [CltRecver] & [CltSender] pools.
     fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error> {
         use AcceptStatus::{Accepted, WouldBlock};
@@ -609,7 +615,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PoolAccept
         }
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollRecv for PoolCltAcceptor<M, C, MAX_MSG_SIZE> {
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollRecv for SvcPoolAcceptor<M, C, MAX_MSG_SIZE> {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         Box::new(&mut self.acceptor.listener)
     }
@@ -621,7 +627,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollRecv f
         }
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollAccept<CltRecver<M, C, MAX_MSG_SIZE>> for PoolCltAcceptor<M, C, MAX_MSG_SIZE> {
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollAccept<CltRecver<M, C, MAX_MSG_SIZE>> for SvcPoolAcceptor<M, C, MAX_MSG_SIZE> {
     fn poll_accept(&mut self) -> Result<AcceptStatus<CltRecver<M, C, MAX_MSG_SIZE>>, Error> {
         use AcceptStatus::{Accepted, WouldBlock};
         match self.accept_recver()? {
@@ -630,7 +636,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollAccept
         }
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollAccept<Box<dyn PollRecv>> for PoolCltAcceptor<M, C, MAX_MSG_SIZE> {
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollAccept<Box<dyn PollRecv>> for SvcPoolAcceptor<M, C, MAX_MSG_SIZE> {
     fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollRecv>>, Error> {
         use AcceptStatus::{Accepted, WouldBlock};
         match self.accept_recver()? {
@@ -639,13 +645,13 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollAccept
         }
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display for PoolCltAcceptor<M, C, MAX_MSG_SIZE> {
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display for SvcPoolAcceptor<M, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}<{}>", asserted_short_name!("PoolCltAcceptor", Self), self.acceptor.con_id)
+        write!(f, "{}<{}>", asserted_short_name!("SvcPoolAcceptor", Self), self.acceptor.con_id)
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> From<PoolCltAcceptor<M, C, MAX_MSG_SIZE>> for Box<dyn PollAccept<Box<dyn PollRecv>>> {
-    fn from(value: PoolCltAcceptor<M, C, MAX_MSG_SIZE>) -> Self {
+impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> From<SvcPoolAcceptor<M, C, MAX_MSG_SIZE>> for Box<dyn PollAccept<Box<dyn PollRecv>>> {
+    fn from(value: SvcPoolAcceptor<M, C, MAX_MSG_SIZE>) -> Self {
         Box::new(value)
     }
 }
