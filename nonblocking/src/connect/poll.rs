@@ -16,11 +16,7 @@ macro_rules! register_recver_as_readable {
         if log_enabled!(Level::Debug) {
             debug!("registering recver: {} with token: {:?}", $recver.con_id(), $token);
         }
-        $self
-            .poll
-            .registry()
-            .register(*$recver.source(), $token, mio::Interest::READABLE)
-            .expect("Failed to poll register recver")
+        $self.poll.registry().register(*$recver.source(), $token, mio::Interest::READABLE).expect("Failed to poll register recver")
     };
 }
 macro_rules! register_acceptor_as_readable {
@@ -28,11 +24,7 @@ macro_rules! register_acceptor_as_readable {
         if log_enabled!(Level::Debug) {
             debug!("registering acceptor: {} with token: {:?}", PollAccept::con_id($acceptor), $token);
         }
-        $self
-            .poll
-            .registry()
-            .register(*$acceptor.source(), $token, mio::Interest::READABLE)
-            .expect("Failed to poll register acceptor")
+        $self.poll.registry().register(*$acceptor.source(), $token, mio::Interest::READABLE).expect("Failed to poll register acceptor")
     };
 }
 macro_rules! register_serviceable_as_readable {
@@ -168,11 +160,8 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
                         Ok(serviceable) => {
                             register_serviceable_as_readable!(self, serviceable);
                         }
-                        Err(e) if e == TryRecvError::Empty => {}
-                        Err(e) => panic!(
-                            "Could not receive Serviceable from rx_serviceable channel: {:?}. This is not a possible condition error: {}",
-                            rx_serviceable, e
-                        ),
+                        Err(TryRecvError::Empty) => {}
+                        Err(e) => panic!("Could not receive Serviceable from rx_serviceable channel: {:?}. This is not a possible condition error: {}", rx_serviceable, e),
                     },
                     None => {} // possible when the serviceable is removed during error or terminate request but other serviceable still yielding
                 }
@@ -275,14 +264,7 @@ mod test {
 
         let svc: Svc<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE> = Svc::bind(addr, clbk, NonZeroUsize::new(1).unwrap(), Some("unittest/svc")).unwrap();
 
-        let mut clt: Clt<CltTestMessenger, _, TEST_MSG_FRAME_SIZE> = Clt::connect(
-            addr,
-            setup::net::default_connect_timeout(),
-            setup::net::default_connect_retry_after(),
-            DevNullCallback::new_ref(),
-            Some("unittest/clt"),
-        )
-        .unwrap();
+        let mut clt: Clt<CltTestMessenger, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), Some("unittest/clt")).unwrap();
 
         let (acceptor, _, _sender_pool) = svc.into_split();
 
@@ -318,22 +300,8 @@ mod test {
         let svc1 = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr1, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), Some("unittest/svc1")).unwrap();
         let svc2 = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr2, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), Some("unittest/svc2")).unwrap();
 
-        let clt1 = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(
-            addr1,
-            setup::net::default_connect_timeout(),
-            setup::net::default_connect_retry_after(),
-            StoreCallback::new_ref(store.clone()),
-            Some("unittest/clt1"),
-        )
-        .unwrap();
-        let clt2 = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(
-            addr2,
-            setup::net::default_connect_timeout(),
-            setup::net::default_connect_retry_after(),
-            StoreCallback::new_ref(store.clone()),
-            Some("unittest/clt2"),
-        )
-        .unwrap();
+        let clt1 = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(addr1, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), StoreCallback::new_ref(store.clone()), Some("unittest/clt1")).unwrap();
+        let clt2 = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(addr2, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), StoreCallback::new_ref(store.clone()), Some("unittest/clt2")).unwrap();
 
         let (acceptor1, _, mut svc1) = svc1.into_split();
         let (acceptor2, _, mut svc2) = svc2.into_split();

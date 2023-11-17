@@ -707,7 +707,7 @@ mod test {
             // all connections over max_connections will be dropped
             if clt_pool.has_capacity() {
                 clt_pool.add(clt).unwrap();
-                svc.pool_accept_busywait_timeout(Duration::from_millis(100)).unwrap().unwrap();
+                svc.pool_accept_busywait_timeout(Duration::from_millis(100)).unwrap().unwrap_accepted();
             } else {
                 assert_eq!(clt_pool.len(), max_connections.get());
                 assert_eq!(svc.pool().len(), max_connections.get());

@@ -32,7 +32,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             let mut svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::<SvcTestMessenger>::new_ref(), NonZeroUsize::new(1).unwrap(), Some("example/svc")).unwrap();
 
             info!("svc: {}", svc);
-            svc.pool_accept_busywait_timeout(setup::net::default_connect_timeout()).unwrap().unwrap();
+            svc.pool_accept_busywait_timeout(setup::net::default_connect_timeout()).unwrap().unwrap_accepted();
 
             info!("svc: {}", svc);
 
