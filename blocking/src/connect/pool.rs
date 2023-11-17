@@ -153,11 +153,11 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = (
 
 /// A round robin pool of [CltRecver]s with respective [std::sync::mpsc::Receiver] channel
 /// though which the pool can be populated.
-///
+/// 
 /// # Example
-/// ```no_run
+/// ```
 /// use links_blocking::prelude::*;
-/// use links_core::unittest::setup::framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
+/// use links_core::unittest::setup::{self, framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}};
 /// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
 ///
 ///
@@ -165,7 +165,7 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = (
 /// let mut pool = CltRecversPool::new(rx_recver, NonZeroUsize::new(2).unwrap());
 ///
 /// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-///     "127.0.0.1:8080",
+///     setup::net::rand_avail_addr_port(), // "127.0.0.1:8080" generates a random port
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::<CltTestMessenger>::default().into(),
@@ -267,9 +267,9 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for Cl
 /// though which the pool can be populated.
 ///
 /// # Example
-/// ```no_run
+/// ```
 /// use links_blocking::prelude::*;
-/// use links_core::unittest::setup::framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
+/// use links_core::unittest::setup::{self, framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}};
 /// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
 ///
 ///
@@ -277,7 +277,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for Cl
 /// let mut pool = CltSendersPool::new(rx_recver, NonZeroUsize::new(2).unwrap());
 ///
 /// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-///     "127.0.0.1:8080",
+///     setup::net::rand_avail_addr_port(), // "127.0.0.1:8080" generates a random port
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::<CltTestMessenger>::default().into(),

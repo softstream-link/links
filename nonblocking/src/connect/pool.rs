@@ -19,16 +19,16 @@ use log::{info, log_enabled, warn, Level};
 /// An abstraction layer representing a pool of [Clt]'s connections
 ///
 /// # Example
-/// ```no_run
+/// ```
 /// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::{framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug}};
+/// use links_core::unittest::setup::{self, framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug}};
 /// use std::time::Duration;
 ///
 ///
 /// let mut pool = CltsPool::default();
 ///
 /// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-///     "127.0.0.1:8080",
+///     setup::net::rand_avail_addr_port(), // "127.0.0.1:9090" generates a random port
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::<CltTestMessenger>::default().into(),
@@ -112,7 +112,9 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> CltsPool<M
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display for CltsPool<M, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.clts)
+        let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
+        let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
+        write!(f, "{}<RecvP:{}, SendP:{}, {}>", asserted_short_name!("CltsPool", Self), recv_t, send_t, self.clts)
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Default for CltsPool<M, C, MAX_MSG_SIZE> {
@@ -171,9 +173,9 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = (
 /// though which the pool can be populated.
 ///
 /// # Example
-/// ```no_run
+/// ```
 /// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
+/// use links_core::unittest::setup::{self, framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}};
 /// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
 ///
 ///
@@ -181,7 +183,7 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = (
 /// let mut pool = CltRecversPool::new(rx_recver, NonZeroUsize::new(2).unwrap());
 ///
 /// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-///     "127.0.0.1:8080",
+///     setup::net::rand_avail_addr_port(), // "127.0.0.1:8080" generates a random port
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::<CltTestMessenger>::default().into(),
@@ -351,7 +353,9 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvNonBlockin
 }
 impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for CltRecversPool<M, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.recvers,)
+        let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
+        let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
+        write!(f, "{}<RecvP:{}, SendP:{}, {}>", asserted_short_name!("CltRecversPool", Self), recv_t, send_t, self.recvers)
     }
 }
 
@@ -359,9 +363,9 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for Cl
 /// though which the pool can be populated.
 ///
 /// # Example
-/// ```no_run
+/// ```
 /// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
+/// use links_core::unittest::setup::{self, framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}};
 /// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
 ///
 ///
@@ -369,7 +373,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for Cl
 /// let mut pool = CltSendersPool::new(rx_recver, NonZeroUsize::new(2).unwrap());
 ///
 /// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-///     "127.0.0.1:8080",
+///     setup::net::rand_avail_addr_port(), // "127.0.0.1:8080" generates a random port
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::<CltTestMessenger>::default().into(),
@@ -535,7 +539,9 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlockin
 }
 impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for CltSendersPool<M, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.senders)
+        let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
+        let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
+        write!(f, "{}<RecvP:{}, SendP:{}, {}>", asserted_short_name!("CltSendersPool", Self), recv_t, send_t, self.senders)
     }
 }
 
@@ -626,6 +632,9 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollRecv f
             WouldBlock => Ok(PollEventStatus::WouldBlock),
         }
     }
+    fn con_id(&self) -> &links_core::prelude::ConId {
+        &self.acceptor.con_id
+    }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollAccept<CltRecver<M, C, MAX_MSG_SIZE>> for SvcPoolAcceptor<M, C, MAX_MSG_SIZE> {
     fn poll_accept(&mut self) -> Result<AcceptStatus<CltRecver<M, C, MAX_MSG_SIZE>>, Error> {
@@ -635,6 +644,9 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollAccept
             WouldBlock => Ok(WouldBlock),
         }
     }
+    fn con_id(&self) -> &links_core::prelude::ConId {
+        &self.acceptor.con_id
+    }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollAccept<Box<dyn PollRecv>> for SvcPoolAcceptor<M, C, MAX_MSG_SIZE> {
     fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollRecv>>, Error> {
@@ -643,6 +655,9 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PollAccept
             Accepted(recver) => Ok(Accepted(Box::new(recver))),
             WouldBlock => Ok(WouldBlock),
         }
+    }
+    fn con_id(&self) -> &links_core::prelude::ConId {
+        &self.acceptor.con_id
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display for SvcPoolAcceptor<M, C, MAX_MSG_SIZE> {

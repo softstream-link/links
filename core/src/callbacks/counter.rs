@@ -33,19 +33,19 @@ impl<M: Messenger> CounterCallback<M> {
         Arc::new(Self::default())
     }
     #[inline(always)]
-    pub fn send(&self) -> usize {
+    pub fn send_count(&self) -> usize {
         self.send.load(Ordering::SeqCst)
     }
     #[inline(always)]
-    pub fn fail(&self) -> usize {
+    pub fn fail_count(&self) -> usize {
         self.fail.load(Ordering::SeqCst)
     }
     #[inline(always)]
-    pub fn sent(&self) -> usize {
+    pub fn sent_count(&self) -> usize {
         self.sent.load(Ordering::SeqCst)
     }
     #[inline(always)]
-    pub fn recv(&self) -> usize {
+    pub fn recv_count(&self) -> usize {
         self.recv.load(Ordering::SeqCst)
     }
 }
@@ -110,9 +110,9 @@ mod test {
             clbk.on_recv(&ConId::default(), &msg);
         }
         info!("clbk: {}", clbk);
-        assert_eq!(N, clbk.send());
-        assert_eq!(N, clbk.sent());
-        assert_eq!(N, clbk.fail());
-        assert_eq!(N, clbk.recv());
+        assert_eq!(N, clbk.send_count());
+        assert_eq!(N, clbk.sent_count());
+        assert_eq!(N, clbk.fail_count());
+        assert_eq!(N, clbk.recv_count());
     }
 }

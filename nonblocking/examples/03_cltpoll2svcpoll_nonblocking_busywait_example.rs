@@ -31,10 +31,10 @@ fn run() -> Result<(), Box<dyn Error>> {
     let svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), Some("example/svc")).unwrap();
     info!("svc: {}", svc);
 
-    let (pool_acceptor, _, mut svc_sender) = svc.into_split();
-    let mut poll_handler = PollHandlerStatic::default();
-    poll_handler.add(pool_acceptor).unwrap();
-    poll_handler.spawn("Svc-Poll-Thread");
+    let (svc_acceptor, _, mut svc_sender) = svc.into_split();
+    let mut poll_handler = PollHandlerDynamic::default();
+    poll_handler.add_acceptor(svc_acceptor.into());
+    let spawned_poll_handler = poll_handler.into_spawned_handler("Svc-Poll-Thread");
 
     let clt = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(
         addr,
@@ -45,7 +45,8 @@ fn run() -> Result<(), Box<dyn Error>> {
     )
     .unwrap();
     info!("clt: {}", clt);
-    let (_clt_recver, mut clt_sender) = clt.into_split();
+    let (clt_recver, mut clt_sender) = clt.into_split();
+    spawned_poll_handler.add_recver(clt_recver.into());
 
     let mut clt_msgs = vec![
         TestCltMsg::Login(TestCltMsgLoginReq::default()),

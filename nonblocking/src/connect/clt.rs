@@ -51,6 +51,9 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PollRecv for C
             Completed(None) => Ok(PollEventStatus::Terminate),
         }
     }
+    fn con_id(&self) -> &ConId {
+        &self.msg_recver.frm_reader.con_id
+    }
 }
 impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for CltRecver<M, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

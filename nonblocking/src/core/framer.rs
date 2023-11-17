@@ -45,6 +45,7 @@
 use crate::prelude::{ConId, Framer, RecvStatus, SendStatus};
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
+use links_core::asserted_short_name;
 use mio::net::TcpStream;
 use std::{
     fmt::Display,
@@ -104,7 +105,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
                 if self.buffer.is_empty() {
                     Ok(RecvStatus::Completed(None))
                 } else {
-                    let msg = format!("{} FrameReader::read_frame connection reset by peer, residual buf:\n{}", self.con_id, to_hex_pretty(&self.buffer[..]));
+                    let msg = format!("{} {}::read_frame connection reset by peer, residual buf:\n{}", self.con_id, asserted_short_name!("FrameReader", Self), to_hex_pretty(&self.buffer[..]));
                     Err(Error::new(ErrorKind::ConnectionReset, msg))
                 }
             }
@@ -119,7 +120,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(RecvStatus::WouldBlock),
             Err(e) => {
                 self.shutdown(Shutdown::Write, "read_frame error"); // remember to shutdown on both exception and on EOF
-                let msg = format!("{} FrameReader::read_frame caused by: [{}] residual buf:\n{}", self.con_id, e, to_hex_pretty(&self.buffer[..]));
+                let msg = format!("{} {}::read_frame caused by: [{}] residual buf:\n{}", self.con_id, asserted_short_name!("FrameReader", Self), e, to_hex_pretty(&self.buffer[..]));
 
                 Err(Error::new(e.kind(), msg))
             }
@@ -212,7 +213,7 @@ impl FrameWriter {
                 // note: can't use write_all https://github.com/rust-lang/rust/issues/115451
                 Ok(EOF) => {
                     self.shutdown(Shutdown::Both, "write_frame EOF"); // remember to shutdown on both exception and on EOF
-                    let msg = format!("connection reset by peer, residual buf:\n{}", to_hex_pretty(residual));
+                    let msg = format!("{} {}::write_frame connection reset by peer, residual buf:\n{}", self.con_id, asserted_short_name!("FrameWriter", Self), to_hex_pretty(residual));
                     return Err(Error::new(ErrorKind::ConnectionReset, msg));
                 }
                 Ok(len) => {
@@ -234,13 +235,7 @@ impl FrameWriter {
                 }
                 Err(e) => {
                     self.shutdown(Shutdown::Both, "write_frame error"); // remember to shutdown on both exception and on EOF
-                    let msg = format!(
-                        "{} FrameWriter::writer_frame caused by: [{}], residual len: {}\n{}",
-                        self.con_id,
-                        e,
-                        residual.len(),
-                        to_hex_pretty(residual)
-                    );
+                    let msg = format!("{} {}::write_frame caused by: [{}], residual len: {}\n{}", self.con_id, asserted_short_name!("FrameWriter", Self), e, residual.len(), to_hex_pretty(residual));
                     return Err(Error::new(e.kind(), msg));
                 }
             }
@@ -376,14 +371,7 @@ mod test {
                             Ok(RecvStatus::Completed(Some(recv_frame))) => {
                                 frame_recv_count += 1;
                                 let recv_frame = &recv_frame[..];
-                                assert_eq!(
-                                    send_frame,
-                                    recv_frame,
-                                    "send_frame: \n{}\nrecv_frame:\n{}\nframe_recv_count: {}",
-                                    to_hex_pretty(send_frame),
-                                    to_hex_pretty(recv_frame),
-                                    frame_recv_count
-                                );
+                                assert_eq!(send_frame, recv_frame, "send_frame: \n{}\nrecv_frame:\n{}\nframe_recv_count: {}", to_hex_pretty(send_frame), to_hex_pretty(recv_frame), frame_recv_count);
                             }
                             Ok(RecvStatus::WouldBlock) => {
                                 continue; // try reading again

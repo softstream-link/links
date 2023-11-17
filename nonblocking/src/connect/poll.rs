@@ -1,16 +1,59 @@
+use core::panic;
+use log::{debug, info, log_enabled, warn, Level};
+use mio::{Events, Poll, Token, Waker};
+use slab::Slab;
 use std::{
-    io::{self, Error},
-    thread::{Builder, JoinHandle},
+    io::Error,
+    sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError},
+    thread::Builder,
 };
 
-use log::{info, log_enabled, Level};
-use mio::{Events, Poll, Token};
-use slab::Slab;
-
 use crate::{core::PollAccept, prelude::*};
-pub enum Serviceable<R: PollRecv, A: PollAccept<R>> {
+
+// setting up these macros to reuse code where borrow checker, iterating over self.events while modifying self.serviceable
+macro_rules! register_recver_as_readable {
+    ($self:ident, $recver:ident, $token:ident) => {
+        if log_enabled!(Level::Debug) {
+            debug!("registering recver: {} with token: {:?}", $recver.con_id(), $token);
+        }
+        $self
+            .poll
+            .registry()
+            .register(*$recver.source(), $token, mio::Interest::READABLE)
+            .expect("Failed to poll register recver")
+    };
+}
+macro_rules! register_acceptor_as_readable {
+    ($self:ident, $acceptor:ident, $token:ident) => {
+        if log_enabled!(Level::Debug) {
+            debug!("registering acceptor: {} with token: {:?}", PollAccept::con_id($acceptor), $token);
+        }
+        $self
+            .poll
+            .registry()
+            .register(*$acceptor.source(), $token, mio::Interest::READABLE)
+            .expect("Failed to poll register acceptor")
+    };
+}
+macro_rules! register_serviceable_as_readable {
+    ($self:ident, $serviceable:ident) => {
+        let token = Token($self.serviceable.insert($serviceable));
+        match $self.serviceable[token.into()] {
+            Serviceable::Recver(ref mut recver) => {
+                register_recver_as_readable!($self, recver, token);
+            }
+            Serviceable::Acceptor(ref mut acceptor) => {
+                register_acceptor_as_readable!($self, acceptor, token);
+            }
+            Serviceable::Waker => panic!("Waker should not be added to the poll only when spawning a new thread"),
+        }
+    };
+}
+
+enum Serviceable<R: PollRecv, A: PollAccept<R>> {
     Acceptor(A),
     Recver(R),
+    Waker,
 }
 
 /// A wrapper struct to that will use a designated thread to handle all of its [SvcPoolAcceptor]s events and resulting [CltRecver]s
@@ -30,51 +73,62 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
     }
     /// Add a [SvcPoolAcceptor] to the [PollHandler] to be polled for incoming connections. All resulting connections in the form
     /// of [CltRecver] will also be serviced by this [PollHandler] instance.
-    pub fn add(&mut self, acceptor: A) -> io::Result<()> {
+    pub fn add_acceptor(&mut self, acceptor: A) {
         self.add_serviceable(Serviceable::Acceptor(acceptor))
     }
-    pub fn add_recver(&mut self, recver: R) -> io::Result<()> {
+    pub fn add_recver(&mut self, recver: R) {
         self.add_serviceable(Serviceable::Recver(recver))
     }
     /// Spawns a new thread with a given name that will continuously poll for events on all of its [SvcPoolAcceptor]s and resulting [CltRecver]s instances
-    pub fn spawn(mut self, name: &str) -> JoinHandle<()> {
+    pub fn into_spawned_handler(mut self, name: &str) -> SpawnedPollHandler<R, A> {
+        let waker = {
+            let entry = self.serviceable.vacant_entry();
+            let key = entry.key();
+            let waker = Waker::new(self.poll.registry(), Token(key)).expect("Failed to create Waker");
+            entry.insert(Serviceable::Waker);
+            waker
+        };
+        // have to use synch_channel of just 1 so that if adding serviceable back to back the wake call on the poll is only issued after the first wake is processed
+        // otherwise the poll will not wake up on back to back wake calls and serviceable will end up being stuck in the channel
+        let (tx_serviceable, rx_serviceable) = sync_channel::<Serviceable<R, A>>(1);
+        // let (tx_serviceable, rx_serviceable) = channel::<Serviceable<R, A>>();
+
         Builder::new()
             .name(name.to_owned())
-            .spawn(move || loop {
-                match self.service() {
-                    Ok(_) => {}
-                    Err(e) => {
-                        panic!("Error, service loop termination: {}", e);
+            .spawn(move || {
+                let rx_serviceable = rx_serviceable;
+                loop {
+                    match self.service(&rx_serviceable) {
+                        Ok(()) => {}
+                        Err(e) => {
+                            panic!("Error, service loop termination: {}", e);
+                        }
                     }
                 }
             })
-            .unwrap_or_else(|_| panic!("Failed to start a poll thread name: '{}'", name))
+            .unwrap_or_else(|_| panic!("Failed to start a poll thread name: '{}'", name));
+        SpawnedPollHandler { tx_serviceable, waker }
     }
 
-    fn add_serviceable(&mut self, recver: Serviceable<R, A>) -> io::Result<()> {
-        let key = self.serviceable.insert(recver);
-        match self.serviceable[key] {
-            Serviceable::Recver(ref mut recver) => self.poll.registry().register(*recver.source(), Token(key), mio::Interest::READABLE),
-            Serviceable::Acceptor(ref mut acceptor) => self.poll.registry().register(*acceptor.source(), Token(key), mio::Interest::READABLE),
-        }
+    fn add_serviceable(&mut self, serviceable: Serviceable<R, A>) {
+        register_serviceable_as_readable!(self, serviceable);
     }
 
-    pub fn service(&mut self) -> Result<(), Error> {
+    fn service(&mut self, rx_serviceable: &Receiver<Serviceable<R, A>>) -> Result<(), Error> {
         use PollEventStatus::*;
         use Serviceable::*;
         self.poll.poll(&mut self.events, None)?;
 
-        let mut at_least_one_completed = true;
-        while at_least_one_completed {
-            at_least_one_completed = false;
-
-            for event in self.events.iter() {
-                let token = event.token().into();
-                match self.serviceable.get_mut(token) {
-                    // handle readable event
+        // keep going until all serviceable for the given poll events can't yield anymore
+        loop {
+            let mut had_yield = false;
+            for event in &self.events {
+                let key = event.token().into();
+                let serviceable = self.serviceable.get_mut(key);
+                match serviceable {
                     Some(Recver(recver)) => match recver.on_readable_event() {
                         Ok(Completed) => {
-                            at_least_one_completed = true;
+                            had_yield = true;
                             continue;
                         }
                         Ok(WouldBlock) => continue,
@@ -83,40 +137,52 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
                                 info!("Clean, service loop termination recver: {}", recver);
                             }
                             self.poll.registry().deregister(*recver.source())?;
-                            self.serviceable.remove(token);
+                            self.serviceable.remove(key);
                         }
                         Err(e) => {
-                            if log_enabled!(Level::Info) {
-                                info!("Error, service loop termination recver: {}, error: {}", recver, e);
+                            if log_enabled!(Level::Warn) {
+                                warn!("Error, service loop termination recver: {}, error: {}", recver, e);
                             }
                             self.poll.registry().deregister(*recver.source())?;
-                            self.serviceable.remove(token);
+                            self.serviceable.remove(key);
                         }
                     },
-                    // accept new connection and register it for READABLE events
                     Some(Acceptor(acceptor)) => match acceptor.poll_accept() {
                         Ok(AcceptStatus::Accepted(recver)) => {
-                            let key = self.serviceable.insert(Recver(recver));
-                            if let Recver(ref mut recver) = self.serviceable[key] {
-                                self.poll.registry().register(*recver.source(), Token(key), mio::Interest::READABLE)?;
+                            let token = Token(self.serviceable.insert(Recver(recver)));
+                            if let Recver(ref mut recver) = self.serviceable[token.into()] {
+                                register_recver_as_readable!(self, recver, token);
                             }
-                            at_least_one_completed = true;
+                            had_yield = true;
                         }
-                        Ok(AcceptStatus::WouldBlock) => {}
+                        Ok(AcceptStatus::WouldBlock) => continue,
                         Err(e) => {
-                            if log_enabled!(Level::Info) {
-                                info!("Error, service loop termination acceptor: {}, error: {}", acceptor, e);
+                            if log_enabled!(Level::Warn) {
+                                warn!("Error, service loop termination acceptor: {}, error: {}", acceptor, e);
                             }
                             self.poll.registry().deregister(*acceptor.source())?;
-                            self.serviceable.remove(token);
+                            self.serviceable.remove(key);
                         }
                     },
-                    None => {} // possible when the serviceable is removed with error or terminate from the service loop but other serviceable are still responding in this iteration
+                    Some(Waker) => match rx_serviceable.try_recv() {
+                        Ok(serviceable) => {
+                            register_serviceable_as_readable!(self, serviceable);
+                        }
+                        Err(e) if e == TryRecvError::Empty => {}
+                        Err(e) => panic!(
+                            "Could not receive Serviceable from rx_serviceable channel: {:?}. This is not a possible condition error: {}",
+                            rx_serviceable, e
+                        ),
+                    },
+                    None => {} // possible when the serviceable is removed during error or terminate request but other serviceable still yielding
                 }
             }
+            if !had_yield {
+                return Ok(());
+            }
         }
-        Ok(())
     }
+    // pub fn servic
 }
 impl<R: PollRecv, A: PollAccept<R>> Default for PollHandler<R, A> {
     fn default() -> Self {
@@ -128,6 +194,9 @@ impl PollAccept<Box<dyn PollRecv>> for Box<dyn PollAccept<Box<dyn PollRecv>>> {
     fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollRecv>>, Error> {
         self.as_mut().poll_accept()
     }
+    fn con_id(&self) -> &ConId {
+        PollAccept::con_id(self.as_ref())
+    }
 }
 impl PollRecv for Box<dyn PollAccept<Box<dyn PollRecv>>> {
     fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
@@ -135,6 +204,9 @@ impl PollRecv for Box<dyn PollAccept<Box<dyn PollRecv>>> {
     }
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         self.as_mut().source()
+    }
+    fn con_id(&self) -> &ConId {
+        PollRecv::con_id(self.as_ref())
     }
 }
 
@@ -145,6 +217,9 @@ impl PollRecv for Box<dyn PollRecv> {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         self.as_mut().source()
     }
+    fn con_id(&self) -> &ConId {
+        self.as_ref().con_id()
+    }
 }
 impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> From<CltRecver<M, C, MAX_MSG_SIZE>> for Box<dyn PollRecv> {
     fn from(value: CltRecver<M, C, MAX_MSG_SIZE>) -> Self {
@@ -152,6 +227,25 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> From<CltRecver
     }
 }
 
+/// A helper struct to add [PollAccept] and [PollRecv] instances to a [PollHandler] from a different thread
+/// to create an instance of this struct use [PollHandler::into_spawned_handler]
+pub struct SpawnedPollHandler<R: PollRecv, A: PollAccept<R>> {
+    tx_serviceable: SyncSender<Serviceable<R, A>>,
+    waker: Waker,
+}
+impl<R: PollRecv, A: PollAccept<R>> SpawnedPollHandler<R, A> {
+    pub fn add_acceptor(&self, acceptor: A) {
+        self.tx_serviceable.send(Serviceable::Acceptor(acceptor)).expect("Failed to send acceptor to PollHandler");
+        self.waker.wake().expect("Failed to wake PollHandler after sending acceptor");
+    }
+    pub fn add_recver(&self, recver: R) {
+        self.tx_serviceable.send(Serviceable::Recver(recver)).expect("Failed to send recver to PollHandler");
+        self.waker.wake().expect("Failed to wake PollHandler after sending recver");
+    }
+    pub fn wake(&self) {
+        self.waker.wake().expect("Failed to wake PollHandler");
+    }
+}
 /// A [PollHandler] that can handle any [PollAccept] and [PollRecv] instances using dynamic dispatch at the cost of performance
 pub type PollHandlerDynamic = PollHandler<Box<dyn PollRecv>, Box<dyn PollAccept<Box<dyn PollRecv>>>>;
 
@@ -160,7 +254,7 @@ pub type PollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = PollHandler<CltRec
 
 #[cfg(test)]
 mod test {
-    use std::{num::NonZeroUsize, thread::sleep, time::Duration};
+    use std::{num::NonZeroUsize, time::Instant};
 
     use crate::prelude::*;
     use links_core::unittest::setup::{
@@ -173,17 +267,19 @@ mod test {
 
     #[test]
     fn test_poller_static() {
-        setup::log::configure_level(log::LevelFilter::Info);
+        setup::log::configure_level(log::LevelFilter::Debug);
 
         let addr = setup::net::rand_avail_addr_port();
+        let counter = CounterCallback::new_ref();
+        let clbk = ChainCallback::new_ref(vec![LoggerCallback::new_ref(), counter.clone()]);
 
-        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, LoggerCallback::<SvcTestMessenger>::new_ref(), NonZeroUsize::new(1).unwrap(), Some("unittest/svc")).unwrap();
+        let svc: Svc<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE> = Svc::bind(addr, clbk, NonZeroUsize::new(1).unwrap(), Some("unittest/svc")).unwrap();
 
-        let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+        let mut clt: Clt<CltTestMessenger, _, TEST_MSG_FRAME_SIZE> = Clt::connect(
             addr,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
-            DevNullCallback::<CltTestMessenger>::new_ref(),
+            DevNullCallback::new_ref(),
             Some("unittest/clt"),
         )
         .unwrap();
@@ -191,21 +287,28 @@ mod test {
         let (acceptor, _, _sender_pool) = svc.into_split();
 
         let mut poll_handler = PollHandlerStatic::<_, _, TEST_MSG_FRAME_SIZE>::default();
-        poll_handler.add(acceptor).unwrap();
+        poll_handler.add_acceptor(acceptor);
 
-        poll_handler.spawn("Static-Svc-Poll-Thread");
+        let _ = poll_handler.into_spawned_handler("Static-Svc-Poll-Thread");
 
         let mut msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
-        for _ in 0..2 {
+        let write_count = 10;
+        for _ in 0..write_count {
             clt.send_busywait(&mut msg).unwrap();
         }
 
-        sleep(Duration::from_millis(200));
+        let start = Instant::now();
+        while start.elapsed() < setup::net::optional_find_timeout().unwrap() {
+            if counter.recv_count() == write_count {
+                break;
+            }
+        }
+        assert_eq!(counter.recv_count(), write_count);
     }
 
     #[test]
     fn test_poller_dynamic() {
-        setup::log::configure_level(log::LevelFilter::Info);
+        setup::log::configure_level(log::LevelFilter::Debug);
 
         let addr1 = setup::net::rand_avail_addr_port();
         let addr2 = setup::net::rand_avail_addr_port();
@@ -238,16 +341,15 @@ mod test {
         let (clt2_recver, mut clt2) = clt2.into_split();
 
         let mut poll_handler = PollHandlerDynamic::default();
-        poll_handler.add(acceptor1.into()).unwrap();
-        poll_handler.add(acceptor2.into()).unwrap();
-        poll_handler.add_recver(clt1_recver.into()).unwrap();
-        poll_handler.add_recver(clt2_recver.into()).unwrap();
+        // try adding before spawning
+        poll_handler.add_acceptor(acceptor1.into());
+        poll_handler.add_acceptor(acceptor2.into());
 
+        let poll_adder = poll_handler.into_spawned_handler("Dynamic-Svc/Clt-Poll-Thread");
+        // try adding after spawning
+        poll_adder.add_recver(Box::new(clt1_recver));
+        poll_adder.add_recver(clt2_recver.into());
 
-        poll_handler.spawn("Dynamic-Svc/Clt-Poll-Thread");
-
-        // svc1.pool_accept_busywait().unwrap();
-        // svc2.pool_accept_busywait().unwrap();
         clt1.send_busywait(&mut TestCltMsgDebug::new(b"Hello From Clt1").into()).unwrap();
         clt2.send_busywait(&mut TestCltMsgDebug::new(b"Hello From Clt2").into()).unwrap();
         svc1.send_busywait(&mut TestSvcMsgDebug::new(b"Hello From Svc1").into()).unwrap();
@@ -255,22 +357,22 @@ mod test {
 
         let found = store.find_recv("unittest/svc1", |_x| true, setup::net::optional_find_timeout());
         info!("found: {:?}", found);
-        assert_eq!(found.is_some(), true);
+        assert!(found.is_some());
         assert!(matches!(found.unwrap(), TestMsg::Clt(TestCltMsg::Dbg(msg)) if msg == TestCltMsgDebug::new(b"Hello From Clt1")));
 
         let found = store.find_recv("unittest/svc2", |_x| true, setup::net::optional_find_timeout());
         info!("found: {:?}", found);
-        assert_eq!(found.is_some(), true);
+        assert!(found.is_some());
         assert!(matches!(found.unwrap(), TestMsg::Clt(TestCltMsg::Dbg(msg)) if msg == TestCltMsgDebug::new(b"Hello From Clt2")));
 
         let found = store.find_recv("unittest/clt1", |_x| true, setup::net::optional_find_timeout());
         info!("found: {:?}", found);
-        assert_eq!(found.is_some(), true);
+        assert!(found.is_some());
         assert!(matches!(found.unwrap(), TestMsg::Svc(TestSvcMsg::Dbg(msg)) if msg == TestSvcMsgDebug::new(b"Hello From Svc1")));
 
         let found = store.find_recv("unittest/clt2", |_x| true, setup::net::optional_find_timeout());
         info!("found: {:?}", found);
-        assert_eq!(found.is_some(), true);
+        assert!(found.is_some());
         assert!(matches!(found.unwrap(), TestMsg::Svc(TestSvcMsg::Dbg(msg)) if msg == TestSvcMsgDebug::new(b"Hello From Svc2")));
 
         info!("store: {}", store);

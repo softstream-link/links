@@ -12,3 +12,4 @@ pub use crate::connect::{
 };
 
 pub use links_core::prelude::*;
+pub use links_core::asserted_short_name;

@@ -2,12 +2,12 @@ pub mod framer;
 pub mod messenger;
 
 use std::{
-    fmt::Display,
+    fmt::{Debug, Display},
     io::Error,
     time::{Duration, Instant},
 };
 
-use links_core::prelude::Messenger;
+use links_core::{prelude::Messenger, core::conid::ConId};
 
 // ---- Acceptor ----
 
@@ -240,7 +240,7 @@ pub trait SendNonBlocking<M: Messenger> {
     fn send(&mut self, msg: &mut M::SendT) -> Result<SendStatus, Error>;
 
     /// Will call [Self::send] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
-    /// while propagating all errors from [Self::send] 
+    /// while propagating all errors from [Self::send]
     #[inline(always)]
     fn send_busywait_timeout(&mut self, msg: &mut M::SendT, timeout: Duration) -> Result<SendStatus, Error> {
         use SendStatus::{Completed, WouldBlock};
@@ -315,11 +315,13 @@ pub enum PollEventStatus {
     Terminate,
 }
 
-pub trait PollRecv: Display+Send+'static {
+pub trait PollRecv: Display + Send + 'static {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source>;
     fn on_readable_event(&mut self) -> Result<PollEventStatus, Error>;
+    fn con_id(&self) -> &ConId;
 }
 
 pub trait PollAccept<R: PollRecv>: PollRecv {
     fn poll_accept(&mut self) -> Result<AcceptStatus<R>, Error>;
+    fn con_id(&self) -> &ConId;
 }

@@ -77,9 +77,9 @@ mod test {
             clbk.on_sent(&ConId::default(), &msg);
         }
         info!("clbk: {}", clbk);
-        assert_eq!(counter.sent(), 2);
-        assert_eq!(counter.send(), 0);
-        assert_eq!(counter.fail(), 0);
-        assert_eq!(counter.recv(), 0);
+        assert_eq!(counter.sent_count(), 2);
+        assert_eq!(counter.send_count(), 0);
+        assert_eq!(counter.fail_count(), 0);
+        assert_eq!(counter.recv_count(), 0);
     }
 }

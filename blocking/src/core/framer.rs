@@ -44,6 +44,7 @@
 use crate::prelude::{ConId, Framer};
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
+use links_core::asserted_short_name;
 use log::{debug, log_enabled};
 use std::fmt::Display;
 use std::io::{ErrorKind, Read, Write};
@@ -103,7 +104,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
                         if self.buffer.is_empty() {
                             return Ok(None);
                         } else {
-                            let msg = format!("FrameReader::read_frame connection reset by peer, residual buf:\n{}", to_hex_pretty(&self.buffer[..]));
+                            let msg = format!("{} {}::read_frame connection reset by peer, residual buf:\n{}", self.con_id, asserted_short_name!("FrameReader", Self), to_hex_pretty(&self.buffer[..]));
                             return Err(Error::new(std::io::ErrorKind::ConnectionReset, msg));
                         }
                     }
@@ -113,7 +114,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
                     }
                     Err(e) => {
                         self.shutdown(Shutdown::Write, "read_frame error");
-                        let msg = format!("{} FrameReader::read_frame caused by: [{}] residual buf:\n{}", self.con_id, e, to_hex_pretty(&self.buffer[..]));
+                        let msg = format!("{} {}::read_frame caused by: [{}] residual buf:\n{}", self.con_id, asserted_short_name!("FrameReader" , Self), e, to_hex_pretty(&self.buffer[..]));
                         return Err(Error::new(e.kind(), msg));
                     }
                 }

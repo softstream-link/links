@@ -16,7 +16,7 @@ pub fn short_type_name<T: ?Sized>() -> &'static str {
 pub fn ty_name<T: ?Sized>(name: &'static str) -> &'static str {
     use std::any::type_name;
     let expected_short_name = type_name::<T>().split('<').next().unwrap().split("::").last().unwrap_or("Unknown");
-    debug_assert_eq!(name, expected_short_name, "Please check that you correct manual Debug & Display impls after refactoring");
+    debug_assert_eq!(name, expected_short_name, "Please check that you correct manual Debug & Display impl after refactoring");
     expected_short_name
 }
 #[cfg(not(debug_assertions))]
