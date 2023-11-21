@@ -73,7 +73,7 @@ mod test {
         let clbk = ChainCallback::<CltTestMessenger>::new(vec![LoggerCallback::new_ref(), counter.clone()]);
 
         for _ in 0..2 {
-            let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
+            let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"hello".as_slice()));
             clbk.on_sent(&ConId::default(), &msg);
         }
         info!("clbk: {}", clbk);

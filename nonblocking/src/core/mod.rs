@@ -1,5 +1,6 @@
 pub mod framer;
 pub mod messenger;
+pub mod protocol;
 
 use std::{
     fmt::{Debug, Display},

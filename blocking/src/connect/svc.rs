@@ -131,7 +131,7 @@ mod test {
             self,
             framer::{SvcTestMessenger, TEST_MSG_FRAME_SIZE},
             messenger_old::CltTestMessenger,
-            model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
+            model::{CltTestMsg, CltTestMsgDebug, SvcTestMsg, SvcTestMsgDebug},
         },
     };
     use log::{info, LevelFilter};
@@ -171,8 +171,8 @@ mod test {
         info!("svc: {}", svc);
         assert_eq!(svc.len(), 1);
 
-        let mut clt_msg_inp = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
-        let mut svc_msg_inp = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
+        let mut clt_msg_inp = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
+        let mut svc_msg_inp = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"Hello Frm Server Msg"));
 
         info!("--------- PRE SPLIT ---------");
         clt.send(&mut clt_msg_inp).unwrap();

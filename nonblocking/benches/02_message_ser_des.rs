@@ -11,7 +11,7 @@ fn serialize_msg(c: &mut Criterion) {
         b.iter(|| {
             black_box({
                 // create msg during benchmarking otherwise --> AnalyzingCriterion.rs ERROR: At least one measurement of benchmark serialize TestCltMsg took zero time per iteration
-                let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+                let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
                 let _x = CltTestMessenger::serialize::<TEST_MSG_FRAME_SIZE>(&msg).unwrap();
             })
         })
@@ -21,7 +21,7 @@ fn serialize_msg(c: &mut Criterion) {
 fn deserialize_msg(c: &mut Criterion) {
     setup::log::configure_level(log::LevelFilter::Info);
 
-    let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+    let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
     let (buf, len) = CltTestMessenger::serialize::<TEST_MSG_FRAME_SIZE>(&msg).unwrap();
     let buf = &buf[..len];
     let id = format!("deserialize TestCltMsg");

@@ -1,3 +1,4 @@
+use crate::{core::PollAccept, prelude::*};
 use core::panic;
 use log::{debug, info, log_enabled, warn, Level};
 use mio::{Events, Poll, Token, Waker};
@@ -8,8 +9,6 @@ use std::{
     sync::mpsc::{channel, Receiver, Sender, TryRecvError},
     thread::Builder,
 };
-
-use crate::{core::PollAccept, prelude::*};
 
 // setting up these macros to reuse code where borrow checker, iterating over self.events while modifying self.serviceable
 macro_rules! register_recver_as_readable {
@@ -277,15 +276,19 @@ pub type PollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = PollHandler<CltRec
 pub type SpawnedPollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = SpawnedPollHandler<CltRecver<M, C, MAX_MSG_SIZE>, SvcPoolAcceptor<M, C, MAX_MSG_SIZE>>;
 
 #[cfg(test)]
+#[cfg(feature = "unittest")]
 mod test {
-    use std::{num::NonZeroUsize, thread::yield_now, time::{Instant, Duration}};
+    use std::{
+        num::NonZeroUsize,
+        time::{Duration, Instant},
+    };
 
     use crate::prelude::*;
+    use crate::unittest::setup::protocol::{CltTestProtocolAuth, SvcTestProtocolAuth};
     use links_core::unittest::setup::{
         self,
-        messenger::{SvcTestMessenger, TEST_MSG_FRAME_SIZE},
-        messenger_old::CltTestMessenger,
-        model::{TestCltMsg, TestCltMsgDebug, TestMsg, TestSvcMsg, TestSvcMsgDebug},
+        messenger::TEST_MSG_FRAME_SIZE,
+        model::{CltTestMsg, CltTestMsgDebug, UniTestMsg, SvcTestMsg, SvcTestMsgDebug},
     };
     use log::info;
 
@@ -297,9 +300,9 @@ mod test {
         let counter = CounterCallback::new_ref();
         let clbk = ChainCallback::new_ref(vec![LoggerCallback::new_ref(), counter.clone()]);
 
-        let svc: Svc<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE> = Svc::bind(addr, clbk, NonZeroUsize::new(1).unwrap(), Some("unittest/svc")).unwrap();
+        let svc: Svc<SvcTestProtocolAuth, _, TEST_MSG_FRAME_SIZE> = Svc::bind(addr, clbk, NonZeroUsize::new(1).unwrap(), None, Some("unittest/svc")).unwrap();
 
-        let mut clt: Clt<CltTestMessenger, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), Some("unittest/clt")).unwrap();
+        let mut clt: Clt<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), None, Some("unittest/clt")).unwrap();
 
         let (acceptor, _, _sender_pool) = svc.into_split();
 
@@ -308,7 +311,7 @@ mod test {
 
         let _ = poll_handler.into_spawned_handler("Static-Svc-Poll-Thread");
 
-        let mut msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+        let mut msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
         let write_count = 10;
         for _ in 0..write_count {
             clt.send_busywait(&mut msg).unwrap();
@@ -323,7 +326,7 @@ mod test {
         assert_eq!(counter.recv_count(), write_count);
 
         // test that second connection is denied due to svc having set the limit of 1 on max connections
-        let mut clt1: Clt<CltTestMessenger, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), Some("unittest/clt")).unwrap();
+        let mut clt1: Clt<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), None, Some("unittest/clt")).unwrap();
         let status = clt1.recv_busywait_timeout(Duration::from_millis(1000)).unwrap();
         info!("status: {:?}", status);
         assert_eq!(status.unwrap_completed(), None);
@@ -336,13 +339,13 @@ mod test {
         let addr1 = setup::net::rand_avail_addr_port();
         let addr2 = setup::net::rand_avail_addr_port();
 
-        let store = CanonicalEntryStore::<TestMsg>::new_ref();
+        let store = CanonicalEntryStore::<UniTestMsg>::new_ref();
 
-        let svc1 = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr1, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), Some("unittest/svc1")).unwrap();
-        let svc2 = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr2, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), Some("unittest/svc2")).unwrap();
+        let svc1 = Svc::<SvcTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::bind(addr1, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), None, Some("unittest/svc1")).unwrap();
+        let svc2 = Svc::<SvcTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::bind(addr2, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), None, Some("unittest/svc2")).unwrap();
 
-        let clt1 = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(addr1, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), StoreCallback::new_ref(store.clone()), Some("unittest/clt1")).unwrap();
-        let clt2 = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(addr2, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), StoreCallback::new_ref(store.clone()), Some("unittest/clt2")).unwrap();
+        let clt1 = Clt::<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::connect(addr1, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), StoreCallback::new_ref(store.clone()), None, Some("unittest/clt1")).unwrap();
+        let clt2 = Clt::<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::connect(addr2, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), StoreCallback::new_ref(store.clone()), None, Some("unittest/clt2")).unwrap();
 
         let (acceptor1, _, mut svc1) = svc1.into_split();
         let (acceptor2, _, mut svc2) = svc2.into_split();
@@ -359,30 +362,30 @@ mod test {
         poll_adder.add_recver(Box::new(clt1_recver));
         poll_adder.add_recver(Box::new(clt2_recver));
 
-        clt1.send_busywait(&mut TestCltMsgDebug::new(b"Hello From Clt1").into()).unwrap();
-        clt2.send_busywait(&mut TestCltMsgDebug::new(b"Hello From Clt2").into()).unwrap();
-        svc1.send_busywait(&mut TestSvcMsgDebug::new(b"Hello From Svc1").into()).unwrap();
-        svc2.send_busywait(&mut TestSvcMsgDebug::new(b"Hello From Svc2").into()).unwrap();
+        clt1.send_busywait(&mut CltTestMsgDebug::new(b"Hello From Clt1").into()).unwrap();
+        clt2.send_busywait(&mut CltTestMsgDebug::new(b"Hello From Clt2").into()).unwrap();
+        svc1.send_busywait(&mut SvcTestMsgDebug::new(b"Hello From Svc1").into()).unwrap();
+        svc2.send_busywait(&mut SvcTestMsgDebug::new(b"Hello From Svc2").into()).unwrap();
 
         let found = store.find_recv("unittest/svc1", |_x| true, setup::net::optional_find_timeout());
         info!("found: {:?}", found);
         assert!(found.is_some());
-        assert!(matches!(found.unwrap(), TestMsg::Clt(TestCltMsg::Dbg(msg)) if msg == TestCltMsgDebug::new(b"Hello From Clt1")));
+        assert!(matches!(found.unwrap(), UniTestMsg::Clt(CltTestMsg::Dbg(msg)) if msg == CltTestMsgDebug::new(b"Hello From Clt1")));
 
         let found = store.find_recv("unittest/svc2", |_x| true, setup::net::optional_find_timeout());
         info!("found: {:?}", found);
         assert!(found.is_some());
-        assert!(matches!(found.unwrap(), TestMsg::Clt(TestCltMsg::Dbg(msg)) if msg == TestCltMsgDebug::new(b"Hello From Clt2")));
+        assert!(matches!(found.unwrap(), UniTestMsg::Clt(CltTestMsg::Dbg(msg)) if msg == CltTestMsgDebug::new(b"Hello From Clt2")));
 
         let found = store.find_recv("unittest/clt1", |_x| true, setup::net::optional_find_timeout());
         info!("found: {:?}", found);
         assert!(found.is_some());
-        assert!(matches!(found.unwrap(), TestMsg::Svc(TestSvcMsg::Dbg(msg)) if msg == TestSvcMsgDebug::new(b"Hello From Svc1")));
+        assert!(matches!(found.unwrap(), UniTestMsg::Svc(SvcTestMsg::Dbg(msg)) if msg == SvcTestMsgDebug::new(b"Hello From Svc1")));
 
         let found = store.find_recv("unittest/clt2", |_x| true, setup::net::optional_find_timeout());
         info!("found: {:?}", found);
         assert!(found.is_some());
-        assert!(matches!(found.unwrap(), TestMsg::Svc(TestSvcMsg::Dbg(msg)) if msg == TestSvcMsgDebug::new(b"Hello From Svc2")));
+        assert!(matches!(found.unwrap(), UniTestMsg::Svc(SvcTestMsg::Dbg(msg)) if msg == SvcTestMsgDebug::new(b"Hello From Svc2")));
 
         info!("store: {}", store);
     }

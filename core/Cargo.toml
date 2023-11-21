@@ -26,7 +26,7 @@ num-format = { workspace = true, optional = true }
 [dev-dependencies]
 
 [features]
-default = ["full"] # TODO remove before publishing
+default = [] # TODO remove before publishing
 full = ["unittest"]
 unittest = [
     "dep:byteserde_types",

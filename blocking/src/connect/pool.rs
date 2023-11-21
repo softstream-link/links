@@ -86,7 +86,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> CltsPool<M
     pub fn into_split(self) -> SplitCltsPool<M, C, MAX_MSG_SIZE> {
         let (tx_recver, rx_recver) = channel();
         let (tx_sender, rx_sender) = channel();
-        let max_capacity = NonZeroUsize::new(self.clts.capacity()).unwrap();
+        let max_capacity = self.clts.capacity();
         let mut recver_pool = CltRecversPool::new(rx_recver, max_capacity);
         let mut sender_pool = CltSendersPool::new(rx_sender, max_capacity);
 
@@ -202,7 +202,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> CltRecversPool
     }
     #[inline]
     pub fn has_capacity(&self) -> bool {
-        self.recvers.len() < self.recvers.capacity()
+        self.recvers.len() < self.recvers.capacity().get()
     }
     /// returns true if a recver was added
     #[inline]
@@ -435,7 +435,7 @@ mod test {
     use links_core::unittest::setup::{
         self,
         framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE},
-        model::{TestCltMsg, TestCltMsgDebug},
+        model::{CltTestMsg, CltTestMsgDebug},
     };
 
     use log::{info, LevelFilter};
@@ -477,7 +477,7 @@ mod test {
         info!("clt_pool: {}", clt_pool);
         info!("svc_pool: {}", svc.pool());
 
-        let mut clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+        let mut clt_msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
         clt_pool.send(&mut clt_msg).unwrap();
         let svc_msg = svc.recv().unwrap().unwrap();
         info!("clt_msg: {:?}", clt_msg);

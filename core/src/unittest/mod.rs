@@ -115,11 +115,11 @@ pub mod setup {
 
         #[rustfmt::skip]
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
-        pub struct TestCltMsgDebug {
+        pub struct CltTestMsgDebug {
             ty: ConstCharAscii<b'1'>,
             pub text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
-        impl TestCltMsgDebug {
+        impl CltTestMsgDebug {
             pub fn new(text: &[u8]) -> Self {
                 Self {
                     ty: Default::default(),
@@ -129,24 +129,24 @@ pub mod setup {
         }
         #[rustfmt::skip]
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
-        pub struct TestCltMsgLoginReq {
+        pub struct CltTestMsgLoginReq {
             pub ty: ConstCharAscii<b'L'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
         #[rustfmt::skip]
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
-        pub struct TestSvcMsgLoginAcpt {
+        pub struct SvcTestMsgLoginAcpt {
             pub ty: ConstCharAscii<b'L'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
 
         #[rustfmt::skip]
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
-        pub struct TestSvcMsgDebug {
+        pub struct SvcTestMsgDebug {
             ty: ConstCharAscii<b'2'>,
             pub text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
-        impl TestSvcMsgDebug {
+        impl SvcTestMsgDebug {
             pub fn new(text: &[u8]) -> Self {
                 Self {
                     ty: Default::default(),
@@ -157,11 +157,11 @@ pub mod setup {
 
         #[rustfmt::skip]
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
-        pub struct TestHBeatMsgDebug {
+        pub struct UniTestHBeatMsgDebug {
             ty: ConstCharAscii<b'H'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
-        impl TestHBeatMsgDebug {
+        impl UniTestHBeatMsgDebug {
             pub fn new(text: &[u8]) -> Self {
                 Self {
                     ty: Default::default(),
@@ -173,50 +173,60 @@ pub mod setup {
         #[rustfmt::skip]
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
         #[byteserde(peek(0, 1))]
-        pub enum TestCltMsg {
+        pub enum CltTestMsg {
             #[byteserde(eq(&[b'1']))]
-            Dbg(TestCltMsgDebug),
+            Dbg(CltTestMsgDebug),
             #[byteserde(eq(&[b'L']))]
-            Login(TestCltMsgLoginReq),
+            Login(CltTestMsgLoginReq),
             #[byteserde(eq(&[b'H']))]
-            HBeat(TestHBeatMsgDebug),
+            HBeat(UniTestHBeatMsgDebug),
         }
-        impl From<TestCltMsgDebug> for TestCltMsg {
-            fn from(msg: TestCltMsgDebug) -> Self {
+        impl From<CltTestMsgDebug> for CltTestMsg {
+            fn from(msg: CltTestMsgDebug) -> Self {
                 Self::Dbg(msg)
+            }
+        }
+        impl From<CltTestMsgLoginReq> for CltTestMsg{
+            fn from(value: CltTestMsgLoginReq) -> Self {
+                Self::Login(value)
             }
         }
 
         #[rustfmt::skip]
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, )]
         #[byteserde(peek(0, 1))]
-        pub enum TestSvcMsg {
+        pub enum SvcTestMsg {
             #[byteserde(eq(&[b'2']))]
-            Dbg(TestSvcMsgDebug),
+            Dbg(SvcTestMsgDebug),
             #[byteserde(eq(&[b'L']))]
-            Accept(TestSvcMsgLoginAcpt),
+            Accept(SvcTestMsgLoginAcpt),
             #[byteserde(eq(&[b'H']))]
-            HBeat(TestHBeatMsgDebug),
+            HBeat(UniTestHBeatMsgDebug),
         }
-        impl From<TestSvcMsgDebug> for TestSvcMsg {
-            fn from(msg: TestSvcMsgDebug) -> Self {
+        impl From<SvcTestMsgDebug> for SvcTestMsg {
+            fn from(msg: SvcTestMsgDebug) -> Self {
                 Self::Dbg(msg)
+            }
+        }
+        impl From<SvcTestMsgLoginAcpt> for SvcTestMsg{
+            fn from(value: SvcTestMsgLoginAcpt) -> Self {
+                Self::Accept(value)
             }
         }
 
         #[derive(PartialEq, Clone, Debug)]
-        pub enum TestMsg {
-            Clt(TestCltMsg),
-            Svc(TestSvcMsg),
+        pub enum UniTestMsg {
+            Clt(CltTestMsg),
+            Svc(SvcTestMsg),
         }
-        impl TestMsg {
-            pub fn try_into_clt(self) -> TestCltMsg {
+        impl UniTestMsg {
+            pub fn try_into_clt(self) -> CltTestMsg {
                 match self {
                     Self::Clt(msg) => msg,
                     _ => panic!("Not a Clt message"),
                 }
             }
-            pub fn try_into_svc(self) -> TestSvcMsg {
+            pub fn try_into_svc(self) -> SvcTestMsg {
                 match self {
                     Self::Svc(msg) => msg,
                     _ => panic!("Not a Svc message"),
@@ -229,13 +239,13 @@ pub mod setup {
                 matches!(self, Self::Svc(_))
             }
         }
-        impl From<TestCltMsg> for TestMsg {
-            fn from(msg: TestCltMsg) -> Self {
+        impl From<CltTestMsg> for UniTestMsg {
+            fn from(msg: CltTestMsg) -> Self {
                 Self::Clt(msg)
             }
         }
-        impl From<TestSvcMsg> for TestMsg {
-            fn from(msg: TestSvcMsg) -> Self {
+        impl From<SvcTestMsg> for UniTestMsg {
+            fn from(msg: SvcTestMsg) -> Self {
                 Self::Svc(msg)
             }
         }
@@ -247,11 +257,11 @@ pub mod setup {
             // for simplicity the framer assume each message to be of fixed size, this test just to avoid mistakes
             #[test]
             fn test_msg_len() {
-                assert_eq!(TestCltMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
-                assert_eq!(TestCltMsgLoginReq::default().byte_len(), TEST_MSG_FRAME_SIZE);
-                assert_eq!(TestSvcMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
-                assert_eq!(TestSvcMsgLoginAcpt::default().byte_len(), TEST_MSG_FRAME_SIZE);
-                assert_eq!(TestHBeatMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
+                assert_eq!(CltTestMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
+                assert_eq!(CltTestMsgLoginReq::default().byte_len(), TEST_MSG_FRAME_SIZE);
+                assert_eq!(SvcTestMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
+                assert_eq!(SvcTestMsgLoginAcpt::default().byte_len(), TEST_MSG_FRAME_SIZE);
+                assert_eq!(UniTestHBeatMsgDebug::default().byte_len(), TEST_MSG_FRAME_SIZE);
             }
         }
     }
@@ -268,16 +278,13 @@ pub mod setup {
 
         #[derive(Debug, Clone, PartialEq)]
         pub struct CltTestMessenger;
-
         impl Framer for CltTestMessenger {
             fn get_frame_length(bytes: &mut BytesMut) -> Option<usize> {
                 TestMsgFramer::get_frame_length(bytes)
             }
         }
-
         #[derive(Debug, Clone, PartialEq)]
         pub struct SvcTestMessenger;
-
         impl Framer for SvcTestMessenger {
             fn get_frame_length(bytes: &mut BytesMut) -> Option<usize> {
                 TestMsgFramer::get_frame_length(bytes)
@@ -294,8 +301,8 @@ pub mod setup {
         use crate::prelude::*;
 
         impl Messenger for SvcTestMessenger {
-            type SendT = TestSvcMsg;
-            type RecvT = TestCltMsg;
+            type SendT = SvcTestMsg;
+            type RecvT = CltTestMsg;
 
             #[inline(always)]
             fn serialize<const MMS: usize>(msg: &Self::SendT) -> Result<([u8; MMS], usize), Error> {
@@ -314,8 +321,8 @@ pub mod setup {
             }
         }
         impl Messenger for CltTestMessenger {
-            type SendT = TestCltMsg;
-            type RecvT = TestSvcMsg;
+            type SendT = CltTestMsg;
+            type RecvT = SvcTestMsg;
             #[inline(always)]
             fn serialize<const MMS: usize>(msg: &Self::SendT) -> Result<([u8; MMS], usize), Error> {
                 match to_bytes_stack::<MMS, Self::SendT>(msg) {
@@ -342,12 +349,12 @@ pub mod setup {
         use crate::prelude::*;
         use crate::unittest::setup::model::*;
         impl MessengerOld for SvcTestMessenger {
-            type SendT = TestSvcMsg;
-            type RecvT = TestCltMsg;
+            type SendT = SvcTestMsg;
+            type RecvT = CltTestMsg;
         }
         impl MessengerOld for CltTestMessenger {
-            type SendT = TestCltMsg;
-            type RecvT = TestSvcMsg;
+            type SendT = CltTestMsg;
+            type RecvT = SvcTestMsg;
         }
     }
 }

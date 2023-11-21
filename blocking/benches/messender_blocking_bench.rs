@@ -12,7 +12,7 @@ use links_core::{
     unittest::setup::{
         self,
         messenger::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE},
-        model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug},
+        model::{CltTestMsg, CltTestMsgDebug, SvcTestMsg, SvcTestMsgDebug},
     },
 };
 use log::{error, info};
@@ -47,7 +47,7 @@ fn send_msg(c: &mut Criterion) {
 
     let id = format!("messenger_blocking_send_msg TestCltMsg");
 
-    let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+    let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
     let mut msg_send_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
@@ -73,7 +73,7 @@ fn recv_msg(c: &mut Criterion) {
     let writer = thread::Builder::new()
         .name("Thread-Svc".to_owned())
         .spawn(move || {
-            let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
+            let msg = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"Hello Frm Server Msg"));
             let listener = TcpListener::bind(addr).unwrap();
             let (stream, _) = listener.accept().unwrap();
             let (_svc_reader, mut svc_writer) = into_split_messenger::<SvcTestMessenger, TEST_MSG_FRAME_SIZE>(ConId::svc(None, addr, None), stream);
@@ -121,7 +121,7 @@ fn round_trip_msg(c: &mut Criterion) {
         .name("Thread-Svc".to_owned())
         .spawn({
             move || {
-                let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
+                let msg = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"Hello Frm Server Msg"));
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
                 let (mut svc_reader, mut svc_writer) = into_split_messenger::<SvcTestMessenger, TEST_MSG_FRAME_SIZE>(ConId::svc(Some("unittest"), addr, None), stream);
@@ -156,7 +156,7 @@ fn round_trip_msg(c: &mut Criterion) {
     let id = format!("messenger_blocking_round_trip_msg",);
     let mut msg_send_count = 0_u32;
     let mut msg_recv_count = 0_u32;
-    let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+    let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
             black_box({

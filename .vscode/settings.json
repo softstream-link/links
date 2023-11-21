@@ -1,4 +1,7 @@
 {
+    "rust-analyzer.cargo.features": [
+        "full"
+    ],
     "cSpell.words": [
         "busywait",
         "byteserde",

@@ -145,7 +145,7 @@ mod test {
         unittest::setup::{
             self,
             framer::{CltTestMessenger, SvcTestMessenger},
-            model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug, TEST_MSG_FRAME_SIZE},
+            model::{CltTestMsg, CltTestMsgDebug, SvcTestMsg, SvcTestMsgDebug, TEST_MSG_FRAME_SIZE},
         },
     };
     use log::info;
@@ -161,7 +161,7 @@ mod test {
         let svc = Builder::new()
             .name("Thread-Svc".to_owned())
             .spawn(move || {
-                let inp_svc_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Server Msg"));
+                let inp_svc_msg = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"Hello Frm Server Msg"));
                 let (mut svc_msg_sent_count, mut svc_msg_recv_count) = (0_usize, 0_usize);
                 let listener = TcpListener::bind(addr).unwrap();
                 let (stream, _) = listener.accept().unwrap();
@@ -181,7 +181,7 @@ mod test {
 
         sleep(Duration::from_millis(100)); // allow the spawned to bind
 
-        let inp_clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+        let inp_clt_msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
         let (mut clt_msg_sent_count, mut clt_msg_recv_count) = (0, 0);
         let stream = TcpStream::connect(addr).unwrap();
         let (mut clt_recver, mut clt_sender) = into_split_messenger::<CltTestMessenger, TEST_MSG_FRAME_SIZE>(ConId::clt(Some("unittest"), None, addr), stream);

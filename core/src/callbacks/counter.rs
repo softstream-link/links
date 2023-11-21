@@ -100,13 +100,13 @@ mod test {
         let clbk = CounterCallback::<CltTestMessenger>::default();
         const N: usize = 1_000;
         for _ in 0..N {
-            let mut msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
+            let mut msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"hello".as_slice()));
             clbk.on_send(&ConId::default(), &mut msg);
             clbk.on_sent(&ConId::default(), &msg);
             clbk.on_fail(&ConId::default(), &msg, &Error::new(std::io::ErrorKind::Other, "test"));
         }
         for _ in 0..N {
-            let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"hello".as_slice()));
+            let msg = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"hello".as_slice()));
             clbk.on_recv(&ConId::default(), &msg);
         }
         info!("clbk: {}", clbk);

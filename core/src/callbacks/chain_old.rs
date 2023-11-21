@@ -62,7 +62,7 @@ mod test {
         ]);
 
         for _ in 0..2 {
-            let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
+            let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"hello".as_slice()));
             clbk.on_send(&ConId::default(), &msg);
         }
         // info!("store: {}", store);

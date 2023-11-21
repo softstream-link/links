@@ -7,10 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::prelude::{
-    into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, MessageRecver, MessageSender, Messenger, PollEventStatus, PollRecv, RecvNonBlocking, RecvStatus, SendNonBlocking,
-    SendNonBlockingNonMut, SendStatus,
-};
+use crate::prelude::{into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, MessageRecver, MessageSender, Messenger, PollEventStatus, PollRecv, Protocol, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut, SendStatus};
 use links_core::asserted_short_name;
 use log::debug;
 
@@ -59,15 +56,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for Cl
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
         let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
-        write!(
-            f,
-            "{}<{}, RecvT:{}, SendT:{}, {}>",
-            asserted_short_name!("CltRecver", Self),
-            self.msg_recver.frm_reader.con_id,
-            recv_t,
-            send_t,
-            MAX_MSG_SIZE
-        )
+        write!(f, "{}<{}, RecvT:{}, SendT:{}, {}>", asserted_short_name!("CltRecver", Self), self.msg_recver.frm_reader.con_id, recv_t, send_t, MAX_MSG_SIZE)
     }
 }
 
@@ -142,15 +131,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
         let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
-        write!(
-            f,
-            "{}<{}, RecvT:{}, SendT:{}, {}>",
-            asserted_short_name!("CltSender", Self),
-            self.msg_sender.frm_writer.con_id,
-            recv_t,
-            send_t,
-            MAX_MSG_SIZE
-        )
+        write!(f, "{}<{}, RecvT:{}, SendT:{}, {}>", asserted_short_name!("CltSender", Self), self.msg_sender.frm_writer.con_id, recv_t, send_t, MAX_MSG_SIZE)
     }
 }
 
@@ -190,13 +171,12 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 /// }
 /// ```
 #[derive(Debug)]
-pub struct Clt<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
-    clt_recver: CltRecver<M, C, MAX_MSG_SIZE>,
-    clt_sender: CltSender<M, C, MAX_MSG_SIZE>,
+pub struct Clt<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
+    clt_recver: CltRecver<P, C, MAX_MSG_SIZE>,
+    clt_sender: CltSender<P, C, MAX_MSG_SIZE>,
 }
-
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Clt<M, C, MAX_MSG_SIZE> {
-    pub fn connect(addr: &str, timeout: Duration, retry_after: Duration, callback: Arc<C>, name: Option<&str>) -> Result<Self, Error> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, MAX_MSG_SIZE> {
+    pub fn connect(addr: &str, timeout: Duration, retry_after: Duration, callback: Arc<C>, protocol: Option<Arc<P>>, name: Option<&str>) -> Result<Self, Error> {
         assert!(timeout > retry_after, "timeout: {:?}, retry_after: {:?}", timeout, retry_after);
         let now = Instant::now();
         let con_id = ConId::clt(name, None, addr);
@@ -208,7 +188,8 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Clt<M, C, 
                     continue;
                 }
                 Ok(stream) => {
-                    return Ok(Self::from_stream(stream, con_id, callback));
+                    let clt = Self::from_stream(stream, con_id, callback, protocol)?;
+                    return Ok(clt);
                 }
             }
         }
@@ -216,50 +197,57 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Clt<M, C, 
         Err(Error::new(std::io::ErrorKind::TimedOut, msg))
     }
 
-    pub(crate) fn from_stream(stream: TcpStream, con_id: ConId, callback: Arc<C>) -> Self {
-        let (msg_recver, msg_sender) = into_split_messenger::<M, MAX_MSG_SIZE>(con_id, stream);
-        Self {
+    pub(crate) fn from_stream(stream: TcpStream, con_id: ConId, callback: Arc<C>, protocol: Option<Arc<P>>) -> Result<Self, Error> {
+        let (msg_recver, msg_sender) = into_split_messenger::<P, MAX_MSG_SIZE>(con_id, stream);
+        let mut clt = Self {
             clt_recver: CltRecver::new(msg_recver, callback.clone()),
             clt_sender: CltSender::new(msg_sender, callback.clone()),
+        };
+        if let Some(protocol) = protocol {
+            protocol.on_connected(&mut clt)?;
         }
+        Ok(clt)
     }
-    pub fn into_split(self) -> (CltRecver<M, C, MAX_MSG_SIZE>, CltSender<M, C, MAX_MSG_SIZE>) {
+    pub fn con_id(&self) -> &ConId {
+        &self.clt_recver.msg_recver.frm_reader.con_id
+    }
+    pub fn into_split(self) -> (CltRecver<P, C, MAX_MSG_SIZE>, CltSender<P, C, MAX_MSG_SIZE>) {
         (self.clt_recver, self.clt_sender)
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> SendNonBlocking<M> for Clt<M, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for Clt<P, C, MAX_MSG_SIZE> {
     #[inline(always)]
-    fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
+    fn send(&mut self, msg: &mut <P as Messenger>::SendT) -> Result<SendStatus, Error> {
         self.clt_sender.send(msg)
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> RecvNonBlocking<M> for Clt<M, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking<P> for Clt<P, C, MAX_MSG_SIZE> {
     #[inline(always)]
-    fn recv(&mut self) -> Result<RecvStatus<<M as Messenger>::RecvT>, Error> {
+    fn recv(&mut self) -> Result<RecvStatus<<P as Messenger>::RecvT>, Error> {
         self.clt_recver.recv()
     }
 }
-impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display for Clt<M, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for Clt<P, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}<{}, {}>", asserted_short_name!("Clt", Self), self.clt_recver, self.clt_sender)
     }
 }
 
 #[cfg(test)]
+#[cfg(feature = "unittest")]
 mod test {
     use super::Clt;
+    use crate::unittest::setup::protocol::CltTestProtocolAuth;
     use links_core::callbacks::logger::LoggerCallback;
-    use links_core::unittest::setup::{
-        self,
-        framer::{CltTestMessenger, TEST_MSG_FRAME_SIZE},
-    };
+    use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE};
 
     #[test]
     fn test_clt_not_connected() {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
-        let callback = LoggerCallback::<CltTestMessenger>::new_ref();
-        let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, Some("unittest"));
+        let callback = LoggerCallback::new_ref();
+        let protocol = CltTestProtocolAuth::new_ref();
+        let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, Some(protocol), Some("unittest"));
         assert!(res.is_err());
     }
 }

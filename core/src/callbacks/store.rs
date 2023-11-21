@@ -96,7 +96,7 @@ mod test {
             }
         }
 
-        let log_store = LogStore::<TestMsg>::new_ref();
+        let log_store = LogStore::<UniTestMsg>::new_ref();
 
         Builder::new()
             .name("Callback-Thread".to_owned())
@@ -104,9 +104,9 @@ mod test {
                 let log_store = log_store.clone();
                 move || {
                     let clbk = StoreCallback::<CltTestMessenger, _, _>::new_ref(log_store);
-                    let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
+                    let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"hello".as_slice()));
                     clbk.on_sent(&ConId::default(), &msg);
-                    let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"hello".as_slice()));
+                    let msg = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"hello".as_slice()));
                     clbk.on_recv(&ConId::default(), &msg);
                 }
             })

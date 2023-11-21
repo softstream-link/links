@@ -49,11 +49,11 @@ mod test {
         let clbk = DevNullCallbackOld::<CltTestMessenger>::default();
 
         for _ in 0..2 {
-            let msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"hello".as_slice()));
+            let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"hello".as_slice()));
             clbk.on_send(&ConId::default(), &msg);
         }
         for _ in 0..2 {
-            let msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"hello".as_slice()));
+            let msg = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"hello".as_slice()));
             clbk.on_recv(&ConId::default(), msg);
         }
     }

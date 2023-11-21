@@ -178,19 +178,19 @@ mod test {
         setup::log::configure();
 
         // let event_store_async = EventStoreAsync::new_ref();
-        let store = CanonicalEntryStore::<TestMsg>::new_ref();
+        let store = CanonicalEntryStore::<UniTestMsg>::new_ref();
         let clt_clb = StoreCallback::<CltTestMessenger, _, _>::new_ref(store.clone());
         let svc_clb = StoreCallback::<SvcTestMessenger, _, _>::new_ref(store.clone());
         info!("clt_clb: {}", clt_clb);
         info!("svc_clb: {}", svc_clb);
 
-        let svc_on_recv_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"SVC: on_recv Message"));
-        let svc_on_sent_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"SVC: on_send Message"));
+        let svc_on_recv_msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"SVC: on_recv Message"));
+        let svc_on_sent_msg = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"SVC: on_send Message"));
         svc_clb.on_recv(&ConId::svc(Some("svc"), "0.0.0.0:0", None), &svc_on_recv_msg);
         svc_clb.on_sent(&ConId::svc(Some("svc"), "0.0.0.0:0", None), &svc_on_sent_msg);
 
-        let clt_on_recv_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"CLT: on_recv Message"));
-        let clt_on_send_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"CLT: on_send Message"));
+        let clt_on_recv_msg = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"CLT: on_recv Message"));
+        let clt_on_send_msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"CLT: on_send Message"));
         clt_clb.on_recv(&ConId::clt(Some("clt"), None, "0.0.0.0:0"), &clt_on_recv_msg);
         clt_clb.on_sent(&ConId::clt(Some("clt"), None, "0.0.0.0:0"), &clt_on_send_msg);
 
@@ -199,11 +199,11 @@ mod test {
         // // Entry find
         let last_svc = store.find("svc", |_| true, None).unwrap();
         info!("last_svc: {:?}", last_svc);
-        assert_eq!(last_svc.msg, Message::Sent(TestMsg::Svc(svc_on_sent_msg.clone())));
+        assert_eq!(last_svc.msg, Message::Sent(UniTestMsg::Svc(svc_on_sent_msg.clone())));
 
         let last_clt = store.find("clt", |_| true, None).unwrap();
         info!("last_clt: {:?}", last_clt);
-        assert_eq!(last_clt.msg, Message::Sent(TestMsg::Clt(clt_on_send_msg.clone())));
+        assert_eq!(last_clt.msg, Message::Sent(UniTestMsg::Clt(clt_on_send_msg.clone())));
 
         let last_entry = store.last().unwrap();
         info!("last_entry: {:?}", last_entry);
@@ -212,38 +212,38 @@ mod test {
         // RECV find unpacks the event into TestMsg
         let svc_recv = store.find_recv(
             "svc",
-            |msg| matches!(msg, TestMsg::Clt(TestCltMsg::Dbg(TestCltMsgDebug{text, ..})) if text == &b"SVC: on_recv Message".as_slice().into() ),
+            |msg| matches!(msg, UniTestMsg::Clt(CltTestMsg::Dbg(CltTestMsgDebug{text, ..})) if text == &b"SVC: on_recv Message".as_slice().into() ),
             None,
         );
         info!("svc_recv: {:?}", svc_recv);
-        assert_eq!(svc_recv.unwrap(), TestMsg::Clt(svc_on_recv_msg));
+        assert_eq!(svc_recv.unwrap(), UniTestMsg::Clt(svc_on_recv_msg));
 
         // SEND find unpacks the event into TestMsg
         let svc_sent = store.find_sent(
             "svc",
-            |msg| matches!(msg, TestMsg::Svc(TestSvcMsg::Dbg(TestSvcMsgDebug{text, ..})) if text == &b"SVC: on_send Message".as_slice().into() ),
+            |msg| matches!(msg, UniTestMsg::Svc(SvcTestMsg::Dbg(SvcTestMsgDebug{text, ..})) if text == &b"SVC: on_send Message".as_slice().into() ),
             None,
         );
         info!("svc_sent: {:?}", svc_sent);
-        assert_eq!(svc_sent.unwrap(), TestMsg::Svc(svc_on_sent_msg));
+        assert_eq!(svc_sent.unwrap(), UniTestMsg::Svc(svc_on_sent_msg));
 
         // RECV find unpacks the event into TestMsg
         let clt_recv = store.find_recv(
             "clt",
-            |msg| matches!(msg, TestMsg::Svc(TestSvcMsg::Dbg(TestSvcMsgDebug{text, ..})) if text == &b"CLT: on_recv Message".as_slice().into() ),
+            |msg| matches!(msg, UniTestMsg::Svc(SvcTestMsg::Dbg(SvcTestMsgDebug{text, ..})) if text == &b"CLT: on_recv Message".as_slice().into() ),
             None,
         );
         info!("clt_recv: {:?}", clt_recv);
-        assert_eq!(clt_recv.unwrap(), TestMsg::Svc(clt_on_recv_msg));
+        assert_eq!(clt_recv.unwrap(), UniTestMsg::Svc(clt_on_recv_msg));
 
         // SEND find unpacks the event into TestMsg
         let clt_sent = store.find_sent(
             "clt",
-            |msg| matches!(msg, TestMsg::Clt(TestCltMsg::Dbg(TestCltMsgDebug{text, ..})) if text == &b"CLT: on_send Message".as_slice().into() ),
+            |msg| matches!(msg, UniTestMsg::Clt(CltTestMsg::Dbg(CltTestMsgDebug{text, ..})) if text == &b"CLT: on_send Message".as_slice().into() ),
             None,
         );
         info!("clt_sent: {:?}", clt_sent);
-        assert_eq!(clt_sent.unwrap(), TestMsg::Clt(clt_on_send_msg));
+        assert_eq!(clt_sent.unwrap(), UniTestMsg::Clt(clt_on_send_msg));
 
         // NOT found
         let not_found = store.find("not_existent", |_| true, None);

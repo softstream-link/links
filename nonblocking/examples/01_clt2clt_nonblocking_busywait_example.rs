@@ -1,20 +1,18 @@
-use std::{error::Error, num::NonZeroUsize, thread::Builder, time::Instant};
-
 use links_core::{
     fmt_num,
-    unittest::setup::{
-        self,
-        framer::TEST_MSG_FRAME_SIZE,
-        messenger::{CltTestMessenger, SvcTestMessenger},
-        model::*,
-    },
+    unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE, model::*},
 };
-use links_nonblocking::prelude::*;
+use links_nonblocking::{
+    prelude::*,
+    unittest::setup::protocol::{CltTestProtocolAuth, SvcTestProtocolAuth},
+};
 use log::info;
+use std::{error::Error, num::NonZeroUsize, thread::Builder, time::Instant};
 
 fn main() -> Result<(), Box<dyn Error>> {
     run()
 }
+#[cfg(feature = "unittest")]
 #[test]
 fn test() -> Result<(), Box<dyn Error>> {
     run()
@@ -28,13 +26,13 @@ fn run() -> Result<(), Box<dyn Error>> {
     let svc_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::<SvcTestMessenger>::new_ref(), NonZeroUsize::new(1).unwrap(), Some("example/clt")).unwrap();
+            let svc = Svc::<SvcTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::new_ref(), NonZeroUsize::new(1).unwrap(), None, Some("example/clt")).unwrap();
 
             info!("svc: {}", svc);
             let mut clt = svc.accept_busywait_timeout(setup::net::default_connect_timeout()).unwrap().unwrap();
             info!("clt: {}", clt);
 
-            let mut clt_send_msg = TestSvcMsg::Dbg(TestSvcMsgDebug::new(b"Hello Frm Client Msg"));
+            let mut clt_send_msg = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"Hello Frm Client Msg"));
             let mut msg_recv_count = 0_usize;
             loop {
                 if let Ok(Some(_msg)) = clt.recv_busywait() {
@@ -49,17 +47,10 @@ fn run() -> Result<(), Box<dyn Error>> {
         })
         .unwrap();
 
-    let mut clt = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(
-        addr,
-        setup::net::default_connect_timeout(),
-        setup::net::default_connect_retry_after(),
-        DevNullCallback::<CltTestMessenger>::new_ref(),
-        Some("example/svc"),
-    )
-    .unwrap();
+    let mut clt = Clt::<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), None, Some("example/svc")).unwrap();
     info!("clt {}", clt);
 
-    let mut clt_send_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+    let mut clt_send_msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
 
     // send the first message to the server to establish connection
     clt.send_busywait_timeout(&mut clt_send_msg, setup::net::default_connect_timeout())?;
@@ -72,13 +63,7 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     drop(clt); // close the connection and allow the acceptor to exit
     let msg_recv_count = svc_jh.join().unwrap();
-    info!(
-        "msg_send_count: {}, msg_recv_count: {}, per/write {:?}, total: {:?}",
-        fmt_num!(WRITE_N_TIMES),
-        fmt_num!(msg_recv_count),
-        elapsed / WRITE_N_TIMES as u32,
-        elapsed
-    );
+    info!("msg_send_count: {}, msg_recv_count: {}, per/write {:?}, total: {:?}", fmt_num!(WRITE_N_TIMES), fmt_num!(msg_recv_count), elapsed / WRITE_N_TIMES as u32, elapsed);
     assert_eq!(msg_recv_count, WRITE_N_TIMES + 1); // +1 for the first message to connect
     Ok(())
 }
