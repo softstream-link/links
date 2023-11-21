@@ -64,7 +64,7 @@ fn send_msg(c: &mut Criterion) {
     let mut clt_initiator = Clt::<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, None, name.clone()).unwrap();
     info!("clt_initiator: {}", clt_initiator);
 
-    let id = format!("clt2clt_nonblocking_busywait_send_msg TestSvcMsg");
+    let id = format!("clt2clt_nonblocking_busywait_send_msg SvcTestMsg");
     let mut clt_initiator_msg_send_count = 0_usize;
     let mut clt_initiator_send_msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
     c.bench_function(id.as_str(), |b| {
@@ -116,7 +116,7 @@ fn recv_msg(c: &mut Criterion) {
 
     let mut clt_initiator = Clt::<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, None, name.clone()).unwrap();
 
-    let id = format!("clt2clt_nonblocking_busywait_recv_msg TestSvcMsg");
+    let id = format!("clt2clt_nonblocking_busywait_recv_msg SvcTestMsg");
     let mut clt_initiator_msg_recv_count = 0_usize;
 
     c.bench_function(id.as_str(), |b| {
@@ -174,7 +174,7 @@ fn round_trip_msg(c: &mut Criterion) {
     let mut clt_initiator = Clt::<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, None, name.clone()).unwrap();
     info!("clt_initiator: {}", clt_initiator);
 
-    let id = format!("clt2clt_nonblocking_busywait_round_trip_msg TestSvcMsg");
+    let id = format!("clt2clt_nonblocking_busywait_round_trip_msg SvcTestMsg");
     let mut clt_initiator_msg_send_count = 0_usize;
     let mut clt_initiator_send_msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
     c.bench_function(id.as_str(), |b| {

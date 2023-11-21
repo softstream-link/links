@@ -15,14 +15,15 @@ use crate::prelude::*;
 ///
 /// # Example
 /// ```
-/// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::{self, messenger::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}};
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::SvcTestProtocolAuth};
+/// use links_core::unittest::setup::{self, messenger::TEST_MSG_FRAME_SIZE};
 ///
 /// let addr = setup::net::rand_avail_addr_port(); // "127.0.0.1:8080" generates random port
-/// let acceptor = SvcAcceptor::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::new(
+/// let acceptor = SvcAcceptor::<_, _, TEST_MSG_FRAME_SIZE>::new(
 ///     ConId::svc(Some("doctest"), addr, None),
 ///     std::net::TcpListener::bind(addr).unwrap(),
 ///     DevNullCallback::default().into(),
+///     Some(SvcTestProtocolAuth::new_ref()),
 /// );
 ///
 /// let status = acceptor.accept().unwrap();
@@ -87,16 +88,18 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<Svc<P,
 /// message being processed by internal pool of [Clt]'s managed by [CltsPool]
 /// It is designed to work in a single thread. To split out [CltRecversPool], [CltSendersPool] and [SvcPoolAcceptor] use [Svc::into_split]
 /// # Example
-/// ```no_run
-/// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::messenger::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
+/// ```
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::SvcTestProtocolAuth};
+/// use links_core::unittest::setup::{self, messenger::TEST_MSG_FRAME_SIZE};
 /// use std::num::NonZeroUsize;
 /// use std::{io::ErrorKind, fmt::Display};
-/// let addr = "127.0.0.1:8080";
+///
+///
 /// let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
-///     addr,
-///     DevNullCallback::<SvcTestMessenger>::default().into(),
+///     setup::net::rand_avail_addr_port(), // 127.0.0.1:8080 generates random port
+///     DevNullCallback::default().into(),
 ///     NonZeroUsize::new(1).unwrap(),
+///     Some(SvcTestProtocolAuth::new_ref()),
 ///     Some("doctest"),
 /// ).unwrap();
 ///

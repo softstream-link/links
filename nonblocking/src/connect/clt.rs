@@ -140,16 +140,17 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 /// It is designed to work in a single thread. To split out [CltRecver] and [CltSender] use [Clt::into_split]
 ///
 /// # Example
-/// ```no_run
-/// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::{framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg}};
+/// ```
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::CltTestProtocolAuth};
+/// use links_core::unittest::setup::{self, framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}, model::{CltTestMsg, CltTestMsgDebug, SvcTestMsg}};
 /// use std::time::Duration;
 ///
 /// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-///         "127.0.0.1:8080",
+///         setup::net::rand_avail_addr_port(), // "127.0.0.1:8080",
 ///         Duration::from_millis(100),
 ///         Duration::from_millis(10),
-///         DevNullCallback::<CltTestMessenger>::default().into(),
+///         DevNullCallback::default().into(),
+///         Some(CltTestProtocolAuth::new_ref()),
 ///         Some("unittest"),
 ///     );
 ///
@@ -157,13 +158,13 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///
 ///     // Not Split for use in single thread
 ///     let mut clt = res.unwrap();
-///     clt.send_busywait(&mut TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"))).unwrap();
-///     let msg: TestSvcMsg = clt.recv_busywait().unwrap().unwrap();
+///     clt.send_busywait(&mut CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"))).unwrap();
+///     let msg: SvcTestMsg = clt.recv_busywait().unwrap().unwrap();
 ///     
 ///     // Split for use in different threads
 ///     let (mut clt_recver, mut clt_sender) = clt.into_split();
-///     clt_sender.send_busywait(&mut TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"))).unwrap();
-///     let msg: TestSvcMsg = clt_recver.recv_busywait().unwrap().unwrap();
+///     clt_sender.send_busywait(&mut CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"))).unwrap();
+///     let msg: SvcTestMsg = clt_recver.recv_busywait().unwrap().unwrap();
 ///
 ///     drop(clt_recver);
 ///     drop(clt_sender);

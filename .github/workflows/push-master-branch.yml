@@ -27,7 +27,7 @@ jobs:
           cd links
           cargo nextest run  --all-features # --success-output final
           cargo nextest run --examples --all-features # --success-output final
-          cargo test --doc #  NOTE: docs are not supported by nextest
+          cargo test --doc --all-features #  NOTE: docs are not supported by nextest
           cargo doc --all-features #
       - name: Clippy Deny Warnings # TODO remove cd links once byteserde v4 is released
         run: |

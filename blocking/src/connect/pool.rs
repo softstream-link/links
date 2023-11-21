@@ -18,7 +18,7 @@ use log::{info, log_enabled, warn, Level};
 /// # Example
 /// ```no_run
 /// use links_blocking::prelude::*;
-/// use links_core::unittest::setup::{framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug}};
+/// use links_core::unittest::setup::{framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}, model::{CltTestMsg, CltTestMsgDebug, SvcTestMsg, SvcTestMsgDebug}};
 /// use std::time::Duration;
 ///
 ///
@@ -35,15 +35,15 @@ use log::{info, log_enabled, warn, Level};
 /// if res.is_ok() {
 ///     pool.add(res.unwrap());
 ///
-///     let mut clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+///     let mut clt_msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
 ///     // Not Split for use in single thread
 ///     pool.send(&mut clt_msg).unwrap();
-///     let svc_msg: TestSvcMsg = pool.recv().unwrap().unwrap();
+///     let svc_msg: SvcTestMsg = pool.recv().unwrap().unwrap();
 ///
 ///     // Split for use different threads
 ///     let ((tx_recver, tx_sender), (mut recvers, mut senders)) = pool.into_split();
 ///     senders.send(&mut clt_msg).unwrap();
-///     let svc_msg: TestSvcMsg = recvers.recv().unwrap().unwrap();
+///     let svc_msg: SvcTestMsg = recvers.recv().unwrap().unwrap();
 /// }
 /// ```
 #[derive(Debug)]

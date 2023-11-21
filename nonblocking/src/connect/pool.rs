@@ -16,8 +16,8 @@ use std::{
 ///
 /// # Example
 /// ```
-/// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::{self, framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}, model::{TestCltMsg, TestCltMsgDebug, TestSvcMsg, TestSvcMsgDebug}};
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::CltTestProtocolAuth};
+/// use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE, model::{CltTestMsg, CltTestMsgDebug, SvcTestMsg, SvcTestMsgDebug}};
 /// use std::time::Duration;
 ///
 ///
@@ -27,22 +27,23 @@ use std::{
 ///     setup::net::rand_avail_addr_port(), // "127.0.0.1:9090" generates a random port
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
-///     DevNullCallback::<CltTestMessenger>::default().into(),
-///     Some("unittest"),
+///     DevNullCallback::default().into(),
+///     Some(CltTestProtocolAuth::new_ref()),
+///     Some("doctest"),
 /// );
 ///
 /// if res.is_ok() {
 ///     pool.add(res.unwrap());
 ///
-///     let mut clt_msg = TestCltMsg::Dbg(TestCltMsgDebug::new(b"Hello Frm Client Msg"));
+///     let mut clt_msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
 ///     // Not Split for use in single thread
 ///     pool.send_busywait(&mut clt_msg).unwrap();
-///     let svc_msg: TestSvcMsg = pool.recv_busywait().unwrap().unwrap();
+///     let svc_msg: SvcTestMsg = pool.recv_busywait().unwrap().unwrap();
 ///
 ///     // Split for use different threads
 ///     let ((tx_recver, tx_sender), (mut recvers, mut senders)) = pool.into_split();
 ///     senders.send_busywait(&mut clt_msg).unwrap();
-///     let svc_msg: TestSvcMsg = recvers.recv_busywait().unwrap().unwrap();
+///     let svc_msg: SvcTestMsg = recvers.recv_busywait().unwrap().unwrap();
 /// }
 /// ```
 #[derive(Debug)]
@@ -163,8 +164,8 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = ((Sender<CltRecver<M, 
 ///
 /// # Example
 /// ```
-/// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::{self, framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}};
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::CltTestProtocolAuth};
+/// use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE};
 /// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
 ///
 ///
@@ -175,7 +176,8 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = ((Sender<CltRecver<M, 
 ///     setup::net::rand_avail_addr_port(), // "127.0.0.1:8080" generates a random port
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
-///     DevNullCallback::<CltTestMessenger>::default().into(),
+///     DevNullCallback::default().into(),
+///     Some(CltTestProtocolAuth::new_ref()),
 ///     Some("doctest"),
 /// );
 ///
@@ -356,8 +358,8 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///
 /// # Example
 /// ```
-/// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::{self, framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}};
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::CltTestProtocolAuth};
+/// use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE};
 /// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
 ///
 ///
@@ -368,7 +370,8 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///     setup::net::rand_avail_addr_port(), // "127.0.0.1:8080" generates a random port
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
-///     DevNullCallback::<CltTestMessenger>::default().into(),
+///     DevNullCallback::default().into(),
+///     Some(CltTestProtocolAuth::new_ref()),
 ///     Some("doctest"),
 /// );
 ///
@@ -546,27 +549,34 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///
 /// # Example
 /// ```
-/// use links_nonblocking::prelude::*;
-/// use links_core::unittest::setup::{self, framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}};
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::{CltTestProtocolAuth, SvcTestProtocolAuth}};
+/// use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE};
+/// use std::num::NonZeroUsize;
 ///
 /// let addr = setup::net::rand_avail_addr_port(); // will return random port "127.0.0.1:8080"
-/// let acceptor = SvcAcceptor::<SvcTestMessenger,_, TEST_MSG_FRAME_SIZE>::new(
+/// let acceptor = SvcAcceptor::<_,_, TEST_MSG_FRAME_SIZE>::new(
 ///     ConId::svc(Some("doctest"), addr, None),
 ///     std::net::TcpListener::bind(addr).unwrap(),
 ///     DevNullCallback::default().into(),
+///     Some(SvcTestProtocolAuth::new_ref()),
 /// );
 ///
 /// let (tx_recver, rx_recver) = std::sync::mpsc::channel();
 /// let (tx_sender, rx_sender) = std::sync::mpsc::channel();
 ///
-/// let mut acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, acceptor);
+/// let mut acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, acceptor, NonZeroUsize::new(1).unwrap());
 ///
 /// println!("acceptor: {}", acceptor);
 ///
 /// assert_eq!(acceptor.pool_accept().unwrap(),  PoolAcceptStatus::WouldBlock);
 ///
 /// // Create a new
-/// let clt = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::default().into(), Some("unittest")).unwrap();
+/// let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+///     addr, setup::net::default_connect_timeout(), 
+///     setup::net::default_connect_retry_after(), 
+///     DevNullCallback::default().into(), 
+///     Some(CltTestProtocolAuth::new_ref()),
+///     Some("unittest")).unwrap();
 ///
 /// assert_eq!(acceptor.pool_accept().unwrap(),  PoolAcceptStatus::Accepted);
 /// println!("acceptor: {}", acceptor);
