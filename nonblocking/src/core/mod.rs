@@ -4,7 +4,7 @@ pub mod messenger;
 use std::{
     fmt::{Debug, Display},
     io::Error,
-    time::{Duration, Instant},
+    time::{Duration, Instant}, num::NonZeroUsize,
 };
 
 use links_core::{prelude::Messenger, core::conid::ConId};
@@ -324,4 +324,5 @@ pub trait PollRecv: Display + Send + 'static {
 pub trait PollAccept<R: PollRecv>: PollRecv {
     fn poll_accept(&mut self) -> Result<AcceptStatus<R>, Error>;
     fn con_id(&self) -> &ConId;
+    fn max_connections(&self) -> NonZeroUsize;
 }

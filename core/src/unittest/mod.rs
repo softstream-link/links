@@ -1,6 +1,7 @@
 pub mod setup {
     pub mod log {
         use std::sync::Once;
+
         static SETUP: Once = Once::new();
         pub fn configure() {
             configure_level(log::LevelFilter::Trace)
@@ -8,8 +9,8 @@ pub mod setup {
         pub fn configure_level(level: log::LevelFilter) {
             configure_level_internal(level, false)
         }
-        pub fn configure_compact() {
-            configure_level_internal(log::LevelFilter::Trace, true)
+        pub fn configure_compact(level: log::LevelFilter) {
+            configure_level_internal(level, true)
         }
         fn configure_level_internal(level: log::LevelFilter, compact: bool) {
             SETUP.call_once(|| {
@@ -48,7 +49,7 @@ pub mod setup {
                                 log::Level::Info => "INFO ".green(),
                                 log::Level::Debug => "DEBUG".blue(),
                                 log::Level::Trace => "TRACE".blue(),
-                            }; 
+                            };
                             let pkg_name = record.target().to_owned();
                             let split = pkg_name.split("::").map(|x| x.to_owned()).collect::<Vec<_>>();
                             #[allow(clippy::iter_next_slice)] // TODO clippy thinks it has first method
@@ -180,7 +181,7 @@ pub mod setup {
             #[byteserde(eq(&[b'H']))]
             HBeat(TestHBeatMsgDebug),
         }
-        impl From<TestCltMsgDebug> for TestCltMsg{
+        impl From<TestCltMsgDebug> for TestCltMsg {
             fn from(msg: TestCltMsgDebug) -> Self {
                 Self::Dbg(msg)
             }
@@ -197,7 +198,7 @@ pub mod setup {
             #[byteserde(eq(&[b'H']))]
             HBeat(TestHBeatMsgDebug),
         }
-        impl From<TestSvcMsgDebug> for TestSvcMsg{
+        impl From<TestSvcMsgDebug> for TestSvcMsg {
             fn from(msg: TestSvcMsgDebug) -> Self {
                 Self::Dbg(msg)
             }

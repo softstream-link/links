@@ -4,7 +4,8 @@ use mio::{Events, Poll, Token, Waker};
 use slab::Slab;
 use std::{
     io::Error,
-    sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError},
+    num::NonZeroUsize,
+    sync::mpsc::{channel, Receiver, Sender, TryRecvError},
     thread::Builder,
 };
 
@@ -13,25 +14,26 @@ use crate::{core::PollAccept, prelude::*};
 // setting up these macros to reuse code where borrow checker, iterating over self.events while modifying self.serviceable
 macro_rules! register_recver_as_readable {
     ($self:ident, $recver:ident, $token:ident) => {
+        $self.poll.registry().register(*$recver.source(), $token, mio::Interest::READABLE).expect("Failed to poll register recver");
         if log_enabled!(Level::Debug) {
-            debug!("registering recver: {} with token: {:?}", $recver.con_id(), $token);
+            debug!("registered recver: {} with token: {:?}", $recver.con_id(), $token);
         }
-        $self.poll.registry().register(*$recver.source(), $token, mio::Interest::READABLE).expect("Failed to poll register recver")
     };
 }
 macro_rules! register_acceptor_as_readable {
     ($self:ident, $acceptor:ident, $token:ident) => {
+        $self.poll.registry().register(*$acceptor.source(), $token, mio::Interest::READABLE).expect("Failed to poll register acceptor");
+
         if log_enabled!(Level::Debug) {
-            debug!("registering acceptor: {} with token: {:?}", PollAccept::con_id($acceptor), $token);
+            debug!("registered acceptor: {} with token: {:?}", PollAccept::con_id($acceptor), $token);
         }
-        $self.poll.registry().register(*$acceptor.source(), $token, mio::Interest::READABLE).expect("Failed to poll register acceptor")
     };
 }
 macro_rules! register_serviceable_as_readable {
     ($self:ident, $serviceable:ident) => {
         let token = Token($self.serviceable.insert($serviceable));
         match $self.serviceable[token.into()] {
-            Serviceable::Recver(ref mut recver) => {
+            Serviceable::Recver(ref mut recver, _acceptor_key) => {
                 register_recver_as_readable!($self, recver, token);
             }
             Serviceable::Acceptor(ref mut acceptor) => {
@@ -44,7 +46,7 @@ macro_rules! register_serviceable_as_readable {
 
 enum Serviceable<R: PollRecv, A: PollAccept<R>> {
     Acceptor(A),
-    Recver(R),
+    Recver(R, Option<usize>), // when option is set it points the key of acceptor so that one can figure out how many recvers are active for a given acceptor
     Waker,
 }
 
@@ -69,7 +71,7 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
         self.add_serviceable(Serviceable::Acceptor(acceptor))
     }
     pub fn add_recver(&mut self, recver: R) {
-        self.add_serviceable(Serviceable::Recver(recver))
+        self.add_serviceable(Serviceable::Recver(recver, None))
     }
     /// Spawns a new thread with a given name that will continuously poll for events on all of its [SvcPoolAcceptor]s and resulting [CltRecver]s instances
     pub fn into_spawned_handler(mut self, name: &str) -> SpawnedPollHandler<R, A> {
@@ -78,17 +80,21 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
             let key = entry.key();
             let waker = Waker::new(self.poll.registry(), Token(key)).expect("Failed to create Waker");
             entry.insert(Serviceable::Waker);
+            if log_enabled!(Level::Debug) {
+                debug!("registering waker with token: {:?}", Token(key));
+            }
             waker
         };
         // have to use synch_channel of just 1 so that if adding serviceable back to back the wake call on the poll is only issued after the first wake is processed
         // otherwise the poll will not wake up on back to back wake calls and serviceable will end up being stuck in the channel
-        let (tx_serviceable, rx_serviceable) = sync_channel::<Serviceable<R, A>>(1);
+        // let (tx_serviceable, rx_serviceable) = sync_channel::<Serviceable<R, A>>(1);
+        let (tx_serviceable, rx_serviceable) = channel::<Serviceable<R, A>>();
         // let (tx_serviceable, rx_serviceable) = channel::<Serviceable<R, A>>();
 
         Builder::new()
             .name(name.to_owned())
             .spawn(move || {
-                let rx_serviceable = rx_serviceable;
+                // let rx_serviceable = rx_serviceable;
                 loop {
                     match self.service(&rx_serviceable) {
                         Ok(()) => {}
@@ -111,14 +117,14 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
         use Serviceable::*;
         self.poll.poll(&mut self.events, None)?;
 
-        // keep going until all serviceable for the given poll events can't yield anymore
         loop {
+            // keep going until all serviceable for the given poll events can't yield anymore
             let mut had_yield = false;
             for event in &self.events {
                 let key = event.token().into();
                 let serviceable = self.serviceable.get_mut(key);
                 match serviceable {
-                    Some(Recver(recver)) => match recver.on_readable_event() {
+                    Some(Recver(recver, _acceptor_key)) => match recver.on_readable_event() {
                         Ok(Completed) => {
                             had_yield = true;
                             continue;
@@ -141,9 +147,28 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
                     },
                     Some(Acceptor(acceptor)) => match acceptor.poll_accept() {
                         Ok(AcceptStatus::Accepted(recver)) => {
-                            let token = Token(self.serviceable.insert(Recver(recver)));
-                            if let Recver(ref mut recver) = self.serviceable[token.into()] {
-                                register_recver_as_readable!(self, recver, token);
+                            let (max_connections, con_id) = { (acceptor.max_connections().get(), PollAccept::con_id(acceptor).clone()) };
+                            // count number of recvers this specific acceptor have created
+                            let current_connections = {
+                                let mut count = 0;
+                                for (_, recver) in self.serviceable.iter() {
+                                    if let Recver(_recver, Some(acceptor_key)) = recver {
+                                        if acceptor_key == &key {
+                                            count += 1;
+                                        }
+                                    }
+                                }
+                                count
+                            };
+                            if current_connections >= max_connections {
+                                if log_enabled!(Level::Warn) {
+                                    warn!("Poll at max_connection: {}, con_id: {}, recver: {} will be dropped", max_connections, con_id, recver);
+                                }
+                            } else {
+                                let token = Token(self.serviceable.insert(Recver(recver, Some(key))));
+                                if let Recver(ref mut recver, _acceptor_key) = self.serviceable[token.into()] {
+                                    register_recver_as_readable!(self, recver, token);
+                                }
                             }
                             had_yield = true;
                         }
@@ -156,22 +181,26 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
                             self.serviceable.remove(key);
                         }
                     },
-                    Some(Waker) => match rx_serviceable.try_recv() {
-                        Ok(serviceable) => {
-                            register_serviceable_as_readable!(self, serviceable);
+                    Some(Waker) => {
+                        // logging here causes python to hang
+                        match rx_serviceable.try_recv() {
+                            Ok(serviceable) => {
+                                register_serviceable_as_readable!(self, serviceable);
+                                had_yield = true;
+                            }
+                            Err(TryRecvError::Empty) => {}
+                            Err(e) => panic!("Could not receive Serviceable from rx_serviceable channel: {:?}. This is not a possible condition error: {}", rx_serviceable, e),
                         }
-                        Err(TryRecvError::Empty) => {}
-                        Err(e) => panic!("Could not receive Serviceable from rx_serviceable channel: {:?}. This is not a possible condition error: {}", rx_serviceable, e),
-                    },
+                    }
                     None => {} // possible when the serviceable is removed during error or terminate request but other serviceable still yielding
                 }
             }
+            // only return once every event in the for loop yields WouldBlock
             if !had_yield {
                 return Ok(());
             }
         }
     }
-    // pub fn servic
 }
 impl<R: PollRecv, A: PollAccept<R>> Default for PollHandler<R, A> {
     fn default() -> Self {
@@ -185,6 +214,9 @@ impl PollAccept<Box<dyn PollRecv>> for Box<dyn PollAccept<Box<dyn PollRecv>>> {
     }
     fn con_id(&self) -> &ConId {
         PollAccept::con_id(self.as_ref())
+    }
+    fn max_connections(&self) -> NonZeroUsize {
+        self.as_ref().max_connections()
     }
 }
 impl PollRecv for Box<dyn PollAccept<Box<dyn PollRecv>>> {
@@ -219,7 +251,8 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> From<CltRecver
 /// A helper struct to add [PollAccept] and [PollRecv] instances to a [PollHandler] from a different thread
 /// to create an instance of this struct use [PollHandler::into_spawned_handler]
 pub struct SpawnedPollHandler<R: PollRecv, A: PollAccept<R>> {
-    tx_serviceable: SyncSender<Serviceable<R, A>>,
+    // tx_serviceable: SyncSender<Serviceable<R, A>>,
+    tx_serviceable: Sender<Serviceable<R, A>>,
     waker: Waker,
 }
 impl<R: PollRecv, A: PollAccept<R>> SpawnedPollHandler<R, A> {
@@ -228,7 +261,7 @@ impl<R: PollRecv, A: PollAccept<R>> SpawnedPollHandler<R, A> {
         self.waker.wake().expect("Failed to wake PollHandler after sending acceptor");
     }
     pub fn add_recver(&self, recver: R) {
-        self.tx_serviceable.send(Serviceable::Recver(recver)).expect("Failed to send recver to PollHandler");
+        self.tx_serviceable.send(Serviceable::Recver(recver, None)).expect("Failed to send recver to PollHandler");
         self.waker.wake().expect("Failed to wake PollHandler after sending recver");
     }
     pub fn wake(&self) {
@@ -237,13 +270,15 @@ impl<R: PollRecv, A: PollAccept<R>> SpawnedPollHandler<R, A> {
 }
 /// A [PollHandler] that can handle any [PollAccept] and [PollRecv] instances using dynamic dispatch at the cost of performance
 pub type PollHandlerDynamic = PollHandler<Box<dyn PollRecv>, Box<dyn PollAccept<Box<dyn PollRecv>>>>;
+pub type SpawnedPollHandlerDynamic = SpawnedPollHandler<Box<dyn PollRecv>, Box<dyn PollAccept<Box<dyn PollRecv>>>>;
 
 /// A [PollHandler] that will only handle [PollAccept] and [PollRecv] of same type
 pub type PollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = PollHandler<CltRecver<M, C, MAX_MSG_SIZE>, SvcPoolAcceptor<M, C, MAX_MSG_SIZE>>;
+pub type SpawnedPollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = SpawnedPollHandler<CltRecver<M, C, MAX_MSG_SIZE>, SvcPoolAcceptor<M, C, MAX_MSG_SIZE>>;
 
 #[cfg(test)]
 mod test {
-    use std::{num::NonZeroUsize, time::Instant};
+    use std::{num::NonZeroUsize, thread::yield_now, time::{Instant, Duration}};
 
     use crate::prelude::*;
     use links_core::unittest::setup::{
@@ -256,7 +291,7 @@ mod test {
 
     #[test]
     fn test_poller_static() {
-        setup::log::configure_level(log::LevelFilter::Debug);
+        setup::log::configure_compact(log::LevelFilter::Info);
 
         let addr = setup::net::rand_avail_addr_port();
         let counter = CounterCallback::new_ref();
@@ -286,11 +321,17 @@ mod test {
             }
         }
         assert_eq!(counter.recv_count(), write_count);
+
+        // test that second connection is denied due to svc having set the limit of 1 on max connections
+        let mut clt1: Clt<CltTestMessenger, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), Some("unittest/clt")).unwrap();
+        let status = clt1.recv_busywait_timeout(Duration::from_millis(1000)).unwrap();
+        info!("status: {:?}", status);
+        assert_eq!(status.unwrap_completed(), None);
     }
 
     #[test]
     fn test_poller_dynamic() {
-        setup::log::configure_level(log::LevelFilter::Debug);
+        setup::log::configure_level(log::LevelFilter::Info);
 
         let addr1 = setup::net::rand_avail_addr_port();
         let addr2 = setup::net::rand_avail_addr_port();
@@ -316,7 +357,7 @@ mod test {
         let poll_adder = poll_handler.into_spawned_handler("Dynamic-Svc/Clt-Poll-Thread");
         // try adding after spawning
         poll_adder.add_recver(Box::new(clt1_recver));
-        poll_adder.add_recver(clt2_recver.into());
+        poll_adder.add_recver(Box::new(clt2_recver));
 
         clt1.send_busywait(&mut TestCltMsgDebug::new(b"Hello From Clt1").into()).unwrap();
         clt2.send_busywait(&mut TestCltMsgDebug::new(b"Hello From Clt2").into()).unwrap();

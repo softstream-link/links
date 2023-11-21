@@ -7,6 +7,7 @@
     optiq - 
     https://connect2.euronext.com/sites/default/files/it-documentation/Optiq%20OEG%20SBE%20Messages%20-%20Interface%20Specification%20-%20Euronext%20Cash%20and%20Derivatives%20Markets%20-%20External%20-%20v5.24.0%20%2BTC.pdf
 
+    https://www.xetra.com/xetra-en/technology/t7/system-documentation/release12-0 - Enhanced Trading Interface 11 -> 12
     QAUISATP
     BATSBOE
     CDG

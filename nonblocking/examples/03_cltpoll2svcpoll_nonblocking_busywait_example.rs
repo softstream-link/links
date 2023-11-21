@@ -26,15 +26,15 @@ fn run() -> Result<(), Box<dyn Error>> {
     let addr = setup::net::rand_avail_addr_port();
 
     let store = CanonicalEntryStore::<TestMsg>::new_ref();
-    // let clbk = StoreCallback::<SvcTestMessenger, _, _>::new_ref(store.clone());
+
+    let spawned_poll_handler = PollHandlerDynamic::default().into_spawned_handler("Poll-Thread");
 
     let svc = Svc::<SvcTestMessenger, _, TEST_MSG_FRAME_SIZE>::bind(addr, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), Some("example/svc")).unwrap();
     info!("svc: {}", svc);
 
     let (svc_acceptor, _, mut svc_sender) = svc.into_split();
-    let mut poll_handler = PollHandlerDynamic::default();
-    poll_handler.add_acceptor(svc_acceptor.into());
-    let spawned_poll_handler = poll_handler.into_spawned_handler("Svc-Poll-Thread");
+    spawned_poll_handler.add_acceptor(svc_acceptor.into());
+
 
     let clt = Clt::<CltTestMessenger, _, TEST_MSG_FRAME_SIZE>::connect(
         addr,

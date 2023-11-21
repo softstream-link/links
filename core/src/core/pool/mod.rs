@@ -39,8 +39,8 @@ impl<T: Debug+Display> RoundRobinPool<T> {
         self.elements.len()
     }
     #[inline(always)]
-    pub fn capacity(&self) -> usize {
-        self.elements.capacity()
+    pub fn capacity(&self) -> NonZeroUsize {
+        NonZeroUsize::new(self.elements.capacity()).expect("can't be negative")
     }
     #[inline(always)]
     pub fn is_empty(&self) -> bool {

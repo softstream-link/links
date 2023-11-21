@@ -137,13 +137,14 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Svc<M, C, 
         &self.clts_pool
     }
     pub fn into_split(self) -> (SvcPoolAcceptor<M, C, MAX_MSG_SIZE>, CltRecversPool<M, C, MAX_MSG_SIZE>, CltSendersPool<M, C, MAX_MSG_SIZE>) {
+        let max_connections = self.clts_pool.max_connections();
         let ((tx_recver, tx_sender), (svc_recver, svc_sender)) = self.clts_pool.into_split();
-        let acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, self.acceptor);
+        let acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, self.acceptor, max_connections);
         (acceptor, svc_recver, svc_sender)
     }
 }
 impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> PoolAcceptCltNonBlocking for Svc<M, C, MAX_MSG_SIZE> {
-    /// Will attempt to accept a new connection and add it to the pool. If the pool is full it will return an error.
+    /// Will attempt to accept a new connection and add it to the pool. If the pool is full it will return an [std::io::ErrorKind::OutOfMemory].
     fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error> {
         match self.acceptor.accept()? {
             AcceptStatus::Accepted(clt) => {
@@ -211,13 +212,7 @@ mod test {
         setup::log::configure_level(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
 
-        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
-            addr,
-            LoggerCallback::<SvcTestMessenger>::with_level_ref(Level::Info, Level::Debug),
-            NonZeroUsize::new(1).unwrap(),
-            Some("unittest"),
-        )
-        .unwrap();
+        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, LoggerCallback::<SvcTestMessenger>::with_level_ref(Level::Info, Level::Debug), NonZeroUsize::new(1).unwrap(), Some("unittest")).unwrap();
         info!("svc: {}", svc);
 
         let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(

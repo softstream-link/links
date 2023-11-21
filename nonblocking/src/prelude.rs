@@ -6,10 +6,10 @@ pub use crate::core::{
 
 pub use crate::connect::{
     clt::{Clt, CltRecver, CltSender},
-    poll::{PollHandlerDynamic, PollHandlerStatic, PollHandler},
+    poll::{PollHandler, PollHandlerDynamic, PollHandlerStatic, SpawnedPollHandler, SpawnedPollHandlerDynamic, SpawnedPollHandlerStatic},
     pool::{CltRecversPool, CltSendersPool, CltsPool, SvcPoolAcceptor},
     svc::{Svc, SvcAcceptor},
 };
 
-pub use links_core::prelude::*;
 pub use links_core::asserted_short_name;
+pub use links_core::prelude::*;
