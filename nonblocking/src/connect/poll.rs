@@ -272,7 +272,7 @@ pub type PollHandlerDynamic = PollHandler<Box<dyn PollRecv>, Box<dyn PollAccept<
 pub type SpawnedPollHandlerDynamic = SpawnedPollHandler<Box<dyn PollRecv>, Box<dyn PollAccept<Box<dyn PollRecv>>>>;
 
 /// A [PollHandler] that will only handle [PollAccept] and [PollRecv] of same type
-pub type PollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = PollHandler<CltRecver<M, C, MAX_MSG_SIZE>, SvcPoolAcceptor<M, C, MAX_MSG_SIZE>>;
+pub type PollHandlerStatic<P, C, const MAX_MSG_SIZE: usize> = PollHandler<CltRecver<P, C, MAX_MSG_SIZE>, SvcPoolAcceptor<P, C, MAX_MSG_SIZE>>;
 pub type SpawnedPollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = SpawnedPollHandler<CltRecver<M, C, MAX_MSG_SIZE>, SvcPoolAcceptor<M, C, MAX_MSG_SIZE>>;
 
 #[cfg(test)]

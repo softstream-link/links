@@ -28,7 +28,7 @@ use std::{
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::default().into(),
-///     Some(CltTestProtocolAuth::new_ref()),
+///     Some(CltTestProtocolAuth::default()),
 ///     Some("doctest"),
 /// );
 ///
@@ -177,7 +177,7 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = ((Sender<CltRecver<M, 
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::default().into(),
-///     Some(CltTestProtocolAuth::new_ref()),
+///     Some(CltTestProtocolAuth::default()),
 ///     Some("doctest"),
 /// );
 ///
@@ -371,7 +371,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::default().into(),
-///     Some(CltTestProtocolAuth::new_ref()),
+///     Some(CltTestProtocolAuth::default()),
 ///     Some("doctest"),
 /// );
 ///
@@ -558,7 +558,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///     ConId::svc(Some("doctest"), addr, None),
 ///     std::net::TcpListener::bind(addr).unwrap(),
 ///     DevNullCallback::default().into(),
-///     Some(SvcTestProtocolAuth::new_ref()),
+///     Some(SvcTestProtocolAuth::default()),
 /// );
 ///
 /// let (tx_recver, rx_recver) = std::sync::mpsc::channel();
@@ -575,7 +575,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///     addr, setup::net::default_connect_timeout(), 
 ///     setup::net::default_connect_retry_after(), 
 ///     DevNullCallback::default().into(), 
-///     Some(CltTestProtocolAuth::new_ref()),
+///     Some(CltTestProtocolAuth::default()),
 ///     Some("unittest")).unwrap();
 ///
 /// assert_eq!(acceptor.pool_accept().unwrap(),  PoolAcceptStatus::Accepted);
@@ -583,10 +583,10 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 /// // assert!(false); // uncomment to see output
 /// ```
 #[derive(Debug)]
-pub struct SvcPoolAcceptor<M: Protocol + 'static, C: CallbackRecvSend<M> + 'static, const MAX_MSG_SIZE: usize> {
-    tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
-    tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>,
-    acceptor: SvcAcceptor<M, C, MAX_MSG_SIZE>,
+pub struct SvcPoolAcceptor<P: Protocol + 'static, C: CallbackRecvSend<P> + 'static, const MAX_MSG_SIZE: usize> {
+    tx_recver: Sender<CltRecver<P, C, MAX_MSG_SIZE>>,
+    tx_sender: Sender<CltSender<P, C, MAX_MSG_SIZE>>,
+    acceptor: SvcAcceptor<P, C, MAX_MSG_SIZE>,
     max_connections: NonZeroUsize,
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {

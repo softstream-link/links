@@ -23,7 +23,7 @@ use crate::prelude::*;
 ///     ConId::svc(Some("doctest"), addr, None),
 ///     std::net::TcpListener::bind(addr).unwrap(),
 ///     DevNullCallback::default().into(),
-///     Some(SvcTestProtocolAuth::new_ref()),
+///     Some(SvcTestProtocolAuth::default()),
 /// );
 ///
 /// let status = acceptor.accept().unwrap();
@@ -35,10 +35,10 @@ pub struct SvcAcceptor<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: 
     pub(crate) con_id: ConId,
     pub(crate) listener: mio::net::TcpListener,
     callback: Arc<C>,
-    protocol: Option<Arc<P>>,
+    protocol: Option<P>,
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcAcceptor<P, C, MAX_MSG_SIZE> {
-    pub fn new(con_id: ConId, listener: std::net::TcpListener, callback: Arc<C>, protocol: Option<Arc<P>>) -> Self {
+    pub fn new(con_id: ConId, listener: std::net::TcpListener, callback: Arc<C>, protocol: Option<P>) -> Self {
         listener.set_nonblocking(true).expect("Failed to set nonblocking on listener");
         Self {
             con_id,
@@ -99,7 +99,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<Svc<P,
 ///     setup::net::rand_avail_addr_port(), // 127.0.0.1:8080 generates random port
 ///     DevNullCallback::default().into(),
 ///     NonZeroUsize::new(1).unwrap(),
-///     Some(SvcTestProtocolAuth::new_ref()),
+///     Some(SvcTestProtocolAuth::default()),
 ///     Some("doctest"),
 /// ).unwrap();
 ///
@@ -115,7 +115,7 @@ pub struct Svc<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, MAX_MSG_SIZE> {
     /// Binds to a given address and returns an instance [Svc]
-    pub fn bind(addr: &str, callback: Arc<C>, max_connections: NonZeroUsize, protocol: Option<Arc<P>>, name: Option<&str>) -> Result<Self, Error> {
+    pub fn bind(addr: &str, callback: Arc<C>, max_connections: NonZeroUsize, protocol: Option<P>, name: Option<&str>) -> Result<Self, Error> {
         let acceptor = SvcAcceptor::new(ConId::svc(name, addr, None), std::net::TcpListener::bind(addr)?, callback, protocol);
 
         let clts_pool = CltsPool::<P, C, MAX_MSG_SIZE>::with_capacity(max_connections);
@@ -134,11 +134,26 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     pub fn pool(&self) -> &CltsPool<P, C, MAX_MSG_SIZE> {
         &self.clts_pool
     }
+    /// Will split [Svc] into owned [SvcPoolAcceptor], [CltRecversPool] and [CltSendersPool] all of which can be used by different threads
     pub fn into_split(self) -> (SvcPoolAcceptor<P, C, MAX_MSG_SIZE>, CltRecversPool<P, C, MAX_MSG_SIZE>, CltSendersPool<P, C, MAX_MSG_SIZE>) {
         let max_connections = self.clts_pool.max_connections();
         let ((tx_recver, tx_sender), (svc_recver, svc_sender)) = self.clts_pool.into_split();
         let acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, self.acceptor, max_connections);
         (acceptor, svc_recver, svc_sender)
+    }
+
+    /// Will take [Svc] split it using [Self::into_split] and only return [CltSendersPool] while registering resulting [SvcPoolAcceptor] with
+    /// [static@crate::connect::DEFAULT_POLL_HANDLER]
+    /// 
+    /// # Warning
+    /// This this result in any existing client connections to be dropped
+    pub fn into_spawned_sender(self) -> CltSendersPool<P, C, MAX_MSG_SIZE> {
+        if !self.clts_pool.is_empty(){
+            panic!("into_spawned_sender can only be called Svc did not accept any connections yet")   
+        }
+        let (acceptor, _recver_drop, sender) = self.into_split();
+        crate::connect::DEFAULT_POLL_HANDLER.add_acceptor(acceptor.into());
+        sender
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolAcceptCltNonBlocking for Svc<P, C, MAX_MSG_SIZE> {
@@ -203,7 +218,7 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
 
         let callback = LoggerCallback::new_ref();
-        let protocol = SvcTestProtocolAuth::new_ref();
+        let protocol = SvcTestProtocolAuth::default();
         let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback.clone(), NonZeroUsize::new(2).unwrap(), Some(protocol), Some("unittest")).unwrap();
         info!("svc: {}", svc);
         assert_eq!(svc.pool().len(), 0);
@@ -214,12 +229,12 @@ mod test {
         setup::log::configure_level(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
-        let protocol = SvcTestProtocolAuth::new_ref();
+        let protocol = SvcTestProtocolAuth::default();
         let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), Some(protocol), Some("unittest")).unwrap();
         info!("svc: {}", svc);
 
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
-        let protocol = CltTestProtocolAuth::new_ref();
+        let protocol = CltTestProtocolAuth::default();
         let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, Some(protocol), Some("unittest")).unwrap();
         info!("clt: {}", clt);
 

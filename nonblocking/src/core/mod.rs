@@ -80,7 +80,7 @@ pub enum AcceptStatus<T> {
 }
 impl<T> AcceptStatus<T> {
     /// Unwraps into [AcceptedStatus::Accepted(T)] if the variant is [AcceptStatus::Accepted], otherwise panics
-    pub fn unwrap(self) -> T {
+    pub fn unwrap_accepted(self) -> T {
         match self {
             AcceptStatus::Accepted(t) => t,
             AcceptStatus::WouldBlock => panic!("AcceptStatus::WouldBlock"),
@@ -138,7 +138,6 @@ pub enum RecvStatus<T> {
     Completed(Option<T>),
     WouldBlock,
 }
-
 impl<T> RecvStatus<T> {
     /// Will panic if the variant is [RecvStatus::WouldBlock], otherwise unwraps into [`Option<T>`] from [RecvStatus::Completed(`Option<T>`)]
     pub fn unwrap_completed(self) -> Option<T> {
@@ -214,7 +213,7 @@ pub enum SendStatus {
 impl SendStatus {
     /// Will panic if the variant is [SendStatus::WouldBlock], otherwise unwraps into [()] from [SendStatus::Completed]
     #[inline(always)]
-    pub fn unwrap(self) {
+    pub fn unwrap_completed(self) {
         match self {
             SendStatus::Completed => {}
             SendStatus::WouldBlock => panic!("SendStatus::WouldBlock"),

@@ -38,7 +38,7 @@ fn send_msg(c: &mut Criterion) {
 
             // info!("svc: {}", svc);
 
-            let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap();
+            let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap_accepted();
             info!("clt_acceptor: {}", clt_acceptor);
 
             let mut clt_acceptor_msg_recv_count = 0_usize;
@@ -93,7 +93,7 @@ fn recv_msg(c: &mut Criterion) {
         .spawn(move || {
             let svc = Svc::<SvcTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::bind(addr, svc_callback, max_connections, None, name.clone()).unwrap();
 
-            let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap();
+            let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap_accepted();
             info!("clt_acceptor: {}", clt_acceptor);
 
             let mut clt_acceptor_msg_recv_count = 0_usize;
@@ -146,7 +146,7 @@ fn round_trip_msg(c: &mut Criterion) {
 
             // info!("svc: {}", svc);
 
-            let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap();
+            let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap_accepted();
             info!("clt_acceptor: {}", clt_acceptor);
 
             let mut clt_acceptor_msg_recv_count = 0_usize;

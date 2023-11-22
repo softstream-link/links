@@ -29,7 +29,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             let svc = Svc::<SvcTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::new_ref(), NonZeroUsize::new(1).unwrap(), None, Some("example/clt")).unwrap();
 
             info!("svc: {}", svc);
-            let mut clt = svc.accept_busywait_timeout(setup::net::default_connect_timeout()).unwrap().unwrap();
+            let mut clt = svc.accept_busywait_timeout(setup::net::default_connect_timeout()).unwrap().unwrap_accepted();
             info!("clt: {}", clt);
 
             let mut clt_send_msg = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"Hello Frm Client Msg"));

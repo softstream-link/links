@@ -2,6 +2,7 @@
     "rust-analyzer.cargo.features": [
         "full"
     ],
+    "workbench.editor.revealIfOpen": true,
     "cSpell.words": [
         "busywait",
         "byteserde",

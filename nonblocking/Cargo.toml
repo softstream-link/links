@@ -11,7 +11,6 @@ nix = { workspace = true } # libc wrapper
 
 # blocking & nonblocking
 bytes = { workspace = true } # read buffer
-
 links_core = { workspace = true } # traits
 
 log = { workspace = true }
@@ -20,6 +19,7 @@ slab = { workspace = true } # used by poller
 
 byteserde = { workspace = true } # byteserde::utils::hex::to_hex_pretty #TODO move to seperate crate
 
+lazy_static = { workspace = true } # used by common poller
 
 [dev-dependencies]
 links_core = { workspace = true, features = ["unittest"] } # traits

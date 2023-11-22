@@ -6,7 +6,6 @@ pub mod setup {
         };
         use std::{
             io::{Error, ErrorKind},
-            sync::Arc,
             time::Duration,
         };
         // use crate::prelude::{CallbackRecvSend, Clt, Protocol};
@@ -17,13 +16,8 @@ pub mod setup {
         };
         use log::info;
 
-        #[derive(Debug)]
+        #[derive(Debug, Clone, Default)]
         pub struct SvcTestProtocolAuth;
-        impl SvcTestProtocolAuth {
-            pub fn new_ref() -> Arc<Self> {
-                Arc::new(Self {})
-            }
-        }
         impl Protocol for SvcTestProtocolAuth {
             fn on_connected<M: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>(&self, clt: &mut Clt<M, C, MAX_MSG_SIZE>) -> Result<(), Error> {
                 let timeout = Duration::from_secs(1);
@@ -59,13 +53,8 @@ pub mod setup {
             }
         }
 
-        #[derive(Debug)]
+        #[derive(Debug, Clone, Default)]
         pub struct CltTestProtocolAuth;
-        impl CltTestProtocolAuth {
-            pub fn new_ref() -> Arc<Self> {
-                Arc::new(Self {})
-            }
-        }
         impl Protocol for CltTestProtocolAuth {
             fn on_connected<M: Protocol<SendT = Self::SendT, RecvT = Self::RecvT>, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize>(&self, clt: &mut Clt<M, C, MAX_MSG_SIZE>) -> Result<(), Error> {
                 let mut msg: CltTestMsg = CltTestMsgLoginReq::default().into();

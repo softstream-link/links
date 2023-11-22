@@ -31,7 +31,7 @@ categories = ["network"]
 byteserde = { version = "0.4" }
 byteserde_derive = { version = "0.4" }
 byteserde_types = { version = "0.4" }
-derive_more = "0.99"                     # try_into, etc
+derive_more = "0.99"                   # try_into, etc
 
 # networking
 links_async = { path = "./async" }
@@ -39,10 +39,11 @@ links_nonblocking = { path = "./nonblocking" }
 links_blocking = { path = "./blocking" }
 links_core = { path = "./core" }
 bytes = "1.4"
-nix = { version = "0.27", features = ["net"] }     # TODO this is not used , remove
+nix = { version = "0.27", features = ["net"] } # TODO this is not used , remove
 
 # synch
 mio = { version = "0.8", features = ["os-poll", "net"] }
+
 # rayon = { version = "1.7" }
 
 # async 
@@ -66,6 +67,7 @@ links_soupbintcp_async = { path = "./protocols/soupbintcp" }
 # testing only
 tokio-test = "0.4.2"
 lazy_static = "1.4.0"
+
 
 # bechmarking only
 criterion = { version = "0.5", features = ["async_tokio", "async_futures"] }

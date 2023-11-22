@@ -150,7 +150,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///         Duration::from_millis(100),
 ///         Duration::from_millis(10),
 ///         DevNullCallback::default().into(),
-///         Some(CltTestProtocolAuth::new_ref()),
+///         Some(CltTestProtocolAuth::default()),
 ///         Some("unittest"),
 ///     );
 ///
@@ -177,14 +177,14 @@ pub struct Clt<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
     clt_sender: CltSender<P, C, MAX_MSG_SIZE>,
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, MAX_MSG_SIZE> {
-    pub fn connect(addr: &str, timeout: Duration, retry_after: Duration, callback: Arc<C>, protocol: Option<Arc<P>>, name: Option<&str>) -> Result<Self, Error> {
+    pub fn connect(addr: &str, timeout: Duration, retry_after: Duration, callback: Arc<C>, protocol: Option<P>, name: Option<&str>) -> Result<Self, Error> {
         assert!(timeout > retry_after, "timeout: {:?}, retry_after: {:?}", timeout, retry_after);
         let now = Instant::now();
         let con_id = ConId::clt(name, None, addr);
         while now.elapsed() < timeout {
             match TcpStream::connect(addr) {
                 Err(e) => {
-                    sleep(retry_after);
+                    sleep(retry_after); // NOTE this will not be use by poll because it creates a client using a from_stream method
                     debug!("{} connection failed. e: {:?}", con_id, e);
                     continue;
                 }
@@ -198,13 +198,13 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
         Err(Error::new(std::io::ErrorKind::TimedOut, msg))
     }
 
-    pub(crate) fn from_stream(stream: TcpStream, con_id: ConId, callback: Arc<C>, protocol: Option<Arc<P>>) -> Result<Self, Error> {
+    pub(crate) fn from_stream(stream: TcpStream, con_id: ConId, callback: Arc<C>, mut protocol: Option<P>) -> Result<Self, Error> {
         let (msg_recver, msg_sender) = into_split_messenger::<P, MAX_MSG_SIZE>(con_id, stream);
         let mut clt = Self {
             clt_recver: CltRecver::new(msg_recver, callback.clone()),
             clt_sender: CltSender::new(msg_sender, callback.clone()),
         };
-        if let Some(protocol) = protocol {
+        if let Some(ref mut protocol) = protocol {
             protocol.on_connected(&mut clt)?;
         }
         Ok(clt)
@@ -214,6 +214,11 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
     }
     pub fn into_split(self) -> (CltRecver<P, C, MAX_MSG_SIZE>, CltSender<P, C, MAX_MSG_SIZE>) {
         (self.clt_recver, self.clt_sender)
+    }
+    pub fn into_spawned_sender(self) -> CltSender<P, C, MAX_MSG_SIZE> {
+        let (recver, sender) = self.into_split();
+        crate::connect::DEFAULT_POLL_HANDLER.add_recver(recver.into());
+        sender
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for Clt<P, C, MAX_MSG_SIZE> {
@@ -247,7 +252,7 @@ mod test {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::new_ref();
-        let protocol = CltTestProtocolAuth::new_ref();
+        let protocol = CltTestProtocolAuth::default();
         let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, Some(protocol), Some("unittest"));
         assert!(res.is_err());
     }

@@ -1,7 +1,7 @@
 use std::{
     fmt::{Debug, Display},
     sync::{
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicUsize, Ordering::Relaxed},
         Arc,
     },
 };
@@ -34,19 +34,19 @@ impl<M: Messenger> CounterCallback<M> {
     }
     #[inline(always)]
     pub fn send_count(&self) -> usize {
-        self.send.load(Ordering::SeqCst)
+        self.send.load(Relaxed)
     }
     #[inline(always)]
     pub fn fail_count(&self) -> usize {
-        self.fail.load(Ordering::SeqCst)
+        self.fail.load(Relaxed)
     }
     #[inline(always)]
     pub fn sent_count(&self) -> usize {
-        self.sent.load(Ordering::SeqCst)
+        self.sent.load(Relaxed)
     }
     #[inline(always)]
     pub fn recv_count(&self) -> usize {
-        self.recv.load(Ordering::SeqCst)
+        self.recv.load(Relaxed)
     }
 }
 
@@ -56,10 +56,10 @@ impl<M: Messenger> Display for CounterCallback<M> {
             f,
             "{}<sent: {}, recv: {}, send: {}, fail: {}>",
             asserted_short_name!("CounterCallback", Self),
-            fmt_num!(self.sent.load(Ordering::SeqCst)),
-            fmt_num!(self.recv.load(Ordering::SeqCst)),
-            fmt_num!(self.send.load(Ordering::SeqCst)),
-            fmt_num!(self.fail.load(Ordering::SeqCst)),
+            fmt_num!(self.sent.load(Relaxed)),
+            fmt_num!(self.recv.load(Relaxed)),
+            fmt_num!(self.send.load(Relaxed)),
+            fmt_num!(self.fail.load(Relaxed)),
         )
     }
 }
@@ -68,19 +68,19 @@ impl<M: Messenger> CallbackRecvSend<M> for CounterCallback<M> {}
 #[allow(unused_variables)]
 impl<M: Messenger> CallbackRecv<M> for CounterCallback<M> {
     fn on_recv(&self, con_id: &ConId, msg: &M::RecvT) {
-        self.recv.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.recv.fetch_add(1, Relaxed);
     }
 }
 #[allow(unused_variables)]
 impl<M: Messenger> CallbackSend<M> for CounterCallback<M> {
     fn on_fail(&self, con_id: &ConId, msg: &<M as Messenger>::SendT, e: &std::io::Error) {
-        self.fail.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.fail.fetch_add(1, Relaxed);
     }
     fn on_send(&self, con_id: &ConId, msg: &mut <M as Messenger>::SendT) {
-        self.send.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.send.fetch_add(1, Relaxed);
     }
     fn on_sent(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {
-        self.sent.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.sent.fetch_add(1, Relaxed);
     }
 }
 
