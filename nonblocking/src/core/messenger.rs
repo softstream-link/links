@@ -5,11 +5,11 @@
 //! The underlying [std::net::TcpStream] is cloned and therefore share a single underlying network socket.
 //!
 //! # Example
-//! ```no_run
+//! ```
 //! use links_nonblocking::prelude::*;
-//! use links_core::unittest::setup::framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE};
+//! use links_core::unittest::setup::{self, framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}};
 //!
-//! let addr = "127.0.0.1:8080";
+//! let addr = setup::net::rand_avail_addr_port(); // will return random port "127.0.0.1:8080"
 //!
 //! let svc_listener = std::net::TcpListener::bind(addr).unwrap();
 //!

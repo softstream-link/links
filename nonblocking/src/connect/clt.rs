@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::prelude::{into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, MessageRecver, MessageSender, Messenger, PollEventStatus, PollRecv, Protocol, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut, SendStatus};
-use links_core::asserted_short_name;
+use links_core::{asserted_short_name, core::counters::max_connection::RemoveConnectionBarrierOnDrop};
 use log::debug;
 
 /// An abstraction over a [MessageRecver] that calls a [CallbackRecv] on every message being processed by [CltRecver].
@@ -17,10 +17,12 @@ use log::debug;
 pub struct CltRecver<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
     msg_recver: MessageRecver<M, MAX_MSG_SIZE>,
     callback: Arc<C>,
+    #[allow(dead_code)] // exists to indicate to Svc::accept that this connection no longer active when Self is dropped
+    acceptor_connection_gate: Option<RemoveConnectionBarrierOnDrop>,
 }
 impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> CltRecver<M, C, MAX_MSG_SIZE> {
-    pub fn new(recver: MessageRecver<M, MAX_MSG_SIZE>, callback: Arc<C>) -> Self {
-        Self { msg_recver: recver, callback }
+    pub fn new(recver: MessageRecver<M, MAX_MSG_SIZE>, callback: Arc<C>, acceptor_connection_gate: Option<RemoveConnectionBarrierOnDrop>) -> Self {
+        Self { msg_recver: recver, callback, acceptor_connection_gate }
     }
 }
 impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> RecvNonBlocking<M> for CltRecver<M, C, MAX_MSG_SIZE> {
@@ -66,10 +68,12 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for Cl
 pub struct CltSender<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> {
     msg_sender: MessageSender<M, MAX_MSG_SIZE>,
     callback: Arc<C>,
+    #[allow(dead_code)] // exists to indicate to Svc::accept that this connection no longer active when Self is dropped
+    acceptor_connection_gate: Option<RemoveConnectionBarrierOnDrop>,
 }
 impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> CltSender<M, C, MAX_MSG_SIZE> {
-    pub fn new(sender: MessageSender<M, MAX_MSG_SIZE>, callback: Arc<C>) -> Self {
-        Self { msg_sender: sender, callback }
+    pub fn new(sender: MessageSender<M, MAX_MSG_SIZE>, callback: Arc<C>, acceptor_connection_gate: Option<RemoveConnectionBarrierOnDrop>) -> Self {
+        Self { msg_sender: sender, callback, acceptor_connection_gate }
     }
 }
 impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlocking<M> for CltSender<M, C, MAX_MSG_SIZE> {
@@ -189,7 +193,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
                     continue;
                 }
                 Ok(stream) => {
-                    let clt = Self::from_stream(stream, con_id, callback, protocol)?;
+                    let clt = Self::from_stream(stream, con_id, callback, protocol, None)?;
                     return Ok(clt);
                 }
             }
@@ -198,11 +202,11 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
         Err(Error::new(std::io::ErrorKind::TimedOut, msg))
     }
 
-    pub(crate) fn from_stream(stream: TcpStream, con_id: ConId, callback: Arc<C>, mut protocol: Option<P>) -> Result<Self, Error> {
+    pub(crate) fn from_stream(stream: TcpStream, con_id: ConId, callback: Arc<C>, mut protocol: Option<P>, acceptor_connection_gate: Option<RemoveConnectionBarrierOnDrop>) -> Result<Self, Error> {
         let (msg_recver, msg_sender) = into_split_messenger::<P, MAX_MSG_SIZE>(con_id, stream);
         let mut clt = Self {
-            clt_recver: CltRecver::new(msg_recver, callback.clone()),
-            clt_sender: CltSender::new(msg_sender, callback.clone()),
+            clt_recver: CltRecver::new(msg_recver, callback.clone(), acceptor_connection_gate.clone()),
+            clt_sender: CltSender::new(msg_sender, callback.clone(), acceptor_connection_gate),
         };
         if let Some(ref mut protocol) = protocol {
             protocol.on_connected(&mut clt)?;

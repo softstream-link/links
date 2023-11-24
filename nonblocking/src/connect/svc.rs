@@ -7,7 +7,7 @@ use std::{
 };
 
 use links_core::asserted_short_name;
-use log::{debug, log_enabled};
+use log::{debug, log_enabled, warn};
 
 use crate::prelude::*;
 
@@ -17,6 +17,7 @@ use crate::prelude::*;
 /// ```
 /// use links_nonblocking::{prelude::*, unittest::setup::protocol::SvcTestProtocolAuth};
 /// use links_core::unittest::setup::{self, messenger::TEST_MSG_FRAME_SIZE};
+/// use std::num::NonZeroUsize;
 ///
 /// let addr = setup::net::rand_avail_addr_port(); // "127.0.0.1:8080" generates random port
 /// let acceptor = SvcAcceptor::<_, _, TEST_MSG_FRAME_SIZE>::new(
@@ -24,6 +25,7 @@ use crate::prelude::*;
 ///     std::net::TcpListener::bind(addr).unwrap(),
 ///     DevNullCallback::default().into(),
 ///     Some(SvcTestProtocolAuth::default()),
+///     NonZeroUsize::new(1).unwrap(),
 /// );
 ///
 /// let status = acceptor.accept().unwrap();
@@ -34,15 +36,17 @@ use crate::prelude::*;
 pub struct SvcAcceptor<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
     pub(crate) con_id: ConId,
     pub(crate) listener: mio::net::TcpListener,
+    acceptor_limiter: AcceptorConnectionGate,
     callback: Arc<C>,
     protocol: Option<P>,
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcAcceptor<P, C, MAX_MSG_SIZE> {
-    pub fn new(con_id: ConId, listener: std::net::TcpListener, callback: Arc<C>, protocol: Option<P>) -> Self {
+    pub fn new(con_id: ConId, listener: std::net::TcpListener, callback: Arc<C>, protocol: Option<P>, max_connections: NonZeroUsize) -> Self {
         listener.set_nonblocking(true).expect("Failed to set nonblocking on listener");
         Self {
             con_id,
             listener: mio::net::TcpListener::from_std(listener),
+            acceptor_limiter: AcceptorConnectionGate::new(max_connections),
             callback,
             protocol,
         }
@@ -52,8 +56,16 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> AcceptNonBl
     fn accept(&self) -> Result<AcceptStatus<Clt<P, C, MAX_MSG_SIZE>>, Error> {
         match self.listener.accept() {
             Ok((stream, addr)) => {
-                // TODO add rate limiter
-                unimplemented!("TODO add rate limiter");
+                match self.acceptor_limiter.increment() {
+                    Ok(()) => {}
+                    Err(e) => {
+                        if log_enabled!(log::Level::Warn) {
+                            warn!("{} Rejected stream: {:?} due to error: {}", self.con_id, stream, e);
+                        }
+                        return Ok(AcceptStatus::Rejected);
+                    }
+                }
+
                 let stream = unsafe { std::net::TcpStream::from_raw_fd(stream.into_raw_fd()) };
 
                 let con_id = {
@@ -64,7 +76,8 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> AcceptNonBl
                     };
                     con_id
                 };
-                let clt = Clt::<P, C, MAX_MSG_SIZE>::from_stream(stream, con_id, self.callback.clone(), self.protocol.clone())?;
+                let acceptor_connection_gate = Some(self.acceptor_limiter.get_new_connection_barrier());
+                let clt = Clt::<P, C, MAX_MSG_SIZE>::from_stream(stream, con_id, self.callback.clone(), self.protocol.clone(), acceptor_connection_gate)?;
                 Ok(AcceptStatus::Accepted(clt))
             }
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(AcceptStatus::WouldBlock),
@@ -117,9 +130,11 @@ pub struct Svc<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, MAX_MSG_SIZE> {
     /// Binds to a given address and returns an instance [Svc]
     pub fn bind(addr: &str, callback: Arc<C>, max_connections: NonZeroUsize, protocol: Option<P>, name: Option<&str>) -> Result<Self, Error> {
-        let acceptor = SvcAcceptor::new(ConId::svc(name, addr, None), std::net::TcpListener::bind(addr)?, callback, protocol);
-
-        let clts_pool = CltsPool::<P, C, MAX_MSG_SIZE>::with_capacity(max_connections);
+        let acceptor = SvcAcceptor::new(ConId::svc(name, addr, None), std::net::TcpListener::bind(addr)?, callback, protocol, max_connections);
+        // make pool twice as big as acceptor will allow to be opened this is to ensure that acceptor is able to add new connections to the pool even 
+        // if some of the connections in the pool are dead but not closed yet
+        let pool_size = max_connections.get() * 2;
+        let clts_pool = CltsPool::<P, C, MAX_MSG_SIZE>::with_capacity(NonZeroUsize::new(pool_size).unwrap());
         Ok(Self { acceptor, clts_pool })
     }
 
@@ -137,12 +152,11 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     }
     /// Will split [Svc] into owned [SvcPoolAcceptor], [CltRecversPool] and [CltSendersPool] all of which can be used by different threads
     pub fn into_split(self) -> (SvcPoolAcceptor<P, C, MAX_MSG_SIZE>, CltRecversPool<P, C, MAX_MSG_SIZE>, CltSendersPool<P, C, MAX_MSG_SIZE>) {
-        if !self.clts_pool.is_empty(){
-            panic!("Can't call Svc::into_split can Svc already has accepted connections in the pool: {}", self.clts_pool)   
+        if !self.clts_pool.is_empty() {
+            panic!("Can't call Svc::into_split can Svc already has accepted connections in the pool: {}", self.clts_pool)
         }
-        let max_connections = self.clts_pool.max_connections();
         let ((tx_recver, tx_sender), (svc_recver, svc_sender)) = self.clts_pool.into_split();
-        let acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, self.acceptor, max_connections);
+        let acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, self.acceptor);
         (acceptor, svc_recver, svc_sender)
     }
 
@@ -162,6 +176,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolAcceptC
                 self.clts_pool.add(clt)?;
                 Ok(PoolAcceptStatus::Accepted)
             }
+            AcceptStatus::Rejected => Ok(PoolAcceptStatus::Rejected),
             AcceptStatus::WouldBlock => Ok(PoolAcceptStatus::WouldBlock),
         }
     }
@@ -199,7 +214,7 @@ mod test {
 
     use crate::{
         prelude::*,
-        unittest::setup::protocol::{CltTestProtocolAuth, SvcTestProtocolAuth},
+        unittest::setup::protocol::{CltTestProtocolSupervised, SvcTestProtocolSupervised},
     };
     use links_core::unittest::setup::{
         self,
@@ -216,24 +231,24 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
 
         let callback = LoggerCallback::new_ref();
-        let protocol = SvcTestProtocolAuth::default();
+        let protocol = SvcTestProtocolSupervised::default();
         let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback.clone(), NonZeroUsize::new(2).unwrap(), Some(protocol), Some("unittest")).unwrap();
         info!("svc: {}", svc);
         assert_eq!(svc.pool().len(), 0);
     }
 
     #[test]
-    fn test_svc_clt_connected() {
-        setup::log::configure_level(LevelFilter::Info);
+    fn test_svc_clt_connected_not_split() {
+        setup::log::configure_compact(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
-        let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
-        let protocol = SvcTestProtocolAuth::default();
+        let callback = LoggerCallback::with_level_ref(Level::Info, Level::Info);
+        let protocol = SvcTestProtocolSupervised::default();
         let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), Some(protocol), Some("unittest")).unwrap();
         info!("svc: {}", svc);
 
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
-        let protocol = CltTestProtocolAuth::default();
-        let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, Some(protocol), Some("unittest")).unwrap();
+        let protocol = CltTestProtocolSupervised::default();
+        let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), Some(protocol.clone()), Some("unittest")).unwrap();
         info!("clt: {}", clt);
 
         svc.pool_accept_busywait().unwrap();
@@ -242,16 +257,58 @@ mod test {
 
         let mut clt_msg_inp = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
         let mut svc_msg_inp = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"Hello Frm Server Msg"));
-        info!("--------- PRE SPLIT ---------");
+        // info!("--------- PRE SPLIT ---------");
         clt.send_busywait(&mut clt_msg_inp).unwrap();
         let svc_msg_out = svc.recv_busywait().unwrap().unwrap();
-        // info!("clt_msg_inp: {:?}", clt_msg_inp);
-        // info!("svc_msg_out: {:?}", svc_msg_out);
+        info!("clt_msg_inp: {:?}", clt_msg_inp);
+        info!("svc_msg_out: {:?}", svc_msg_out);
         assert_eq!(clt_msg_inp, svc_msg_out);
 
-        info!("--------- SVC SPLIT POOL ---------");
-        let (_svc_acceptor, mut svc_pool_recver, mut svc_pool_sender) = svc.into_split();
+        svc.send_busywait(&mut svc_msg_inp).unwrap();
+        let clt_msg_out = clt.recv_busywait().unwrap().unwrap();
+        info!("svc_msg_inp: {:?}", svc_msg_inp);
+        info!("clt_msg_out: {:?}", clt_msg_out);
+        assert_eq!(svc_msg_inp, clt_msg_out);
+
+        // test that second connection is denied due to svc having set the limit of 1 on max connections
+        assert!(svc.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap().is_wouldblock()); // make sure pool connection is ejected if no longer working
+        let mut clt1 = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), Some(protocol.clone()), Some("unittest")).unwrap();
+        svc.pool_accept_busywait().unwrap();
+        let status = clt1.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap();
+        info!("status: {:?}", status);
+        assert!(status.is_completed_none());
+        drop(clt);
+
+        // however after dropping clt a new connection can be established, drop will close the socket which svc will detect and allow a new connection
+        assert!(svc.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap().is_completed_none()); // make sure pool connection is ejected if no longer working
+        let mut clt1 = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), Some(protocol.clone()), Some("unittest")).unwrap();
+        svc.pool_accept_busywait().unwrap();
+        let status = clt1.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap();
+        info!("status: {:?}", status);
+        assert!(status.is_wouldblock());
+    }
+
+    #[test]
+    fn test_svc_clt_connected_split() {
+        setup::log::configure_level(LevelFilter::Info);
+        let addr = setup::net::rand_avail_addr_port();
+        let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
+        let protocol = SvcTestProtocolSupervised::default();
+        let (mut svc_acceptor, mut svc_pool_recver, mut svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), Some(protocol), Some("unittest")).unwrap().into_split();
+        info!("svc_acceptor: {}", svc_acceptor);
+
+        let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
+        let protocol = CltTestProtocolSupervised::default();
+        let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, Some(protocol), Some("unittest")).unwrap();
+        info!("clt: {}", clt);
+
+        let mut clt_msg_inp = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
+        let mut svc_msg_inp = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"Hello Frm Server Msg"));
+
+        svc_acceptor.pool_accept_busywait().unwrap();
+
         clt.send_busywait(&mut clt_msg_inp).unwrap();
+
         let svc_msg_out = svc_pool_recver.recv_busywait().unwrap().unwrap();
         // info!("clt_msg_inp: {:?}", clt_msg_inp);
         // info!("svc_msg_out: {:?}", svc_msg_out);
@@ -272,9 +329,9 @@ mod test {
         if drop_send {
             info!("dropping clt_send");
             drop(clt_send);
-            let opt = clt_recv.recv().unwrap().unwrap_completed();
-            info!("clt_recv opt: {:?}", opt);
-            assert_eq!(opt, None);
+            let status = clt_recv.recv().unwrap();
+            info!("clt_recv status: {:?}", status);
+            assert!(status.is_completed_none());
         } else {
             info!("dropping clt_recv");
             drop(clt_recv); // drop of recv shuts down Write half of cloned stream and hence impacts clt_send
@@ -285,9 +342,9 @@ mod test {
 
         info!("--------- SVC RECV/SEND SHOULD FAIL CLT DROPS HALF ---------");
         // recv with busywait to ensure that clt drop has delivered FIN signal and receiver does not just return WouldBlock
-        let opt = svc_pool_recver.recv_busywait_timeout(Duration::from_millis(100)).unwrap().unwrap_completed();
-        info!("pool_recver opt: {:?}", opt);
-        assert_eq!(opt, None);
+        let status = svc_pool_recver.recv_busywait_timeout(Duration::from_millis(100)).unwrap();
+        info!("pool_recver opt: {:?}", status);
+        assert!(status.is_completed_none());
         // because pool_recver will get None it will understand that the client socket is closed and hence will shutdown the write
         // direction which in turn will force send to fail with ErrorKind::BrokenPipe
         let err = svc_pool_sender.send(&mut svc_msg_inp).unwrap_err();

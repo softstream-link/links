@@ -5,10 +5,10 @@ pub mod protocol;
 use std::{
     fmt::{Debug, Display},
     io::Error,
-    time::{Duration, Instant}, num::NonZeroUsize,
+    time::{Duration, Instant},
 };
 
-use links_core::{prelude::Messenger, core::conid::ConId};
+use links_core::{core::conid::ConId, prelude::Messenger};
 
 // ---- Acceptor ----
 
@@ -20,6 +20,7 @@ use links_core::{prelude::Messenger, core::conid::ConId};
 #[derive(Debug, PartialEq)]
 pub enum PoolAcceptStatus {
     Accepted,
+    Rejected,
     WouldBlock,
 }
 impl PoolAcceptStatus {
@@ -27,28 +28,49 @@ impl PoolAcceptStatus {
     pub fn unwrap_accepted(self) {
         match self {
             PoolAcceptStatus::Accepted => (),
+            PoolAcceptStatus::Rejected => panic!("PoolAcceptStatus::Rejected"),
+            PoolAcceptStatus::WouldBlock => panic!("PoolAcceptStatus::WouldBlock"),
+        }
+    }
+    pub fn unwrap_rejected(self) {
+        match self {
+            PoolAcceptStatus::Accepted => panic!("PoolAcceptStatus::Accepted"),
+            PoolAcceptStatus::Rejected => (),
             PoolAcceptStatus::WouldBlock => panic!("PoolAcceptStatus::WouldBlock"),
         }
     }
     pub fn is_accepted(&self) -> bool {
         match self {
             PoolAcceptStatus::Accepted => true,
+            PoolAcceptStatus::Rejected => false,
             PoolAcceptStatus::WouldBlock => false,
         }
     }
     pub fn is_wouldblock(&self) -> bool {
-        !self.is_accepted()
+        match self {
+            PoolAcceptStatus::Accepted => false,
+            PoolAcceptStatus::Rejected => false,
+            PoolAcceptStatus::WouldBlock => true,
+        }
+    }
+    pub fn is_rejected(&self) -> bool {
+        match self {
+            PoolAcceptStatus::Accepted => false,
+            PoolAcceptStatus::Rejected => true,
+            PoolAcceptStatus::WouldBlock => false,
+        }
     }
 }
 pub trait PoolAcceptCltNonBlocking {
     fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error>;
     /// Will call [Self::pool_accept] until it returns [PoolAcceptStatus::Accepted] or [PoolAcceptStatus::WouldBlock] after the timeout.
     fn pool_accept_busywait_timeout(&mut self, timeout: Duration) -> Result<PoolAcceptStatus, Error> {
-        use PoolAcceptStatus::{Accepted, WouldBlock};
+        use PoolAcceptStatus::{Accepted, Rejected, WouldBlock};
         let start = Instant::now();
         loop {
             match self.pool_accept()? {
                 Accepted => return Ok(Accepted),
+                Rejected => return Ok(Rejected),
                 WouldBlock => {
                     if start.elapsed() > timeout {
                         return Ok(WouldBlock);
@@ -58,11 +80,12 @@ pub trait PoolAcceptCltNonBlocking {
         }
     }
     /// Will call [Self::pool_accept] until it returns [PoolAcceptStatus::Accepted]
-    fn pool_accept_busywait(&mut self) -> Result<(), Error> {
-        use PoolAcceptStatus::{Accepted, WouldBlock};
+    fn pool_accept_busywait(&mut self) -> Result<PoolAcceptStatus, Error> {
+        use PoolAcceptStatus::{Accepted, Rejected, WouldBlock};
         loop {
             match self.pool_accept()? {
-                Accepted => return Ok(()),
+                Accepted => return Ok(Accepted),
+                Rejected => return Ok(Rejected),
                 WouldBlock => continue,
             }
         }
@@ -76,6 +99,7 @@ pub trait PoolAcceptCltNonBlocking {
 #[derive(Debug, PartialEq)]
 pub enum AcceptStatus<T> {
     Accepted(T),
+    Rejected,
     WouldBlock,
 }
 impl<T> AcceptStatus<T> {
@@ -83,28 +107,42 @@ impl<T> AcceptStatus<T> {
     pub fn unwrap_accepted(self) -> T {
         match self {
             AcceptStatus::Accepted(t) => t,
+            AcceptStatus::Rejected => panic!("AcceptStatus::Rejected"),
             AcceptStatus::WouldBlock => panic!("AcceptStatus::WouldBlock"),
         }
     }
     pub fn is_accepted(&self) -> bool {
         match self {
             AcceptStatus::Accepted(_) => true,
+            AcceptStatus::Rejected => false,
             AcceptStatus::WouldBlock => false,
         }
     }
     pub fn is_wouldblock(&self) -> bool {
-        !self.is_accepted()
+        match self {
+            AcceptStatus::Accepted(_) => false,
+            AcceptStatus::Rejected => false,
+            AcceptStatus::WouldBlock => true,
+        }
+    }
+    pub fn is_rejected(&self) -> bool {
+        match self {
+            AcceptStatus::Accepted(_) => false,
+            AcceptStatus::Rejected => true,
+            AcceptStatus::WouldBlock => false,
+        }
     }
 }
 pub trait AcceptNonBlocking<T> {
     fn accept(&self) -> Result<AcceptStatus<T>, Error>;
 
     fn accept_busywait_timeout(&self, timeout: Duration) -> Result<AcceptStatus<T>, Error> {
-        use AcceptStatus::{Accepted, WouldBlock};
+        use AcceptStatus::{Accepted, Rejected, WouldBlock};
         let start = Instant::now();
         loop {
             match self.accept()? {
                 Accepted(t) => return Ok(Accepted(t)),
+                Rejected => return Ok(Rejected),
                 WouldBlock => {
                     if start.elapsed() > timeout {
                         return Ok(WouldBlock);
@@ -115,10 +153,11 @@ pub trait AcceptNonBlocking<T> {
     }
 
     fn accept_busywait(&self) -> Result<T, Error> {
-        use AcceptStatus::{Accepted, WouldBlock};
+        use AcceptStatus::{Accepted, Rejected, WouldBlock};
         loop {
             match self.accept()? {
                 Accepted(clt) => return Ok(clt),
+                Rejected => continue,
                 WouldBlock => continue,
             }
         }
@@ -140,18 +179,25 @@ pub enum RecvStatus<T> {
 }
 impl<T> RecvStatus<T> {
     /// Will panic if the variant is [RecvStatus::WouldBlock], otherwise unwraps into [`Option<T>`] from [RecvStatus::Completed(`Option<T>`)]
-    pub fn unwrap_completed(self) -> Option<T> {
+    pub fn unwrap_completed_none(self) {
         match self {
-            RecvStatus::Completed(o) => o,
+            RecvStatus::Completed(Some(_)) => panic!("ReadStatus::Completed(Some(_))"),
+            RecvStatus::Completed(None) => (),
             RecvStatus::WouldBlock => panic!("ReadStatus::WouldBlock"),
         }
     }
     /// Will panic if the variant is [RecvStatus::WouldBlock] or [RecvStatus::Completed(None)],  otherwise unwraps into `T` from [RecvStatus::Completed(Some(T))]
-    pub fn unwrap(self) -> T {
+    pub fn unwrap_completed_some(self) -> T {
         match self {
             RecvStatus::Completed(Some(t)) => t,
             RecvStatus::Completed(None) => panic!("ReadStatus::Completed(None)"),
             RecvStatus::WouldBlock => panic!("ReadStatus::WouldBlock"),
+        }
+    }
+    pub fn unwrap_wouldblock(self) {
+        match self {
+            RecvStatus::Completed(_) => panic!("ReadStatus::Completed(_)"),
+            RecvStatus::WouldBlock => {}
         }
     }
     pub fn is_completed(&self) -> bool {
@@ -160,8 +206,25 @@ impl<T> RecvStatus<T> {
             RecvStatus::WouldBlock => false,
         }
     }
+    pub fn is_completed_none(&self) -> bool {
+        match self {
+            RecvStatus::Completed(Some(_)) => false,
+            RecvStatus::Completed(None) => true,
+            RecvStatus::WouldBlock => false,
+        }
+    }
+    pub fn is_completed_some(&self) -> bool {
+        match self {
+            RecvStatus::Completed(Some(_)) => true,
+            RecvStatus::Completed(None) => false,
+            RecvStatus::WouldBlock => false,
+        }
+    }
     pub fn is_wouldblock(&self) -> bool {
-        !self.is_completed()
+        match self {
+            RecvStatus::Completed(_) => false,
+            RecvStatus::WouldBlock => true,
+        }
     }
 }
 
@@ -324,5 +387,4 @@ pub trait PollRecv: Display + Send + 'static {
 pub trait PollAccept<R: PollRecv>: PollRecv {
     fn poll_accept(&mut self) -> Result<AcceptStatus<R>, Error>;
     fn con_id(&self) -> &ConId;
-    fn max_connections(&self) -> NonZeroUsize;
 }

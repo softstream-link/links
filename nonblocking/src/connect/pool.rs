@@ -237,7 +237,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PoolAcceptCltN
     /// Will `once ` interrogate internal [channel] for a new [CltRecver] and add it to the connection pool if there is capacity.
     /// Otherwise the [CltRecver] will be dropped and [Ok(PoolAcceptStatus::WouldBlock)] returned
     fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error> {
-        use AcceptStatus::{Accepted, WouldBlock};
+        use AcceptStatus::{Accepted, Rejected, WouldBlock};
         match self.accept()? {
             Accepted(recver) => match self.recvers.add(recver) {
                 Ok(_) => Ok(PoolAcceptStatus::Accepted),
@@ -246,6 +246,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> PoolAcceptCltN
                     Ok(PoolAcceptStatus::WouldBlock)
                 }
             },
+            Rejected => Ok(PoolAcceptStatus::Rejected),
             WouldBlock => Ok(PoolAcceptStatus::WouldBlock),
         }
     }
@@ -432,7 +433,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> PoolAcceptCltN
     /// Otherwise the [CltSender] will be dropped and [Ok(PoolAcceptStatus::WouldBlock)] returned
     #[inline(always)]
     fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error> {
-        use AcceptStatus::{Accepted, WouldBlock};
+        use AcceptStatus::{Accepted, Rejected, WouldBlock};
         match self.accept()? {
             Accepted(sender) => match self.senders.add(sender) {
                 Ok(_) => Ok(PoolAcceptStatus::Accepted),
@@ -441,6 +442,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> PoolAcceptCltN
                     Ok(PoolAcceptStatus::WouldBlock)
                 }
             },
+            Rejected => Ok(PoolAcceptStatus::Rejected),
             WouldBlock => Ok(PoolAcceptStatus::WouldBlock),
         }
     }
@@ -549,7 +551,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///
 /// # Example
 /// ```
-/// use links_nonblocking::{prelude::*, unittest::setup::protocol::{CltTestProtocolAuth, SvcTestProtocolAuth}};
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::{CltTestProtocolSupervised, SvcTestProtocolSupervised}};
 /// use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE};
 /// use std::num::NonZeroUsize;
 ///
@@ -558,13 +560,14 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///     ConId::svc(Some("doctest"), addr, None),
 ///     std::net::TcpListener::bind(addr).unwrap(),
 ///     DevNullCallback::default().into(),
-///     Some(SvcTestProtocolAuth::default()),
+///     Some(SvcTestProtocolSupervised::default()),
+///     NonZeroUsize::new(1).unwrap(),
 /// );
 ///
 /// let (tx_recver, rx_recver) = std::sync::mpsc::channel();
 /// let (tx_sender, rx_sender) = std::sync::mpsc::channel();
 ///
-/// let mut acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, acceptor, NonZeroUsize::new(1).unwrap());
+/// let mut acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, acceptor);
 ///
 /// println!("acceptor: {}", acceptor);
 ///
@@ -572,10 +575,11 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///
 /// // Create a new
 /// let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-///     addr, setup::net::default_connect_timeout(), 
-///     setup::net::default_connect_retry_after(), 
-///     DevNullCallback::default().into(), 
-///     Some(CltTestProtocolAuth::default()),
+///     addr, 
+///     setup::net::default_connect_timeout(),
+///     setup::net::default_connect_retry_after(),
+///     DevNullCallback::default().into(),
+///     Some(CltTestProtocolSupervised::default()),
 ///     Some("unittest")).unwrap();
 ///
 /// assert_eq!(acceptor.pool_accept().unwrap(),  PoolAcceptStatus::Accepted);
@@ -587,15 +591,14 @@ pub struct SvcPoolAcceptor<P: Protocol + 'static, C: CallbackRecvSend<P> + 'stat
     tx_recver: Sender<CltRecver<P, C, MAX_MSG_SIZE>>,
     tx_sender: Sender<CltSender<P, C, MAX_MSG_SIZE>>,
     acceptor: SvcAcceptor<P, C, MAX_MSG_SIZE>,
-    max_connections: NonZeroUsize,
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
-    pub fn new(tx_recver: Sender<CltRecver<P, C, MAX_MSG_SIZE>>, tx_sender: Sender<CltSender<P, C, MAX_MSG_SIZE>>, acceptor: SvcAcceptor<P, C, MAX_MSG_SIZE>, max_connections: NonZeroUsize) -> Self {
-        Self { tx_recver, tx_sender, acceptor, max_connections }
+    pub fn new(tx_recver: Sender<CltRecver<P, C, MAX_MSG_SIZE>>, tx_sender: Sender<CltSender<P, C, MAX_MSG_SIZE>>, acceptor: SvcAcceptor<P, C, MAX_MSG_SIZE>) -> Self {
+        Self { tx_recver, tx_sender, acceptor }
     }
     /// Will interrogate the [SvcAcceptor] for new connections and if available will return [CltRecver] and send [CltSender] to the respective [CltSender] pools.
     pub(crate) fn accept_recver(&mut self) -> Result<AcceptStatus<CltRecver<P, C, MAX_MSG_SIZE>>, Error> {
-        use AcceptStatus::{Accepted, WouldBlock};
+        use AcceptStatus::{Accepted, Rejected, WouldBlock};
         match self.acceptor.accept()? {
             Accepted(clt) => {
                 let (recver, sender) = clt.into_split();
@@ -604,6 +607,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcPoolAcce
                 }
                 Ok(Accepted(recver))
             }
+            Rejected => Ok(Rejected),
             WouldBlock => Ok(WouldBlock),
         }
     }
@@ -611,7 +615,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcPoolAcce
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolAcceptCltNonBlocking for SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
     /// Will interrogate the [SvcAcceptor] for new connections and if available will send them to the respective [CltRecver] & [CltSender] pools.
     fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error> {
-        use AcceptStatus::{Accepted, WouldBlock};
+        use AcceptStatus::{Accepted, Rejected, WouldBlock};
         match self.acceptor.accept()? {
             Accepted(clt) => {
                 let (recver, sender) = clt.into_split();
@@ -623,6 +627,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolAcceptC
                 }
                 Ok(PoolAcceptStatus::Accepted)
             }
+            Rejected => Ok(PoolAcceptStatus::Rejected),
             WouldBlock => Ok(PoolAcceptStatus::WouldBlock),
         }
     }
@@ -635,6 +640,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollRecv fo
         use PoolAcceptStatus::*;
         match self.pool_accept()? {
             Accepted => Ok(PollEventStatus::Completed),
+            Rejected => Ok(PollEventStatus::Completed),
             WouldBlock => Ok(PollEventStatus::WouldBlock),
         }
     }
@@ -644,32 +650,28 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollRecv fo
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<CltRecver<P, C, MAX_MSG_SIZE>> for SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
     fn poll_accept(&mut self) -> Result<AcceptStatus<CltRecver<P, C, MAX_MSG_SIZE>>, Error> {
-        use AcceptStatus::{Accepted, WouldBlock};
+        use AcceptStatus::{Accepted, Rejected, WouldBlock};
         match self.accept_recver()? {
             Accepted(recver) => Ok(Accepted(recver)),
+            Rejected => Ok(Rejected),
             WouldBlock => Ok(WouldBlock),
         }
     }
     fn con_id(&self) -> &links_core::prelude::ConId {
         &self.acceptor.con_id
-    }
-    fn max_connections(&self) -> NonZeroUsize {
-        self.max_connections
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<Box<dyn PollRecv>> for SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
     fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollRecv>>, Error> {
-        use AcceptStatus::{Accepted, WouldBlock};
+        use AcceptStatus::{Accepted, Rejected, WouldBlock};
         match self.accept_recver()? {
             Accepted(recver) => Ok(Accepted(Box::new(recver))),
+            Rejected => Ok(Rejected),
             WouldBlock => Ok(WouldBlock),
         }
     }
     fn con_id(&self) -> &links_core::prelude::ConId {
         &self.acceptor.con_id
-    }
-    fn max_connections(&self) -> NonZeroUsize {
-        self.max_connections
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
@@ -700,7 +702,7 @@ mod test {
 
     #[test]
     fn test_svcpool_cltpool_connected() {
-        setup::log::configure_level(LevelFilter::Info);
+        setup::log::configure_compact(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
         let max_connections = NonZeroUsize::new(2).unwrap();
 
@@ -720,7 +722,7 @@ mod test {
                 assert_eq!(svc.pool().len(), max_connections.get());
                 let clt_pool_err = clt_pool.add(clt).unwrap_err();
                 info!("clt_pool_err: {:?}", clt_pool_err);
-                let svc_pool_err = svc.pool_accept_busywait().unwrap_err();
+                let svc_pool_err = svc.pool_accept_busywait().unwrap().unwrap_rejected();
                 info!("svc_pool_err: {:?}", svc_pool_err);
             }
         }

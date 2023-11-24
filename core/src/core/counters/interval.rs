@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use super::conid::ConId;
+use crate::core::conid::ConId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EventIntervalTracker {

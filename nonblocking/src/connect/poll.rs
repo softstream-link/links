@@ -5,7 +5,6 @@ use mio::{Events, Poll, Token, Waker};
 use slab::Slab;
 use std::{
     io::Error,
-    num::NonZeroUsize,
     sync::mpsc::{channel, Receiver, Sender, TryRecvError},
     thread::Builder,
 };
@@ -146,29 +145,13 @@ impl<R: PollRecv, A: PollAccept<R>> PollHandler<R, A> {
                     },
                     Some(Acceptor(acceptor)) => match acceptor.poll_accept() {
                         Ok(AcceptStatus::Accepted(recver)) => {
-                            let (max_connections, con_id) = { (acceptor.max_connections().get(), PollAccept::con_id(acceptor).clone()) };
-                            // count number of recvers this specific acceptor have created
-                            let current_connections = {
-                                let mut count = 0;
-                                for (_, recver) in self.serviceable.iter() {
-                                    if let Recver(_recver, Some(acceptor_key)) = recver {
-                                        if acceptor_key == &key {
-                                            count += 1;
-                                        }
-                                    }
-                                }
-                                count
-                            };
-                            if current_connections >= max_connections {
-                                if log_enabled!(Level::Warn) {
-                                    warn!("Poll at max_connection: {}, con_id: {}, recver: {} will be dropped", max_connections, con_id, recver);
-                                }
-                            } else {
-                                let token = Token(self.serviceable.insert(Recver(recver, Some(key))));
-                                if let Recver(ref mut recver, _acceptor_key) = self.serviceable[token.into()] {
-                                    register_recver_as_readable!(self, recver, token);
-                                }
+                            let token = Token(self.serviceable.insert(Recver(recver, Some(key))));
+                            if let Recver(ref mut recver, _acceptor_key) = self.serviceable[token.into()] {
+                                register_recver_as_readable!(self, recver, token);
                             }
+                            had_yield = true;
+                        }
+                        Ok(AcceptStatus::Rejected) => {
                             had_yield = true;
                         }
                         Ok(AcceptStatus::WouldBlock) => continue,
@@ -213,9 +196,6 @@ impl PollAccept<Box<dyn PollRecv>> for Box<dyn PollAccept<Box<dyn PollRecv>>> {
     }
     fn con_id(&self) -> &ConId {
         PollAccept::con_id(self.as_ref())
-    }
-    fn max_connections(&self) -> NonZeroUsize {
-        self.as_ref().max_connections()
     }
 }
 impl PollRecv for Box<dyn PollAccept<Box<dyn PollRecv>>> {
@@ -278,17 +258,17 @@ pub type SpawnedPollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = SpawnedPoll
 #[cfg(test)]
 #[cfg(feature = "unittest")]
 mod test {
-    use std::{
-        num::NonZeroUsize,
-        time::{Duration, Instant},
-    };
+    use std::{num::NonZeroUsize, time::Instant};
 
-    use crate::prelude::*;
     use crate::unittest::setup::protocol::{CltTestProtocolAuth, SvcTestProtocolAuth};
+    use crate::{
+        prelude::*,
+        unittest::setup::protocol::{CltTestProtocolSupervised, SvcTestProtocolSupervised},
+    };
     use links_core::unittest::setup::{
         self,
         messenger::TEST_MSG_FRAME_SIZE,
-        model::{CltTestMsg, CltTestMsgDebug, UniTestMsg, SvcTestMsg, SvcTestMsgDebug},
+        model::{CltTestMsg, CltTestMsgDebug, SvcTestMsg, SvcTestMsgDebug, UniTestMsg},
     };
     use log::info;
 
@@ -300,9 +280,9 @@ mod test {
         let counter = CounterCallback::new_ref();
         let clbk = ChainCallback::new_ref(vec![LoggerCallback::new_ref(), counter.clone()]);
 
-        let svc: Svc<SvcTestProtocolAuth, _, TEST_MSG_FRAME_SIZE> = Svc::bind(addr, clbk, NonZeroUsize::new(1).unwrap(), None, Some("unittest/svc")).unwrap();
+        let svc: Svc<SvcTestProtocolSupervised, _, TEST_MSG_FRAME_SIZE> = Svc::bind(addr, clbk, NonZeroUsize::new(1).unwrap(), None, Some("unittest/svc")).unwrap();
 
-        let mut clt: Clt<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), None, Some("unittest/clt")).unwrap();
+        let mut clt: Clt<CltTestProtocolSupervised, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), None, Some("unittest/clt")).unwrap();
 
         let (acceptor, _, _sender_pool) = svc.into_split();
 
@@ -326,10 +306,16 @@ mod test {
         assert_eq!(counter.recv_count(), write_count);
 
         // test that second connection is denied due to svc having set the limit of 1 on max connections
-        let mut clt1: Clt<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), None, Some("unittest/clt")).unwrap();
-        let status = clt1.recv_busywait_timeout(Duration::from_millis(1000)).unwrap();
+        let mut clt1: Clt<CltTestProtocolSupervised, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), None, Some("unittest/clt")).unwrap();
+        let status = clt1.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap();
         info!("status: {:?}", status);
-        assert_eq!(status.unwrap_completed(), None);
+        assert!(status.is_completed_none());
+        // however after dropping clt a new connection can be established, drop will close the socket which svc will detect and allow a new connection
+        drop(clt);
+        let mut clt1: Clt<CltTestProtocolSupervised, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), None, Some("unittest/clt")).unwrap();
+        let status = clt1.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap();
+        info!("status: {:?}", status);
+        assert!(status.is_wouldblock());
     }
 
     #[test]
