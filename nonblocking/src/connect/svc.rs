@@ -53,6 +53,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> AcceptNonBl
         match self.listener.accept() {
             Ok((stream, addr)) => {
                 // TODO add rate limiter
+                unimplemented!("TODO add rate limiter");
                 let stream = unsafe { std::net::TcpStream::from_raw_fd(stream.into_raw_fd()) };
 
                 let con_id = {
@@ -136,6 +137,9 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     }
     /// Will split [Svc] into owned [SvcPoolAcceptor], [CltRecversPool] and [CltSendersPool] all of which can be used by different threads
     pub fn into_split(self) -> (SvcPoolAcceptor<P, C, MAX_MSG_SIZE>, CltRecversPool<P, C, MAX_MSG_SIZE>, CltSendersPool<P, C, MAX_MSG_SIZE>) {
+        if !self.clts_pool.is_empty(){
+            panic!("Can't call Svc::into_split can Svc already has accepted connections in the pool: {}", self.clts_pool)   
+        }
         let max_connections = self.clts_pool.max_connections();
         let ((tx_recver, tx_sender), (svc_recver, svc_sender)) = self.clts_pool.into_split();
         let acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, self.acceptor, max_connections);
@@ -144,13 +148,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
 
     /// Will take [Svc] split it using [Self::into_split] and only return [CltSendersPool] while registering resulting [SvcPoolAcceptor] with
     /// [static@crate::connect::DEFAULT_POLL_HANDLER]
-    /// 
-    /// # Warning
-    /// This this result in any existing client connections to be dropped
     pub fn into_spawned_sender(self) -> CltSendersPool<P, C, MAX_MSG_SIZE> {
-        if !self.clts_pool.is_empty(){
-            panic!("into_spawned_sender can only be called Svc did not accept any connections yet")   
-        }
         let (acceptor, _recver_drop, sender) = self.into_split();
         crate::connect::DEFAULT_POLL_HANDLER.add_acceptor(acceptor.into());
         sender
