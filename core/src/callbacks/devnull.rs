@@ -51,8 +51,8 @@ mod test {
         let clbk = DevNullCallback::<CltTestMessenger>::new_ref();
 
         for _ in 0..2 {
-            let mut msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"hello".as_slice()));
-            clbk.on_send(&ConId::default(), &mut msg);
+            let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"hello".as_slice()));
+            clbk.on_sent(&ConId::default(), &msg);
         }
         for _ in 0..2 {
             let msg = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"hello".as_slice()));

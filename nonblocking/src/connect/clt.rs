@@ -1,6 +1,6 @@
 use std::{
     fmt::Display,
-    io::{Error, ErrorKind},
+    io::Error,
     net::TcpStream,
     sync::Arc,
     thread::sleep,
@@ -79,7 +79,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> CltSender<M, C
 impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlocking<M> for CltSender<M, C, MAX_MSG_SIZE> {
     #[inline(always)]
     fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<SendStatus, Error> {
-        self.callback.on_send(&self.msg_sender.frm_writer.con_id, msg);
+        // self.callback.on_send(&self.msg_sender.frm_writer.con_id, msg); // TODO add protocol
 
         match self.msg_sender.send(msg) {
             Ok(SendStatus::Completed) => {
@@ -87,18 +87,18 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlockin
                 Ok(SendStatus::Completed)
             }
             Ok(SendStatus::WouldBlock) => {
-                self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &ErrorKind::WouldBlock.into());
+                // self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &ErrorKind::WouldBlock.into()); // TODO add protocol
                 Ok(SendStatus::WouldBlock)
             }
             Err(e) => {
-                self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
+                // self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &e); // TODO add protocol
                 Err(e)
             }
         }
     }
     #[inline(always)]
     fn send_busywait_timeout(&mut self, msg: &mut <M as Messenger>::SendT, timeout: Duration) -> Result<SendStatus, Error> {
-        self.callback.on_send(&self.msg_sender.frm_writer.con_id, msg);
+        // self.callback.on_send(&self.msg_sender.frm_writer.con_id, msg);
 
         match self.msg_sender.send_busywait_timeout(msg, timeout) {
             Ok(SendStatus::Completed) => {
@@ -106,18 +106,18 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlockin
                 Ok(SendStatus::Completed)
             }
             Ok(SendStatus::WouldBlock) => {
-                self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &ErrorKind::WouldBlock.into());
+                // self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &ErrorKind::WouldBlock.into());
                 Ok(SendStatus::WouldBlock)
             }
             Err(e) => {
-                self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
+                // self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
                 Err(e)
             }
         }
     }
     #[inline(always)]
     fn send_busywait(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<(), Error> {
-        self.callback.on_send(&self.msg_sender.frm_writer.con_id, msg);
+        // self.callback.on_send(&self.msg_sender.frm_writer.con_id, msg);
 
         match self.msg_sender.send_busywait(msg) {
             Ok(()) => {
@@ -125,7 +125,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendNonBlockin
                 Ok(())
             }
             Err(e) => {
-                self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
+                // self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
                 Err(e)
             }
         }

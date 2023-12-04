@@ -10,14 +10,14 @@ use crate::{asserted_short_name, prelude::*};
 #[derive(Debug, Clone)]
 pub struct LoggerCallback<M: Messenger> {
     level_recv: Level,
-    level_send: Level,
+    level_sent: Level,
     phantom: std::marker::PhantomData<M>,
 }
 impl<M: Messenger> LoggerCallback<M> {
-    pub fn with_level(level_recv: Level, level_send: Level) -> Self {
+    pub fn with_level(level_recv: Level, level_sent: Level) -> Self {
         Self {
             level_recv,
-            level_send,
+            level_sent,
             phantom: std::marker::PhantomData,
         }
     }
@@ -45,14 +45,14 @@ impl<M: Messenger> Default for LoggerCallback<M> {
     fn default() -> Self {
         Self {
             level_recv: Level::Info,
-            level_send: Level::Info,
+            level_sent: Level::Info,
             phantom: std::marker::PhantomData,
         }
     }
 }
 impl<M: Messenger> Display for LoggerCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}<recv: {}, send: {}>", asserted_short_name!("LoggerCallback", Self), self.level_recv, self.level_send)
+        write!(f, "{}<recv: {}, send: {}>", asserted_short_name!("LoggerCallback", Self), self.level_recv, self.level_sent)
     }
 }
 impl<M: Messenger> CallbackRecvSend<M> for LoggerCallback<M> {}
@@ -65,18 +65,8 @@ impl<M: Messenger> CallbackRecv<M> for LoggerCallback<M> {
 }
 impl<M: Messenger> CallbackSend<M> for LoggerCallback<M> {
     fn on_sent(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {
-        if log_enabled!(self.level_send) {
-            self.log(self.level_send, "on_sent", con_id, &format!("{:?}", msg));
-        }
-    }
-    fn on_fail(&self, con_id: &ConId, msg: &<M as Messenger>::SendT, e: &std::io::Error) {
-        if log_enabled!(self.level_send) {
-            self.log(self.level_send, "on_fail", con_id, &format!("{:?} {}", msg, e));
-        }
-    }
-    fn on_send(&self, con_id: &ConId, msg: &mut <M as Messenger>::SendT) {
-        if log_enabled!(self.level_send) {
-            self.log(self.level_send, "on_send", con_id, &format!("{:?}", msg));
+        if log_enabled!(self.level_sent) {
+            self.log(self.level_sent, "on_sent", con_id, &format!("{:?}", msg));
         }
     }
 }
@@ -95,8 +85,8 @@ mod test {
         let clbk = LoggerCallback::<CltTestMessenger>::with_level(Level::Trace, Level::Trace);
 
         for _ in 0..2 {
-            let mut msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"hello".as_slice()));
-            clbk.on_send(&ConId::default(), &mut msg);
+            let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"hello".as_slice()));
+            clbk.on_sent(&ConId::default(), &msg);
         }
         for _ in 0..2 {
             let msg = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"hello".as_slice()));

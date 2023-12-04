@@ -62,14 +62,14 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> CltSender<M, C
 }
 impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> SendMsg<M> for CltSender<M, C, MAX_MSG_SIZE> {
     fn send(&mut self, msg: &mut <M as Messenger>::SendT) -> Result<(), Error> {
-        self.callback.on_send(&self.msg_sender.frm_writer.con_id, msg);
+        // self.callback.on_send(&self.msg_sender.frm_writer.con_id, msg);
         match self.msg_sender.send(msg) {
             Ok(()) => {
                 self.callback.on_sent(&self.msg_sender.frm_writer.con_id, msg);
                 Ok(())
             }
             Err(e) => {
-                self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
+                // self.callback.on_fail(&self.msg_sender.frm_writer.con_id, msg, &e);
                 Err(e)
             }
         }

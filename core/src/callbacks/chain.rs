@@ -22,13 +22,7 @@ impl<M: Messenger> ChainCallback<M> {
 }
 impl<M: Messenger> Display for ChainCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}<{}, [{}]>",
-            asserted_short_name!("ChainCallback", Self),
-            self.chain.len(),
-            self.chain.iter().map(|c| format!("{}", c)).collect::<Vec<_>>().join(", ")
-        )
+        write!(f, "{}<{}, [{}]>", asserted_short_name!("ChainCallback", Self), self.chain.len(), self.chain.iter().map(|c| format!("{}", c)).collect::<Vec<_>>().join(", "))
     }
 }
 impl<M: Messenger> CallbackRecvSend<M> for ChainCallback<M> {}
@@ -40,16 +34,6 @@ impl<M: Messenger> CallbackRecv<M> for ChainCallback<M> {
     }
 }
 impl<M: Messenger> CallbackSend<M> for ChainCallback<M> {
-    fn on_fail(&self, con_id: &ConId, msg: &<M as Messenger>::SendT, e: &std::io::Error) {
-        for callback in self.chain.iter() {
-            callback.on_fail(con_id, msg, e);
-        }
-    }
-    fn on_send(&self, con_id: &ConId, msg: &mut <M as Messenger>::SendT) {
-        for callback in self.chain.iter() {
-            callback.on_send(con_id, msg);
-        }
-    }
     fn on_sent(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {
         for callback in self.chain.iter() {
             callback.on_sent(con_id, msg);
@@ -78,8 +62,6 @@ mod test {
         }
         info!("clbk: {}", clbk);
         assert_eq!(counter.sent_count(), 2);
-        assert_eq!(counter.send_count(), 0);
-        assert_eq!(counter.fail_count(), 0);
         assert_eq!(counter.recv_count(), 0);
     }
 }
