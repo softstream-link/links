@@ -26,7 +26,9 @@ fn run() -> Result<(), Box<dyn Error>> {
     let svc_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<SvcTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::new_ref(), NonZeroUsize::new(1).unwrap(), None, Some("example/clt")).unwrap();
+            let protocol = SvcTestProtocolAuth::default();
+            let name = Some("example/svc");
+            let svc = Svc::<SvcTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::new_ref(), NonZeroUsize::new(1).unwrap(), protocol, name).unwrap();
 
             info!("svc: {}", svc);
             let mut clt = svc.accept_busywait_timeout(setup::net::default_connect_timeout()).unwrap().unwrap_accepted();
@@ -47,7 +49,9 @@ fn run() -> Result<(), Box<dyn Error>> {
         })
         .unwrap();
 
-    let mut clt = Clt::<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), None, Some("example/svc")).unwrap();
+    let protocol = CltTestProtocolAuth::default();
+    let name = Some("example/clt");
+    let mut clt = Clt::<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), protocol, name).unwrap();
     info!("clt {}", clt);
 
     let mut clt_send_msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));

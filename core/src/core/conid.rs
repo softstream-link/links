@@ -84,8 +84,11 @@ impl Display for ConId {
     }
 }
 
-#[cfg(test)]
+pub trait ConnectionId {
+    fn con_id(&self) -> &ConId;
+}
 
+#[cfg(test)]
 mod test {
 
     use log::info;

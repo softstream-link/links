@@ -23,7 +23,7 @@ macro_rules! register_acceptor_as_readable {
         $self.poll.registry().register(*$acceptor.source(), $token, mio::Interest::READABLE).expect("Failed to poll register acceptor");
 
         if log_enabled!(Level::Debug) {
-            debug!("registered acceptor: {} with token: {:?}", PollAccept::con_id($acceptor), $token);
+            debug!("registered acceptor: {} with token: {:?}", $acceptor.con_id(), $token);
         }
     };
 }
@@ -194,9 +194,6 @@ impl PollAccept<Box<dyn PollRecv>> for Box<dyn PollAccept<Box<dyn PollRecv>>> {
     fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollRecv>>, Error> {
         self.as_mut().poll_accept()
     }
-    fn con_id(&self) -> &ConId {
-        PollAccept::con_id(self.as_ref())
-    }
 }
 impl PollRecv for Box<dyn PollAccept<Box<dyn PollRecv>>> {
     fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
@@ -205,8 +202,10 @@ impl PollRecv for Box<dyn PollAccept<Box<dyn PollRecv>>> {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         self.as_mut().source()
     }
+}
+impl ConnectionId for Box<dyn PollAccept<Box<dyn PollRecv>>> {
     fn con_id(&self) -> &ConId {
-        PollRecv::con_id(self.as_ref())
+        self.as_ref().con_id()
     }
 }
 
@@ -217,6 +216,8 @@ impl PollRecv for Box<dyn PollRecv> {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         self.as_mut().source()
     }
+}
+impl ConnectionId for Box<dyn PollRecv> {
     fn con_id(&self) -> &ConId {
         self.as_ref().con_id()
     }
@@ -258,9 +259,6 @@ pub type SpawnedPollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = SpawnedPoll
 #[cfg(test)]
 #[cfg(feature = "unittest")]
 mod test {
-    use std::{num::NonZeroUsize, time::Instant};
-
-    use crate::unittest::setup::protocol::{CltTestProtocolAuth, SvcTestProtocolAuth};
     use crate::{
         prelude::*,
         unittest::setup::protocol::{CltTestProtocolSupervised, SvcTestProtocolSupervised},
@@ -271,6 +269,7 @@ mod test {
         model::{CltTestMsg, CltTestMsgDebug, SvcTestMsg, SvcTestMsgDebug, UniTestMsg},
     };
     use log::info;
+    use std::{num::NonZeroUsize, time::Instant};
 
     #[test]
     fn test_poller_static() {
@@ -279,10 +278,9 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
         let counter = CounterCallback::new_ref();
         let clbk = ChainCallback::new_ref(vec![LoggerCallback::new_ref(), counter.clone()]);
+        let svc: Svc<_, _, TEST_MSG_FRAME_SIZE> = Svc::bind(addr, clbk, NonZeroUsize::new(1).unwrap(), SvcTestProtocolSupervised::default(), Some("unittest/svc")).unwrap();
 
-        let svc: Svc<SvcTestProtocolSupervised, _, TEST_MSG_FRAME_SIZE> = Svc::bind(addr, clbk, NonZeroUsize::new(1).unwrap(), None, Some("unittest/svc")).unwrap();
-
-        let mut clt: Clt<CltTestProtocolSupervised, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), None, Some("unittest/clt")).unwrap();
+        let mut clt: Clt<_, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), CltTestProtocolSupervised::default(), Some("unittest/clt")).unwrap();
 
         let (acceptor, _, _sender_pool) = svc.into_split();
 
@@ -306,13 +304,13 @@ mod test {
         assert_eq!(counter.recv_count(), write_count);
 
         // test that second connection is denied due to svc having set the limit of 1 on max connections
-        let mut clt1: Clt<CltTestProtocolSupervised, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), None, Some("unittest/clt")).unwrap();
+        let mut clt1: Clt<_, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), CltTestProtocolSupervised::default(), Some("unittest/clt")).unwrap();
         let status = clt1.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap();
         info!("status: {:?}", status);
         assert!(status.is_completed_none());
         // however after dropping clt a new connection can be established, drop will close the socket which svc will detect and allow a new connection
         drop(clt);
-        let mut clt1: Clt<CltTestProtocolSupervised, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), None, Some("unittest/clt")).unwrap();
+        let mut clt1: Clt<_, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), CltTestProtocolSupervised::default(), Some("unittest/clt")).unwrap();
         let status = clt1.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap();
         info!("status: {:?}", status);
         assert!(status.is_wouldblock());
@@ -327,11 +325,27 @@ mod test {
 
         let store = CanonicalEntryStore::<UniTestMsg>::new_ref();
 
-        let svc1 = Svc::<SvcTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::bind(addr1, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), None, Some("unittest/svc1")).unwrap();
-        let svc2 = Svc::<SvcTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::bind(addr2, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), None, Some("unittest/svc2")).unwrap();
+        let svc1 = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr1, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), SvcTestProtocolSupervised::default(), Some("unittest/svc1")).unwrap();
+        let svc2 = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr2, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), SvcTestProtocolSupervised::default(), Some("unittest/svc2")).unwrap();
 
-        let clt1 = Clt::<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::connect(addr1, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), StoreCallback::new_ref(store.clone()), None, Some("unittest/clt1")).unwrap();
-        let clt2 = Clt::<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::connect(addr2, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), StoreCallback::new_ref(store.clone()), None, Some("unittest/clt2")).unwrap();
+        let clt1 = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+            addr1,
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
+            StoreCallback::new_ref(store.clone()),
+            CltTestProtocolSupervised::default(),
+            Some("unittest/clt1"),
+        )
+        .unwrap();
+        let clt2 = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+            addr2,
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
+            StoreCallback::new_ref(store.clone()),
+            CltTestProtocolSupervised::default(),
+            Some("unittest/clt2"),
+        )
+        .unwrap();
 
         let (acceptor1, _, mut svc1) = svc1.into_split();
         let (acceptor2, _, mut svc2) = svc2.into_split();

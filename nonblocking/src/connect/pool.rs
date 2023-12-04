@@ -2,7 +2,7 @@ use crate::{
     core::PollAccept,
     prelude::{AcceptNonBlocking, AcceptStatus, CallbackRecv, CallbackRecvSend, CallbackSend, Clt, CltRecver, CltSender, Messenger, PollEventStatus, PollRecv, PoolAcceptCltNonBlocking, PoolAcceptStatus, Protocol, RecvNonBlocking, RecvStatus, SendNonBlocking, SendStatus, SvcAcceptor},
 };
-use links_core::{asserted_short_name, prelude::RoundRobinPool};
+use links_core::{asserted_short_name, prelude::RoundRobinPool, core::conid::ConnectionId};
 use log::{info, log_enabled, warn, Level};
 use std::{
     fmt::Display,
@@ -28,7 +28,7 @@ use std::{
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::default().into(),
-///     Some(CltTestProtocolAuth::default()),
+///     CltTestProtocolAuth::default(),
 ///     Some("doctest"),
 /// );
 ///
@@ -177,7 +177,7 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = ((Sender<CltRecver<M, 
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::default().into(),
-///     Some(CltTestProtocolAuth::default()),
+///     CltTestProtocolAuth::default(),
 ///     Some("doctest"),
 /// );
 ///
@@ -372,7 +372,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::default().into(),
-///     Some(CltTestProtocolAuth::default()),
+///     CltTestProtocolAuth::default(),
 ///     Some("doctest"),
 /// );
 ///
@@ -560,7 +560,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///     ConId::svc(Some("doctest"), addr, None),
 ///     std::net::TcpListener::bind(addr).unwrap(),
 ///     DevNullCallback::default().into(),
-///     Some(SvcTestProtocolSupervised::default()),
+///     SvcTestProtocolSupervised::default(),
 ///     NonZeroUsize::new(1).unwrap(),
 /// );
 ///
@@ -575,11 +575,11 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///
 /// // Create a new
 /// let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-///     addr, 
+///     addr,
 ///     setup::net::default_connect_timeout(),
 ///     setup::net::default_connect_retry_after(),
 ///     DevNullCallback::default().into(),
-///     Some(CltTestProtocolSupervised::default()),
+///     CltTestProtocolSupervised::default(),
 ///     Some("unittest")).unwrap();
 ///
 /// assert_eq!(acceptor.pool_accept().unwrap(),  PoolAcceptStatus::Accepted);
@@ -644,6 +644,8 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollRecv fo
             WouldBlock => Ok(PollEventStatus::WouldBlock),
         }
     }
+}
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
     fn con_id(&self) -> &links_core::prelude::ConId {
         &self.acceptor.con_id
     }
@@ -657,9 +659,6 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<
             WouldBlock => Ok(WouldBlock),
         }
     }
-    fn con_id(&self) -> &links_core::prelude::ConId {
-        &self.acceptor.con_id
-    }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<Box<dyn PollRecv>> for SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
     fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollRecv>>, Error> {
@@ -669,9 +668,6 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<
             Rejected => Ok(Rejected),
             WouldBlock => Ok(WouldBlock),
         }
-    }
-    fn con_id(&self) -> &links_core::prelude::ConId {
-        &self.acceptor.con_id
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
@@ -689,9 +685,8 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<SvcPoo
 #[cfg(feature = "unittest")]
 mod test {
     use std::{io::ErrorKind, num::NonZeroUsize, time::Duration};
-
-    use crate::unittest::setup::protocol::SvcTestProtocolAuth;
-    use crate::{prelude::*, unittest::setup::protocol::CltTestProtocolAuth};
+    use crate::prelude::*;
+    use crate::unittest::setup::protocol::{CltTestProtocolSupervised, SvcTestProtocolSupervised};
     use links_core::unittest::setup::{
         self,
         framer::TEST_MSG_FRAME_SIZE,
@@ -705,13 +700,12 @@ mod test {
         setup::log::configure_compact(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
         let max_connections = NonZeroUsize::new(2).unwrap();
-
-        let mut svc = Svc::<SvcTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::new_ref(), max_connections, None, Some("unittest")).unwrap();
+        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::new_ref(), max_connections, SvcTestProtocolSupervised::default(), Some("unittest")).unwrap();
         info!("svc: {}", svc);
 
         let mut clt_pool = CltsPool::with_capacity(max_connections);
         for i in 0..max_connections.get() * 2 {
-            let clt = Clt::<CltTestProtocolAuth, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), None, Some("unittest")).unwrap();
+            let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), CltTestProtocolSupervised::default(), Some("unittest")).unwrap();
             info!("#{}, clt: {}", i, clt);
             // all connections over max_connections will be dropped
             if clt_pool.has_capacity() {

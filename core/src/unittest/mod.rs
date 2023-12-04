@@ -186,7 +186,7 @@ pub mod setup {
                 Self::Dbg(msg)
             }
         }
-        impl From<CltTestMsgLoginReq> for CltTestMsg{
+        impl From<CltTestMsgLoginReq> for CltTestMsg {
             fn from(value: CltTestMsgLoginReq) -> Self {
                 Self::Login(value)
             }
@@ -208,7 +208,7 @@ pub mod setup {
                 Self::Dbg(msg)
             }
         }
-        impl From<SvcTestMsgLoginAcpt> for SvcTestMsg{
+        impl From<SvcTestMsgLoginAcpt> for SvcTestMsg {
             fn from(value: SvcTestMsgLoginAcpt) -> Self {
                 Self::Accept(value)
             }

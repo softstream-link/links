@@ -26,16 +26,6 @@ pub trait CallbackRecv<M: Messenger>: Display + Debug + Send + Sync + 'static {
 
 #[allow(unused_variables)]
 pub trait CallbackSend<M: Messenger>: Display + Debug {
-    // /// Will be called before message is serialized and sent and gives you ability to modify message.
-    // /// Default implementation does nothing and will be optimized away, only override if you need to modify message.
-    // #[inline(always)]
-    // fn on_send(&self, con_id: &ConId, msg: &mut M::SendT) {}
-
-    // /// Will be called if there was an unrecoverable IO Error during sending.
-    // /// Default implementation does nothing and will be optimized away, only override if you need to handle error.
-    // #[inline(always)]
-    // fn on_fail(&self, con_id: &ConId, msg: &M::SendT, e: &Error) {}
-
     /// Will be called after message is serialized and sent.
     fn on_sent(&self, con_id: &ConId, msg: &M::SendT);
 }

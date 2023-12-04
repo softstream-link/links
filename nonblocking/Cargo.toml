@@ -10,7 +10,7 @@ mio = { workspace = true } # epoll wrapper
 nix = { workspace = true } # libc wrapper
 
 # blocking & nonblocking
-bytes = { workspace = true } # read buffer
+bytes = { workspace = true }      # read buffer
 links_core = { workspace = true } # traits
 
 log = { workspace = true }
@@ -20,6 +20,8 @@ slab = { workspace = true } # used by poller
 byteserde = { workspace = true } # byteserde::utils::hex::to_hex_pretty #TODO move to seperate crate
 
 lazy_static = { workspace = true } # used by common poller
+
+spin = { workspace = true } # spint mutex
 
 [dev-dependencies]
 links_core = { workspace = true, features = ["unittest"] } # traits
@@ -42,7 +44,7 @@ default = [
 full = ["unittest"]
 unittest = [
     # "dep:links_core", "links_core/unittest"
-    "links_core/unittest"
+    "links_core/unittest",
 ] # exists to provide test implementation of the Protocol trait for test Messenger coming from links_core::unittest::...
 
 
@@ -72,6 +74,7 @@ harness = false
 [[bench]]
 name = "06_clt2clt_nonblocking_busywait_bench"
 harness = false
+required-features = ["unittest"]
 
 
 # EXAMPLES

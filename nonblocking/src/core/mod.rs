@@ -2,13 +2,12 @@ pub mod framer;
 pub mod messenger;
 pub mod protocol;
 
+use links_core::{core::conid::ConnectionId, prelude::Messenger};
 use std::{
     fmt::{Debug, Display},
     io::Error,
     time::{Duration, Instant},
 };
-
-use links_core::{core::conid::ConId, prelude::Messenger};
 
 // ---- Acceptor ----
 
@@ -25,6 +24,7 @@ pub enum PoolAcceptStatus {
 }
 impl PoolAcceptStatus {
     /// Unwraps to [()] if the variant is [PoolAcceptStatus::Accepted], otherwise panics
+    #[track_caller]
     pub fn unwrap_accepted(self) {
         match self {
             PoolAcceptStatus::Accepted => (),
@@ -32,6 +32,7 @@ impl PoolAcceptStatus {
             PoolAcceptStatus::WouldBlock => panic!("PoolAcceptStatus::WouldBlock"),
         }
     }
+    #[track_caller]
     pub fn unwrap_rejected(self) {
         match self {
             PoolAcceptStatus::Accepted => panic!("PoolAcceptStatus::Accepted"),
@@ -104,6 +105,7 @@ pub enum AcceptStatus<T> {
 }
 impl<T> AcceptStatus<T> {
     /// Unwraps into [AcceptedStatus::Accepted(T)] if the variant is [AcceptStatus::Accepted], otherwise panics
+    #[track_caller]
     pub fn unwrap_accepted(self) -> T {
         match self {
             AcceptStatus::Accepted(t) => t,
@@ -179,6 +181,7 @@ pub enum RecvStatus<T> {
 }
 impl<T> RecvStatus<T> {
     /// Will panic if the variant is [RecvStatus::WouldBlock], otherwise unwraps into [`Option<T>`] from [RecvStatus::Completed(`Option<T>`)]
+    #[track_caller]
     pub fn unwrap_completed_none(self) {
         match self {
             RecvStatus::Completed(Some(_)) => panic!("ReadStatus::Completed(Some(_))"),
@@ -187,6 +190,7 @@ impl<T> RecvStatus<T> {
         }
     }
     /// Will panic if the variant is [RecvStatus::WouldBlock] or [RecvStatus::Completed(None)],  otherwise unwraps into `T` from [RecvStatus::Completed(Some(T))]
+    #[track_caller]
     pub fn unwrap_completed_some(self) -> T {
         match self {
             RecvStatus::Completed(Some(t)) => t,
@@ -194,6 +198,7 @@ impl<T> RecvStatus<T> {
             RecvStatus::WouldBlock => panic!("ReadStatus::WouldBlock"),
         }
     }
+    #[track_caller]
     pub fn unwrap_wouldblock(self) {
         match self {
             RecvStatus::Completed(_) => panic!("ReadStatus::Completed(_)"),
@@ -276,6 +281,7 @@ pub enum SendStatus {
 impl SendStatus {
     /// Will panic if the variant is [SendStatus::WouldBlock], otherwise unwraps into [()] from [SendStatus::Completed]
     #[inline(always)]
+    #[track_caller]
     pub fn unwrap_completed(self) {
         match self {
             SendStatus::Completed => {}
@@ -294,16 +300,20 @@ impl SendStatus {
 }
 
 pub trait SendNonBlocking<M: Messenger> {
-    /// The call will internally serialize the msg and attempt to write the resulting bytes into a stream.
-    /// If there was a successfull attempt which wrote some bytes from serialized message
-    /// into the stream but the write was only partial then the call will busy wait until all of
-    /// remaining bytes were written before returning [SendStatus::Completed].
+    /// The call will internally serialize the [Messenger::SendT] and attempt to write the resulting bytes into a stream.
+    /// If there was a successfull attempt which wrote some, not all, bytes from serialized message
+    /// into the stream and hence the write was only partial, the call will busy wait until all of
+    /// remaining bytes are written before returning [SendStatus::Completed].
     /// [SendStatus::WouldBlock] is returned only if the attempt did not write any bytes to the stream
     /// after the first attempt
     fn send(&mut self, msg: &mut M::SendT) -> Result<SendStatus, Error>;
 
     /// Will call [Self::send] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
     /// while propagating all errors from [Self::send]
+    ///
+    /// # Warning
+    /// Consider overriding this default implementation if your [Self::send] implementation issues callback functions
+    /// calls which must be called once and only once.
     #[inline(always)]
     fn send_busywait_timeout(&mut self, msg: &mut M::SendT, timeout: Duration) -> Result<SendStatus, Error> {
         use SendStatus::{Completed, WouldBlock};
@@ -320,6 +330,10 @@ pub trait SendNonBlocking<M: Messenger> {
         }
     }
     /// Will call [Self::send] until it returns [SendStatus::Completed]
+    ///
+    /// # Warning
+    /// Consider overriding this default implementation if your [Self::send] implementation issues callback functions
+    /// calls which must be called once and only once.
     #[inline(always)]
     fn send_busywait(&mut self, msg: &mut M::SendT) -> Result<(), Error> {
         use SendStatus::{Completed, WouldBlock};
@@ -378,13 +392,11 @@ pub enum PollEventStatus {
     Terminate,
 }
 
-pub trait PollRecv: Display + Send + 'static {
+pub trait PollRecv: ConnectionId + Display + Send + 'static {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source>;
     fn on_readable_event(&mut self) -> Result<PollEventStatus, Error>;
-    fn con_id(&self) -> &ConId;
 }
 
 pub trait PollAccept<R: PollRecv>: PollRecv {
     fn poll_accept(&mut self) -> Result<AcceptStatus<R>, Error>;
-    fn con_id(&self) -> &ConId;
 }

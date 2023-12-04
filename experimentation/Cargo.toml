@@ -11,10 +11,12 @@ bytes = "1.4"
 mio = { version = "0.8", features = ["os-poll", "net"] }
 slab = "0.4"
 rand = "0.8"
-links_core = { workspace = true, features = ["unittest"]}
+links_core = { workspace = true, features = ["unittest"] }
 links_nonblocking = { workspace = true }
 num-format = { workspace = true }
 
 log = { workspace = true }
 
 criterion = { workspace = true }
+
+spin = { workspace = true }
