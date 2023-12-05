@@ -54,7 +54,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         clt_sender.send_busywait(msg)?;
     }
 
-    svc_sender.pool_accept_busywait()?; // ensure there there is sufficient time for poll_handler thread to wake up and accept incoming connection
+    svc_sender.accept_into_pool_busywait()?; // ensure there there is sufficient time for poll_handler thread to wake up and accept incoming connection
     for msg in svc_msgs.iter_mut() {
         svc_sender.send_busywait(msg)?;
     }

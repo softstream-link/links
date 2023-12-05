@@ -27,9 +27,13 @@ pub trait Protocol: Messenger + Clone {
     #[inline(always)]
     fn on_sent(&self, con_id: &ConId, msg: &<Self as Messenger>::SendT) {}
 
-    /// Called immediately after the message has been received and and allows to produce a reply with a provided sender
+    /// Called immediately after the message has been received
     #[inline(always)]
-    fn on_recv<S: SendNonBlocking<Self> + ConnectionId>(&self, msg: &<Self as Messenger>::RecvT, sender: &mut S) -> Result<(), Error> {
+    fn on_recv(&self, con_id: &ConId, msg: &<Self as Messenger>::RecvT) {}
+    
+    /// Called after on_recv callback and allows to issue a reply to the received message
+    #[inline(always)]
+    fn do_reply<S: SendNonBlocking<Self> + ConnectionId>(&self, msg: &<Self as Messenger>::RecvT, sender: &mut S) -> Result<(), Error> {
         Ok(())
     }
 }

@@ -63,13 +63,13 @@ impl PoolAcceptStatus {
     }
 }
 pub trait PoolAcceptCltNonBlocking {
-    fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error>;
-    /// Will call [Self::pool_accept] until it returns [PoolAcceptStatus::Accepted] or [PoolAcceptStatus::WouldBlock] after the timeout.
-    fn pool_accept_busywait_timeout(&mut self, timeout: Duration) -> Result<PoolAcceptStatus, Error> {
+    fn accept_into_pool(&mut self) -> Result<PoolAcceptStatus, Error>;
+    /// Will call [Self::accept_into_pool] until it returns [PoolAcceptStatus::Accepted] or [PoolAcceptStatus::WouldBlock] after the timeout.
+    fn accept_into_pool_busywait_timeout(&mut self, timeout: Duration) -> Result<PoolAcceptStatus, Error> {
         use PoolAcceptStatus::{Accepted, Rejected, WouldBlock};
         let start = Instant::now();
         loop {
-            match self.pool_accept()? {
+            match self.accept_into_pool()? {
                 Accepted => return Ok(Accepted),
                 Rejected => return Ok(Rejected),
                 WouldBlock => {
@@ -80,11 +80,11 @@ pub trait PoolAcceptCltNonBlocking {
             }
         }
     }
-    /// Will call [Self::pool_accept] until it returns [PoolAcceptStatus::Accepted]
-    fn pool_accept_busywait(&mut self) -> Result<PoolAcceptStatus, Error> {
+    /// Will call [Self::accept_into_pool] until it returns [PoolAcceptStatus::Accepted]
+    fn accept_into_pool_busywait(&mut self) -> Result<PoolAcceptStatus, Error> {
         use PoolAcceptStatus::{Accepted, Rejected, WouldBlock};
         loop {
-            match self.pool_accept()? {
+            match self.accept_into_pool()? {
                 Accepted => return Ok(Accepted),
                 Rejected => return Ok(Rejected),
                 WouldBlock => continue,
@@ -132,6 +132,13 @@ impl<T> AcceptStatus<T> {
             AcceptStatus::Accepted(_) => false,
             AcceptStatus::Rejected => true,
             AcceptStatus::WouldBlock => false,
+        }
+    }
+    pub fn map<X>(self, f: impl FnOnce(T) -> X) -> AcceptStatus<X> {
+        match self {
+            AcceptStatus::Accepted(t) => AcceptStatus::Accepted(f(t)),
+            AcceptStatus::Rejected => AcceptStatus::Rejected,
+            AcceptStatus::WouldBlock => AcceptStatus::WouldBlock,
         }
     }
 }

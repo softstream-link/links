@@ -153,7 +153,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     /// Will split [Svc] into owned [SvcPoolAcceptor], [CltRecversPool] and [CltSendersPool] all of which can be used by different threads
     pub fn into_split(self) -> (SvcPoolAcceptor<P, C, MAX_MSG_SIZE>, CltRecversPool<P, C, MAX_MSG_SIZE>, CltSendersPool<P, C, MAX_MSG_SIZE>) {
         if !self.clts_pool.is_empty() {
-            panic!("Can't call Svc::into_split can Svc already has accepted connections in the pool: {}", self.clts_pool)
+            panic!("Can't call Svc::into_split after Svc already accepted connections into the pool: {}", self.clts_pool)
         }
         let ((tx_recver, tx_sender), (svc_recver, svc_sender)) = self.clts_pool.into_split();
         let acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, self.acceptor);
@@ -164,13 +164,13 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     /// [static@crate::connect::DEFAULT_POLL_HANDLER]
     pub fn into_spawned_sender(self) -> CltSendersPool<P, C, MAX_MSG_SIZE> {
         let (acceptor, _recver_drop, sender) = self.into_split();
-        crate::connect::DEFAULT_POLL_HANDLER.add_acceptor(acceptor.into());
+        crate::connect::DEFAULT_RECV_POLL_HANDLER.add_acceptor(acceptor.into());
         sender
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolAcceptCltNonBlocking for Svc<P, C, MAX_MSG_SIZE> {
     /// Will attempt to accept a new connection and add it to the pool. If the pool is full it will return an [std::io::ErrorKind::OutOfMemory].
-    fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error> {
+    fn accept_into_pool(&mut self) -> Result<PoolAcceptStatus, Error> {
         match self.acceptor.accept()? {
             AcceptStatus::Accepted(clt) => {
                 self.clts_pool.add(clt)?;
@@ -249,7 +249,7 @@ mod test {
         let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
         info!("clt: {}", clt);
 
-        svc.pool_accept_busywait().unwrap();
+        svc.accept_into_pool_busywait().unwrap();
         info!("svc: {}", svc);
         assert_eq!(svc.len(), 1);
 
@@ -271,7 +271,7 @@ mod test {
         // test that second connection is denied due to svc having set the limit of 1 on max connections
         assert!(svc.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap().is_wouldblock()); // make sure pool connection is ejected if no longer working
         let mut clt1 = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
-        svc.pool_accept_busywait().unwrap();
+        svc.accept_into_pool_busywait().unwrap();
         let status = clt1.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap();
         info!("status: {:?}", status);
         assert!(status.is_completed_none());
@@ -280,7 +280,7 @@ mod test {
         // however after dropping clt a new connection can be established, drop will close the socket which svc will detect and allow a new connection
         assert!(svc.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap().is_completed_none()); // make sure pool connection is ejected if no longer working
         let mut clt1 = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
-        svc.pool_accept_busywait().unwrap();
+        svc.accept_into_pool_busywait().unwrap();
         let status = clt1.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap();
         info!("status: {:?}", status);
         assert!(status.is_wouldblock());
@@ -303,7 +303,7 @@ mod test {
         let mut clt_msg_inp = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
         let mut svc_msg_inp = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"Hello Frm Server Msg"));
 
-        svc_acceptor.pool_accept_busywait().unwrap();
+        svc_acceptor.accept_into_pool_busywait().unwrap();
 
         clt.send_busywait(&mut clt_msg_inp).unwrap();
 

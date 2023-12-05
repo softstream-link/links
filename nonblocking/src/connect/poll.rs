@@ -222,8 +222,8 @@ impl ConnectionId for Box<dyn PollRecv> {
         self.as_ref().con_id()
     }
 }
-impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> From<CltRecver<M, C, MAX_MSG_SIZE>> for Box<dyn PollRecv> {
-    fn from(value: CltRecver<M, C, MAX_MSG_SIZE>) -> Self {
+impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> From<CltRecver<P, C, MAX_MSG_SIZE>> for Box<dyn PollRecv> {
+    fn from(value: CltRecver<P, C, MAX_MSG_SIZE>) -> Self {
         Box::new(value)
     }
 }
