@@ -18,6 +18,9 @@ use std::{
 ///
 /// # Important
 /// This is an owned implementation and is not [Clone]able or [Sync]able.
+/// 
+/// # Warning
+/// Dropping [CltRecver] will also result in termination of the connection in the `paired` [CltSender] instance
 #[derive(Debug)]
 pub struct CltRecver<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> {
     msg_recver: MessageRecver<P, MAX_MSG_SIZE>,
@@ -84,6 +87,9 @@ impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> Display for Clt
 ///
 /// # Important
 /// This is an owned implementation and is not [Clone]able.
+/// 
+/// # Warning
+/// Dropping [CltSender] will also result in termination of the connection in the `paired` [CltRecver] instance
 #[derive(Debug)]
 pub struct CltSender<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> {
     msg_sender: MessageSender<P, MAX_MSG_SIZE>,
@@ -195,6 +201,10 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for Clt
 /// # Important
 /// In addition to call delegating it enables enhanced features of the [Protocol] trait, such as [Protocol::do_reply]
 /// by holding a reference to clone of [CltSenderRef]
+/// 
+/// # Warning
+/// Dropping any of the [CltRecverRef] clones will terminate the connection across all remaining instances, 
+/// including all clones of `paired` [CltSenderRef] instances.
 #[derive(Debug, Clone)]
 pub struct CltRecverRef<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
     con_id: ConId, // this is a clone copy fro CltSender to avoid mutex call to id a connection
@@ -284,18 +294,26 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let recv_t = std::any::type_name::<P::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
         let send_t = std::any::type_name::<P::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
-        write!(f, "{}<{}, RecvT:{}, SendT:{}, {}>", asserted_short_name!("CltRecverWithSenderRef", Self), self.con_id(), recv_t, send_t, MAX_MSG_SIZE)
+        write!(f, "{}<{}, RecvT:{}, SendT:{}, {}>", asserted_short_name!("CltRecverRef", Self), self.con_id(), recv_t, send_t, MAX_MSG_SIZE)
     }
 }
-
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Drop for CltRecverRef<P, C, MAX_MSG_SIZE> {
+    fn drop(&mut self) {
+        self.clt_recver.lock().msg_recver.frm_reader.shutdown(std::net::Shutdown::Both, "CltRecverRef::drop");
+    }
+}
 /// A reference counted abstraction which delegates all calls to [CltSender] protected by a [spin::Mutex]
-/// It is designed to cloned and shared across threads at the cost of spin lock on every call.s
+/// It is designed to cloned and shared across threads at the cost of spin lock on every call.
+/// 
+/// # Warning
+/// Dropping any of the [CltSenderRef] clones will terminate the connection across all remaining instances, 
+/// including all clones of `paired` [CltRecverRef] instances.
 #[derive(Debug, Clone)]
 pub struct CltSenderRef<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> {
     con_id: ConId, // this is a clone copy fro CltSender to avoid mutex call to id a connection
     clt_sender: Arc<spin::Mutex<CltSender<P, C, MAX_MSG_SIZE>>>,
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for CltSenderRef<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for CltSenderRef<P, C, MAX_MSG_SIZE> {
     /// Delegates to [CltSender] once a spin lock is acquired.
     #[inline(always)]
     fn send(&mut self, msg: &mut <P as Messenger>::SendT) -> Result<SendStatus, Error> {
@@ -332,20 +350,24 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBloc
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for CltSenderRef<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for CltSenderRef<P, C, MAX_MSG_SIZE> {
     #[inline(always)]
     fn con_id(&self) -> &ConId {
         &self.con_id
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for CltSenderRef<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for CltSenderRef<P, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let recv_t = std::any::type_name::<P::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
         let send_t = std::any::type_name::<P::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
-        write!(f, "{}<{}, RecvT:{}, SendT:{}, {}>", asserted_short_name!("CltSenderShared", Self), self.con_id(), recv_t, send_t, MAX_MSG_SIZE)
+        write!(f, "{}<{}, RecvT:{}, SendT:{}, {}>", asserted_short_name!("CltSenderRef", Self), self.con_id(), recv_t, send_t, MAX_MSG_SIZE)
     }
 }
-
+impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Drop for CltSenderRef<P, C, MAX_MSG_SIZE> {
+    fn drop(&mut self) {
+        self.clt_sender.lock().msg_sender.frm_writer.shutdown(std::net::Shutdown::Both, "CltSenderRef::drop");
+    }
+}
 /// An abstraction over a [MessageRecver] and [MessageSender] that executes [Protocol] and [CallbackRecvSend] callbacks on every message being processed by [CltRecver] and [CltSender] respectively.
 /// It is designed to work in a single thread. To split use:
 /// * [Clt::into_split] - for [CltRecver]/[CltSender]

@@ -343,6 +343,7 @@ mod test {
 
         svc_acceptor.accept_into_pool_busywait().unwrap();
 
+        info!("--------- CLT PRE-SPLIT ---------");
         clt.send_busywait(&mut clt_msg_inp).unwrap();
 
         let svc_msg_out = svc_pool_recver.recv_busywait().unwrap().unwrap();
@@ -350,8 +351,9 @@ mod test {
         // info!("svc_msg_out: {:?}", svc_msg_out);
         assert_eq!(clt_msg_inp, svc_msg_out);
 
-        info!("--------- CLT SPLIT DIRECT ---------");
         let (mut clt_recv, mut clt_send) = clt.into_split();
+
+        info!("--------- CLT SPLIT ---------");
         clt_send.send_busywait(&mut clt_msg_inp).unwrap();
         let svc_msg_out = svc_pool_recver.recv_busywait().unwrap().unwrap();
         // info!("svc_msg_out: {:?}", svc_msg_out);
@@ -377,6 +379,72 @@ mod test {
         }
 
         info!("--------- SVC RECV/SEND SHOULD FAIL CLT DROPS HALF ---------");
+        // recv with busywait to ensure that clt drop has delivered FIN signal and receiver does not just return WouldBlock
+        let status = svc_pool_recver.recv_busywait_timeout(Duration::from_millis(100)).unwrap();
+        info!("pool_recver status: {:?}", status);
+        assert!(status.is_completed_none());
+        // because pool_recver will get None it will understand that the client socket is closed and hence will shutdown the write
+        // direction which in turn will force send to fail with ErrorKind::BrokenPipe
+        let res = svc_pool_sender.send(&mut svc_msg_inp);
+        info!("pool_sender res: {:?}", res);
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err().kind(), ErrorKind::BrokenPipe);
+    }
+
+    #[test]
+    fn test_svc_clt_connected_split_ref() {
+        setup::log::configure_level(LevelFilter::Info);
+        let addr = setup::net::rand_avail_addr_port();
+        let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
+        let protocol = SvcTestProtocolSupervised::default();
+        let (mut svc_acceptor, mut svc_pool_recver, mut svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest")).unwrap().into_split_ref();
+        info!("svc_acceptor: {}", svc_acceptor);
+
+        let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
+        let protocol = CltTestProtocolSupervised::default();
+        let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, protocol, Some("unittest")).unwrap();
+        info!("clt: {}", clt);
+
+        let mut clt_msg_inp = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
+        let mut svc_msg_inp = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"Hello Frm Server Msg"));
+
+        svc_acceptor.accept_into_pool_busywait().unwrap();
+
+        info!("--------- CLT PRE-SPLIT ---------");
+        clt.send_busywait(&mut clt_msg_inp).unwrap();
+
+        let svc_msg_out = svc_pool_recver.recv_busywait().unwrap().unwrap();
+        // info!("clt_msg_inp: {:?}", clt_msg_inp);
+        // info!("svc_msg_out: {:?}", svc_msg_out);
+        assert_eq!(clt_msg_inp, svc_msg_out);
+
+        let (mut clt_recv, mut clt_send) = clt.into_split_ref();
+
+        info!("--------- CLT SPLIT ---------");
+        clt_send.send_busywait(&mut clt_msg_inp).unwrap();
+        let svc_msg_out = svc_pool_recver.recv_busywait().unwrap().unwrap();
+        // info!("svc_msg_out: {:?}", svc_msg_out);
+        // info!("clt_msg_inp: {:?}", clt_msg_inp);
+        assert_eq!(svc_msg_out, clt_msg_inp);
+
+        info!("--------- CLT DROP RANDOM HALF ---------");
+        // drop clt_recv and ensure that clt_sender has broken pipe
+        let drop_send = rand::thread_rng().gen_range(1..=2) % 2 == 0;
+        if drop_send {
+            info!("dropping clt_send");
+            drop(clt_send);
+            let status = clt_recv.recv().unwrap();
+            info!("clt_recv status: {:?}", status);
+            assert!(status.is_completed_none());
+        } else {
+            info!("dropping clt_recv");
+            drop(clt_recv); // drop of recv shuts down Write half of cloned stream and hence impacts clt_send
+            let err = clt_send.send(&mut clt_msg_inp).unwrap_err();
+            info!("clt_send err: {}", err);
+            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+        }
+
+        info!("--------- SVC RECV/SEND SHOULD FAIL CLT DROPS clt_recv ---------");
         // recv with busywait to ensure that clt drop has delivered FIN signal and receiver does not just return WouldBlock
         let status = svc_pool_recver.recv_busywait_timeout(Duration::from_millis(100)).unwrap();
         info!("pool_recver opt: {:?}", status);

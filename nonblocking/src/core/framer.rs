@@ -101,6 +101,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
 
         match self.stream_reader.read(&mut buf) {
             Ok(EOF) => {
+                // key to shutdown using Write as this will 
                 self.shutdown(Shutdown::Write, "read_frame EOF"); // remember to shutdown on both exception and on EOF
                 if self.buffer.is_empty() {
                     Ok(RecvStatus::Completed(None))
@@ -132,8 +133,8 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
     ///  * [Shutdown::Write] will send TCP FIN flag to the peer, as a result all subsequent `paired` [FrameWriter::write_frame] will fail with [ErrorKind::BrokenPipe]
     ///  * [Shutdown::Read] will `NOT` send any TCP flags to the peer, however, as a result all subsequent [Self::read_frame] will return [Ok(0)].
     /// This variant will also cause all `peer` [FramerWriter::write_frame] to generate [std::io::Error] of [ErrorKind::ConnectionReset]
-    #[inline]
-    fn shutdown(&mut self, how: Shutdown, reason: &str) {
+    #[inline(always)]
+    pub(crate) fn shutdown(&mut self, how: Shutdown, reason: &str) {
         match self.stream_reader.shutdown(how) {
             Ok(_) => {
                 if log_enabled!(log::Level::Debug) {
@@ -205,7 +206,7 @@ impl FrameWriter {
     ///
     /// # Note
     /// If the [FrameReader] `pair` is dropped this method will return [Err(ErrorKind::BrokenPipe)]
-    #[inline]
+    #[inline(always)]
     pub fn write_frame(&mut self, bytes: &[u8]) -> Result<SendStatus, Error> {
         let mut residual = bytes;
         while !residual.is_empty() {
@@ -244,7 +245,7 @@ impl FrameWriter {
     }
 
     /// Shuts down the underlying [mio::net::TcpStream] in the specified direction.
-    fn shutdown(&mut self, how: Shutdown, reason: &str) {
+    pub(crate) fn shutdown(&mut self, how: Shutdown, reason: &str) {
         match self.stream_writer.shutdown(how) {
             Ok(_) => {
                 if log_enabled!(log::Level::Debug) {
