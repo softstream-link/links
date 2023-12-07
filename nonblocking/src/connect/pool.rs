@@ -1,6 +1,6 @@
 use crate::{
     core::PollAccept,
-    prelude::{AcceptNonBlocking, AcceptStatus, CallbackRecvSend, CltRecver, CltSender,  Messenger, PollEventStatus, PollReadable, PoolAcceptCltNonBlocking, PoolAcceptStatus, Protocol, RecvNonBlocking, RecvStatus, SendNonBlocking, SendStatus, SvcAcceptor},
+    prelude::{AcceptStatus, CallbackRecvSend, CltRecver, CltSender, Messenger, PollEventStatus, PollReadable, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol, RecvNonBlocking, RecvStatus, SendNonBlocking, SendStatus, SvcAcceptor, SvcAcceptorOfCltNonBlocking},
 };
 use links_core::{asserted_short_name, core::conid::ConnectionId, prelude::RoundRobinPool};
 use log::{info, log_enabled, warn, Level};
@@ -87,7 +87,8 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> CltsPool<P,
     pub fn clear(&mut self) {
         self.clts.clear();
     }
-    /// Splits [CltsPool] into a a pair of channel transmitters and their respective [CltRecversPool] & [CltSendersPool] pools
+    /// Splits [CltsPool] into a a pair of transmitter channels and their respective [CltRecversPool] and [CltSendersPool] pools
+    /// leveraging [CltRecver] and [CltSender] respectively.
     #[inline(always)]
     pub fn into_split(self) -> SplitCltsPool<P, CltRecver<P, C, MAX_MSG_SIZE>, CltSender<P, C, MAX_MSG_SIZE>> {
         let (tx_recver, rx_recver) = channel();
@@ -108,7 +109,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> CltsPool<P,
     }
 
     #[inline(always)]
-    pub fn into_split_shared(self) -> SplitCltsPool<P, CltRecverRef<P, C, MAX_MSG_SIZE>, CltSenderRef<P, C, MAX_MSG_SIZE>> {
+    pub fn into_split_ref(self) -> SplitCltsPool<P, CltRecverRef<P, C, MAX_MSG_SIZE>, CltSenderRef<P, C, MAX_MSG_SIZE>> {
         let (tx_recver, rx_recver) = channel();
         let (tx_sender, rx_sender) = channel();
         let max_capacity = self.clts.max_capacity();
@@ -117,11 +118,11 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> CltsPool<P,
 
         for clt in self.clts.into_iter() {
             let (clt_recver, clt_sender) = clt.into_split_ref();
-            tx_recver.send(clt_recver).expect("CltsPool::into_split - Failed to send CltRecver to CltRecversPool");
-            assert_eq!(recver_pool.pool_accept().expect("CltsPool::into_split - Failed to service CltRecversPool rx_queue"), PoolAcceptStatus::Accepted);
+            tx_recver.send(clt_recver).expect("CltsPool::into_split_ref - Failed to send CltRecver to CltRecversPool");
+            assert_eq!(recver_pool.pool_accept().expect("CltsPool::into_split_ref - Failed to service CltRecversPool rx_queue"), PoolAcceptStatus::Accepted);
 
-            tx_sender.send(clt_sender).expect("CltsPool::into_split - Failed to send CltSender to CltSendersPool");
-            assert_eq!(sender_pool.pool_accept().expect("CltsPool::into_split - Failed to service CltSendersPool rx_queue"), PoolAcceptStatus::Accepted);
+            tx_sender.send(clt_sender).expect("CltsPool::into_split_ref - Failed to send CltSender to CltSendersPool");
+            assert_eq!(sender_pool.pool_accept().expect("CltsPool::into_split_ref - Failed to service CltSendersPool rx_queue"), PoolAcceptStatus::Accepted);
         }
         ((tx_recver, tx_sender), (recver_pool, sender_pool))
     }
@@ -241,7 +242,7 @@ impl<M: Messenger, R: RecvNonBlocking<M>> CltRecversPool<M, R> {
         self.recvers.max_capacity()
     }
 }
-impl<M: Messenger, R: RecvNonBlocking<M>> AcceptNonBlocking<R> for CltRecversPool<M, R> {
+impl<M: Messenger, R: RecvNonBlocking<M>> SvcAcceptorOfCltNonBlocking<R> for CltRecversPool<M, R> {
     /// Will interrogate internal [channel] for new [CltRecver]s.
     /// # Returns
     /// * [Ok(AcceptStatus::Accepted(Some))] - if a new [CltRecver] is available
@@ -257,7 +258,7 @@ impl<M: Messenger, R: RecvNonBlocking<M>> AcceptNonBlocking<R> for CltRecversPoo
         }
     }
 }
-impl<M: Messenger, R: RecvNonBlocking<M>> PoolAcceptCltNonBlocking for CltRecversPool<M, R> {
+impl<M: Messenger, R: RecvNonBlocking<M>> PoolSvcAcceptorOfCltNonBlocking for CltRecversPool<M, R> {
     /// Will `once ` interrogate internal [channel] for a new [CltRecver] and add it to the connection pool if there is capacity.
     /// Otherwise the [CltRecver] will be dropped and [Ok(PoolAcceptStatus::WouldBlock)] returned
     fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error> {
@@ -438,7 +439,7 @@ impl<M: Messenger, S: SendNonBlocking<M>> CltSendersPool<M, S> {
         self.senders.max_capacity()
     }
 }
-impl<M: Messenger, S: SendNonBlocking<M>> AcceptNonBlocking<S> for CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M>> SvcAcceptorOfCltNonBlocking<S> for CltSendersPool<M, S> {
     /// Will interrogate internal [channel] for new [CltSender]s.
     /// # Returns
     /// * [Ok(AcceptStatus::Accepted(Some))] - if a new [CltSender] is available
@@ -454,7 +455,7 @@ impl<M: Messenger, S: SendNonBlocking<M>> AcceptNonBlocking<S> for CltSendersPoo
         }
     }
 }
-impl<M: Messenger, S: SendNonBlocking<M>> PoolAcceptCltNonBlocking for CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M>> PoolSvcAcceptorOfCltNonBlocking for CltSendersPool<M, S> {
     /// Will `once ` interrogate internal [channel] for a new [CltSender] and add it to the connection pool if there is capacity.
     /// Otherwise the [CltSender] will be dropped and [Ok(PoolAcceptStatus::WouldBlock)] returned
     #[inline(always)]
@@ -570,10 +571,10 @@ impl<M: Messenger, S: SendNonBlocking<M>> Display for CltSendersPool<M, S> {
     }
 }
 
-/// Abstraction used to accept new connections bound to the address and transmit them via a channel to the
-/// respective [CltSendersPool] & [CltRecversPool].
+/// Abstraction uses underlying [SvcAcceptor] to accept new [Clt] which are then split into [CltRecver] and [CltSender]
+/// and transmitted via respective channel
 ///
-/// It is designed to be used in a thread which is different from the thread that will be using the [CltSendersPool] & [CltRecversPool].
+/// It is designed to be used in a [crate::prelude::PollHandler] thread which can be different from the thread that will be using the [CltSendersPool] & [CltRecversPool].
 ///
 /// # Example
 /// ```
@@ -593,7 +594,7 @@ impl<M: Messenger, S: SendNonBlocking<M>> Display for CltSendersPool<M, S> {
 /// let (tx_recver, rx_recver) = std::sync::mpsc::channel();
 /// let (tx_sender, rx_sender) = std::sync::mpsc::channel();
 ///
-/// let mut acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, acceptor);
+/// let mut acceptor = TransmittingSvcAcceptor::new(tx_recver, tx_sender, acceptor);
 ///
 /// println!("acceptor: {}", acceptor);
 ///
@@ -608,17 +609,18 @@ impl<M: Messenger, S: SendNonBlocking<M>> Display for CltSendersPool<M, S> {
 ///     CltTestProtocolSupervised::default(),
 ///     Some("unittest")).unwrap();
 ///
-/// assert_eq!(acceptor.pool_accept().unwrap(),  PoolAcceptStatus::Accepted);
-/// println!("acceptor: {}", acceptor);
-/// // assert!(false); // uncomment to see output
+/// let res = acceptor.pool_accept();
+/// println!("res: {:?}", res);
+/// assert_eq!(res.unwrap(),  PoolAcceptStatus::Accepted);
+/// //assert!(false); // uncomment to see output
 /// ```
 #[derive(Debug)]
-pub struct SvcPoolAcceptor<P: Protocol + 'static, C: CallbackRecvSend<P> + 'static, const MAX_MSG_SIZE: usize> {
+pub struct TransmittingSvcAcceptor<P: Protocol + 'static, C: CallbackRecvSend<P> + 'static, const MAX_MSG_SIZE: usize> {
     tx_recver: Sender<CltRecver<P, C, MAX_MSG_SIZE>>,
     tx_sender: Sender<CltSender<P, C, MAX_MSG_SIZE>>,
     acceptor: SvcAcceptor<P, C, MAX_MSG_SIZE>,
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE> {
     pub fn new(tx_recver: Sender<CltRecver<P, C, MAX_MSG_SIZE>>, tx_sender: Sender<CltSender<P, C, MAX_MSG_SIZE>>, acceptor: SvcAcceptor<P, C, MAX_MSG_SIZE>) -> Self {
         Self { tx_recver, tx_sender, acceptor }
     }
@@ -638,7 +640,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcPoolAcce
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolAcceptCltNonBlocking for SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolSvcAcceptorOfCltNonBlocking for TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE> {
     /// Will interrogate the [SvcAcceptor] for new connections and if available will send them to the respective [CltRecver] & [CltSender] pools.
     fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error> {
         use AcceptStatus::{Accepted, Rejected, WouldBlock};
@@ -658,7 +660,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolAcceptC
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollReadable for SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollReadable for TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE> {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         Box::new(&mut self.acceptor.listener)
     }
@@ -671,12 +673,12 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollReadabl
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE> {
     fn con_id(&self) -> &links_core::prelude::ConId {
         &self.acceptor.con_id
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<CltRecver<P, C, MAX_MSG_SIZE>> for SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<CltRecver<P, C, MAX_MSG_SIZE>> for TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE> {
     fn poll_accept(&mut self) -> Result<AcceptStatus<CltRecver<P, C, MAX_MSG_SIZE>>, Error> {
         use AcceptStatus::{Accepted, Rejected, WouldBlock};
         match self.accept_recver()? {
@@ -686,7 +688,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<Box<dyn PollReadable>> for SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<Box<dyn PollReadable>> for TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE> {
     fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollReadable>>, Error> {
         use AcceptStatus::{Accepted, Rejected, WouldBlock};
         match self.accept_recver()? {
@@ -696,24 +698,67 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for SvcPoolAcceptor<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}<{}>", asserted_short_name!("SvcPoolAcceptor", Self), self.acceptor.con_id)
+        write!(f, "{}<{}>", asserted_short_name!("TransmittingSvcAcceptor", Self), self.acceptor.con_id)
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<SvcPoolAcceptor<P, C, MAX_MSG_SIZE>> for Box<dyn PollAccept<Box<dyn PollReadable>>> {
-    fn from(value: SvcPoolAcceptor<P, C, MAX_MSG_SIZE>) -> Self {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE>> for Box<dyn PollAccept<Box<dyn PollReadable>>> {
+    fn from(value: TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE>) -> Self {
         Box::new(value)
     }
 }
 
+/// Abstraction uses underlying [SvcAcceptor] to accept new [Clt] which are then split into [CltRecverRef] and [CltSenderRef]
+/// and transmitted via respective channel
+///
+/// It is designed to be used in a [crate::prelude::PollHandler] thread which can be different from the thread that will be using the [CltSendersPool] & [CltRecversPool].
+///
+/// # Example
+/// ```
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::{CltTestProtocolSupervised, SvcTestProtocolSupervised}};
+/// use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE};
+/// use std::num::NonZeroUsize;
+///
+/// let addr = setup::net::rand_avail_addr_port(); // will return random port "127.0.0.1:8080"
+/// let acceptor = SvcAcceptor::<_,_, TEST_MSG_FRAME_SIZE>::new(
+///     ConId::svc(Some("doctest"), addr, None),
+///     std::net::TcpListener::bind(addr).unwrap(),
+///     DevNullCallback::default().into(),
+///     SvcTestProtocolSupervised::default(),
+///     NonZeroUsize::new(1).unwrap(),
+/// );
+///
+/// let (tx_recver, rx_recver) = std::sync::mpsc::channel();
+/// let (tx_sender, rx_sender) = std::sync::mpsc::channel();
+///
+/// let mut acceptor = TransmittingSvcAcceptorRef::new(tx_recver, tx_sender, acceptor);
+///
+/// println!("acceptor: {}", acceptor);
+///
+/// assert_eq!(acceptor.pool_accept().unwrap(),  PoolAcceptStatus::WouldBlock);
+///
+/// // Create a new
+/// let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+///     addr,
+///     setup::net::default_connect_timeout(),
+///     setup::net::default_connect_retry_after(),
+///     DevNullCallback::default().into(),
+///     CltTestProtocolSupervised::default(),
+///     Some("unittest")).unwrap();
+///
+/// let res = acceptor.pool_accept();
+/// println!("res: {:?}", res);
+/// assert_eq!(res.unwrap(),  PoolAcceptStatus::Accepted);
+/// //assert!(false); // uncomment to see output
+/// ```
 #[derive(Debug)]
-pub struct SvcPoolAcceptorShared<P: Protocol + 'static, C: CallbackRecvSend<P> + 'static, const MAX_MSG_SIZE: usize> {
+pub struct TransmittingSvcAcceptorRef<P: Protocol + 'static, C: CallbackRecvSend<P> + 'static, const MAX_MSG_SIZE: usize> {
     tx_recver: Sender<CltRecverRef<P, C, MAX_MSG_SIZE>>,
     tx_sender: Sender<CltSenderRef<P, C, MAX_MSG_SIZE>>,
     acceptor: SvcAcceptor<P, C, MAX_MSG_SIZE>,
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcPoolAcceptorShared<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE> {
     pub fn new(tx_recver: Sender<CltRecverRef<P, C, MAX_MSG_SIZE>>, tx_sender: Sender<CltSenderRef<P, C, MAX_MSG_SIZE>>, acceptor: SvcAcceptor<P, C, MAX_MSG_SIZE>) -> Self {
         Self { tx_recver, tx_sender, acceptor }
     }
@@ -733,7 +778,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcPoolAcce
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolAcceptCltNonBlocking for SvcPoolAcceptorShared<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolSvcAcceptorOfCltNonBlocking for TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE> {
     /// Will interrogate the [SvcAcceptor] for new connections and if available will send them to the respective [CltRecver] & [CltSender] pools.
     fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error> {
         use AcceptStatus::{Accepted, Rejected, WouldBlock};
@@ -753,7 +798,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolAcceptC
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollReadable for SvcPoolAcceptorShared<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollReadable for TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE> {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         Box::new(&mut self.acceptor.listener)
     }
@@ -766,12 +811,12 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollReadabl
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for SvcPoolAcceptorShared<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE> {
     fn con_id(&self) -> &links_core::prelude::ConId {
         &self.acceptor.con_id
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<CltRecverRef<P, C, MAX_MSG_SIZE>> for SvcPoolAcceptorShared<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<CltRecverRef<P, C, MAX_MSG_SIZE>> for TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE> {
     fn poll_accept(&mut self) -> Result<AcceptStatus<CltRecverRef<P, C, MAX_MSG_SIZE>>, Error> {
         use AcceptStatus::{Accepted, Rejected, WouldBlock};
         match self.accept_recver()? {
@@ -781,7 +826,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<Box<dyn PollReadable>> for SvcPoolAcceptorShared<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<Box<dyn PollReadable>> for TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE> {
     fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollReadable>>, Error> {
         use AcceptStatus::{Accepted, Rejected, WouldBlock};
         match self.accept_recver()? {
@@ -791,13 +836,13 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for SvcPoolAcceptorShared<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}<{}>", asserted_short_name!("SvcPoolAcceptorShared", Self), self.acceptor.con_id)
+        write!(f, "{}<{}>", asserted_short_name!("TransmittingSvcAcceptorRef", Self), self.acceptor.con_id)
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<SvcPoolAcceptorShared<P, C, MAX_MSG_SIZE>> for Box<dyn PollAccept<Box<dyn PollReadable>>> {
-    fn from(value: SvcPoolAcceptorShared<P, C, MAX_MSG_SIZE>) -> Self {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE>> for Box<dyn PollAccept<Box<dyn PollReadable>>> {
+    fn from(value: TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE>) -> Self {
         Box::new(value)
     }
 }

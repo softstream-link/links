@@ -236,6 +236,11 @@ impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> From<CltRecver<
         Box::new(value)
     }
 }
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<CltRecverRef<P, C, MAX_MSG_SIZE>> for Box<dyn PollReadable> {
+    fn from(value: CltRecverRef<P, C, MAX_MSG_SIZE>) -> Self {
+        Box::new(value)
+    }
+}
 
 /// A helper struct to add [PollAccept] and [PollRecv] instances to a [PollHandler] from a different thread
 /// to create an instance of this struct use [PollHandler::into_spawned_handler]
@@ -262,8 +267,8 @@ pub type PollHandlerDynamic = PollHandler<Box<dyn PollReadable>, Box<dyn PollAcc
 pub type SpawnedPollHandlerDynamic = SpawnedPollHandler<Box<dyn PollReadable>, Box<dyn PollAccept<Box<dyn PollReadable>>>>;
 
 /// A [PollHandler] that will only handle [PollAccept] and [PollRecv] of same type
-pub type PollHandlerStatic<P, C, const MAX_MSG_SIZE: usize> = PollHandler<CltRecver<P, C, MAX_MSG_SIZE>, SvcPoolAcceptor<P, C, MAX_MSG_SIZE>>;
-pub type SpawnedPollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = SpawnedPollHandler<CltRecver<M, C, MAX_MSG_SIZE>, SvcPoolAcceptor<M, C, MAX_MSG_SIZE>>;
+pub type PollHandlerStatic<P, C, const MAX_MSG_SIZE: usize> = PollHandler<CltRecver<P, C, MAX_MSG_SIZE>, TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE>>;
+pub type SpawnedPollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = SpawnedPollHandler<CltRecver<M, C, MAX_MSG_SIZE>, TransmittingSvcAcceptor<M, C, MAX_MSG_SIZE>>;
 
 #[cfg(test)]
 #[cfg(feature = "unittest")]

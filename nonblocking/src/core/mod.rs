@@ -63,7 +63,7 @@ impl PoolAcceptStatus {
         }
     }
 }
-pub trait PoolAcceptCltNonBlocking {
+pub trait PoolSvcAcceptorOfCltNonBlocking {
     fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error>;
     /// Will call [Self::accept_into_pool] until it returns [PoolAcceptStatus::Accepted] or [PoolAcceptStatus::WouldBlock] after the timeout.
     fn accept_into_pool_busywait_timeout(&mut self, timeout: Duration) -> Result<PoolAcceptStatus, Error> {
@@ -136,7 +136,7 @@ impl<T> AcceptStatus<T> {
         }
     }
 }
-pub trait AcceptNonBlocking<T> {
+pub trait SvcAcceptorOfCltNonBlocking<T> {
     fn accept(&self) -> Result<AcceptStatus<T>, Error>;
 
     fn accept_busywait_timeout(&self, timeout: Duration) -> Result<AcceptStatus<T>, Error> {

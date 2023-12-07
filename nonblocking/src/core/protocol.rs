@@ -1,4 +1,4 @@
-use crate::prelude::{ConId, ConnectionId, Messenger};
+use crate::prelude::{ConnectionId, Messenger};
 use std::io::Error;
 
 use super::{RecvNonBlocking, SendNonBlocking};

@@ -2,13 +2,13 @@ pub use crate::core::{
     framer::{into_split_framer, FrameReader, FrameWriter},
     messenger::{into_split_messenger, MessageRecver, MessageSender},
     protocol::Protocol,
-    AcceptNonBlocking, AcceptStatus, PollEventStatus, PollReadable, PoolAcceptCltNonBlocking, PoolAcceptStatus, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut, SendStatus,
+    AcceptStatus, PollEventStatus, PollReadable, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut, SendStatus, SvcAcceptorOfCltNonBlocking,
 };
 
 pub use crate::connect::{
-    clt::{Clt, CltRecver, CltSender, CltSenderRef},
+    clt::{Clt, CltRecver, CltRecverRef, CltSender, CltSenderRef},
     poll::{PollHandler, PollHandlerDynamic, PollHandlerStatic, SpawnedPollHandler, SpawnedPollHandlerDynamic, SpawnedPollHandlerStatic},
-    pool::{CltRecversPool, CltSendersPool, CltsPool, SvcPoolAcceptor},
+    pool::{CltRecversPool, CltSendersPool, CltsPool, TransmittingSvcAcceptor, TransmittingSvcAcceptorRef},
     svc::{Svc, SvcAcceptor},
 };
 
