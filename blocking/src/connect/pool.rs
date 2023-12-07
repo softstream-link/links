@@ -56,7 +56,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> CltsPool<M
     ///  * max_connections - the maximum number of connections that can be added to the pool.
     pub fn with_capacity(max_connections: NonZeroUsize) -> Self {
         Self {
-            clts: RoundRobinPool::with_capacity(max_connections),
+            clts: RoundRobinPool::new(max_connections),
         }
     }
     /// Returns a tuple representing len of [CltRecversPool] and [CltSendersPool] respectively
@@ -86,7 +86,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> CltsPool<M
     pub fn into_split(self) -> SplitCltsPool<M, C, MAX_MSG_SIZE> {
         let (tx_recver, rx_recver) = channel();
         let (tx_sender, rx_sender) = channel();
-        let max_capacity = self.clts.capacity();
+        let max_capacity = self.clts.max_capacity();
         let mut recver_pool = CltRecversPool::new(rx_recver, max_capacity);
         let mut sender_pool = CltSendersPool::new(rx_sender, max_capacity);
 
@@ -188,7 +188,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> CltRecversPool
     pub fn new(rx_recver: Receiver<CltRecver<M, C, MAX_MSG_SIZE>>, max_capacity: NonZeroUsize) -> Self {
         Self {
             rx_recver,
-            recvers: RoundRobinPool::with_capacity(max_capacity),
+            recvers: RoundRobinPool::new(max_capacity),
         }
     }
     pub fn len(&self) -> usize {
@@ -202,7 +202,7 @@ impl<M: Messenger, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> CltRecversPool
     }
     #[inline]
     pub fn has_capacity(&self) -> bool {
-        self.recvers.len() < self.recvers.capacity().get()
+        self.recvers.len() < self.recvers.max_capacity().get()
     }
     /// returns true if a recver was added
     #[inline]
@@ -300,7 +300,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> CltSendersPool
     pub fn new(rx_sender: Receiver<CltSender<M, C, MAX_MSG_SIZE>>, max_connections: NonZeroUsize) -> Self {
         Self {
             rx_sender,
-            senders: RoundRobinPool::with_capacity(max_connections),
+            senders: RoundRobinPool::new(max_connections),
         }
     }
     pub fn len(&self) -> usize {

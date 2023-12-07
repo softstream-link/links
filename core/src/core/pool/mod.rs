@@ -27,7 +27,7 @@ pub struct RoundRobinPool<T: Debug+Display> {
     last_used: usize,
 }
 impl<T: Debug+Display> RoundRobinPool<T> {
-    pub fn with_capacity(max_capacity: NonZeroUsize) -> Self {
+    pub fn new(max_capacity: NonZeroUsize) -> Self {
         Self {
             elements: Slab::with_capacity(max_capacity.get()),
             slab_keys: CycleRange::new(0..max_capacity.get()),
@@ -39,7 +39,7 @@ impl<T: Debug+Display> RoundRobinPool<T> {
         self.elements.len()
     }
     #[inline(always)]
-    pub fn capacity(&self) -> NonZeroUsize {
+    pub fn max_capacity(&self) -> NonZeroUsize {
         NonZeroUsize::new(self.elements.capacity()).expect("can't be negative")
     }
     #[inline(always)]
@@ -106,7 +106,7 @@ impl<T: Debug+Display> Display for RoundRobinPool<T> {
 impl<T: Debug+Display> Default for RoundRobinPool<T> {
     /// Creates a new [RoundRobinPool] with a max_connections of 1
     fn default() -> Self {
-        Self::with_capacity(NonZeroUsize::new(1).unwrap())
+        Self::new(NonZeroUsize::new(1).unwrap())
     }
 }
 
@@ -121,7 +121,7 @@ mod test {
         setup::log::configure();
 
         // empty
-        let mut pool = RoundRobinPool::<String>::with_capacity(NonZeroUsize::new(3).unwrap());
+        let mut pool = RoundRobinPool::<String>::new(NonZeroUsize::new(3).unwrap());
         assert_eq!(pool.len(), 0);
         assert_eq!(pool.is_empty(), true);
         assert_eq!(pool.has_capacity(), true);

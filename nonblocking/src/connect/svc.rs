@@ -11,6 +11,8 @@ use log::{debug, log_enabled, warn};
 
 use crate::prelude::*;
 
+use super::{clt::CltRecverRef, pool::SvcPoolAcceptorShared};
+
 /// Helper class that create [Clt] instances by accepting new connections on a [std::net::TcpListener]
 ///
 /// # Example
@@ -125,7 +127,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<Svc<P,
 #[derive(Debug)]
 pub struct Svc<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
     acceptor: SvcAcceptor<P, C, MAX_MSG_SIZE>,
-    clts_pool: CltsPool<P, Clt<P, C, MAX_MSG_SIZE>>,
+    clts_pool: CltsPool<P, C, MAX_MSG_SIZE>,
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, MAX_MSG_SIZE> {
     /// Binds to a given address and returns an instance [Svc]
@@ -134,10 +136,9 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
         // make pool twice as big as acceptor will allow to be opened this is to ensure that acceptor is able to add new connections to the pool even
         // if some of the connections in the pool are dead but not closed yet
         let pool_size = max_connections.get() * 2;
-        let clts_pool = CltsPool::with_capacity(NonZeroUsize::new(pool_size).unwrap());
+        let clts_pool = CltsPool::new(NonZeroUsize::new(pool_size).unwrap());
         Ok(Self { acceptor, clts_pool })
     }
-
     #[inline(always)]
     pub fn len(&self) -> usize {
         self.clts_pool.len()
@@ -147,7 +148,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
         self.clts_pool.is_empty()
     }
     #[inline(always)]
-    pub fn pool(&self) -> &CltsPool<P, Clt<P, C, MAX_MSG_SIZE>> {
+    pub fn pool(&self) -> &CltsPool<P, C, MAX_MSG_SIZE> {
         &self.clts_pool
     }
     /// Will split [Svc] into owned [SvcPoolAcceptor], [CltRecversPool] and [CltSendersPool] all of which can be used by different threads
@@ -159,6 +160,14 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
         let acceptor = SvcPoolAcceptor::new(tx_recver, tx_sender, self.acceptor);
         (acceptor, svc_recver, svc_sender)
     }
+    pub fn into_split_shared(self) -> (SvcPoolAcceptorShared<P, C, MAX_MSG_SIZE>, CltRecversPool<P, CltRecverRef<P, C, MAX_MSG_SIZE>>, CltSendersPool<P, CltSenderRef<P, C, MAX_MSG_SIZE>>) {
+        if !self.clts_pool.is_empty() {
+            panic!("Can't call Svc::into_split_shared after Svc already accepted connections into the pool: {}", self.clts_pool)
+        }
+        let ((tx_recver, tx_sender), (svc_recver, svc_sender)) = self.clts_pool.into_split_shared();
+        let acceptor = SvcPoolAcceptorShared::new(tx_recver, tx_sender, self.acceptor);
+        (acceptor, svc_recver, svc_sender)
+    }
 
     /// Will take [Svc] split it using [Self::into_split] and only return [CltSendersPool] while registering resulting [SvcPoolAcceptor] with
     /// [static@crate::connect::DEFAULT_POLL_HANDLER]
@@ -167,10 +176,16 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
         crate::connect::DEFAULT_RECV_POLL_HANDLER.add_acceptor(acceptor.into());
         sender
     }
+
+    pub fn into_spawned_shared_sender(self) -> CltSendersPool<P, CltSenderRef<P, C, MAX_MSG_SIZE>> {
+        let (acceptor, _recver_drop, sender) = self.into_split_shared();
+        crate::connect::DEFAULT_RECV_POLL_HANDLER.add_acceptor(acceptor.into());
+        sender
+    }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolAcceptCltNonBlocking for Svc<P, C, MAX_MSG_SIZE> {
     /// Will attempt to accept a new connection and add it to the pool. If the pool is full it will return an [std::io::ErrorKind::OutOfMemory].
-    fn accept_into_pool(&mut self) -> Result<PoolAcceptStatus, Error> {
+    fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error> {
         match self.acceptor.accept()? {
             AcceptStatus::Accepted(clt) => {
                 self.clts_pool.add(clt)?;

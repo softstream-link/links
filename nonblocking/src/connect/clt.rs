@@ -5,7 +5,7 @@ use links_core::{
 };
 use log::debug;
 use std::{
-    fmt::Display,
+    fmt::{Debug, Display},
     io::Error,
     net::TcpStream,
     sync::Arc,
@@ -13,8 +13,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-/// An abstraction over a [MessageRecver] that calls a [CallbackRecv] on every message being processed by [CltRecver].
-/// It is designed to work in a thread that is different from [CltSender]
+/// An abstraction over a [MessageRecver] that executes [Protocol::on_recv] and [CallbackRecv::on_recv] callbacks on every message being processed by [CltRecver].
+/// It is designed to work in a single thread that is different from [CltSender] thread.
+///
+/// # Important
+/// This is an owned implementation and is not [Clone]able or [Sync]able.
 #[derive(Debug)]
 pub struct CltRecver<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> {
     msg_recver: MessageRecver<P, MAX_MSG_SIZE>,
@@ -40,7 +43,7 @@ impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking
     fn recv(&mut self) -> Result<RecvStatus<P::RecvT>, Error> {
         match self.msg_recver.recv()? {
             RecvStatus::Completed(Some(msg)) => {
-                self.protocol.on_recv(self.con_id(), &msg);
+                self.protocol.on_recv(self, &msg);
                 self.callback.on_recv(self.con_id(), &msg);
                 Ok(RecvStatus::Completed(Some(msg)))
             }
@@ -76,8 +79,11 @@ impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> Display for Clt
     }
 }
 
-/// An abstraction over a [MessageSender] that calls a [CallbackSend] on every message sent by [CltSender].
-/// It is designed to work in a thread that is different from [CltRecver]
+/// An abstraction over a [MessageSender] that executes [Protocol::on_send], [Protocol::on_sent]/[Protocol::on_wouldblock]/[Protocol::on_error] and [CallbackSend::on_sent] on every message processed by [CltSender].
+/// It is designed to work in a single thread that is different from [CltRecver] thread
+/// 
+/// # Important
+/// This is an owned implementation and is not [Clone]able.
 #[derive(Debug)]
 pub struct CltSender<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> {
     msg_sender: MessageSender<P, MAX_MSG_SIZE>,
@@ -97,71 +103,72 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSender<P, C,
     }
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for CltSender<P, C, MAX_MSG_SIZE> {
-    // NOTE: that the [SendNonBlocking::send_busywait] & [SendNonBlocking::send_busywait_timeout] default implementation
-    // is overridden to ensure correct callback sequence
     #[inline(always)]
     fn send(&mut self, msg: &mut <P as Messenger>::SendT) -> Result<SendStatus, Error> {
-        self.protocol.on_send(self.con_id(), msg);
+        self.protocol.on_send(self, msg);
         let res = self.msg_sender.send(msg);
         match res {
             Ok(SendStatus::Completed) => {
-                self.protocol.on_sent(self.con_id(), msg);
+                self.protocol.on_sent(self, msg);
                 self.callback.on_sent(self.con_id(), msg);
                 Ok(SendStatus::Completed)
             }
             Ok(SendStatus::WouldBlock) => {
-                self.protocol.on_wouldblock(self.con_id(), msg);
+                self.protocol.on_wouldblock(self, msg);
                 Ok(SendStatus::WouldBlock)
             }
             Err(e) => {
-                self.protocol.on_error(self.con_id(), msg, &e);
+                self.protocol.on_error(self, msg, &e);
                 Err(e)
             }
         }
     }
+
+    // NOTE: that the [SendNonBlocking::send_busywait_timeout] default implementation is overridden to ensure correct callback sequence
     #[inline(always)]
     fn send_busywait_timeout(&mut self, msg: &mut <P as Messenger>::SendT, timeout: Duration) -> Result<SendStatus, Error> {
         use SendStatus::{Completed, WouldBlock};
         let start = Instant::now();
-        self.protocol.on_send(self.con_id(), msg);
+        self.protocol.on_send(self, msg);
         loop {
             let res = self.msg_sender.send(msg);
             match res {
                 Ok(Completed) => {
-                    self.protocol.on_sent(self.con_id(), msg);
+                    self.protocol.on_sent(self, msg);
                     self.callback.on_sent(self.con_id(), msg);
                     return Ok(Completed);
                 }
                 Ok(WouldBlock) => {
                     if start.elapsed() > timeout {
-                        self.protocol.on_wouldblock(self.con_id(), msg);
+                        self.protocol.on_wouldblock(self, msg);
                         return Ok(WouldBlock);
                     } else {
                         continue;
                     }
                 }
                 Err(e) => {
-                    self.protocol.on_error(self.con_id(), msg, &e);
+                    self.protocol.on_error(self, msg, &e);
                     return Err(e);
                 }
             }
         }
     }
+    // NOTE: that the [SendNonBlocking::send_busywait] default implementation is overridden to ensure correct callback sequence
     #[inline(always)]
     fn send_busywait(&mut self, msg: &mut <P as Messenger>::SendT) -> Result<(), Error> {
         use SendStatus::{Completed, WouldBlock};
-        self.protocol.on_send(self.con_id(), msg);
+        self.protocol.on_send(self, msg);
         loop {
             let res = self.msg_sender.send(msg);
             match res {
                 Ok(Completed) => {
-                    self.protocol.on_sent(self.con_id(), msg);
+                    self.protocol.on_sent(self, msg);
                     self.callback.on_sent(self.con_id(), msg);
                     return Ok(());
                 }
                 Ok(WouldBlock) => continue,
                 Err(e) => {
-                    self.protocol.on_error(self.con_id(), msg, &e);
+                    self.protocol.on_error(self, msg, &e);
                     return Err(e);
                 }
             }
@@ -187,17 +194,18 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for Clt
 /// # Note
 /// A [Protocol::on_reply] callback requires to share a reference of the sender between user space and protocol. Hence [CltSenderRef] is used
 /// to when `on_reply` feature is required. Note that it requires spin lock to be acquired on every send to ensure sequence ordering between user space and protocol
-#[derive(Debug)]
-pub struct CltRecverWithReply<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
+#[derive(Debug, Clone)]
+pub struct CltRecverRef<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
+    con_id: ConId, // this is a clone copy fro CltSender to avoid mutex call to id a connection
+    clt_recver: Arc<spin::Mutex<CltRecver<P, C, MAX_MSG_SIZE>>>,
     clt_sender: CltSenderRef<P, C, MAX_MSG_SIZE>,
-    clt_recver: CltRecver<P, C, MAX_MSG_SIZE>,
     protocol: Arc<P>,
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking<P> for CltRecverWithReply<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking<P> for CltRecverRef<P, C, MAX_MSG_SIZE> {
     /// Delegates to [CltRecver] and calls [Protocol::on_reply] when a message is received
     fn recv(&mut self) -> Result<RecvStatus<<P as Messenger>::RecvT>, Error> {
         use RecvStatus::Completed;
-        let res = self.clt_recver.recv();
+        let res = self.clt_recver.lock().recv();
         if let Ok(Completed(Some(ref msg))) = res {
             self.protocol.do_reply(msg, &mut self.clt_sender)?;
         }
@@ -208,7 +216,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBloc
         use RecvStatus::{Completed, WouldBlock};
         let start = Instant::now();
         loop {
-            let status = self.clt_recver.recv()?;
+            let status = self.clt_recver.lock().recv()?;
             match status {
                 Completed(Some(msg)) => {
                     self.protocol.do_reply(&msg, &mut self.clt_sender)?;
@@ -227,7 +235,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBloc
     fn recv_busywait(&mut self) -> Result<Option<<P as Messenger>::RecvT>, Error> {
         use RecvStatus::{Completed, WouldBlock};
         loop {
-            let status = self.clt_recver.recv()?;
+            let status = self.clt_recver.lock().recv()?; // release lock quickly, don't lock using recv_busywait
             match status {
                 Completed(Some(msg)) => {
                     self.protocol.do_reply(&msg, &mut self.clt_sender)?;
@@ -239,17 +247,38 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBloc
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for CltRecverWithReply<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for CltRecverRef<P, C, MAX_MSG_SIZE> {
     #[inline(always)]
     fn con_id(&self) -> &ConId {
-        self.clt_recver.con_id()
+        &self.con_id
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for CltRecverWithReply<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollReadable for CltRecverRef<P, C, MAX_MSG_SIZE> {
+    fn register(&mut self, registry: &mio::Registry, token: mio::Token, interests: mio::Interest) -> Result<(), Error> {
+        let mut guard = self.clt_recver.lock();
+        registry.register(&mut guard.msg_recver.frm_reader.stream_reader, token, interests)
+    }
+    fn deregister(&mut self, registry: &mio::Registry) -> Result<(), Error> {
+        let mut guard = self.clt_recver.lock();
+        registry.deregister(&mut guard.msg_recver.frm_reader.stream_reader)
+    }
+    fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
+        panic!("Invalid API usage. PollReadable::register and PollReadable::deregister are overridden and this call shall never be issued.")
+    }
+    fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
+        use RecvStatus::*;
+        match self.recv()? {
+            Completed(Some(_)) => Ok(PollEventStatus::Completed),
+            WouldBlock => Ok(PollEventStatus::WouldBlock),
+            Completed(None) => Ok(PollEventStatus::Terminate),
+        }
+    }
+}
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for CltRecverRef<P, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let recv_t = std::any::type_name::<P::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
         let send_t = std::any::type_name::<P::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
-        write!(f, "{}<{}, RecvT:{}, SendT:{}, {}>", asserted_short_name!("CltRecverWithSenderRef", Self), self.clt_recver.con_id(), recv_t, send_t, MAX_MSG_SIZE)
+        write!(f, "{}<{}, RecvT:{}, SendT:{}, {}>", asserted_short_name!("CltRecverWithSenderRef", Self), self.con_id(), recv_t, send_t, MAX_MSG_SIZE)
     }
 }
 
@@ -309,17 +338,6 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
         let send_t = std::any::type_name::<P::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
         write!(f, "{}<{}, RecvT:{}, SendT:{}, {}>", asserted_short_name!("CltSenderShared", Self), self.con_id(), recv_t, send_t, MAX_MSG_SIZE)
     }
-}
-
-// pub trait CltSplit<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize, R: RecvNonBlocking<P> = CltRecver<P, C, MAX_MSG_SIZE>, S: SendNonBlocking<P> = CltSender<P, C, MAX_MSG_SIZE>> {
-pub trait CltSplit<P: Protocol> {
-    // CltRecver<P, C, MAX_MSG_SIZE>, CltSender<P, C, MAX_MSG_SIZE>
-    // type Recver: RecvNonBlocking<M>;
-    // type Sender: SendNonBlocking<M>;
-    // fn into_split(self) -> (Self::Recver, Self::Sender);
-    // fn into_split<R: RecvNonBlocking<P>, S: SendNonBlocking<P>>(self) -> (R, S);
-    fn into_split(self) -> (impl RecvNonBlocking<P>, impl SendNonBlocking<P>);
-    fn into_split_shared(self) -> (impl RecvNonBlocking<P>, impl SendNonBlocking<P>);
 }
 
 /// An abstraction over a [MessageRecver] and [MessageSender] that will issue respective [CallbackRecvSend] callback
@@ -397,33 +415,33 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
 
         Ok(con)
     }
-    pub fn into_spawned_sender(self) -> CltSender<P, C, MAX_MSG_SIZE> {
+    pub fn into_spawned_sender(self) -> impl SendNonBlocking<P> {
         let (recver, sender) = self.into_split();
-        crate::connect::DEFAULT_RECV_POLL_HANDLER.add_recver(recver.into());
+        crate::connect::DEFAULT_RECV_POLL_HANDLER.add_recver(Box::new(recver));
+        // crate::connect::DEFAULT_RECV_POLL_HANDLER.add_recver(recver.into());
         sender
     }
-}
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> CltSplit<P> for Clt<P, C, MAX_MSG_SIZE> {
-    // type Recver = CltRecver<P, C, MAX_MSG_SIZE>;
-    // type Sender = CltSender<P, C, MAX_MSG_SIZE>;
-    // fn into_split(self) -> (Self::Recver, Self::Sender) {
-    //     (self.clt_recver, self.clt_sender)
-    // }
-    // fn into_split(self) -> (CltRecver<P, C, MAX_MSG_SIZE>, CltSender<P, C, MAX_MSG_SIZE>) {
-    //     (self.clt_recver, self.clt_sender)
-    // }
-    fn into_split(self) -> (impl RecvNonBlocking<P>, impl SendNonBlocking<P>) {
+
+    pub fn into_spawned_ref(self) -> impl SendNonBlocking<P> {
+        let (recver, sender) = self.into_split_ref();
+        crate::connect::DEFAULT_RECV_POLL_HANDLER.add_recver(Box::new(recver));
+        // crate::connect::DEFAULT_RECV_POLL_HANDLER.add_recver(recver.into());
+        sender
+    }
+
+    pub fn into_split(self) -> (CltRecver<P, C, MAX_MSG_SIZE>, CltSender<P, C, MAX_MSG_SIZE>) {
         (self.clt_recver, self.clt_sender)
     }
-    fn into_split_shared(self) -> (impl RecvNonBlocking<P>, impl SendNonBlocking<P>) {
+    pub fn into_split_ref(self) -> (CltRecverRef<P, C, MAX_MSG_SIZE>, CltSenderRef<P, C, MAX_MSG_SIZE>) {
         let protocol = self.protocol.clone();
         let con_id = self.con_id().clone();
         let clt_sender = Arc::new(spin::Mutex::new(self.clt_sender));
 
         let clt_sender_shared_for_recv = CltSenderRef { con_id: con_id.clone(), clt_sender: clt_sender.clone() };
-        let clt_recver_with_shared_sender = CltRecverWithReply {
+        let clt_recver_with_shared_sender = CltRecverRef {
+            con_id: con_id.clone(),
+            clt_recver: Arc::new(spin::Mutex::new(self.clt_recver)),
             clt_sender: clt_sender_shared_for_recv,
-            clt_recver: self.clt_recver,
             protocol: protocol.clone(),
         };
 

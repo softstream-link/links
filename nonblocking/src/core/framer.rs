@@ -93,7 +93,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
     /// each variant in the successful scenario.
     /// # Note
     /// If the [FrameWriter] `pair` is dropped this method will return [RecvStatus::Completed(None)]
-    #[inline]
+    #[inline(always)]
     pub fn read_frame(&mut self) -> Result<RecvStatus<Bytes>, Error> {
         // TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MSG_SIZE generic as it can just be an non const arg to new
         #[allow(clippy::uninit_assumed_init)]

@@ -12,7 +12,9 @@ use std::{
 // setting up these macros to reuse code where borrow checker, iterating over self.events while modifying self.serviceable
 macro_rules! register_recver_as_readable {
     ($self:ident, $recver:ident, $token:ident) => {
-        $self.poll.registry().register(*$recver.source(), $token, mio::Interest::READABLE).expect("Failed to poll register recver");
+        // USING register method instead of source to enable overriding of register method when locking is required
+        // $self.poll.registry().register(*$recver.source(), $token, mio::Interest::READABLE).expect("Failed to poll register recver");
+        $recver.register($self.poll.registry(), $token, mio::Interest::READABLE).expect("Failed to poll register recver");
         if log_enabled!(Level::Debug) {
             debug!("registered recver: {} with token: {:?}", $recver.con_id(), $token);
         }
@@ -20,8 +22,9 @@ macro_rules! register_recver_as_readable {
 }
 macro_rules! register_acceptor_as_readable {
     ($self:ident, $acceptor:ident, $token:ident) => {
-        $self.poll.registry().register(*$acceptor.source(), $token, mio::Interest::READABLE).expect("Failed to poll register acceptor");
-
+        // USING $acceptor.register method instead of $acceptor.source to enable overriding of register method when locking is required
+        // $self.poll.registry().register(*$acceptor.source(), $token, mio::Interest::READABLE).expect("Failed to poll register acceptor");
+        $acceptor.register($self.poll.registry(), $token, mio::Interest::READABLE).expect("Failed to poll register acceptor");
         if log_enabled!(Level::Debug) {
             debug!("registered acceptor: {} with token: {:?}", $acceptor.con_id(), $token);
         }
@@ -31,20 +34,20 @@ macro_rules! register_serviceable_as_readable {
     ($self:ident, $serviceable:ident) => {
         let token = Token($self.serviceable.insert($serviceable));
         match $self.serviceable[token.into()] {
-            Serviceable::Recver(ref mut recver, _acceptor_key) => {
+            Serviceable::Recver(ref mut recver) => {
                 register_recver_as_readable!($self, recver, token);
             }
             Serviceable::Acceptor(ref mut acceptor) => {
                 register_acceptor_as_readable!($self, acceptor, token);
             }
-            Serviceable::Waker => panic!("Waker should not be added to the poll only when spawning a new thread"),
+            Serviceable::Waker => panic!("Invalid API usage. Waker should not be manually registered as serviceable. It is auto registered when calling [PollHandler::into_spawned_handler]"),
         }
     };
 }
 
 enum Serviceable<R: PollReadable, A: PollAccept<R>> {
     Acceptor(A),
-    Recver(R, Option<usize>), // when option is set it points the key of acceptor so that one can figure out how many recvers are active for a given acceptor
+    Recver(R),
     Waker,
 }
 
@@ -56,7 +59,7 @@ pub struct PollHandler<R: PollReadable, A: PollAccept<R>> {
 }
 impl<R: PollReadable, A: PollAccept<R>> PollHandler<R, A> {
     /// Create a new [PollHandler] with a given capacity of Events on a single poll call
-    pub fn with_capacity(capacity: usize) -> Self {
+    pub fn with_events_capacity(capacity: usize) -> Self {
         Self {
             poll: Poll::new().expect("Failed to create Poll"),
             serviceable: Slab::new(),
@@ -69,7 +72,7 @@ impl<R: PollReadable, A: PollAccept<R>> PollHandler<R, A> {
         self.add_serviceable(Serviceable::Acceptor(acceptor))
     }
     pub fn add_recver(&mut self, recver: R) {
-        self.add_serviceable(Serviceable::Recver(recver, None))
+        self.add_serviceable(Serviceable::Recver(recver))
     }
     /// Spawns a new thread with a given name that will continuously poll for events on all of its [SvcPoolAcceptor]s and resulting [CltRecver]s instances
     pub fn into_spawned_handler(mut self, name: &str) -> SpawnedPollHandler<R, A> {
@@ -122,7 +125,7 @@ impl<R: PollReadable, A: PollAccept<R>> PollHandler<R, A> {
                 let key = event.token().into();
                 let serviceable = self.serviceable.get_mut(key);
                 match serviceable {
-                    Some(Recver(recver, _acceptor_key)) => match recver.on_readable_event() {
+                    Some(Recver(recver)) => match recver.on_readable_event() {
                         Ok(Completed) => {
                             had_yield = true;
                             continue;
@@ -132,21 +135,25 @@ impl<R: PollReadable, A: PollAccept<R>> PollHandler<R, A> {
                             if log_enabled!(Level::Info) {
                                 info!("Clean, service loop termination recver: {}", recver);
                             }
-                            self.poll.registry().deregister(*recver.source())?;
+                            // USING recver.deregister method instead of recver.source to enable overriding of deregister method when locking is required
+                            // self.poll.registry().deregister(*recver.source())?;
+                            recver.deregister(self.poll.registry())?;
                             self.serviceable.remove(key);
                         }
                         Err(e) => {
                             if log_enabled!(Level::Warn) {
                                 warn!("Error, service loop termination recver: {}, error: {}", recver, e);
                             }
-                            self.poll.registry().deregister(*recver.source())?;
+                            // USING recver.deregister method instead of recver.source to enable overriding of deregister method when locking is required
+                            // self.poll.registry().deregister(*recver.source())?;
+                            recver.deregister(self.poll.registry())?;
                             self.serviceable.remove(key);
                         }
                     },
                     Some(Acceptor(acceptor)) => match acceptor.poll_accept() {
                         Ok(AcceptStatus::Accepted(recver)) => {
-                            let token = Token(self.serviceable.insert(Recver(recver, Some(key))));
-                            if let Recver(ref mut recver, _acceptor_key) = self.serviceable[token.into()] {
+                            let token = Token(self.serviceable.insert(Recver(recver)));
+                            if let Recver(ref mut recver) = self.serviceable[token.into()] {
                                 register_recver_as_readable!(self, recver, token);
                             }
                             had_yield = true;
@@ -159,7 +166,9 @@ impl<R: PollReadable, A: PollAccept<R>> PollHandler<R, A> {
                             if log_enabled!(Level::Warn) {
                                 warn!("Error, service loop termination acceptor: {}, error: {}", acceptor, e);
                             }
-                            self.poll.registry().deregister(*acceptor.source())?;
+                            // USING acceptor.deregister method instead of acceptor.source to enable overriding of deregister method when locking is required
+                            // self.poll.registry().deregister(*acceptor.source())?;
+                            acceptor.deregister(self.poll.registry())?;
                             self.serviceable.remove(key);
                         }
                     },
@@ -186,7 +195,7 @@ impl<R: PollReadable, A: PollAccept<R>> PollHandler<R, A> {
 }
 impl<R: PollReadable, A: PollAccept<R>> Default for PollHandler<R, A> {
     fn default() -> Self {
-        Self::with_capacity(1024)
+        Self::with_events_capacity(1024)
     }
 }
 
@@ -241,7 +250,7 @@ impl<R: PollReadable, A: PollAccept<R>> SpawnedPollHandler<R, A> {
         self.waker.wake().expect("Failed to wake PollHandler after sending acceptor");
     }
     pub fn add_recver(&self, recver: R) {
-        self.tx_serviceable.send(Serviceable::Recver(recver, None)).expect("Failed to send recver to PollHandler");
+        self.tx_serviceable.send(Serviceable::Recver(recver)).expect("Failed to send recver to PollHandler");
         self.waker.wake().expect("Failed to wake PollHandler after sending recver");
     }
     pub fn wake(&self) {
