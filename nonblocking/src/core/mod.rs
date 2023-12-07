@@ -134,13 +134,6 @@ impl<T> AcceptStatus<T> {
             AcceptStatus::WouldBlock => false,
         }
     }
-    pub fn map<X>(self, f: impl FnOnce(T) -> X) -> AcceptStatus<X> {
-        match self {
-            AcceptStatus::Accepted(t) => AcceptStatus::Accepted(f(t)),
-            AcceptStatus::Rejected => AcceptStatus::Rejected,
-            AcceptStatus::WouldBlock => AcceptStatus::WouldBlock,
-        }
-    }
 }
 pub trait AcceptNonBlocking<T> {
     fn accept(&self) -> Result<AcceptStatus<T>, Error>;
@@ -240,7 +233,7 @@ impl<T> RecvStatus<T> {
     }
 }
 
-pub trait RecvNonBlocking<M: Messenger> {
+pub trait RecvNonBlocking<M: Messenger>: Debug + Display {
     /// Will attempt to read a message from the stream. Each call to this method will
     /// attempt to read data from the stream via system call and if sufficient number of bytes were read to
     /// make a single frame it will attempt to deserialize it into a message and return it
@@ -306,7 +299,7 @@ impl SendStatus {
     }
 }
 
-pub trait SendNonBlocking<M: Messenger> {
+pub trait SendNonBlocking<M: Messenger>: Debug + Display {
     /// The call will internally serialize the [Messenger::SendT] and attempt to write the resulting bytes into a stream.
     /// If there was a successfull attempt which wrote some, not all, bytes from serialized message
     /// into the stream and hence the write was only partial, the call will busy wait until all of
@@ -399,11 +392,12 @@ pub enum PollEventStatus {
     Terminate,
 }
 
-pub trait PollRecv: ConnectionId + Display + Send + 'static {
+pub trait PollReadable: ConnectionId + Display + Send + 'static {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source>;
     fn on_readable_event(&mut self) -> Result<PollEventStatus, Error>;
 }
 
-pub trait PollAccept<R: PollRecv>: PollRecv {
+pub trait PollAccept<R: PollReadable>: PollReadable {
     fn poll_accept(&mut self) -> Result<AcceptStatus<R>, Error>;
 }
+

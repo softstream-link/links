@@ -1,4 +1,4 @@
-use crate::prelude::{into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, MessageRecver, MessageSender, Messenger, PollEventStatus, PollRecv, Protocol, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut, SendStatus};
+use crate::prelude::{into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, MessageRecver, MessageSender, Messenger, PollEventStatus, PollReadable, Protocol, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut, SendStatus};
 use links_core::{
     asserted_short_name,
     core::{conid::ConnectionId, counters::max_connection::RemoveConnectionBarrierOnDrop},
@@ -55,7 +55,7 @@ impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> ConnectionId fo
         &self.msg_recver.frm_reader.con_id
     }
 }
-impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> PollRecv for CltRecver<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> PollReadable for CltRecver<P, C, MAX_MSG_SIZE> {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         Box::new(&mut self.msg_recver.frm_reader.stream_reader)
     }
@@ -187,6 +187,7 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for Clt
 /// # Note
 /// A [Protocol::on_reply] callback requires to share a reference of the sender between user space and protocol. Hence [CltSenderRef] is used
 /// to when `on_reply` feature is required. Note that it requires spin lock to be acquired on every send to ensure sequence ordering between user space and protocol
+#[derive(Debug)]
 pub struct CltRecverWithReply<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
     clt_sender: CltSenderRef<P, C, MAX_MSG_SIZE>,
     clt_recver: CltRecver<P, C, MAX_MSG_SIZE>,
@@ -310,6 +311,17 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
     }
 }
 
+// pub trait CltSplit<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize, R: RecvNonBlocking<P> = CltRecver<P, C, MAX_MSG_SIZE>, S: SendNonBlocking<P> = CltSender<P, C, MAX_MSG_SIZE>> {
+pub trait CltSplit<P: Protocol> {
+    // CltRecver<P, C, MAX_MSG_SIZE>, CltSender<P, C, MAX_MSG_SIZE>
+    // type Recver: RecvNonBlocking<M>;
+    // type Sender: SendNonBlocking<M>;
+    // fn into_split(self) -> (Self::Recver, Self::Sender);
+    // fn into_split<R: RecvNonBlocking<P>, S: SendNonBlocking<P>>(self) -> (R, S);
+    fn into_split(self) -> (impl RecvNonBlocking<P>, impl SendNonBlocking<P>);
+    fn into_split_shared(self) -> (impl RecvNonBlocking<P>, impl SendNonBlocking<P>);
+}
+
 /// An abstraction over a [MessageRecver] and [MessageSender] that will issue respective [CallbackRecvSend] callback
 /// while also supporting [Protocol] callbacks.
 /// It is designed to work in a single thread. To split out [CltRecver] and [CltSender] use [Clt::into_split]
@@ -385,10 +397,25 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
 
         Ok(con)
     }
-    pub fn into_split(self) -> (CltRecver<P, C, MAX_MSG_SIZE>, CltSender<P, C, MAX_MSG_SIZE>) {
+    pub fn into_spawned_sender(self) -> CltSender<P, C, MAX_MSG_SIZE> {
+        let (recver, sender) = self.into_split();
+        crate::connect::DEFAULT_RECV_POLL_HANDLER.add_recver(recver.into());
+        sender
+    }
+}
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> CltSplit<P> for Clt<P, C, MAX_MSG_SIZE> {
+    // type Recver = CltRecver<P, C, MAX_MSG_SIZE>;
+    // type Sender = CltSender<P, C, MAX_MSG_SIZE>;
+    // fn into_split(self) -> (Self::Recver, Self::Sender) {
+    //     (self.clt_recver, self.clt_sender)
+    // }
+    // fn into_split(self) -> (CltRecver<P, C, MAX_MSG_SIZE>, CltSender<P, C, MAX_MSG_SIZE>) {
+    //     (self.clt_recver, self.clt_sender)
+    // }
+    fn into_split(self) -> (impl RecvNonBlocking<P>, impl SendNonBlocking<P>) {
         (self.clt_recver, self.clt_sender)
     }
-    pub fn into_split_with_reply(self) -> (CltRecverWithReply<P, C, MAX_MSG_SIZE>, CltSenderRef<P, C, MAX_MSG_SIZE>) {
+    fn into_split_shared(self) -> (impl RecvNonBlocking<P>, impl SendNonBlocking<P>) {
         let protocol = self.protocol.clone();
         let con_id = self.con_id().clone();
         let clt_sender = Arc::new(spin::Mutex::new(self.clt_sender));
@@ -402,11 +429,6 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
 
         let clt_sender_shared_for_user = CltSenderRef { con_id, clt_sender };
         (clt_recver_with_shared_sender, clt_sender_shared_for_user)
-    }
-    pub fn into_spawned_sender(self) -> CltSender<P, C, MAX_MSG_SIZE> {
-        let (recver, sender) = self.into_split();
-        crate::connect::DEFAULT_RECV_POLL_HANDLER.add_recver(recver.into());
-        sender
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for Clt<P, C, MAX_MSG_SIZE> {
