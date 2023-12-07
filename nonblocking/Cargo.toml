@@ -76,6 +76,10 @@ name = "06_clt2clt_nonblocking_busywait_bench"
 harness = false
 required-features = ["unittest"]
 
+[[bench]]
+name = "07_sender_ref2recver_ref_nonblocking_busywait_bench"
+harness = false
+required-features = ["unittest"]
 
 # EXAMPLES
 [[example]]
