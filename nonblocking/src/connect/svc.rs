@@ -203,6 +203,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
         }
         let (acceptor, _recver_drop, sender) = self.into_split_ref();
         crate::connect::DEFAULT_POLL_HANDLER.add_acceptor(acceptor.into());
+        
         sender
     }
 }

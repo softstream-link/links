@@ -1,13 +1,4 @@
-use std::{
-    error::Error,
-    num::NonZeroUsize,
-    thread::sleep,
-    time::{Duration, Instant},
-};
-
-// use chrono::Duration;
 use links_core::{
-    fmt_num,
     prelude::DevNullCallback,
     unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE, model::*},
 };
@@ -16,6 +7,7 @@ use links_nonblocking::{
     unittest::setup::protocol::{CltTestProtocolAuthAndHbeat, SvcTestProtocolAuthAndHBeat},
 };
 use log::info;
+use std::{error::Error, num::NonZeroUsize, thread::sleep};
 
 fn main() -> Result<(), Box<dyn Error>> {
     run()
@@ -63,7 +55,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     // VERIFY numbers of messages sent and received
 
     info!("store: {}", store);
-    let expected_msg_count = clt_msgs.len() + svc_msgs.len() + 2 + allow_n_hbeats; // 2 is from the auth handshake
+    let expected_msg_count = clt_msgs.len() + svc_msgs.len() + 2 + allow_n_hbeats * 2; // 2 is from the auth handshake , * 2 of hbeats for clt and svc
     assert_eq!(store.len(), expected_msg_count);
 
     let found = store.find_recv(
@@ -73,7 +65,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     );
 
     info!("found: {:?}", found);
-    assert_eq!(found.unwrap().try_into_clt(),CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg")));
+    assert_eq!(found.unwrap().try_into_clt(), CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg")));
 
     let found = store.find_recv("example/svc", |msg| matches!(msg, UniTestMsg::Clt(CltTestMsg::HBeat(_))), setup::net::optional_find_timeout());
     info!("found: {:?}", found);

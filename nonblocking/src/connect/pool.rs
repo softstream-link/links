@@ -1,8 +1,10 @@
 use crate::{
     core::PollAccept,
-    prelude::{AcceptStatus, CallbackRecvSend, CltRecver, CltSender, Messenger, PollEventStatus, PollReadable, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol, RecvNonBlocking, RecvStatus, SendNonBlocking, SendStatus, SvcAcceptor, SvcAcceptorOfCltNonBlocking},
+    prelude::{
+        asserted_short_name, short_type_name, AcceptStatus, CallbackRecvSend, CltRecver, CltSender, ConnectionId, Messenger, PollEventStatus, PollReadable, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol, RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking, SendStatus,
+        SvcAcceptor, SvcAcceptorOfCltNonBlocking, TimerTaskStatus,
+    },
 };
-use links_core::{asserted_short_name, core::conid::ConnectionId, prelude::RoundRobinPool};
 use log::{info, log_enabled, warn, Level};
 use std::{
     fmt::Display,
@@ -10,7 +12,7 @@ use std::{
     marker::PhantomData,
     num::NonZeroUsize,
     sync::mpsc::{channel, Receiver, Sender},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use super::clt::{Clt, CltRecverRef, CltSenderRef};
@@ -768,6 +770,28 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Transmittin
         match self.acceptor.accept()? {
             Accepted(clt) => {
                 let (recver, sender) = clt.into_split_ref();
+
+                match sender.protocol.conf_heart_beat_interval() {
+                    Some(interval) => {
+                        crate::connect::DEFAULT_HBEAT_HANDLER.schedule(sender.con_id().to_string().as_str(), interval, {
+                            let sender = sender.clone();
+                            move || match sender.do_heart_beat() {
+                                Ok(SendStatus::Completed) => TimerTaskStatus::Completed,
+                                Ok(SendStatus::WouldBlock) => TimerTaskStatus::RetryAfter(Duration::from_secs(0)),
+                                Err(err) => {
+                                    warn!("{} Failed to send heart beat. Will no longer attempt to send. err: {:?}", sender.con_id(), err);
+                                    TimerTaskStatus::Terminate
+                                }
+                            }
+                        });
+                    }
+                    None => {
+                        if log::log_enabled!(log::Level::Warn) {
+                            warn!("{}::conf_heart_beat_interval(), hence {}::do_heart_beat(..) will not be scheduled for this con_id: {}", short_type_name::<P>(), short_type_name::<P>(), sender.con_id(),);
+                        }
+                    }
+                }
+
                 if let Err(e) = self.tx_sender.send(sender) {
                     return Err(Error::new(ErrorKind::Other, e.to_string()));
                 }
