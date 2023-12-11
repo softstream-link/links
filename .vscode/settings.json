@@ -20,6 +20,7 @@
         "endianess",
         "eventstore",
         "hbeat",
+        "hbeats",
         "Initiatr",
         "msger",
         "nanos",

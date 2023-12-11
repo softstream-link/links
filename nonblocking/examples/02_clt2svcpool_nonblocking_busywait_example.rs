@@ -7,7 +7,7 @@ use links_core::{
 };
 use links_nonblocking::{
     prelude::*,
-    unittest::setup::protocol::{CltTestProtocolAuth, SvcTestProtocolAuth},
+    unittest::setup::protocol::{CltTestProtocolAuthAndHbeat, SvcTestProtocolAuthAndHBeat},
 };
 use log::info;
 
@@ -27,7 +27,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let svc_jh = Builder::new()
         .name("Svc-Thread".to_owned())
         .spawn(move || {
-            let protocol = SvcTestProtocolAuth::default();
+            let protocol = SvcTestProtocolAuthAndHBeat::default();
             let name = Some("example/svc");
             let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::new_ref(), NonZeroUsize::new(1).unwrap(), protocol, name).unwrap();
 
@@ -48,7 +48,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         })
         .unwrap();
 
-    let protocol = CltTestProtocolAuth::default();
+    let protocol = CltTestProtocolAuthAndHbeat::default();
     let name = Some("example/clt");
     let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), protocol, name).unwrap();
     info!("clt: {}", clt);

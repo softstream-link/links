@@ -1,13 +1,14 @@
-use crate::prelude::{into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, MessageRecver, MessageSender, Messenger, PollEventStatus, PollReadable, Protocol, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut, SendStatus};
-use links_core::{
-    asserted_short_name,
-    core::{conid::ConnectionId, counters::max_connection::RemoveConnectionBarrierOnDrop},
+use crate::prelude::{
+    asserted_short_name, into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, MessageRecver, MessageSender, Messenger, PollEventStatus, PollReadable, Protocol, RecvNonBlocking, RecvStatus, RemoveConnectionBarrierOnDrop, SendNonBlocking, SendNonBlockingNonMut,
+    SendStatus, TimerTaskStatus,
 };
-use log::debug;
+use links_core::core::macros::short_type_name;
+use log::{debug, warn};
 use std::{
     fmt::{Debug, Display},
     io::Error,
     net::TcpStream,
+    ops::DerefMut,
     sync::Arc,
     thread::sleep,
     time::{Duration, Instant},
@@ -18,7 +19,7 @@ use std::{
 ///
 /// # Important
 /// This is an owned implementation and is not [Clone]able or [Sync]able.
-/// 
+///
 /// # Warning
 /// Dropping [CltRecver] will also result in termination of the connection in the `paired` [CltSender] instance
 #[derive(Debug)]
@@ -87,7 +88,7 @@ impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> Display for Clt
 ///
 /// # Important
 /// This is an owned implementation and is not [Clone]able.
-/// 
+///
 /// # Warning
 /// Dropping [CltSender] will also result in termination of the connection in the `paired` [CltRecver] instance
 #[derive(Debug)]
@@ -199,13 +200,13 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for Clt
 /// It is designed to cloned and shared across threads at the cost of spin lock on every call.
 ///
 /// # Important
-/// In addition to call delegating it enables enhanced features of the [Protocol] trait, such as [Protocol::do_reply]
+/// In addition to delegating method calls it enables enhanced features of the [Protocol] trait, such as [Protocol::do_reply]
 /// by holding a reference to clone of [CltSenderRef]
-/// 
+///
 /// # Warning
-/// Dropping any of the [CltRecverRef] clones will terminate the connection across all remaining instances, 
+/// Dropping any of the [CltRecverRef] clones will terminate the connection across all remaining instances,
 /// including all clones of `paired` [CltSenderRef] instances.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CltRecverRef<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
     con_id: ConId, // this is a clone copy fro CltSender to avoid mutex call to id a connection
     clt_recver: Arc<spin::Mutex<CltRecver<P, C, MAX_MSG_SIZE>>>,
@@ -302,17 +303,39 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Drop for Cl
         self.clt_recver.lock().msg_recver.frm_reader.shutdown(std::net::Shutdown::Both, "CltRecverRef::drop");
     }
 }
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clone for CltRecverRef<P, C, MAX_MSG_SIZE> {
+    fn clone(&self) -> Self {
+        Self {
+            con_id: self.con_id.clone(),
+            clt_recver: self.clt_recver.clone(),
+            clt_sender: self.clt_sender.clone(),
+            protocol: self.protocol.clone(),
+        }
+    }
+}
+
 /// A reference counted abstraction which delegates all calls to [CltSender] protected by a [spin::Mutex]
 /// It is designed to cloned and shared across threads at the cost of spin lock on every call.
-/// 
+///
+/// # Important
+/// In addition to delegating method calls it enables enhanced features of the [Protocol] trait, such as [Protocol::do_heart_beat] & [Protocol::conf_heart_beat_interval]
+/// by holding a reference to clone of [CltRecverRef]
+///
 /// # Warning
-/// Dropping any of the [CltSenderRef] clones will terminate the connection across all remaining instances, 
+/// Dropping any of the [CltSenderRef] clones will terminate the connection across all remaining instances,
 /// including all clones of `paired` [CltRecverRef] instances.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CltSenderRef<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> {
     con_id: ConId, // this is a clone copy fro CltSender to avoid mutex call to id a connection
     // clt_sender: Arc<spin::mutex::Mutex<CltSender<P, C, MAX_MSG_SIZE>,Loop>>,
     clt_sender: Arc<spin::Mutex<CltSender<P, C, MAX_MSG_SIZE>>>,
+    protocol: Arc<P>,
+}
+impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSenderRef<P, C, MAX_MSG_SIZE> {
+    pub(crate) fn do_heart_beat(&self) -> Result<SendStatus, Error> {
+        let mut guard = self.clt_sender.lock();
+        self.protocol.do_heart_beat(guard.deref_mut())
+    }
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for CltSenderRef<P, C, MAX_MSG_SIZE> {
     /// Delegates to [CltSender] once a spin lock is acquired.
@@ -369,6 +392,16 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Drop for CltSen
         self.clt_sender.lock().msg_sender.frm_writer.shutdown(std::net::Shutdown::Both, "CltSenderRef::drop");
     }
 }
+impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Clone for CltSenderRef<P, C, MAX_MSG_SIZE> {
+    fn clone(&self) -> Self {
+        Self {
+            con_id: self.con_id.clone(),
+            clt_sender: self.clt_sender.clone(),
+            protocol: self.protocol.clone(),
+        }
+    }
+}
+
 /// An abstraction over a [MessageRecver] and [MessageSender] that executes [Protocol] and [CallbackRecvSend] callbacks on every message being processed by [CltRecver] and [CltSender] respectively.
 /// It is designed to work in a single thread. To split use:
 /// * [Clt::into_split] - for [CltRecver]/[CltSender]
@@ -445,16 +478,6 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
 
         Ok(con)
     }
-    pub fn into_spawned_sender(self) -> impl SendNonBlocking<P> {
-        let (recver, sender) = self.into_split();
-        crate::connect::DEFAULT_POLL_HANDLER.add_recver(recver.into());
-        sender
-    }
-    pub fn into_spawned_ref(self) -> impl SendNonBlocking<P> {
-        let (recver, sender) = self.into_split_ref();
-        crate::connect::DEFAULT_POLL_HANDLER.add_recver(recver.into());
-        sender
-    }
     pub fn into_split(self) -> (CltRecver<P, C, MAX_MSG_SIZE>, CltSender<P, C, MAX_MSG_SIZE>) {
         (self.clt_recver, self.clt_sender)
     }
@@ -463,7 +486,11 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
         let con_id = self.con_id().clone();
         let clt_sender = Arc::new(spin::Mutex::new(self.clt_sender));
 
-        let clt_sender_shared_for_recv = CltSenderRef { con_id: con_id.clone(), clt_sender: clt_sender.clone() };
+        let clt_sender_shared_for_recv = CltSenderRef {
+            con_id: con_id.clone(),
+            clt_sender: clt_sender.clone(),
+            protocol: protocol.clone(),
+        };
         let clt_recver_with_shared_sender = CltRecverRef {
             con_id: con_id.clone(),
             clt_recver: Arc::new(spin::Mutex::new(self.clt_recver)),
@@ -471,8 +498,41 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
             protocol: protocol.clone(),
         };
 
-        let clt_sender_shared_for_user = CltSenderRef { con_id, clt_sender };
+        let clt_sender_shared_for_user = CltSenderRef { con_id, clt_sender, protocol: protocol.clone() };
         (clt_recver_with_shared_sender, clt_sender_shared_for_user)
+    }
+    pub fn into_sender_with_spawned_recver(self) -> impl SendNonBlocking<P> + Display {
+        let (recver, sender) = self.into_split();
+        crate::connect::DEFAULT_POLL_HANDLER.add_recver(recver.into());
+        sender
+    }
+    pub fn into_sender_with_spawned_recver_ref(self) -> impl SendNonBlocking<P> + Display {
+        let (recver, sender) = self.into_split_ref();
+
+        crate::connect::DEFAULT_POLL_HANDLER.add_recver(recver.into());
+
+        match sender.protocol.conf_heart_beat_interval() {
+            Some(interval) => {
+                crate::connect::DEFAULT_HBEAT_HANDLER.schedule(sender.con_id().to_string().as_str(), interval, {
+                    let sender = sender.clone();
+                    move || match sender.do_heart_beat() {
+                        Ok(SendStatus::Completed) => TimerTaskStatus::Completed,
+                        Ok(SendStatus::WouldBlock) => TimerTaskStatus::RetryAfter(Duration::from_secs(0)),
+                        Err(err) => {
+                            warn!("{} Failed to send heart beat. Will no longer attempt to send. err: {:?}", sender.con_id(), err);
+                            TimerTaskStatus::Terminate
+                        }
+                    }
+                });
+            }
+            None => {
+                if log::log_enabled!(log::Level::Warn) {
+                    warn!("{}::conf_heart_beat_interval(), hence {}::do_heart_beat(..) will not be scheduled for this con_id: {}", short_type_name::<P>(), short_type_name::<P>(), sender.con_id(),);
+                }
+            }
+        }
+
+        sender
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for Clt<P, C, MAX_MSG_SIZE> {
@@ -496,12 +556,17 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBloc
     /// Delegates to [CltRecver]
     #[inline(always)]
     fn recv(&mut self) -> Result<RecvStatus<<P as Messenger>::RecvT>, Error> {
-        use RecvStatus::Completed;
-        let res = self.clt_recver.recv();
-        if let Ok(Completed(Some(ref msg))) = res {
-            self.protocol.do_reply(msg, &mut self.clt_sender)?;
-        }
-        res
+        self.clt_recver.recv()
+    }
+    /// Delegates to [CltRecver]
+    #[inline(always)]
+    fn recv_busywait_timeout(&mut self, timeout: Duration) -> Result<RecvStatus<<P as Messenger>::RecvT>, Error> {
+        self.clt_recver.recv_busywait_timeout(timeout)
+    }
+    /// Delegates to [CltRecver]
+    #[inline(always)]
+    fn recv_busywait(&mut self) -> Result<Option<<P as Messenger>::RecvT>, Error> {
+        self.clt_recver.recv_busywait()
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for Clt<P, C, MAX_MSG_SIZE> {
@@ -520,7 +585,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
 #[cfg(feature = "unittest")]
 mod test {
     use super::Clt;
-    use crate::unittest::setup::protocol::CltTestProtocolAuth;
+    use crate::unittest::setup::protocol::CltTestProtocolAuthAndHbeat;
     use links_core::callbacks::logger::LoggerCallback;
     use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE};
 
@@ -529,7 +594,7 @@ mod test {
         setup::log::configure();
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::new_ref();
-        let protocol = CltTestProtocolAuth::default();
+        let protocol = CltTestProtocolAuthAndHbeat::default();
         let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, protocol, Some("unittest"));
         assert!(res.is_err());
     }

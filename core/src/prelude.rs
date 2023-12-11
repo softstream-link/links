@@ -24,6 +24,8 @@ pub use crate::callbacks::logger_old::LoggerCallbackOld;
 pub use crate::core::counters::interval::EventIntervalTracker;
 pub use crate::core::counters::max_connection::{AcceptorConnectionGate, RemoveConnectionBarrierOnDrop};
 
+// timer
+pub use crate::scheduler::{task::TimerTaskStatus, timer::Timer};
 
 // callbacks new
 pub use crate::callbacks::CallbackRecv;
@@ -37,6 +39,8 @@ pub use crate::callbacks::logger::LoggerCallback;
 pub use crate::callbacks::store::{Message, Storage, StoreCallback};
 
 pub use crate::stores::canonical_store::{CanonicalEntry, CanonicalEntryStore};
+
+pub use crate::{asserted_short_name, core::macros::short_type_name};
 
 #[cfg(feature = "unittest")]
 pub use num_format;

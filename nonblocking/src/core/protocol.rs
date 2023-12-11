@@ -1,7 +1,7 @@
 use crate::prelude::{ConnectionId, Messenger};
-use std::io::Error;
+use std::{io::Error, time::Duration};
 
-use super::{RecvNonBlocking, SendNonBlocking};
+use super::{RecvNonBlocking, SendNonBlocking, SendStatus};
 
 #[allow(unused_variables)]
 pub trait Protocol: Messenger + Clone {
@@ -31,9 +31,20 @@ pub trait Protocol: Messenger + Clone {
     #[inline(always)]
     fn on_recv<I: ConnectionId>(&self, who: &I, msg: &<Self as Messenger>::RecvT) {}
 
+    // TODO add docs to indicate callback availability
+    // ***************** EXTENDED PROTOCOL METHODS *****************
     /// Called after on_recv callback and allows to issue a reply to the received message
     #[inline(always)]
     fn do_reply<S: SendNonBlocking<Self> + ConnectionId>(&self, msg: &<Self as Messenger>::RecvT, sender: &mut S) -> Result<(), Error> {
         Ok(())
+    }
+
+    #[inline(always)]
+    fn conf_heart_beat_interval(&self) -> Option<Duration> {
+        None
+    }
+    #[inline(always)]
+    fn do_heart_beat<S: SendNonBlocking<Self> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
+        Ok(SendStatus::Completed)
     }
 }

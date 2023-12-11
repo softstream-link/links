@@ -12,7 +12,7 @@ use links_core::{
 };
 use links_nonblocking::{
     prelude::*,
-    unittest::setup::protocol::{CltTestProtocolAuth, SvcTestProtocolAuth},
+    unittest::setup::protocol::{CltTestProtocolAuthAndHbeat, SvcTestProtocolAuthAndHBeat},
 };
 use log::info;
 
@@ -34,7 +34,7 @@ fn send_msg(c: &mut Criterion) {
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, svc_callback, max_connections, SvcTestProtocolAuth::default(), name.clone()).unwrap();
+            let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, svc_callback, max_connections, SvcTestProtocolAuthAndHBeat::default(), name.clone()).unwrap();
 
             // info!("svc: {}", svc);
 
@@ -61,7 +61,7 @@ fn send_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let mut clt_initiator = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolAuth::default(), name.clone()).unwrap();
+    let mut clt_initiator = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolAuthAndHbeat::default(), name.clone()).unwrap();
     info!("clt_initiator: {}", clt_initiator);
 
     let id = format!("clt2clt_nonblocking_busywait_send_msg SvcTestMsg");
@@ -91,7 +91,7 @@ fn recv_msg(c: &mut Criterion) {
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, svc_callback, max_connections, SvcTestProtocolAuth::default(), name.clone()).unwrap();
+            let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, svc_callback, max_connections, SvcTestProtocolAuthAndHBeat::default(), name.clone()).unwrap();
 
             let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap_accepted();
             info!("clt_acceptor: {}", clt_acceptor);
@@ -114,7 +114,7 @@ fn recv_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let mut clt_initiator = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolAuth::default(), name.clone()).unwrap();
+    let mut clt_initiator = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolAuthAndHbeat::default(), name.clone()).unwrap();
 
     let id = format!("clt2clt_nonblocking_busywait_recv_msg SvcTestMsg");
     let mut clt_initiator_msg_recv_count = 0_usize;
@@ -142,7 +142,7 @@ fn round_trip_msg(c: &mut Criterion) {
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, svc_callback, max_connections, SvcTestProtocolAuth::default(), name.clone()).unwrap();
+            let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, svc_callback, max_connections, SvcTestProtocolAuthAndHBeat::default(), name.clone()).unwrap();
 
             let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap_accepted();
             info!("clt_acceptor: {}", clt_acceptor);
@@ -169,7 +169,7 @@ fn round_trip_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let mut clt_initiator = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolAuth::default(), name.clone()).unwrap();
+    let mut clt_initiator = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolAuthAndHbeat::default(), name.clone()).unwrap();
     info!("clt_initiator: {}", clt_initiator);
 
     let id = format!("clt2clt_nonblocking_busywait_round_trip_msg SvcTestMsg");

@@ -1,4 +1,4 @@
-use super::task::{Task, TaskStatus};
+use super::task::{Task, TimerTaskStatus};
 use crate::asserted_short_name;
 use log::{debug, info, log_enabled, warn};
 use std::{
@@ -26,7 +26,7 @@ impl Timer {
         let jh_executor = Executor::new(name, rx_task).spawn();
         Timer { tx_task, jh_executor }
     }
-    pub fn schedule<T: FnMut() -> TaskStatus + Send + 'static>(&self, name: &str, repeat: Duration, task: T) {
+    pub fn schedule<T: FnMut() -> TimerTaskStatus + Send + 'static>(&self, name: &str, repeat: Duration, task: T) {
         let task = Box::new(task);
         let task_schedule = Task::new(name, repeat, task);
 
@@ -58,7 +58,7 @@ impl Executor {
     }
     pub fn spawn(self) -> JoinHandle<()> {
         let jh = Builder::new()
-            .name(format!("{}-{}-Thread", self.name, asserted_short_name!("Executor", Self)))
+            .name(format!("{}", self.name))
             .spawn({
                 let mut e = self;
                 move || Executor::run(&mut e)
@@ -74,7 +74,7 @@ impl Executor {
             match self.rx_task.try_recv() {
                 Ok(Execute(task)) => {
                     if log_enabled!(log::Level::Info) {
-                        info!("Adding to {}, task: {}", asserted_short_name!("Executor", Self), task);
+                        info!("Adding Operation::Execute({})", task);
                     }
                     self.tasks.push(task);
                 }
@@ -101,7 +101,7 @@ impl Executor {
             }
 
             // now execute all tasks already scheduled for execution
-            use TaskStatus::{Completed, RetryAfter, Terminate};
+            use TimerTaskStatus::{Completed, RetryAfter, Terminate};
             match self.tasks.pop() {
                 Some(mut task) => {
                     let now = chrono::Utc::now();
@@ -166,7 +166,6 @@ mod test {
         setup::log::configure_level(log::LevelFilter::Debug);
         let timer = Timer::new("unittest");
 
-        
         static TASK1_TOTAL_ITERATIONS: AtomicU32 = AtomicU32::new(5);
         static TASK2_TOTAL_ITERATIONS: AtomicU32 = AtomicU32::new(3);
         static REPEAT_INTERVAL: Duration = Duration::from_millis(100);
@@ -175,9 +174,9 @@ mod test {
             let iteration_remaining = TASK1_TOTAL_ITERATIONS.fetch_sub(1, Ordering::Relaxed) - 1;
             info!("task1, iteration {}", iteration_remaining + 1);
             if iteration_remaining == 0 {
-                TaskStatus::Terminate
+                TimerTaskStatus::Terminate
             } else {
-                TaskStatus::Completed
+                TimerTaskStatus::Completed
             }
         });
 
@@ -185,9 +184,9 @@ mod test {
             let iteration_remaining = TASK2_TOTAL_ITERATIONS.fetch_sub(1, Ordering::Relaxed) - 1;
             info!("task2, iterations_remaining {}", iteration_remaining);
             if iteration_remaining == 0 {
-                TaskStatus::Terminate
+                TimerTaskStatus::Terminate
             } else {
-                TaskStatus::Completed
+                TimerTaskStatus::Completed
             }
         });
 

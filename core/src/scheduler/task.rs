@@ -8,13 +8,13 @@ use std::{
 use crate::asserted_short_name;
 
 #[derive(Debug, PartialEq)]
-pub enum TaskStatus {
+pub enum TimerTaskStatus {
     Completed,
     Terminate,
     RetryAfter(Duration),
 }
 
-pub type Executable = Box<dyn FnMut() -> TaskStatus + Send + 'static>;
+pub type Executable = Box<dyn FnMut() -> TimerTaskStatus + Send + 'static>;
 
 pub struct Task {
     name: String,
@@ -32,7 +32,7 @@ impl Task {
         }
     }
     /// Execute the task
-    pub fn execute(&mut self) -> TaskStatus {
+    pub fn execute(&mut self) -> TimerTaskStatus {
         (self.executable)()
     }
     /// Reschedule the task to be executed at the next standard interval
@@ -98,9 +98,9 @@ mod test {
 
         let mut schedules = BinaryHeap::new();
         let interval = Duration::from_secs(1);
-        schedules.push(Task::new("Task1", interval, Box::new(|| TaskStatus::Completed)));
-        schedules.push(Task::new("Task2", interval, Box::new(|| TaskStatus::Completed)));
-        schedules.push(Task::new("Task3", interval, Box::new(|| TaskStatus::Completed)));
+        schedules.push(Task::new("Task1", interval, Box::new(|| TimerTaskStatus::Completed)));
+        schedules.push(Task::new("Task2", interval, Box::new(|| TimerTaskStatus::Completed)));
+        schedules.push(Task::new("Task3", interval, Box::new(|| TimerTaskStatus::Completed)));
 
         let task = schedules.pop().unwrap();
         info!("task: {}", task);

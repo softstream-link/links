@@ -222,6 +222,12 @@ impl PollReadable for Box<dyn PollReadable> {
     fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
         self.as_mut().on_readable_event()
     }
+    fn register(&mut self, registry: &mio::Registry, token: Token, interests: mio::Interest) -> Result<(), Error> {
+        self.as_mut().register(registry, token, interests)
+    }
+    fn deregister(&mut self, registry: &mio::Registry) -> Result<(), Error> {
+        self.as_mut().deregister(registry)
+    }
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         self.as_mut().source()
     }
