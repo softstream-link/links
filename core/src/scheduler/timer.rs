@@ -165,15 +165,15 @@ mod test {
     fn test_timer() {
         setup::log::configure_level(log::LevelFilter::Debug);
         let timer = Timer::new("unittest");
-        // sleep(Duration::from_millis(100)); // allow thread to spawn // TODO why with out this delay the park does no unpark
 
+        
         static TASK1_TOTAL_ITERATIONS: AtomicU32 = AtomicU32::new(5);
         static TASK2_TOTAL_ITERATIONS: AtomicU32 = AtomicU32::new(3);
-
         static REPEAT_INTERVAL: Duration = Duration::from_millis(100);
+
         timer.schedule("task1", REPEAT_INTERVAL, || {
             let iteration_remaining = TASK1_TOTAL_ITERATIONS.fetch_sub(1, Ordering::Relaxed) - 1;
-            info!("task1, iterations_remaining {}", iteration_remaining);
+            info!("task1, iteration {}", iteration_remaining + 1);
             if iteration_remaining == 0 {
                 TaskStatus::Terminate
             } else {
@@ -192,12 +192,11 @@ mod test {
         });
 
         let now = Instant::now();
-        while now.elapsed() < Duration::from_secs(2) {
-            if TASK1_TOTAL_ITERATIONS.load(Ordering::Relaxed) == 0 {
-                break;
-            }
-        }
+        while TASK1_TOTAL_ITERATIONS.load(Ordering::Relaxed) > 0 {}
         timer.stop();
+        let elapsed = now.elapsed();
+        info!("Elapsed: {:?}", elapsed);
+        assert!(elapsed < REPEAT_INTERVAL * 5);
 
         assert_eq!(TASK1_TOTAL_ITERATIONS.load(Ordering::Relaxed), 0);
         assert_eq!(TASK2_TOTAL_ITERATIONS.load(Ordering::Relaxed), 0);
