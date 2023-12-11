@@ -39,10 +39,10 @@ links_nonblocking = { path = "./nonblocking" }
 links_blocking = { path = "./blocking" }
 links_core = { path = "./core" }
 bytes = "1.4"
-nix = { version = "0.27", features = ["net"] } # TODO this is not used , remove
 
 # synch
 mio = { version = "0.8", features = ["os-poll", "net"] }
+
 
 # rayon = { version = "1.7" }
 
@@ -52,8 +52,8 @@ futures = "0.3"                                                      # invoke as
 
 # utils
 rand = "0.8"
-chrono = "0.4.26"
 num-format = "0.4"
+chrono = "0.4" 
 
 # spin locks
 spin = { version = "0.9" } 

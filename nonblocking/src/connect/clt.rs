@@ -311,6 +311,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Drop for Cl
 #[derive(Debug, Clone)]
 pub struct CltSenderRef<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> {
     con_id: ConId, // this is a clone copy fro CltSender to avoid mutex call to id a connection
+    // clt_sender: Arc<spin::mutex::Mutex<CltSender<P, C, MAX_MSG_SIZE>,Loop>>,
     clt_sender: Arc<spin::Mutex<CltSender<P, C, MAX_MSG_SIZE>>>,
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for CltSenderRef<P, C, MAX_MSG_SIZE> {

@@ -12,7 +12,7 @@ futures = { workspace = true }
 chrono = { workspace = true }
 num-format = { workspace = true }
 
-links_core ={ workspace = true }
+links_core = { workspace = true }
 
 byteserde = { workspace = true } # required to do serialization and deserialization
 
@@ -20,13 +20,13 @@ byteserde = { workspace = true } # required to do serialization and deserializat
 byteserde_types = { workspace = true }  # required to setup unit test models
 byteserde_derive = { workspace = true } # required to setup unit test models
 
-links_core ={ workspace = true, features = ["unittest"]}
+links_core = { workspace = true, features = ["unittest"] }
 tokio-test = { workspace = true }
 lazy_static = { workspace = true }
 
 
 criterion = { workspace = true } # required to setup benchmarks
-rand = { workspace = true } # required to setup benchmarks
+rand = { workspace = true }      # required to setup benchmarks
 
 [[bench]]
 name = "framer_async_bench"

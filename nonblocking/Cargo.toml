@@ -7,7 +7,6 @@ edition.workspace = true
 [dependencies]
 # networking nonblocking
 mio = { workspace = true } # epoll wrapper
-nix = { workspace = true } # libc wrapper
 
 # blocking & nonblocking
 bytes = { workspace = true }      # read buffer
@@ -21,7 +20,10 @@ byteserde = { workspace = true } # byteserde::utils::hex::to_hex_pretty #TODO mo
 
 lazy_static = { workspace = true } # used by common poller
 
-spin = { workspace = true } # spint mutex
+spin = { workspace = true } # spin mutex
+
+chrono = { workspace = true }
+
 
 [dev-dependencies]
 links_core = { workspace = true, features = ["unittest"] } # traits
