@@ -14,7 +14,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-/// An abstraction over a [MessageRecver] that executes [Protocol::on_recv] and [CallbackRecv::on_recv] callbacks on every message being processed by [CltRecver].
+/// An abstraction over a [MessageRecver] that executes [crate::prelude::ProtocolCore::on_recv] and [CallbackRecv::on_recv] callbacks on every message being processed by [CltRecver].
 /// It is designed to work in a single thread that is different from [CltSender] thread.
 ///
 /// # Important
@@ -83,7 +83,7 @@ impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> Display for Clt
     }
 }
 
-/// An abstraction over a [MessageSender] that executes [Protocol::on_send], [Protocol::on_sent]/[Protocol::on_wouldblock]/[Protocol::on_error] and [CallbackSend::on_sent] on every message processed by [CltSender].
+/// An abstraction over a [MessageSender] that executes [crate::prelude::ProtocolCore::on_send], [crate::prelude::ProtocolCore::on_sent]/[crate::prelude::ProtocolCore::on_wouldblock]/[crate::prelude::ProtocolCore::on_error] and [CallbackSend::on_sent] on every message processed by [CltSender].
 /// It is designed to work in a single thread that is different from [CltRecver] thread
 ///
 /// # Important
@@ -200,7 +200,7 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for Clt
 /// It is designed to cloned and shared across threads at the cost of spin lock on every call.
 ///
 /// # Important
-/// In addition to delegating method calls it enables enhanced features of the [Protocol] trait, such as [Protocol::do_reply]
+/// In addition to delegating method calls it enables enhanced features of the [Protocol] trait, such as [Protocol::send_reply]
 /// by holding a reference to clone of [CltSenderRef]
 ///
 /// # Warning
@@ -214,17 +214,17 @@ pub struct CltRecverRef<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE:
     protocol: Arc<P>,
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking<P> for CltRecverRef<P, C, MAX_MSG_SIZE> {
-    /// Delegates to [CltRecver] and calls [Protocol::do_reply] when a message is received
+    /// Delegates to [CltRecver] and calls [Protocol::send_reply] when a message is received
     #[inline(always)]
     fn recv(&mut self) -> Result<RecvStatus<<P as Messenger>::RecvT>, Error> {
         use RecvStatus::Completed;
         let res = self.clt_recver.lock().recv();
         if let Ok(Completed(Some(ref msg))) = res {
-            self.protocol.do_reply(msg, &mut self.clt_sender)?;
+            self.protocol.send_reply(msg, &mut self.clt_sender)?;
         }
         res
     }
-    /// Delegates to [CltRecver] and calls [Protocol::do_reply] when a message is received
+    /// Delegates to [CltRecver] and calls [Protocol::send_reply] when a message is received
     #[inline(always)]
     fn recv_busywait_timeout(&mut self, timeout: Duration) -> Result<RecvStatus<<P as Messenger>::RecvT>, Error> {
         // NOTE: that the [RecvNonBlocking::recv_busywait_timeout] default implementation is overridden to reduce lock contention
@@ -234,7 +234,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBloc
             let status = self.clt_recver.lock().recv()?;
             match status {
                 Completed(Some(msg)) => {
-                    self.protocol.do_reply(&msg, &mut self.clt_sender)?;
+                    self.protocol.send_reply(&msg, &mut self.clt_sender)?;
                     return Ok(Completed(Some(msg)));
                 }
                 Completed(None) => return Ok(Completed(None)),
@@ -246,7 +246,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBloc
             }
         }
     }
-    /// Delegates to [CltRecver] and calls [Protocol::on_reply] when the message is received.
+    /// Delegates to [CltRecver] and calls [Protocol::send_reply] when the message is received.
     #[inline(always)]
     fn recv_busywait(&mut self) -> Result<Option<<P as Messenger>::RecvT>, Error> {
         // NOTE: that the [RecvNonBlocking::recv_busywait] default implementation is overridden to reduce lock contention
@@ -255,7 +255,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBloc
             let status = self.clt_recver.lock().recv()?; // release lock quickly, don't lock using recv_busywait
             match status {
                 Completed(Some(msg)) => {
-                    self.protocol.do_reply(&msg, &mut self.clt_sender)?;
+                    self.protocol.send_reply(&msg, &mut self.clt_sender)?;
                     return Ok(Some(msg));
                 }
                 Completed(None) => return Ok(None),
@@ -318,7 +318,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clone for C
 /// It is designed to cloned and shared across threads at the cost of spin lock on every call.
 ///
 /// # Important
-/// In addition to delegating method calls it enables enhanced features of the [Protocol] trait, such as [Protocol::do_heart_beat] & [Protocol::conf_heart_beat_interval]
+/// In addition to delegating method calls it enables enhanced features of the [Protocol] trait, such as [Protocol::send_heart_beat] & [Protocol::conf_heart_beat_interval]
 /// by holding a reference to clone of [CltRecverRef]
 ///
 /// # Warning
@@ -334,7 +334,7 @@ pub struct CltSenderRef<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usi
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSenderRef<P, C, MAX_MSG_SIZE> {
     pub(crate) fn do_heart_beat(&self) -> Result<SendStatus, Error> {
         let mut guard = self.clt_sender.lock();
-        self.protocol.do_heart_beat(guard.deref_mut())
+        self.protocol.send_heart_beat(guard.deref_mut())
     }
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for CltSenderRef<P, C, MAX_MSG_SIZE> {
@@ -403,13 +403,14 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Clone for CltSe
 }
 
 /// An abstraction over a [MessageRecver] and [MessageSender] that executes [Protocol] and [CallbackRecvSend] callbacks on every message being processed by [CltRecver] and [CltSender] respectively.
-/// It is designed to work in a single thread. To split use:
-/// * [Clt::into_split] - for [CltRecver]/[CltSender]
-/// * [Clt::into_split_ref] - for [CltRecverRef]/[CltSenderRef]
+/// It is designed to work in a single thread.
+///
+/// * Use [Clt::into_split] to get its parts [CltRecver]/[CltSender]
+/// * Use [Clt::into_split_ref] to get its parts [CltRecverRef]/[CltSenderRef]
 ///
 /// # Example
 /// ```
-/// use links_nonblocking::{prelude::*, unittest::setup::protocol::CltTestProtocolAuth};
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::CltTestProtocolAuthAndHbeat};
 /// use links_core::unittest::setup::{self, framer::{CltTestMessenger, SvcTestMessenger, TEST_MSG_FRAME_SIZE}, model::{CltTestMsg, CltTestMsgDebug, SvcTestMsg}};
 /// use std::time::Duration;
 ///
@@ -418,7 +419,7 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Clone for CltSe
 ///         Duration::from_millis(100),
 ///         Duration::from_millis(10),
 ///         DevNullCallback::default().into(),
-///         CltTestProtocolAuth::default(),
+///         CltTestProtocolAuthAndHbeat::default(),
 ///         Some("unittest"),
 ///     );
 ///
@@ -443,7 +444,6 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Clone for CltSe
 pub struct Clt<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
     clt_recver: CltRecver<P, C, MAX_MSG_SIZE>,
     clt_sender: CltSender<P, C, MAX_MSG_SIZE>,
-    protocol: Arc<P>,
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, MAX_MSG_SIZE> {
     pub fn connect(addr: &str, timeout: Duration, retry_after: Duration, callback: Arc<C>, protocol: P, name: Option<&str>) -> Result<Self, Error> {
@@ -472,40 +472,54 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
         let mut con = Self {
             clt_recver: CltRecver::new(msg_recver, callback.clone(), protocol.clone(), acceptor_connection_gate.clone()),
             clt_sender: CltSender::new(msg_sender, callback.clone(), protocol.clone(), acceptor_connection_gate),
-            protocol: protocol.clone(),
         };
         protocol.on_connected(&mut con)?;
 
         Ok(con)
     }
+    /// Will split the [Clt] into its parts [CltRecver]/[CltSender].
+    ///
+    /// # Important
+    /// These parts will support only 'subset' of [Protocol] features which are part of [crate::prelude::ProtocolCore] trait
     pub fn into_split(self) -> (CltRecver<P, C, MAX_MSG_SIZE>, CltSender<P, C, MAX_MSG_SIZE>) {
         (self.clt_recver, self.clt_sender)
     }
+    /// Will split the [Clt] into its parts [CltRecverRef]/[CltSenderRef]
+    ///
+    /// # Important
+    /// These parts will support `all` [Protocol] features
     pub fn into_split_ref(self) -> (CltRecverRef<P, C, MAX_MSG_SIZE>, CltSenderRef<P, C, MAX_MSG_SIZE>) {
-        let protocol = self.protocol.clone();
-        let con_id = self.con_id().clone();
-        let clt_sender = Arc::new(spin::Mutex::new(self.clt_sender));
+        let (recver, sender) = self.into_split();
 
-        let clt_sender_shared_for_recv = CltSenderRef {
-            con_id: con_id.clone(),
-            clt_sender: clt_sender.clone(),
-            protocol: protocol.clone(),
+        let sender_ref = CltSenderRef {
+            con_id: sender.con_id().to_owned(),
+            protocol: sender.protocol.clone(),
+            clt_sender: Arc::new(spin::Mutex::new(sender)),
         };
-        let clt_recver_with_shared_sender = CltRecverRef {
-            con_id: con_id.clone(),
-            clt_recver: Arc::new(spin::Mutex::new(self.clt_recver)),
-            clt_sender: clt_sender_shared_for_recv,
-            protocol: protocol.clone(),
+        let recver_ref = CltRecverRef {
+            con_id: recver.con_id().to_owned(),
+            protocol: recver.protocol.clone(),
+            clt_recver: Arc::new(spin::Mutex::new(recver)),
+            clt_sender: sender_ref.clone(),
         };
 
-        let clt_sender_shared_for_user = CltSenderRef { con_id, clt_sender, protocol: protocol.clone() };
-        (clt_recver_with_shared_sender, clt_sender_shared_for_user)
+        (recver_ref, sender_ref)
     }
+    
+    /// Will split the [Clt] and only return [CltSender] while moving [CltRecver] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
+    /// 
+    /// # Important
+    /// This configuration will support only 'subset' of [Protocol] features which are part of [crate::prelude::ProtocolCore] trait
     pub fn into_sender_with_spawned_recver(self) -> impl SendNonBlocking<P> + Display {
         let (recver, sender) = self.into_split();
         crate::connect::DEFAULT_POLL_HANDLER.add_recver(recver.into());
         sender
     }
+    /// Will split the [Clt] and only return [CltSenderRef] while moving [CltRecverRef] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
+    /// 
+    /// # Important
+    /// This configuration will support `all` [Protocol] features
+    /// a clone of [CltSenderRef] will be moved to the [static@crate::connect::DEFAULT_HBEAT_HANDLER] thread to periodically trigger [Protocol::send_heart_beat]
     pub fn into_sender_with_spawned_recver_ref(self) -> impl SendNonBlocking<P> + Display {
         let (recver, sender) = self.into_split_ref();
 

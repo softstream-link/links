@@ -57,14 +57,13 @@ impl Executor {
         }
     }
     pub fn spawn(self) -> JoinHandle<()> {
-        let jh = Builder::new()
-            .name(format!("{}", self.name))
+        Builder::new()
+            .name(self.name.to_string())
             .spawn({
                 let mut e = self;
                 move || Executor::run(&mut e)
             })
-            .unwrap();
-        jh
+            .unwrap()
     }
     fn run(&mut self) {
         loop {

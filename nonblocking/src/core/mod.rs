@@ -64,13 +64,13 @@ impl PoolAcceptStatus {
     }
 }
 pub trait PoolSvcAcceptorOfCltNonBlocking {
-    fn pool_accept(&mut self) -> Result<PoolAcceptStatus, Error>;
-    /// Will call [Self::accept_into_pool] until it returns [PoolAcceptStatus::Accepted] or [PoolAcceptStatus::WouldBlock] after the timeout.
+    fn accept_into_pool(&mut self) -> Result<PoolAcceptStatus, Error>;
+    /// Will call [PoolSvcAcceptorOfCltNonBlocking::accept_into_pool] until it returns [PoolAcceptStatus::Accepted] or [PoolAcceptStatus::WouldBlock] after the timeout.
     fn accept_into_pool_busywait_timeout(&mut self, timeout: Duration) -> Result<PoolAcceptStatus, Error> {
         use PoolAcceptStatus::{Accepted, Rejected, WouldBlock};
         let start = Instant::now();
         loop {
-            match self.pool_accept()? {
+            match self.accept_into_pool()? {
                 Accepted => return Ok(Accepted),
                 Rejected => return Ok(Rejected),
                 WouldBlock => {
@@ -81,11 +81,11 @@ pub trait PoolSvcAcceptorOfCltNonBlocking {
             }
         }
     }
-    /// Will call [Self::accept_into_pool] until it returns [PoolAcceptStatus::Accepted]
+    /// Will call [PoolSvcAcceptorOfCltNonBlocking::accept_into_pool] until it returns [PoolAcceptStatus::Accepted]
     fn accept_into_pool_busywait(&mut self) -> Result<PoolAcceptStatus, Error> {
         use PoolAcceptStatus::{Accepted, Rejected, WouldBlock};
         loop {
-            match self.pool_accept()? {
+            match self.accept_into_pool()? {
                 Accepted => return Ok(Accepted),
                 Rejected => return Ok(Rejected),
                 WouldBlock => continue,
@@ -105,7 +105,7 @@ pub enum AcceptStatus<T> {
     WouldBlock,
 }
 impl<T> AcceptStatus<T> {
-    /// Unwraps into [AcceptedStatus::Accepted(T)] if the variant is [AcceptStatus::Accepted], otherwise panics
+    /// Unwraps into `T` if the variant is [AcceptStatus::Accepted], otherwise panics
     #[track_caller]
     pub fn unwrap_accepted(self) -> T {
         match self {
@@ -414,8 +414,8 @@ pub trait PollReadable: ConnectionId + Display + Send + 'static {
         registry.deregister(*self.source())?;
         Ok(())
     }
-    /// represents the source of the event, typically implementing this function is sufficient as [register] and [deregister] functions
-    /// are implemented using it to get the source for the poll. However You can choose to override [register] and [deregister] functions
+    /// represents the source of the event, typically implementing this function is sufficient as [PollReadable::register] and [PollReadable::deregister] functions
+    /// are implemented using it to get the source for the poll. However You can choose to override [PollReadable::register] and [PollReadable::deregister] functions
     /// when for example you require to lock a mutes to get access to the source in which case source function will not be used.
     fn source(&mut self) -> Box<&mut dyn mio::event::Source>;
     /// Will be called when OS signals that the source is readable

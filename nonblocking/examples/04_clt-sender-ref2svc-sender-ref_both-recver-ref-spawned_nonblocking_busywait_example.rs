@@ -36,8 +36,8 @@ fn run() -> Result<(), Box<dyn Error>> {
         .into_sender_with_spawned_recver_ref();
     info!("clt_sender: {}", clt_sender);
 
-    let mut clt_msgs = vec![CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"))];
-    let mut svc_msgs = vec![SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"Hello Frm Server Msg"))];
+    let mut clt_msgs = vec![CltTestMsgDebug::new(b"Hello Frm Client Msg").into(), CltTestPing::default().into()];
+    let mut svc_msgs = vec![SvcTestMsgDebug::new(b"Hello Frm Server Msg").into()]; // SvcTestProtocolAuthAndHBeat should send_reply with Pong to Ping
 
     for msg in clt_msgs.iter_mut() {
         clt_sender.send_busywait(msg)?;
@@ -55,21 +55,26 @@ fn run() -> Result<(), Box<dyn Error>> {
     // VERIFY numbers of messages sent and received
 
     info!("store: {}", store);
-    let expected_msg_count = clt_msgs.len() + svc_msgs.len() + 2 + allow_n_hbeats * 2; // 2 is from the auth handshake , * 2 of hbeats for clt and svc
+    let expected_msg_count = clt_msgs.len() + svc_msgs.len() + 2 + allow_n_hbeats * 2 + 1; // 2 is from the auth handshake , * 2 of hbeats for clt and svc, + 1 for svc pong reply
     assert_eq!(store.len(), expected_msg_count);
 
+    // find debug from clt
     let found = store.find_recv(
         "example/svc",
         |msg| matches!(msg, UniTestMsg::Clt(CltTestMsg::Dbg(CltTestMsgDebug{text, ..})) if text == &b"Hello Frm Client Msg".as_slice().into()),
         setup::net::optional_find_timeout(),
     );
-
     info!("found: {:?}", found);
     assert_eq!(found.unwrap().try_into_clt(), CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg")));
 
+    // find hbeat from clt
     let found = store.find_recv("example/svc", |msg| matches!(msg, UniTestMsg::Clt(CltTestMsg::HBeat(_))), setup::net::optional_find_timeout());
     info!("found: {:?}", found);
     assert_eq!(found.unwrap().try_into_clt(), CltTestMsg::HBeat(UniTestHBeatMsgDebug::default()));
-
+    
+    // find sent reply from svc
+    let found = store.find_sent("example/svc", |msg| matches!(msg, UniTestMsg::Svc(SvcTestMsg::Pong(_))), setup::net::optional_find_timeout());
+    info!("found: {:?}", found);
+    assert_eq!(found.unwrap().try_into_svc(), SvcTestMsg::Pong(SvcTestPong::default()));
     Ok(())
 }

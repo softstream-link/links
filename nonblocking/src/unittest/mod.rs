@@ -1,14 +1,14 @@
 pub mod setup {
     pub mod protocol {
         use crate::{
-            core::{RecvNonBlocking, RecvStatus, SendNonBlocking, SendStatus},
+            core::{protocol::ProtocolCore, RecvNonBlocking, RecvStatus, SendNonBlocking, SendStatus},
             prelude::{Framer, Messenger, Protocol},
         };
         use links_core::{
             core::conid::ConnectionId,
             unittest::setup::{
                 framer::{CltTestMessenger, SvcTestMessenger},
-                model::{CltTestMsg, CltTestMsgLoginReq, SvcTestMsg, SvcTestMsgLoginAcpt},
+                model::*,
             },
         };
         use log::info;
@@ -36,9 +36,10 @@ pub mod setup {
                 SvcTestMessenger::serialize(msg)
             }
         }
+        impl ProtocolCore for SvcTestProtocolSupervised {}
         impl Protocol for SvcTestProtocolSupervised {}
 
-        /// Provides an [Protocol::on_connected] implementation
+        /// Provides an [ProtocolCore::on_connected] implementation
         #[derive(Debug, Clone, Default)]
         pub struct SvcTestProtocolAuthAndHBeat;
         impl Framer for SvcTestProtocolAuthAndHBeat {
@@ -58,7 +59,7 @@ pub mod setup {
                 SvcTestMessenger::serialize(msg)
             }
         }
-        impl Protocol for SvcTestProtocolAuthAndHBeat {
+        impl ProtocolCore for SvcTestProtocolAuthAndHBeat {
             fn on_connected<C: SendNonBlocking<Self> + RecvNonBlocking<Self> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
                 info!("on_connected: {}", con.con_id());
                 let timeout = Duration::from_secs(1);
@@ -75,13 +76,22 @@ pub mod setup {
                     RecvStatus::WouldBlock => Err(Error::new(ErrorKind::TimedOut, format!("{} Timed out waiting for Login Request", con.con_id())))?,
                 }
             }
-
+        }
+        impl Protocol for SvcTestProtocolAuthAndHBeat {
             fn conf_heart_beat_interval(&self) -> Option<Duration> {
                 Some(Duration::from_millis(100))
             }
-            fn do_heart_beat<S: SendNonBlocking<Self> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
+            fn send_heart_beat<S: SendNonBlocking<Self> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
                 let mut msg: SvcTestMsg = SvcTestMsg::HBeat(Default::default());
                 sender.send(&mut msg)
+            }
+
+            fn send_reply<S: SendNonBlocking<Self> + ConnectionId>(&self, msg: &<Self as Messenger>::RecvT, sender: &mut S) -> Result<(), Error> {
+                if let CltTestMsg::Ping(_ping) = msg {
+                    let mut msg = SvcTestPong::default().into();
+                    sender.send_busywait_timeout(&mut msg, Duration::from_millis(100))?;
+                }
+                Ok(())
             }
         }
 
@@ -104,9 +114,10 @@ pub mod setup {
                 CltTestMessenger::serialize(msg)
             }
         }
+        impl ProtocolCore for CltTestProtocolSupervised {}
         impl Protocol for CltTestProtocolSupervised {}
 
-        /// Provides an [Protocol::on_connected] implementation]
+        /// Provides an [ProtocolCore::on_connected] implementation]
         #[derive(Debug, Clone, Default)]
         pub struct CltTestProtocolAuthAndHbeat;
         impl Framer for CltTestProtocolAuthAndHbeat {
@@ -126,7 +137,7 @@ pub mod setup {
                 CltTestMessenger::serialize(msg)
             }
         }
-        impl Protocol for CltTestProtocolAuthAndHbeat {
+        impl ProtocolCore for CltTestProtocolAuthAndHbeat {
             fn on_connected<C: SendNonBlocking<Self> + RecvNonBlocking<Self> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
                 info!("on_connected: {}", con.con_id());
                 let timeout = Duration::from_secs(1);
@@ -135,11 +146,12 @@ pub mod setup {
                 let _msg = con.recv_busywait_timeout(timeout)?.unwrap_completed_some(); // wait for login accept
                 Ok(())
             }
-
+        }
+        impl Protocol for CltTestProtocolAuthAndHbeat {
             fn conf_heart_beat_interval(&self) -> Option<Duration> {
                 Some(Duration::from_millis(100))
             }
-            fn do_heart_beat<S: SendNonBlocking<Self> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
+            fn send_heart_beat<S: SendNonBlocking<Self> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
                 let mut msg: CltTestMsg = CltTestMsg::HBeat(Default::default());
                 sender.send(&mut msg)
             }

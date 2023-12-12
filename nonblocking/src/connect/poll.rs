@@ -51,7 +51,8 @@ enum Serviceable<R: PollReadable, A: PollAccept<R>> {
     Waker,
 }
 
-/// A wrapper struct to that will use a designated thread to handle all of its [SvcPoolAcceptor]s events and resulting [CltRecver]s
+/// A wrapper struct to that will use a designated thread to handle [TransmittingSvcAcceptor] or [TransmittingSvcAcceptorRef] events 
+/// and resulting respective [CltRecver] & [CltRecverRef] instances
 pub struct PollHandler<R: PollReadable, A: PollAccept<R>> {
     poll: Poll,
     serviceable: Slab<Serviceable<R, A>>,
@@ -66,7 +67,7 @@ impl<R: PollReadable, A: PollAccept<R>> PollHandler<R, A> {
             events: Events::with_capacity(capacity),
         }
     }
-    /// Add a [SvcPoolAcceptor] to the [PollHandler] to be polled for incoming connections. All resulting connections in the form
+    /// Add a [TransmittingSvcAcceptor] or [TransmittingSvcAcceptorRef] to the [PollHandler] to be polled for incoming connections. All resulting connections in the form
     /// of [CltRecver] will also be serviced by this [PollHandler] instance.
     pub fn add_acceptor(&mut self, acceptor: A) {
         self.add_serviceable(Serviceable::Acceptor(acceptor))
@@ -74,7 +75,7 @@ impl<R: PollReadable, A: PollAccept<R>> PollHandler<R, A> {
     pub fn add_recver(&mut self, recver: R) {
         self.add_serviceable(Serviceable::Recver(recver))
     }
-    /// Spawns a new thread with a given name that will continuously poll for events on all of its [SvcPoolAcceptor]s and resulting [CltRecver]s instances
+    /// Spawns a new thread with a given name that will continuously poll for events of [TransmittingSvcAcceptor] or [TransmittingSvcAcceptorRef] and resulting [CltRecver]s instances
     pub fn into_spawned_handler(mut self, name: &str) -> SpawnedPollHandler<R, A> {
         let waker = {
             let entry = self.serviceable.vacant_entry();
@@ -248,7 +249,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<CltRec
     }
 }
 
-/// A helper struct to add [PollAccept] and [PollRecv] instances to a [PollHandler] from a different thread
+/// A helper struct to add [PollAccept] and [PollReadable] instances to a [PollHandler] from a different thread
 /// to create an instance of this struct use [PollHandler::into_spawned_handler]
 pub struct SpawnedPollHandler<R: PollReadable, A: PollAccept<R>> {
     // tx_serviceable: SyncSender<Serviceable<R, A>>,
@@ -268,11 +269,11 @@ impl<R: PollReadable, A: PollAccept<R>> SpawnedPollHandler<R, A> {
         self.waker.wake().expect("Failed to wake PollHandler");
     }
 }
-/// A [PollHandler] that can handle any [PollAccept] and [PollRecv] instances using dynamic dispatch at the cost of performance
+/// A [PollHandler] that can handle any [PollAccept] and [PollReadable] instances using dynamic dispatch at the cost of performance
 pub type PollHandlerDynamic = PollHandler<Box<dyn PollReadable>, Box<dyn PollAccept<Box<dyn PollReadable>>>>;
 pub type SpawnedPollHandlerDynamic = SpawnedPollHandler<Box<dyn PollReadable>, Box<dyn PollAccept<Box<dyn PollReadable>>>>;
 
-/// A [PollHandler] that will only handle [PollAccept] and [PollRecv] of same type
+/// A [PollHandler] that will only handle [PollAccept] and [PollReadable] of same type
 pub type PollHandlerStatic<P, C, const MAX_MSG_SIZE: usize> = PollHandler<CltRecver<P, C, MAX_MSG_SIZE>, TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE>>;
 pub type SpawnedPollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = SpawnedPollHandler<CltRecver<M, C, MAX_MSG_SIZE>, TransmittingSvcAcceptor<M, C, MAX_MSG_SIZE>>;
 

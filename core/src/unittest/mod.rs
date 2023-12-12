@@ -113,7 +113,6 @@ pub mod setup {
         use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
         use byteserde_types::prelude::*;
 
-        #[rustfmt::skip]
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
         pub struct CltTestMsgDebug {
             ty: ConstCharAscii<b'1'>,
@@ -127,20 +126,19 @@ pub mod setup {
                 }
             }
         }
-        #[rustfmt::skip]
+
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
         pub struct CltTestMsgLoginReq {
             pub ty: ConstCharAscii<b'L'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
-        #[rustfmt::skip]
+
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
-        pub struct SvcTestMsgLoginAcpt {
-            pub ty: ConstCharAscii<b'L'>,
+        pub struct CltTestPing {
+            pub ty: ConstCharAscii<b'P'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
 
-        #[rustfmt::skip]
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
         pub struct SvcTestMsgDebug {
             ty: ConstCharAscii<b'2'>,
@@ -155,7 +153,18 @@ pub mod setup {
             }
         }
 
-        #[rustfmt::skip]
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        pub struct SvcTestMsgLoginAcpt {
+            pub ty: ConstCharAscii<b'L'>,
+            text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
+        }
+
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        pub struct SvcTestPong {
+            pub ty: ConstCharAscii<b'P'>,
+            text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
+        }
+
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
         pub struct UniTestHBeatMsgDebug {
             ty: ConstCharAscii<b'H'>,
@@ -170,7 +179,6 @@ pub mod setup {
             }
         }
 
-        #[rustfmt::skip]
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
         #[byteserde(peek(0, 1))]
         pub enum CltTestMsg {
@@ -180,6 +188,8 @@ pub mod setup {
             Login(CltTestMsgLoginReq),
             #[byteserde(eq(&[b'H']))]
             HBeat(UniTestHBeatMsgDebug),
+            #[byteserde(eq(&[b'P']))]
+            Ping(CltTestPing),
         }
         impl From<CltTestMsgDebug> for CltTestMsg {
             fn from(msg: CltTestMsgDebug) -> Self {
@@ -191,9 +201,19 @@ pub mod setup {
                 Self::Login(value)
             }
         }
+        impl From<UniTestHBeatMsgDebug> for CltTestMsg {
+            fn from(value: UniTestHBeatMsgDebug) -> Self {
+                Self::HBeat(value)
+            }
+        }
+        impl From<CltTestPing> for CltTestMsg {
+            fn from(value: CltTestPing) -> Self {
+                Self::Ping(value)
+            }
+        }
 
-        #[rustfmt::skip]
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, )]
+
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
         #[byteserde(peek(0, 1))]
         pub enum SvcTestMsg {
             #[byteserde(eq(&[b'2']))]
@@ -202,6 +222,8 @@ pub mod setup {
             Accept(SvcTestMsgLoginAcpt),
             #[byteserde(eq(&[b'H']))]
             HBeat(UniTestHBeatMsgDebug),
+            #[byteserde(eq(&[b'P']))]
+            Pong(SvcTestPong),
         }
         impl From<SvcTestMsgDebug> for SvcTestMsg {
             fn from(msg: SvcTestMsgDebug) -> Self {
@@ -211,6 +233,16 @@ pub mod setup {
         impl From<SvcTestMsgLoginAcpt> for SvcTestMsg {
             fn from(value: SvcTestMsgLoginAcpt) -> Self {
                 Self::Accept(value)
+            }
+        }
+        impl From<UniTestHBeatMsgDebug> for SvcTestMsg {
+            fn from(value: UniTestHBeatMsgDebug) -> Self {
+                Self::HBeat(value)
+            }
+        }
+        impl From<SvcTestPong> for SvcTestMsg {
+            fn from(value: SvcTestPong) -> Self {
+                Self::Pong(value)
             }
         }
 

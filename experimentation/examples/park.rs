@@ -1,7 +1,7 @@
 use std::{
-    sync::atomic::{AtomicBool, AtomicU32},
+    // sync::atomic::{AtomicBool, AtomicU32},
     thread::{park, spawn, self},
-    time::Instant,
+    // time::Instant,
 };
 
 fn main() {
@@ -16,7 +16,7 @@ fn test_park() {
 fn run() {
     // static COMPLETED: AtomicBool = AtomicBool::new(false);
     let jh = spawn(|| {
-        let now = Instant::now();
+        // let now = Instant::now();
         println!("{:?} burning oil" , thread::current().id());
         // while now.elapsed().as_secs() < 2 {
         //     // burn some oil

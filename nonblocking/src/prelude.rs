@@ -1,7 +1,7 @@
 pub use crate::core::{
     framer::{into_split_framer, FrameReader, FrameWriter},
     messenger::{into_split_messenger, MessageRecver, MessageSender},
-    protocol::Protocol,
+    protocol::{Protocol, ProtocolCore},
     AcceptStatus, PollEventStatus, PollReadable, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut, SendStatus, SvcAcceptorOfCltNonBlocking,
 };
 

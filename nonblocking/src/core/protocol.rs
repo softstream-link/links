@@ -3,39 +3,59 @@ use std::{io::Error, time::Duration};
 
 use super::{RecvNonBlocking, SendNonBlocking, SendStatus};
 
+/// Core protocol features that will works with any instantiation of [crate::prelude::Clt] and [crate::prelude::Svc] including
+/// [crate::prelude::CltRecver], [crate::prelude::CltRecverRef], [crate::prelude::CltSender], [crate::prelude::CltSenderRef]
 #[allow(unused_variables)]
-pub trait Protocol: Messenger + Clone {
+pub trait ProtocolCore: Messenger + Clone {
+    /// Called immediately after the connection is established and allows user space to perform a connection handshake
     #[inline(always)]
     fn on_connected<C: SendNonBlocking<Self> + RecvNonBlocking<Self> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
         Ok(())
     }
 
-    /// Called immediately before the message is being sent and is a hook to modify the message being sent before it has been sent
+    /// This is a hook to provide user space ability to perform a logical check and determine if the connection is still valid
+    ///
+    /// # Warning
+    /// Default implementation panics
+    #[inline(always)]
+    fn is_connected(&self) -> bool {
+        panic!(
+            "
+        Invalid API usage.
+        ProtocolCore::is_connected must be implemented by the user space protocol implementation in order to be called
+        "
+        )
+    }
+
+    /// This is a hook to provide user space ability to modify the message right before it is serialized and sent
     #[inline(always)]
     fn on_send<I: ConnectionId>(&self, who: &I, msg: &mut <Self as Messenger>::SendT) {}
 
-    /// Called after [Self::on_send] and only in the event the attempt to deliver the message resulted in a wouldblock
+    /// Called after [ProtocolCore::on_send] and only in the event the attempt to deliver the message resulted in a wouldblock
     /// and will not be retried
     #[inline(always)]
     fn on_wouldblock<I: ConnectionId>(&self, who: &I, msg: &<Self as Messenger>::SendT) {}
 
-    /// Called after [Self::on_send] and only in the event the attempt to deliver the message resulted in an error
+    /// Called after [ProtocolCore::on_send] and only in the event the attempt to deliver the message resulted in an error
     #[inline(always)]
     fn on_error<I: ConnectionId>(&self, who: &I, msg: &<Self as Messenger>::SendT, e: &std::io::Error) {}
 
-    /// Called immediately after the message has been sent, must guarantee that it is only called once per message
+    /// Called after [ProtocolCore::on_send] and only in the event the attempt to deliver succeeded. Implementation must guarantee that it is only called once per message actually sent
     #[inline(always)]
     fn on_sent<I: ConnectionId>(&self, who: &I, msg: &<Self as Messenger>::SendT) {}
 
     /// Called immediately after the message has been received
     #[inline(always)]
     fn on_recv<I: ConnectionId>(&self, who: &I, msg: &<Self as Messenger>::RecvT) {}
+}
 
-    // TODO add docs to indicate callback availability
-    // ***************** EXTENDED PROTOCOL METHODS *****************
-    /// Called after on_recv callback and allows to issue a reply to the received message
+/// Full set of protocol features that will only work with Ref instances of [crate::prelude::Clt] and [crate::prelude::Svc]
+/// which includes [crate::prelude::CltRecverRef], [crate::prelude::CltSenderRef]
+#[allow(unused_variables)]
+pub trait Protocol: ProtocolCore {
+    /// This is a hook to provide user space ability to perform scripted responses, example automatically emulate certain behavior . Called immediately after [ProtocolCore::on_recv].
     #[inline(always)]
-    fn do_reply<S: SendNonBlocking<Self> + ConnectionId>(&self, msg: &<Self as Messenger>::RecvT, sender: &mut S) -> Result<(), Error> {
+    fn send_reply<S: SendNonBlocking<Self> + ConnectionId>(&self, msg: &<Self as Messenger>::RecvT, sender: &mut S) -> Result<(), Error> {
         Ok(())
     }
 
@@ -44,7 +64,7 @@ pub trait Protocol: Messenger + Clone {
         None
     }
     #[inline(always)]
-    fn do_heart_beat<S: SendNonBlocking<Self> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
+    fn send_heart_beat<S: SendNonBlocking<Self> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
         Ok(SendStatus::Completed)
     }
 }
