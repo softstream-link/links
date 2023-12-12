@@ -1,6 +1,9 @@
-use crate::prelude::{
-    asserted_short_name, into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, MessageRecver, MessageSender, Messenger, PollEventStatus, PollRead, Protocol, RecvNonBlocking, RecvStatus, RemoveConnectionBarrierOnDrop, SendNonBlocking, SendNonBlockingNonMut,
-    SendStatus, TimerTaskStatus,
+use crate::{
+    core::PollAble,
+    prelude::{
+        asserted_short_name, into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, MessageRecver, MessageSender, Messenger, PollEventStatus, PollRead, Protocol, RecvNonBlocking, RecvStatus, RemoveConnectionBarrierOnDrop, SendNonBlocking, SendNonBlockingNonMut,
+        SendStatus, TimerTaskStatus,
+    },
 };
 use links_core::core::macros::short_type_name;
 use log::{debug, warn};
@@ -63,9 +66,6 @@ impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> ConnectionId fo
     }
 }
 impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> PollRead for CltRecver<P, C, MAX_MSG_SIZE> {
-    fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
-        Box::new(&mut self.msg_recver.frm_reader.stream_reader)
-    }
     fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
         use RecvStatus::*;
         match self.recv()? {
@@ -73,6 +73,11 @@ impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> PollRead for Cl
             WouldBlock => Ok(PollEventStatus::WouldBlock),
             Completed(None) => Ok(PollEventStatus::Terminate),
         }
+    }
+}
+impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> PollAble for CltRecver<P, C, MAX_MSG_SIZE> {
+    fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
+        Box::new(&mut self.msg_recver.frm_reader.stream_reader)
     }
 }
 impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> Display for CltRecver<P, C, MAX_MSG_SIZE> {
@@ -271,6 +276,16 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionI
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollRead for CltRecverRef<P, C, MAX_MSG_SIZE> {
+    fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
+        use RecvStatus::*;
+        match self.recv()? {
+            Completed(Some(_)) => Ok(PollEventStatus::Completed),
+            WouldBlock => Ok(PollEventStatus::WouldBlock),
+            Completed(None) => Ok(PollEventStatus::Terminate),
+        }
+    }
+}
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAble for CltRecverRef<P, C, MAX_MSG_SIZE> {
     fn register(&mut self, registry: &mio::Registry, token: mio::Token, interests: mio::Interest) -> Result<(), Error> {
         let mut guard = self.clt_recver.lock();
         registry.register(&mut guard.msg_recver.frm_reader.stream_reader, token, interests)
@@ -281,14 +296,6 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollRead fo
     }
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         panic!("Invalid API usage. PollReadable::register and PollReadable::deregister are overridden and this call shall never be issued.")
-    }
-    fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
-        use RecvStatus::*;
-        match self.recv()? {
-            Completed(Some(_)) => Ok(PollEventStatus::Completed),
-            WouldBlock => Ok(PollEventStatus::WouldBlock),
-            Completed(None) => Ok(PollEventStatus::Terminate),
-        }
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for CltRecverRef<P, C, MAX_MSG_SIZE> {
@@ -485,45 +492,24 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
         (self.clt_recver, self.clt_sender)
     }
     /// Will split the [Clt] into its parts [CltRecverRef]/[CltSenderRef]
-    ///
+    /// 
     /// # Important
-    /// These parts will support `all` [Protocol] features
+    /// This configuration will support `all` [Protocol] features,
+    /// a clone of [CltSenderRef] will be moved to the [static@crate::connect::DEFAULT_HBEAT_HANDLER] thread to periodically trigger [Protocol::send_heart_beat]
     pub fn into_split_ref(self) -> (CltRecverRef<P, C, MAX_MSG_SIZE>, CltSenderRef<P, C, MAX_MSG_SIZE>) {
         let (recver, sender) = self.into_split();
 
-        let sender_ref = CltSenderRef {
+        let sender = CltSenderRef {
             con_id: sender.con_id().to_owned(),
             protocol: sender.protocol.clone(),
             clt_sender: Arc::new(spin::Mutex::new(sender)),
         };
-        let recver_ref = CltRecverRef {
+        let recver = CltRecverRef {
             con_id: recver.con_id().to_owned(),
             protocol: recver.protocol.clone(),
             clt_recver: Arc::new(spin::Mutex::new(recver)),
-            clt_sender: sender_ref.clone(),
+            clt_sender: sender.clone(),
         };
-
-        (recver_ref, sender_ref)
-    }
-    
-    /// Will split the [Clt] and only return [CltSender] while moving [CltRecver] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
-    /// 
-    /// # Important
-    /// This configuration will support only 'subset' of [Protocol] features which are part of [crate::prelude::ProtocolCore] trait
-    pub fn into_sender_with_spawned_recver(self) -> impl SendNonBlocking<P> + Display {
-        let (recver, sender) = self.into_split();
-        crate::connect::DEFAULT_POLL_HANDLER.add_recver(recver.into());
-        sender
-    }
-    /// Will split the [Clt] and only return [CltSenderRef] while moving [CltRecverRef] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
-    /// 
-    /// # Important
-    /// This configuration will support `all` [Protocol] features
-    /// a clone of [CltSenderRef] will be moved to the [static@crate::connect::DEFAULT_HBEAT_HANDLER] thread to periodically trigger [Protocol::send_heart_beat]
-    pub fn into_sender_with_spawned_recver_ref(self) -> impl SendNonBlocking<P> + Display {
-        let (recver, sender) = self.into_split_ref();
-
-        crate::connect::DEFAULT_POLL_HANDLER.add_recver(recver.into());
 
         match sender.protocol.conf_heart_beat_interval() {
             Some(interval) => {
@@ -546,6 +532,22 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
             }
         }
 
+        (recver, sender)
+    }
+
+    /// Will split the [Clt] and only return [CltSender] while moving [CltRecver] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
+    ///
+    /// # Important
+    /// This configuration will support only 'subset' of [Protocol] features which are part of [crate::prelude::ProtocolCore] trait
+    pub fn into_sender_with_spawned_recver(self) -> impl SendNonBlocking<P> + Display {
+        let (recver, sender) = self.into_split();
+        crate::connect::DEFAULT_POLL_HANDLER.add_recver(recver.into());
+        sender
+    }
+    /// Will split the [Clt] and only return [CltSenderRef] while moving [CltRecverRef] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
+    pub fn into_sender_with_spawned_recver_ref(self) -> impl SendNonBlocking<P> + Display {
+        let (recver, sender) = self.into_split_ref();
+        crate::connect::DEFAULT_POLL_HANDLER.add_recver(recver.into());
         sender
     }
 }

@@ -51,7 +51,7 @@ enum Serviceable<R: PollRead, A: PollAccept<R>> {
     Waker,
 }
 
-/// A wrapper struct to that will use a designated thread to handle [TransmittingSvcAcceptor] or [TransmittingSvcAcceptorRef] events 
+/// A wrapper struct to that will use a designated thread to handle [TransmittingSvcAcceptor] or [TransmittingSvcAcceptorRef] events
 /// and resulting respective [CltRecver] & [CltRecverRef] instances
 pub struct PollHandler<R: PollRead, A: PollAccept<R>> {
     poll: Poll,
@@ -205,10 +205,7 @@ impl PollAccept<Box<dyn PollRead>> for Box<dyn PollAccept<Box<dyn PollRead>>> {
         self.as_mut().poll_accept()
     }
 }
-impl PollRead for Box<dyn PollAccept<Box<dyn PollRead>>> {
-    fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
-        self.as_mut().on_readable_event()
-    }
+impl PollAble for Box<dyn PollAccept<Box<dyn PollRead>>> {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         self.as_mut().source()
     }
@@ -223,6 +220,8 @@ impl PollRead for Box<dyn PollRead> {
     fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
         self.as_mut().on_readable_event()
     }
+}
+impl PollAble for Box<dyn PollRead> {
     fn register(&mut self, registry: &mio::Registry, token: Token, interests: mio::Interest) -> Result<(), Error> {
         self.as_mut().register(registry, token, interests)
     }

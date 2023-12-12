@@ -177,9 +177,6 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     }
 
     /// Will split [Svc] and only return [CltSendersPool<_, CltSender>] while moving [TransmittingSvcAcceptor] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
-    ///
-    /// # Important
-    /// This configuration will support only 'subset' of [Protocol] features which are part of [crate::prelude::ProtocolCore] trait
     /// 
     /// # Warning
     /// This method `drops` [CltRecversPool<_, CltRecver>], as a result this call will panic if the instance accepted connections prior to calling this method.
@@ -189,7 +186,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
             panic!(
                 "
             Invalid API usage. 
-            Can't call Svc::into_spawned_recver after it established its first connection.
+            Can't call Svc::into_sender_with_spawned_recver after it established its first connection.
             Current connection pool: {}
             ",
                 self.clts_pool
@@ -201,10 +198,6 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     }
 
     /// Will split [Svc] and only return [CltSendersPool<_, CltSenderRef>] while moving [TransmittingSvcAcceptorRef] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
-    ///
-    /// # Important
-    /// This configuration will support 'all' [Protocol] features and 
-    /// a clone of [CltSenderRef] will be moved to [static@crate::connect::DEFAULT_HBEAT_HANDLER] thread to periodically trigger [Protocol::send_heart_beat]
     /// 
     /// # Warning
     /// This method `drops` [CltRecversPool<_, CltRecverRef>], as a result this call will panic if the instance accepted connections prior to calling this method.

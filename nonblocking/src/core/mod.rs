@@ -392,11 +392,11 @@ pub enum PollEventStatus {
     WouldBlock,
     Terminate,
 }
-pub trait PollAble: Send + 'static {
+pub trait PollAble: ConnectionId + Display + Send + 'static {
     /// this function exists as a hook in case you need to perform resource locking prior to registering the source
     ///
     /// # Warning
-    /// [PollRead::source] usage will depend on your override implementation and may not used
+    /// [PollAble::source] usage will depend on your override implementation and may not used
     fn register(&mut self, registry: &Registry, token: Token, interests: Interest) -> Result<(), Error> {
         registry.register(*self.source(), token, interests)?;
         Ok(())
@@ -404,13 +404,13 @@ pub trait PollAble: Send + 'static {
     /// this function exists as a hook in case you need to perform resource locking prior to de-registering the source
     ///
     /// # Warning
-    /// [PollRead::source] usage will depend on your override implementation and may not used
+    /// [PollAble::source] usage will depend on your override implementation and may not used
     fn deregister(&mut self, registry: &Registry) -> Result<(), Error> {
         registry.deregister(*self.source())?;
         Ok(())
     }
-    /// represents the source of the event, typically implementing this function is sufficient as [PollRead::register] and [PollRead::deregister] functions
-    /// are implemented using it to get the source for the poll. However You can choose to override [PollRead::register] and [PollRead::deregister] functions
+    /// represents the source of the event, typically implementing this function is sufficient as [PollAble::register] and [PollAble::deregister] functions
+    /// are implemented using it to get the source for the poll. However You can choose to override [PollAble::register] and [PollAble::deregister] functions
     /// when for example you require to lock a mutes to get access to the source in which case source function will not be used.
     fn source(&mut self) -> Box<&mut dyn mio::event::Source>;
 }
@@ -418,33 +418,33 @@ pub trait PollAble: Send + 'static {
 /// abstract away details of [Token] generation registration and de-registration
 /// The source will get automatically deregistered from the poll instance when [PollRead::on_readable_event]
 /// returns [Ok(PollEventStatus::Terminate)] or [Err(_)]
-pub trait PollRead: ConnectionId + Display + Send + 'static {
-    /// this function exists as a hook in case you need to perform resource locking prior to registering the source
-    ///
-    /// # Warning
-    /// [PollRead::source] usage will depend on your override implementation and may not used
-    fn register(&mut self, registry: &Registry, token: Token, interests: Interest) -> Result<(), Error> {
-        registry.register(*self.source(), token, interests)?;
-        Ok(())
-    }
-    /// this function exists as a hook in case you need to perform resource locking prior to de-registering the source
-    ///
-    /// # Warning
-    /// [PollRead::source] usage will depend on your override implementation and may not used
-    fn deregister(&mut self, registry: &Registry) -> Result<(), Error> {
-        registry.deregister(*self.source())?;
-        Ok(())
-    }
-    /// represents the source of the event, typically implementing this function is sufficient as [PollRead::register] and [PollRead::deregister] functions
-    /// are implemented using it to get the source for the poll. However You can choose to override [PollRead::register] and [PollRead::deregister] functions
-    /// when for example you require to lock a mutes to get access to the source in which case source function will not be used.
-    fn source(&mut self) -> Box<&mut dyn mio::event::Source>;
+pub trait PollRead: PollAble {
+    // /// this function exists as a hook in case you need to perform resource locking prior to registering the source
+    // ///
+    // /// # Warning
+    // /// [PollRead::source] usage will depend on your override implementation and may not used
+    // fn register(&mut self, registry: &Registry, token: Token, interests: Interest) -> Result<(), Error> {
+    //     registry.register(*self.source(), token, interests)?;
+    //     Ok(())
+    // }
+    // /// this function exists as a hook in case you need to perform resource locking prior to de-registering the source
+    // ///
+    // /// # Warning
+    // /// [PollRead::source] usage will depend on your override implementation and may not used
+    // fn deregister(&mut self, registry: &Registry) -> Result<(), Error> {
+    //     registry.deregister(*self.source())?;
+    //     Ok(())
+    // }
+    // /// represents the source of the event, typically implementing this function is sufficient as [PollRead::register] and [PollRead::deregister] functions
+    // /// are implemented using it to get the source for the poll. However You can choose to override [PollRead::register] and [PollRead::deregister] functions
+    // /// when for example you require to lock a mutes to get access to the source in which case source function will not be used.
+    // fn source(&mut self) -> Box<&mut dyn mio::event::Source>;
     /// Will be called when OS signals that the source is readable
     fn on_readable_event(&mut self) -> Result<PollEventStatus, Error>;
 }
 
 /// A trait to be implemented for a type that can be registered with a [mio::Poll] instance, it helps to
 /// abstract away details of [Token] generation registration and de-registration specifically monitoring
-pub trait PollAccept<R: PollRead>: PollRead {
+pub trait PollAccept<R: PollRead>: PollAble {
     fn poll_accept(&mut self) -> Result<AcceptStatus<R>, Error>;
 }

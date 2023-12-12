@@ -1,8 +1,8 @@
 use crate::{
     core::PollAccept,
     prelude::{
-        asserted_short_name, short_type_name, AcceptStatus, CallbackRecvSend, CltRecver, CltSender, ConnectionId, Messenger, PollEventStatus, PollRead, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol, RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking, SendStatus,
-        SvcAcceptor, SvcAcceptorOfCltNonBlocking, TimerTaskStatus,
+        asserted_short_name, AcceptStatus, CallbackRecvSend, CltRecver, CltSender, ConnectionId, Messenger, PollAble, PollRead, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol, RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking, SendStatus, SvcAcceptor,
+        SvcAcceptorOfCltNonBlocking,
     },
 };
 use log::{info, log_enabled, warn, Level};
@@ -12,7 +12,7 @@ use std::{
     marker::PhantomData,
     num::NonZeroUsize,
     sync::mpsc::{channel, Receiver, Sender},
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use super::clt::{Clt, CltRecverRef, CltSenderRef};
@@ -662,17 +662,9 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolSvcAcce
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollRead for TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAble for TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE> {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         Box::new(&mut self.acceptor.listener)
-    }
-    fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
-        use PoolAcceptStatus::*;
-        match self.accept_into_pool()? {
-            Accepted => Ok(PollEventStatus::Completed),
-            Rejected => Ok(PollEventStatus::Completed),
-            WouldBlock => Ok(PollEventStatus::WouldBlock),
-        }
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE> {
@@ -771,27 +763,6 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Transmittin
             Accepted(clt) => {
                 let (recver, sender) = clt.into_split_ref();
 
-                match sender.protocol.conf_heart_beat_interval() {
-                    Some(interval) => {
-                        crate::connect::DEFAULT_HBEAT_HANDLER.schedule(sender.con_id().to_string().as_str(), interval, {
-                            let sender = sender.clone();
-                            move || match sender.do_heart_beat() {
-                                Ok(SendStatus::Completed) => TimerTaskStatus::Completed,
-                                Ok(SendStatus::WouldBlock) => TimerTaskStatus::RetryAfter(Duration::from_secs(0)),
-                                Err(err) => {
-                                    warn!("{} Failed to send heart beat. Will no longer attempt to send. err: {:?}", sender.con_id(), err);
-                                    TimerTaskStatus::Terminate
-                                }
-                            }
-                        });
-                    }
-                    None => {
-                        if log::log_enabled!(log::Level::Warn) {
-                            warn!("{}::conf_heart_beat_interval(), hence {}::do_heart_beat(..) will not be scheduled for this con_id: {}", short_type_name::<P>(), short_type_name::<P>(), sender.con_id(),);
-                        }
-                    }
-                }
-
                 if let Err(e) = self.tx_sender.send(sender) {
                     return Err(Error::new(ErrorKind::Other, e.to_string()));
                 }
@@ -812,9 +783,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolSvcAcce
                 if let Err(e) = self.tx_recver.send(recver) {
                     return Err(Error::new(ErrorKind::Other, e.to_string()));
                 }
-                
-                // TODO CRITICAL must also register heart beat for sender
-                // TODO CRITICAL consolidate heart beat scheduling across clt & acceptor into single function or macro
+
                 if let Err(e) = self.tx_sender.send(sender) {
                     return Err(Error::new(ErrorKind::Other, e.to_string()));
                 }
@@ -825,17 +794,9 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolSvcAcce
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollRead for TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAble for TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE> {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         Box::new(&mut self.acceptor.listener)
-    }
-    fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
-        use PoolAcceptStatus::*;
-        match self.accept_into_pool()? {
-            Accepted => Ok(PollEventStatus::Completed),
-            Rejected => Ok(PollEventStatus::Completed),
-            WouldBlock => Ok(PollEventStatus::WouldBlock),
-        }
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE> {
