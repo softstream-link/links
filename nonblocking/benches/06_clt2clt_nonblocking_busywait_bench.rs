@@ -130,7 +130,12 @@ fn recv_msg(c: &mut Criterion) {
 
     drop(clt_initiator); // this will allow svc.join to complete
     let clt_acceptor_msg_send_count = clt_acceptor_jh.join().unwrap();
-    info!("clt_acceptor_msg_send_count: {:?} > clt_initiator_msg_recv_count: {:?}", fmt_num!(clt_acceptor_msg_send_count), fmt_num!(clt_initiator_msg_recv_count));
+    info!(
+        "clt_acceptor_msg_send_count: {:?} > clt_initiator_msg_recv_count: {:?}, diff: {:?}",
+        fmt_num!(clt_acceptor_msg_send_count),
+        fmt_num!(clt_initiator_msg_recv_count),
+        fmt_num!(clt_acceptor_msg_send_count - clt_initiator_msg_recv_count)
+    );
 
     assert!(clt_acceptor_msg_send_count > clt_initiator_msg_recv_count);
 }

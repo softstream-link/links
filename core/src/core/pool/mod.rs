@@ -141,7 +141,6 @@ mod test {
         // empty
         let mut pool = RoundRobinPool::<String>::new(NonZeroUsize::new(3).unwrap());
 
-        for x in pool.elements.iter() {}
         assert_eq!(pool.len(), 0);
         assert_eq!(pool.is_empty(), true);
         assert_eq!(pool.has_capacity(), true);

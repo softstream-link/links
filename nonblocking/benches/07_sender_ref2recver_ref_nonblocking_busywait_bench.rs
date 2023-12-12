@@ -78,8 +78,13 @@ fn send_msg(c: &mut Criterion) {
 
     drop(clt_initiator_send); // this will allow svc.join to complete
     let clt_acceptor_msg_recv_count = clt_acceptor_jh.join().unwrap();
-    info!("clt_acceptor_msg_recv_count: {:?}, clt_initiator_msg_send_count: {:?}", fmt_num!(clt_acceptor_msg_recv_count), fmt_num!(clt_initiator_msg_send_count));
-    assert_eq!(clt_initiator_msg_send_count, clt_acceptor_msg_recv_count);
+    info!(
+        "clt_acceptor_msg_recv_count: {:?} > clt_initiator_msg_send_count: {:?}, diff: {:?}",
+        fmt_num!(clt_acceptor_msg_recv_count),
+        fmt_num!(clt_initiator_msg_send_count),
+        fmt_num!(clt_acceptor_msg_recv_count - clt_initiator_msg_send_count) // due to hbeats
+    );
+    assert!(clt_acceptor_msg_recv_count > clt_initiator_msg_send_count); // due to hbeats
 }
 
 fn recv_msg(c: &mut Criterion) {
@@ -130,7 +135,12 @@ fn recv_msg(c: &mut Criterion) {
 
     drop(clt_initiator_recv); // this will allow svc.join to complete
     let clt_acceptor_msg_send_count = clt_acceptor_jh.join().unwrap();
-    info!("clt_acceptor_msg_send_count: {:?} > clt_initiator_msg_recv_count: {:?}", fmt_num!(clt_acceptor_msg_send_count), fmt_num!(clt_initiator_msg_recv_count));
+    info!(
+        "clt_acceptor_msg_send_count: {:?} > clt_initiator_msg_recv_count: {:?}, diff: {:?}",
+        fmt_num!(clt_acceptor_msg_send_count),
+        fmt_num!(clt_initiator_msg_recv_count),
+        fmt_num!(clt_acceptor_msg_send_count - clt_initiator_msg_recv_count)
+    );
 
     assert!(clt_acceptor_msg_send_count > clt_initiator_msg_recv_count);
 }
@@ -187,8 +197,14 @@ fn round_trip_msg(c: &mut Criterion) {
 
     drop(clt_initiator_recv); // this will allow svc.join to complete
     let clt_acceptor_msg_recv_count = clt_acceptor_jh.join().unwrap();
-    info!("clt_acceptor_msg_recv_count: {:?}, clt_initiator_msg_send_count: {:?}", fmt_num!(clt_acceptor_msg_recv_count), fmt_num!(clt_initiator_msg_send_count));
-    assert_eq!(clt_initiator_msg_send_count, clt_acceptor_msg_recv_count);
+    info!(
+        "clt_acceptor_msg_recv_count: {:?} > clt_initiator_msg_send_count: {:?}, diff: {:?}",
+        fmt_num!(clt_acceptor_msg_recv_count),
+        fmt_num!(clt_initiator_msg_send_count),
+        fmt_num!(clt_acceptor_msg_recv_count - clt_initiator_msg_send_count)
+    );
+
+    assert!(clt_acceptor_msg_recv_count > clt_initiator_msg_send_count); // due to hbeats
 }
 
 criterion_group!(benches, send_msg, recv_msg, round_trip_msg);

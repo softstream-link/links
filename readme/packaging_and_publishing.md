@@ -11,3 +11,10 @@ cargo test --doc --all-features ; \
 cargo doc  --all-features ; \
 cargo clippy --all-features -- --deny warnings 
 ```
+
+# bench nonblocking only
+```shell
+pushd nonblocking ; \
+cargo bench --all-features ; \
+popd
+```
