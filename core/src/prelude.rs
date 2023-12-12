@@ -1,4 +1,4 @@
-pub use crate::core::conid::{ConId, ConnectionId, ConnectionStatus};
+pub use crate::core::conid::{ConId, ConnectionId, ConnectionStatus, PoolConnectionStatus};
 
 pub use crate::core::messenger::Messenger;
 pub use crate::core::MessengerOld; // TODO remove

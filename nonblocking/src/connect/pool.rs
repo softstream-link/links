@@ -1,6 +1,6 @@
 use crate::prelude::{
-    asserted_short_name, AcceptStatus, CallbackRecvSend, CltRecver, CltSender, ConnectionId, ConnectionStatus, Messenger, PollAble, PollAccept, PollRead, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol, RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking, SendStatus,
-    SvcAcceptor, SvcAcceptorOfCltNonBlocking,
+    asserted_short_name, AcceptStatus, CallbackRecvSend, CltRecver, CltSender, ConnectionId, ConnectionStatus, Messenger, PollAble, PollAccept, PollRead, PoolAcceptStatus, PoolConnectionStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol, RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking,
+    SendStatus, SvcAcceptor, SvcAcceptorOfCltNonBlocking,
 };
 use log::{info, log_enabled, warn, Level};
 use std::{
@@ -383,11 +383,51 @@ impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> RecvNonBlocking<M> 
 }
 impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> ConnectionStatus for CltRecversPool<M, R> {
     /// Will only test connection status of the next [CltRecver] in the pool that will be used to service [RecvNonBlocking::recv]
+    ///
+    /// # Important
+    /// If there is a [CltRecver] on the channel that has not been integrated to the pool yet its connection status will not be tested.
+    /// This method can't do it because a `&mut self` is required. Use [PoolConnectionStatus::is_next_connected] instead.
     #[inline(always)]
     fn is_connected(&self) -> bool {
         match self.recvers.current() {
             Some(clt) => clt.is_connected(),
             None => false,
+        }
+    }
+}
+impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> PoolConnectionStatus for CltRecversPool<M, R> {
+    #[inline(always)]
+    /// Will test connection status of all [CltRecver]s in the pool including the first [CltRecver] in the `rx_recver` channel if the pool is empty
+    fn all_connected(&mut self) -> bool {
+        if self.recvers.is_empty() {
+            if let PoolAcceptStatus::Accepted = self.accept_into_pool().expect("CltRecversPool::accept_into_pool - Failed to service rx_recver, was the tx_recver dropped?") {
+                return self.all_connected();
+            } else {
+                return false;
+            }
+        }
+        for (_k, recver) in self.recvers.iter() {
+            if !recver.is_connected() {
+                return false;
+            }
+        }
+        true
+    }
+    /// Will test connection status of the next [CltRecver] in the pool that will be used to service [RecvNonBlocking::recv]
+    ///
+    /// # Important
+    /// Unlike [ConnectionStatus::is_connected] this method will integrate and test first [CltRecver] in the `rx_recver` channel if the pool is empty
+    #[inline(always)]
+    fn is_next_connected(&mut self) -> bool {
+        match self.recvers.current() {
+            Some(clt) => clt.is_connected(),
+            None => {
+                if let PoolAcceptStatus::Accepted = self.accept_into_pool().expect("CltRecversPool::accept_into_pool - Failed to service rx_recver, was the tx_recver dropped?") {
+                    self.is_next_connected()
+                } else {
+                    false
+                }
+            }
         }
     }
 }
@@ -585,11 +625,51 @@ impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> SendNonBlocking<M> 
 }
 impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> ConnectionStatus for CltSendersPool<M, S> {
     /// Will only test connection status of the next [CltSender] in the pool that will be used to service [SendNonBlocking::send]
+    /// 
+    /// # Important
+    /// If there is a [CltSender] on the channel that has not been integrated to the pool yet its connection status will not be tested.
+    /// This method can't do it because a `&mut self` is required. Use [PoolConnectionStatus::is_next_connected] instead.
     #[inline(always)]
     fn is_connected(&self) -> bool {
         match self.senders.current() {
             Some(s) => s.is_connected(),
             None => false,
+        }
+    }
+}
+impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> PoolConnectionStatus for CltSendersPool<M, S> {
+    #[inline(always)]
+    /// Will test connection status of all [CltSender]s in the pool including the first [CltSender] in the `rx_sender` channel if the pool is empty
+    fn all_connected(&mut self) -> bool {
+        if self.senders.is_empty() {
+            if let PoolAcceptStatus::Accepted = self.accept_into_pool().expect("CltSendersPool::accept_into_pool - Failed to service rx_sender, was the tx_sender dropped?") {
+                return self.all_connected();
+            } else {
+                return false;
+            }
+        }
+        for (_k, sender) in self.senders.iter() {
+            if !sender.is_connected() {
+                return false;
+            }
+        }
+        true
+    }
+    /// Will test connection status of the next [CltSender] in the pool that will be used to service [SendNonBlocking::send]
+    ///
+    /// # Important
+    /// Unlike [ConnectionStatus::is_connected] this method will integrate and test first [CltSender] in the `rx_sender` channel if the pool is empty
+    #[inline(always)]
+    fn is_next_connected(&mut self) -> bool {
+        match self.senders.current() {
+            Some(s) => s.is_connected(),
+            None => {
+                if let PoolAcceptStatus::Accepted = self.accept_into_pool().expect("CltSendersPool::accept_into_pool - Failed to service rx_sender, was the tx_sender dropped?") {
+                    self.is_next_connected()
+                } else {
+                    false
+                }
+            }
         }
     }
 }

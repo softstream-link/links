@@ -177,11 +177,11 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     }
 
     /// Will split [Svc] and only return [CltSendersPool<_, CltSender>] while moving [TransmittingSvcAcceptor] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
-    /// 
+    ///
     /// # Warning
     /// This method `drops` [CltRecversPool<_, CltRecver>], as a result this call will panic if the instance accepted connections prior to calling this method.
     /// To avoid this call this immediately after creating [Svc] instance and prior to accepting any connections
-    pub fn into_sender_with_spawned_recver(self) -> impl SendNonBlocking<P> + Display {
+    pub fn into_sender_with_spawned_recver(self) -> impl SendNonBlocking<P> + Display + ConnectionStatus + PoolConnectionStatus {
         if !self.clts_pool.is_empty() {
             panic!(
                 "
@@ -198,11 +198,11 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     }
 
     /// Will split [Svc] and only return [CltSendersPool<_, CltSenderRef>] while moving [TransmittingSvcAcceptorRef] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
-    /// 
+    ///
     /// # Warning
     /// This method `drops` [CltRecversPool<_, CltRecverRef>], as a result this call will panic if the instance accepted connections prior to calling this method.
     /// To avoid this call this immediately after creating [Svc] instance and prior to accepting any connections
-    pub fn into_sender_with_spawned_recver_ref(self) -> impl SendNonBlocking<P> + Display {
+    pub fn into_sender_with_spawned_recver_ref(self) -> impl SendNonBlocking<P> + Display + ConnectionStatus + PoolConnectionStatus {
         if !self.clts_pool.is_empty() {
             panic!(
                 "
@@ -250,6 +250,13 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBloc
     #[inline(always)]
     fn recv(&mut self) -> Result<RecvStatus<<P as Messenger>::RecvT>, Error> {
         self.clts_pool.recv()
+    }
+}
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionStatus for Svc<P, C, MAX_MSG_SIZE> {
+    /// Will delegate to [CltsPool::is_connected]
+    #[inline(always)]
+    fn is_connected(&self) -> bool {
+        self.clts_pool.is_connected()
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for Svc<P, C, MAX_MSG_SIZE> {
@@ -300,7 +307,9 @@ mod test {
         let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
         info!("clt: {}", clt);
 
+        assert!(!svc.is_connected());
         svc.accept_into_pool_busywait().unwrap();
+        assert!(svc.is_connected());
         info!("svc: {}", svc);
         assert_eq!(svc.len(), 1);
 
@@ -354,7 +363,17 @@ mod test {
         let mut clt_msg_inp = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
         let mut svc_msg_inp = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"Hello Frm Server Msg"));
 
+        assert!(!svc_pool_recver.all_connected());
+        assert!(!svc_pool_recver.is_next_connected());
+        assert!(!svc_pool_sender.all_connected());
+        assert!(!svc_pool_sender.is_next_connected());
+
         svc_acceptor.accept_into_pool_busywait().unwrap();
+
+        assert!(svc_pool_recver.all_connected());
+        assert!(svc_pool_recver.is_next_connected());
+        assert!(svc_pool_sender.all_connected());
+        assert!(svc_pool_sender.is_next_connected());
 
         info!("--------- CLT PRE-SPLIT ---------");
         clt.send_busywait(&mut clt_msg_inp).unwrap();
@@ -421,7 +440,17 @@ mod test {
         let mut clt_msg_inp = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
         let mut svc_msg_inp = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"Hello Frm Server Msg"));
 
+        assert!(!svc_pool_recver.all_connected());
+        assert!(!svc_pool_recver.is_next_connected());
+        assert!(!svc_pool_sender.all_connected());
+        assert!(!svc_pool_sender.is_next_connected());
+
         svc_acceptor.accept_into_pool_busywait().unwrap();
+
+        assert!(svc_pool_recver.all_connected());
+        assert!(svc_pool_recver.is_next_connected());
+        assert!(svc_pool_sender.all_connected());
+        assert!(svc_pool_sender.is_next_connected());
 
         info!("--------- CLT PRE-SPLIT ---------");
         clt.send_busywait(&mut clt_msg_inp).unwrap();

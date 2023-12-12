@@ -88,8 +88,12 @@ pub trait ConnectionId {
     fn con_id(&self) -> &ConId;
 }
 
-pub trait  ConnectionStatus {
+pub trait ConnectionStatus {
     fn is_connected(&self) -> bool;
+}
+pub trait PoolConnectionStatus {
+    fn is_next_connected(&mut self) -> bool;
+    fn all_connected(&mut self) -> bool;
 }
 
 #[cfg(test)]
