@@ -1,11 +1,7 @@
-use crate::{
-    core::PollAble,
-    prelude::{
-        asserted_short_name, into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, MessageRecver, MessageSender, Messenger, PollEventStatus, PollRead, Protocol, RecvNonBlocking, RecvStatus, RemoveConnectionBarrierOnDrop, SendNonBlocking, SendNonBlockingNonMut,
-        SendStatus, TimerTaskStatus,
-    },
+use crate::prelude::{
+    asserted_short_name, into_split_messenger, short_type_name, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, ConnectionStatus, MessageRecver, MessageSender, Messenger, PollAble, PollEventStatus, PollRead, Protocol, RecvNonBlocking, RecvStatus, RemoveConnectionBarrierOnDrop,
+    SendNonBlocking, SendNonBlockingNonMut, SendStatus, TimerTaskStatus,
 };
-use links_core::core::macros::short_type_name;
 use log::{debug, warn};
 use std::{
     fmt::{Debug, Display},
@@ -63,6 +59,12 @@ impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> ConnectionId fo
     #[inline(always)]
     fn con_id(&self) -> &ConId {
         &self.msg_recver.frm_reader.con_id
+    }
+}
+impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> ConnectionStatus for CltRecver<P, C, MAX_MSG_SIZE> {
+    #[inline(always)]
+    fn is_connected(&self) -> bool {
+        self.protocol.is_connected()
     }
 }
 impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> PollRead for CltRecver<P, C, MAX_MSG_SIZE> {
@@ -193,6 +195,12 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> ConnectionId fo
         &self.msg_sender.frm_writer.con_id
     }
 }
+impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> ConnectionStatus for CltSender<P, C, MAX_MSG_SIZE> {
+    #[inline(always)]
+    fn is_connected(&self) -> bool {
+        self.protocol.is_connected()
+    }
+}
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for CltSender<P, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let recv_t = std::any::type_name::<P::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
@@ -273,6 +281,12 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionI
     #[inline(always)]
     fn con_id(&self) -> &ConId {
         &self.con_id
+    }
+}
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionStatus for CltRecverRef<P, C, MAX_MSG_SIZE> {
+    #[inline(always)]
+    fn is_connected(&self) -> bool {
+        self.protocol.is_connected()
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollRead for CltRecverRef<P, C, MAX_MSG_SIZE> {
@@ -387,6 +401,12 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> ConnectionId fo
         &self.con_id
     }
 }
+impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> ConnectionStatus for CltSenderRef<P, C, MAX_MSG_SIZE> {
+    #[inline(always)]
+    fn is_connected(&self) -> bool {
+        self.protocol.is_connected()
+    }
+}
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for CltSenderRef<P, C, MAX_MSG_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let recv_t = std::any::type_name::<P::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
@@ -492,7 +512,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
         (self.clt_recver, self.clt_sender)
     }
     /// Will split the [Clt] into its parts [CltRecverRef]/[CltSenderRef]
-    /// 
+    ///
     /// # Important
     /// This configuration will support `all` [Protocol] features,
     /// a clone of [CltSenderRef] will be moved to the [static@crate::connect::DEFAULT_HBEAT_HANDLER] thread to periodically trigger [Protocol::send_heart_beat]
@@ -589,6 +609,12 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionI
     #[inline(always)]
     fn con_id(&self) -> &ConId {
         &self.clt_recver.msg_recver.frm_reader.con_id
+    }
+}
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionStatus for Clt<P, C, MAX_MSG_SIZE> {
+    #[inline(always)]
+    fn is_connected(&self) -> bool {
+        self.clt_recver.is_connected()
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for Clt<P, C, MAX_MSG_SIZE> {

@@ -1,3 +1,5 @@
+use log::{log_enabled, warn};
+
 use crate::prelude::{ConnectionId, Messenger};
 use std::{io::Error, time::Duration};
 
@@ -6,7 +8,7 @@ use super::{RecvNonBlocking, SendNonBlocking, SendStatus};
 /// Core protocol features that will works with any instantiation of [crate::prelude::Clt] and [crate::prelude::Svc] including
 /// [crate::prelude::CltRecver], [crate::prelude::CltRecverRef], [crate::prelude::CltSender], [crate::prelude::CltSenderRef]
 #[allow(unused_variables)]
-pub trait ProtocolCore: Messenger + Clone {
+pub trait ProtocolCore: Messenger + Sized {
     /// Called immediately after the connection is established and allows user space to perform a connection handshake
     #[inline(always)]
     fn on_connected<C: SendNonBlocking<Self> + RecvNonBlocking<Self> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
@@ -19,12 +21,10 @@ pub trait ProtocolCore: Messenger + Clone {
     /// Default implementation panics
     #[inline(always)]
     fn is_connected(&self) -> bool {
-        panic!(
-            "
-        Invalid API usage.
-        ProtocolCore::is_connected must be implemented by the user space protocol implementation in order to be called
-        "
-        )
+        if log_enabled!(log::Level::Warn) {
+            warn!("NOTE: this is a default ProtocolCore::is_connected implementation which always yields 'true', you should override this method to provide a meaningful implementation.");
+        }
+        true
     }
 
     /// This is a hook to provide user space ability to modify the message right before it is serialized and sent
@@ -51,8 +51,14 @@ pub trait ProtocolCore: Messenger + Clone {
 
 /// Full set of protocol features that will only work with Ref instances of [crate::prelude::Clt] and [crate::prelude::Svc]
 /// which includes [crate::prelude::CltRecverRef], [crate::prelude::CltSenderRef]
+///
+/// # Important
+/// [Clone] implementation of structure implementing [Protocol] must provide a `CLEAN SLATE` state instance,
+/// meaning any state captured by the [Protocol] methods must be erased. This is due to the fact that
+/// every new connection accepted by [crate::prelude::SvcAcceptor] will get a clone copy of the [Protocol] instance
+/// and each connection must maintain its own state.
 #[allow(unused_variables)]
-pub trait Protocol: ProtocolCore {
+pub trait Protocol: ProtocolCore + Clone {
     /// This is a hook to provide user space ability to perform scripted responses, example automatically emulate certain behavior . Called immediately after [ProtocolCore::on_recv].
     #[inline(always)]
     fn send_reply<S: SendNonBlocking<Self> + ConnectionId>(&self, msg: &<Self as Messenger>::RecvT, sender: &mut S) -> Result<(), Error> {

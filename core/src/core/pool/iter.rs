@@ -21,8 +21,14 @@ impl CycleRange {
         } else {
             self.current += 1;
         }
-
         current
+    }
+    pub fn current(&self) -> usize {
+        if self.current == self.start {
+            self.end
+        } else {
+            self.current - 1
+        }
     }
 }
 
@@ -37,17 +43,22 @@ mod test {
         setup::log::configure();
         let mut range = CycleRange::new(0..2);
         info!("range: {:?}", range);
-        let i = range.next();
-        info!("i: {}", i);
-        assert_eq!(i, 0);
-        let i = range.next();
-        info!("i: {}", i);
-        assert_eq!(i, 1);
-        let i = range.next();
-        info!("i: {}", i);
-        assert_eq!(i, 0);
-        let i = range.next();
-        info!("i: {}", i);
-        assert_eq!(i, 1);
+
+        let (mut next, mut current) = (range.next(), range.current());
+        info!("next: {}, current: {}", next, current);
+        assert_eq!(next, 0);
+        assert_eq!(next, current);
+        (next, current) = (range.next(), range.current());
+        info!("next: {}, current: {}", next, current);
+        assert_eq!(next, 1);
+        assert_eq!(next, current);
+        (next, current) = (range.next(), range.current());
+        info!("next: {}, current: {}", next, current);
+        assert_eq!(next, 0);
+        assert_eq!(next, current);
+        (next, current) = (range.next(), range.current());
+        info!("next: {}, current: {}", next, current);
+        assert_eq!(next, 1);
+        assert_eq!(next, current);
     }
 }

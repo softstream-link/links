@@ -88,6 +88,10 @@ pub trait ConnectionId {
     fn con_id(&self) -> &ConId;
 }
 
+pub trait  ConnectionStatus {
+    fn is_connected(&self) -> bool;
+}
+
 #[cfg(test)]
 mod test {
 

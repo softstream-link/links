@@ -1,9 +1,6 @@
-use crate::{
-    core::PollAccept,
-    prelude::{
-        asserted_short_name, AcceptStatus, CallbackRecvSend, CltRecver, CltSender, ConnectionId, Messenger, PollAble, PollRead, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol, RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking, SendStatus, SvcAcceptor,
-        SvcAcceptorOfCltNonBlocking,
-    },
+use crate::prelude::{
+    asserted_short_name, AcceptStatus, CallbackRecvSend, CltRecver, CltSender, ConnectionId, ConnectionStatus, Messenger, PollAble, PollAccept, PollRead, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol, RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking, SendStatus,
+    SvcAcceptor, SvcAcceptorOfCltNonBlocking,
 };
 use log::{info, log_enabled, warn, Level};
 use std::{
@@ -129,19 +126,6 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> CltsPool<P,
         ((tx_recver, tx_sender), (recver_pool, sender_pool))
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for CltsPool<P, C, MAX_MSG_SIZE> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let recv_t = std::any::type_name::<<P as Messenger>::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
-        let send_t = std::any::type_name::<<P as Messenger>::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
-        write!(f, "{}<RecvP:{}, SendP:{}, {}>", asserted_short_name!("CltsPool", Self), recv_t, send_t, self.clts)
-    }
-}
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Default for CltsPool<P, C, MAX_MSG_SIZE> {
-    /// Creates a new [CltsPool] with a max_connections of 1
-    fn default() -> Self {
-        Self::new(NonZeroUsize::new(1).unwrap())
-    }
-}
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for CltsPool<P, C, MAX_MSG_SIZE> {
     /// Will round robin [Clt]'s in the pool to propagate the call.
     ///
@@ -183,6 +167,30 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBloc
         }
     }
 }
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionStatus for CltsPool<P, C, MAX_MSG_SIZE> {
+    /// Will only test connection status of the next [Clt] in the pool that will be used to service [SendNonBlocking::send] or [RecvNonBlocking::recv]
+    #[inline(always)]
+    fn is_connected(&self) -> bool {
+        match self.clts.current() {
+            Some(clt) => clt.is_connected(),
+            None => false,
+        }
+    }
+}
+
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for CltsPool<P, C, MAX_MSG_SIZE> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let recv_t = std::any::type_name::<<P as Messenger>::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
+        let send_t = std::any::type_name::<<P as Messenger>::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
+        write!(f, "{}<RecvP:{}, SendP:{}, {}>", asserted_short_name!("CltsPool", Self), recv_t, send_t, self.clts)
+    }
+}
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Default for CltsPool<P, C, MAX_MSG_SIZE> {
+    /// Creates a new [CltsPool] with a max_connections of 1
+    fn default() -> Self {
+        Self::new(NonZeroUsize::new(1).unwrap())
+    }
+}
 
 /// A round robin pool of [CltRecver]s with respective [Receiver] channel
 /// though which the pool can be populated.
@@ -213,12 +221,12 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBloc
 /// }
 /// ```
 #[derive(Debug)]
-pub struct CltRecversPool<M: Messenger + 'static, R: RecvNonBlocking<M>> {
+pub struct CltRecversPool<M: Messenger + 'static, R: RecvNonBlocking<M> + ConnectionStatus> {
     rx_recver: Receiver<R>,
     recvers: RoundRobinPool<R>,
     phantom: PhantomData<M>,
 }
-impl<M: Messenger, R: RecvNonBlocking<M>> CltRecversPool<M, R> {
+impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> CltRecversPool<M, R> {
     /// Creates a new instance of [CltRecversPool]
     pub fn new(rx_recver: Receiver<R>, max_connections: NonZeroUsize) -> Self {
         Self {
@@ -244,7 +252,7 @@ impl<M: Messenger, R: RecvNonBlocking<M>> CltRecversPool<M, R> {
         self.recvers.max_capacity()
     }
 }
-impl<M: Messenger, R: RecvNonBlocking<M>> SvcAcceptorOfCltNonBlocking<R> for CltRecversPool<M, R> {
+impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> SvcAcceptorOfCltNonBlocking<R> for CltRecversPool<M, R> {
     /// Will interrogate internal [channel] for new [CltRecver]s.
     /// # Returns
     /// * [Ok(AcceptStatus::Accepted(Some))] - if a new [CltRecver] is available
@@ -260,7 +268,7 @@ impl<M: Messenger, R: RecvNonBlocking<M>> SvcAcceptorOfCltNonBlocking<R> for Clt
         }
     }
 }
-impl<M: Messenger, R: RecvNonBlocking<M>> PoolSvcAcceptorOfCltNonBlocking for CltRecversPool<M, R> {
+impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> PoolSvcAcceptorOfCltNonBlocking for CltRecversPool<M, R> {
     /// Will `once ` interrogate internal [channel] for a new [CltRecver] and add it to the connection pool if there is capacity.
     /// Otherwise the [CltRecver] will be dropped and [Ok(PoolAcceptStatus::WouldBlock)] returned
     fn accept_into_pool(&mut self) -> Result<PoolAcceptStatus, Error> {
@@ -278,7 +286,7 @@ impl<M: Messenger, R: RecvNonBlocking<M>> PoolSvcAcceptorOfCltNonBlocking for Cl
         }
     }
 }
-impl<M: Messenger, R: RecvNonBlocking<M>> RecvNonBlocking<M> for CltRecversPool<M, R> {
+impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> RecvNonBlocking<M> for CltRecversPool<M, R> {
     /// Will round robin [CltRecver]'s in the pool to propagate the call.
     /// If the recver connection is dead it will be removed and relevant error propagated.
     /// In order to try next recver the caller must call this method again.
@@ -373,7 +381,17 @@ impl<M: Messenger, R: RecvNonBlocking<M>> RecvNonBlocking<M> for CltRecversPool<
         }
     }
 }
-impl<M: Messenger, R: RecvNonBlocking<M>> Display for CltRecversPool<M, R> {
+impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> ConnectionStatus for CltRecversPool<M, R> {
+    /// Will only test connection status of the next [CltRecver] in the pool that will be used to service [RecvNonBlocking::recv]
+    #[inline(always)]
+    fn is_connected(&self) -> bool {
+        match self.recvers.current() {
+            Some(clt) => clt.is_connected(),
+            None => false,
+        }
+    }
+}
+impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> Display for CltRecversPool<M, R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
         let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
@@ -410,12 +428,12 @@ impl<M: Messenger, R: RecvNonBlocking<M>> Display for CltRecversPool<M, R> {
 /// }
 /// ```
 #[derive(Debug)]
-pub struct CltSendersPool<M: Messenger, S: SendNonBlocking<M>> {
+pub struct CltSendersPool<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> {
     rx_sender: Receiver<S>,
     senders: RoundRobinPool<S>,
     phantom: PhantomData<M>,
 }
-impl<M: Messenger, S: SendNonBlocking<M>> CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> CltSendersPool<M, S> {
     /// Creates a new instance of [CltSendersPool]
     pub fn new(rx_sender: Receiver<S>, max_connections: NonZeroUsize) -> Self {
         Self {
@@ -441,7 +459,7 @@ impl<M: Messenger, S: SendNonBlocking<M>> CltSendersPool<M, S> {
         self.senders.max_capacity()
     }
 }
-impl<M: Messenger, S: SendNonBlocking<M>> SvcAcceptorOfCltNonBlocking<S> for CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> SvcAcceptorOfCltNonBlocking<S> for CltSendersPool<M, S> {
     /// Will interrogate internal [channel] for new [CltSender]s.
     /// # Returns
     /// * [Ok(AcceptStatus::Accepted(Some))] - if a new [CltSender] is available
@@ -457,7 +475,7 @@ impl<M: Messenger, S: SendNonBlocking<M>> SvcAcceptorOfCltNonBlocking<S> for Clt
         }
     }
 }
-impl<M: Messenger, S: SendNonBlocking<M>> PoolSvcAcceptorOfCltNonBlocking for CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> PoolSvcAcceptorOfCltNonBlocking for CltSendersPool<M, S> {
     /// Will `once ` interrogate internal [channel] for a new [CltSender] and add it to the connection pool if there is capacity.
     /// Otherwise the [CltSender] will be dropped and [Ok(PoolAcceptStatus::WouldBlock)] returned
     #[inline(always)]
@@ -476,7 +494,7 @@ impl<M: Messenger, S: SendNonBlocking<M>> PoolSvcAcceptorOfCltNonBlocking for Cl
         }
     }
 }
-impl<M: Messenger, S: SendNonBlocking<M>> SendNonBlocking<M> for CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> SendNonBlocking<M> for CltSendersPool<M, S> {
     /// Will round robin [CltSender]'s in the pool to propagate the call.
     /// If the sender connection is dead it will be removed and relevant error propagated.
     /// In order to try next recver the caller must call this method again.
@@ -565,7 +583,17 @@ impl<M: Messenger, S: SendNonBlocking<M>> SendNonBlocking<M> for CltSendersPool<
         }
     }
 }
-impl<M: Messenger, S: SendNonBlocking<M>> Display for CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> ConnectionStatus for CltSendersPool<M, S> {
+    /// Will only test connection status of the next [CltSender] in the pool that will be used to service [SendNonBlocking::send]
+    #[inline(always)]
+    fn is_connected(&self) -> bool {
+        match self.senders.current() {
+            Some(s) => s.is_connected(),
+            None => false,
+        }
+    }
+}
+impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> Display for CltSendersPool<M, S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
         let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
