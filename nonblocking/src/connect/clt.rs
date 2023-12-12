@@ -1,5 +1,5 @@
 use crate::prelude::{
-    asserted_short_name, into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, MessageRecver, MessageSender, Messenger, PollEventStatus, PollReadable, Protocol, RecvNonBlocking, RecvStatus, RemoveConnectionBarrierOnDrop, SendNonBlocking, SendNonBlockingNonMut,
+    asserted_short_name, into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, MessageRecver, MessageSender, Messenger, PollEventStatus, PollRead, Protocol, RecvNonBlocking, RecvStatus, RemoveConnectionBarrierOnDrop, SendNonBlocking, SendNonBlockingNonMut,
     SendStatus, TimerTaskStatus,
 };
 use links_core::core::macros::short_type_name;
@@ -62,7 +62,7 @@ impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> ConnectionId fo
         &self.msg_recver.frm_reader.con_id
     }
 }
-impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> PollReadable for CltRecver<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> PollRead for CltRecver<P, C, MAX_MSG_SIZE> {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         Box::new(&mut self.msg_recver.frm_reader.stream_reader)
     }
@@ -270,7 +270,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionI
         &self.con_id
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollReadable for CltRecverRef<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollRead for CltRecverRef<P, C, MAX_MSG_SIZE> {
     fn register(&mut self, registry: &mio::Registry, token: mio::Token, interests: mio::Interest) -> Result<(), Error> {
         let mut guard = self.clt_recver.lock();
         registry.register(&mut guard.msg_recver.frm_reader.stream_reader, token, interests)

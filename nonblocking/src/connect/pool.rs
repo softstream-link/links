@@ -1,7 +1,7 @@
 use crate::{
     core::PollAccept,
     prelude::{
-        asserted_short_name, short_type_name, AcceptStatus, CallbackRecvSend, CltRecver, CltSender, ConnectionId, Messenger, PollEventStatus, PollReadable, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol, RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking, SendStatus,
+        asserted_short_name, short_type_name, AcceptStatus, CallbackRecvSend, CltRecver, CltSender, ConnectionId, Messenger, PollEventStatus, PollRead, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol, RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking, SendStatus,
         SvcAcceptor, SvcAcceptorOfCltNonBlocking, TimerTaskStatus,
     },
 };
@@ -662,7 +662,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolSvcAcce
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollReadable for TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollRead for TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE> {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         Box::new(&mut self.acceptor.listener)
     }
@@ -690,8 +690,8 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<Box<dyn PollReadable>> for TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE> {
-    fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollReadable>>, Error> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<Box<dyn PollRead>> for TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE> {
+    fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollRead>>, Error> {
         use AcceptStatus::{Accepted, Rejected, WouldBlock};
         match self.accept_recver()? {
             Accepted(recver) => Ok(Accepted(Box::new(recver))),
@@ -705,7 +705,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
         write!(f, "{}<{}>", asserted_short_name!("TransmittingSvcAcceptor", Self), self.acceptor.con_id)
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE>> for Box<dyn PollAccept<Box<dyn PollReadable>>> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE>> for Box<dyn PollAccept<Box<dyn PollRead>>> {
     fn from(value: TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE>) -> Self {
         Box::new(value)
     }
@@ -825,7 +825,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolSvcAcce
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollReadable for TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollRead for TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE> {
     fn source(&mut self) -> Box<&mut dyn mio::event::Source> {
         Box::new(&mut self.acceptor.listener)
     }
@@ -853,8 +853,8 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<Box<dyn PollReadable>> for TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE> {
-    fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollReadable>>, Error> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PollAccept<Box<dyn PollRead>> for TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE> {
+    fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollRead>>, Error> {
         use AcceptStatus::{Accepted, Rejected, WouldBlock};
         match self.accept_recver()? {
             Accepted(recver) => Ok(Accepted(Box::new(recver))),
@@ -868,7 +868,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
         write!(f, "{}<{}>", asserted_short_name!("TransmittingSvcAcceptorRef", Self), self.acceptor.con_id)
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE>> for Box<dyn PollAccept<Box<dyn PollReadable>>> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE>> for Box<dyn PollAccept<Box<dyn PollRead>>> {
     fn from(value: TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE>) -> Self {
         Box::new(value)
     }

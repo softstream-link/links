@@ -45,7 +45,7 @@ macro_rules! register_serviceable_as_readable {
     };
 }
 
-enum Serviceable<R: PollReadable, A: PollAccept<R>> {
+enum Serviceable<R: PollRead, A: PollAccept<R>> {
     Acceptor(A),
     Recver(R),
     Waker,
@@ -53,12 +53,12 @@ enum Serviceable<R: PollReadable, A: PollAccept<R>> {
 
 /// A wrapper struct to that will use a designated thread to handle [TransmittingSvcAcceptor] or [TransmittingSvcAcceptorRef] events 
 /// and resulting respective [CltRecver] & [CltRecverRef] instances
-pub struct PollHandler<R: PollReadable, A: PollAccept<R>> {
+pub struct PollHandler<R: PollRead, A: PollAccept<R>> {
     poll: Poll,
     serviceable: Slab<Serviceable<R, A>>,
     events: Events,
 }
-impl<R: PollReadable, A: PollAccept<R>> PollHandler<R, A> {
+impl<R: PollRead, A: PollAccept<R>> PollHandler<R, A> {
     /// Create a new [PollHandler] with a given capacity of Events on a single poll call
     pub fn with_events_capacity(capacity: usize) -> Self {
         Self {
@@ -194,18 +194,18 @@ impl<R: PollReadable, A: PollAccept<R>> PollHandler<R, A> {
         }
     }
 }
-impl<R: PollReadable, A: PollAccept<R>> Default for PollHandler<R, A> {
+impl<R: PollRead, A: PollAccept<R>> Default for PollHandler<R, A> {
     fn default() -> Self {
         Self::with_events_capacity(1024)
     }
 }
 
-impl PollAccept<Box<dyn PollReadable>> for Box<dyn PollAccept<Box<dyn PollReadable>>> {
-    fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollReadable>>, Error> {
+impl PollAccept<Box<dyn PollRead>> for Box<dyn PollAccept<Box<dyn PollRead>>> {
+    fn poll_accept(&mut self) -> Result<AcceptStatus<Box<dyn PollRead>>, Error> {
         self.as_mut().poll_accept()
     }
 }
-impl PollReadable for Box<dyn PollAccept<Box<dyn PollReadable>>> {
+impl PollRead for Box<dyn PollAccept<Box<dyn PollRead>>> {
     fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
         self.as_mut().on_readable_event()
     }
@@ -213,13 +213,13 @@ impl PollReadable for Box<dyn PollAccept<Box<dyn PollReadable>>> {
         self.as_mut().source()
     }
 }
-impl ConnectionId for Box<dyn PollAccept<Box<dyn PollReadable>>> {
+impl ConnectionId for Box<dyn PollAccept<Box<dyn PollRead>>> {
     fn con_id(&self) -> &ConId {
         self.as_ref().con_id()
     }
 }
 
-impl PollReadable for Box<dyn PollReadable> {
+impl PollRead for Box<dyn PollRead> {
     fn on_readable_event(&mut self) -> Result<PollEventStatus, Error> {
         self.as_mut().on_readable_event()
     }
@@ -233,30 +233,30 @@ impl PollReadable for Box<dyn PollReadable> {
         self.as_mut().source()
     }
 }
-impl ConnectionId for Box<dyn PollReadable> {
+impl ConnectionId for Box<dyn PollRead> {
     fn con_id(&self) -> &ConId {
         self.as_ref().con_id()
     }
 }
-impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> From<CltRecver<P, C, MAX_MSG_SIZE>> for Box<dyn PollReadable> {
+impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> From<CltRecver<P, C, MAX_MSG_SIZE>> for Box<dyn PollRead> {
     fn from(value: CltRecver<P, C, MAX_MSG_SIZE>) -> Self {
         Box::new(value)
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<CltRecverRef<P, C, MAX_MSG_SIZE>> for Box<dyn PollReadable> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<CltRecverRef<P, C, MAX_MSG_SIZE>> for Box<dyn PollRead> {
     fn from(value: CltRecverRef<P, C, MAX_MSG_SIZE>) -> Self {
         Box::new(value)
     }
 }
 
-/// A helper struct to add [PollAccept] and [PollReadable] instances to a [PollHandler] from a different thread
+/// A helper struct to add [PollAccept] and [PollRead] instances to a [PollHandler] from a different thread
 /// to create an instance of this struct use [PollHandler::into_spawned_handler]
-pub struct SpawnedPollHandler<R: PollReadable, A: PollAccept<R>> {
+pub struct SpawnedPollHandler<R: PollRead, A: PollAccept<R>> {
     // tx_serviceable: SyncSender<Serviceable<R, A>>,
     tx_serviceable: Sender<Serviceable<R, A>>,
     waker: Waker,
 }
-impl<R: PollReadable, A: PollAccept<R>> SpawnedPollHandler<R, A> {
+impl<R: PollRead, A: PollAccept<R>> SpawnedPollHandler<R, A> {
     pub fn add_acceptor(&self, acceptor: A) {
         self.tx_serviceable.send(Serviceable::Acceptor(acceptor)).expect("Failed to send acceptor to PollHandler");
         self.waker.wake().expect("Failed to wake PollHandler after sending acceptor");
@@ -269,11 +269,11 @@ impl<R: PollReadable, A: PollAccept<R>> SpawnedPollHandler<R, A> {
         self.waker.wake().expect("Failed to wake PollHandler");
     }
 }
-/// A [PollHandler] that can handle any [PollAccept] and [PollReadable] instances using dynamic dispatch at the cost of performance
-pub type PollHandlerDynamic = PollHandler<Box<dyn PollReadable>, Box<dyn PollAccept<Box<dyn PollReadable>>>>;
-pub type SpawnedPollHandlerDynamic = SpawnedPollHandler<Box<dyn PollReadable>, Box<dyn PollAccept<Box<dyn PollReadable>>>>;
+/// A [PollHandler] that can handle any [PollAccept] and [PollRead] instances using dynamic dispatch at the cost of performance
+pub type PollHandlerDynamic = PollHandler<Box<dyn PollRead>, Box<dyn PollAccept<Box<dyn PollRead>>>>;
+pub type SpawnedPollHandlerDynamic = SpawnedPollHandler<Box<dyn PollRead>, Box<dyn PollAccept<Box<dyn PollRead>>>>;
 
-/// A [PollHandler] that will only handle [PollAccept] and [PollReadable] of same type
+/// A [PollHandler] that will only handle [PollAccept] and [PollRead] of same type
 pub type PollHandlerStatic<P, C, const MAX_MSG_SIZE: usize> = PollHandler<CltRecver<P, C, MAX_MSG_SIZE>, TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE>>;
 pub type SpawnedPollHandlerStatic<M, C, const MAX_MSG_SIZE: usize> = SpawnedPollHandler<CltRecver<M, C, MAX_MSG_SIZE>, TransmittingSvcAcceptor<M, C, MAX_MSG_SIZE>>;
 
