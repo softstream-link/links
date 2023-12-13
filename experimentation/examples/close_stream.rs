@@ -101,12 +101,7 @@ pub fn netstat(message: &str) {
     use std::process::{Command, Stdio};
     use std::str;
     let netstat = Command::new("netstat").arg("-nat").stdout(Stdio::piped()).spawn().unwrap();
-    let grep = Command::new("grep")
-        .arg("8080")
-        .stdin(Stdio::from(netstat.stdout.unwrap()))
-        .stdout(Stdio::piped())
-        .spawn()
-        .expect("failed to execute process");
+    let grep = Command::new("grep").arg("8080").stdin(Stdio::from(netstat.stdout.unwrap())).stdout(Stdio::piped()).spawn().expect("failed to execute process");
 
     let output = grep.wait_with_output().unwrap();
     let result = str::from_utf8(&output.stdout).unwrap();

@@ -106,7 +106,12 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
                 if self.buffer.is_empty() {
                     Ok(RecvStatus::Completed(None))
                 } else {
-                    let msg = format!("{} {}::read_frame connection reset by peer, residual buf:\n{}", self.con_id, asserted_short_name!("FrameReader", Self), to_hex_pretty(&self.buffer[..]));
+                    let msg = format!(
+                        "{} {}::read_frame connection reset by peer, residual buf:\n{}",
+                        self.con_id,
+                        asserted_short_name!("FrameReader", Self),
+                        to_hex_pretty(&self.buffer[..])
+                    );
                     Err(Error::new(ErrorKind::ConnectionReset, msg))
                 }
             }
@@ -236,7 +241,14 @@ impl FrameWriter {
                 }
                 Err(e) => {
                     self.shutdown(Shutdown::Both, "write_frame error"); // remember to shutdown on both exception and on EOF
-                    let msg = format!("{} {}::write_frame caused by: [{}], residual len: {}\n{}", self.con_id, asserted_short_name!("FrameWriter", Self), e, residual.len(), to_hex_pretty(residual));
+                    let msg = format!(
+                        "{} {}::write_frame caused by: [{}], residual len: {}\n{}",
+                        self.con_id,
+                        asserted_short_name!("FrameWriter", Self),
+                        e,
+                        residual.len(),
+                        to_hex_pretty(residual)
+                    );
                     return Err(Error::new(e.kind(), msg));
                 }
             }
@@ -372,7 +384,14 @@ mod test {
                             Ok(RecvStatus::Completed(Some(recv_frame))) => {
                                 frame_recv_count += 1;
                                 let recv_frame = &recv_frame[..];
-                                assert_eq!(send_frame, recv_frame, "send_frame: \n{}\nrecv_frame:\n{}\nframe_recv_count: {}", to_hex_pretty(send_frame), to_hex_pretty(recv_frame), frame_recv_count);
+                                assert_eq!(
+                                    send_frame,
+                                    recv_frame,
+                                    "send_frame: \n{}\nrecv_frame:\n{}\nframe_recv_count: {}",
+                                    to_hex_pretty(send_frame),
+                                    to_hex_pretty(recv_frame),
+                                    frame_recv_count
+                                );
                             }
                             Ok(RecvStatus::WouldBlock) => {
                                 continue; // try reading again

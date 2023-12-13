@@ -1,6 +1,6 @@
 use crate::prelude::{
-    asserted_short_name, AcceptStatus, CallbackRecvSend, CltRecver, CltSender, ConnectionId, ConnectionStatus, Messenger, PollAble, PollAccept, PollRead, PoolAcceptStatus, PoolConnectionStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol, RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking,
-    SendStatus, SvcAcceptor, SvcAcceptorOfCltNonBlocking,
+    asserted_short_name, AcceptStatus, CallbackRecvSend, CltRecver, CltSender, ConnectionId, ConnectionStatus, Messenger, PollAble, PollAccept, PollRead, PoolAcceptStatus, PoolConnectionStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol,
+    RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking, SendStatus, SvcAcceptor, SvcAcceptorOfCltNonBlocking,
 };
 use log::{info, log_enabled, warn, Level};
 use std::{
@@ -625,7 +625,7 @@ impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> SendNonBlocking<M> 
 }
 impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> ConnectionStatus for CltSendersPool<M, S> {
     /// Will only test connection status of the next [CltSender] in the pool that will be used to service [SendNonBlocking::send]
-    /// 
+    ///
     /// # Important
     /// If there is a [CltSender] on the channel that has not been integrated to the pool yet its connection status will not be tested.
     /// This method can't do it because a `&mut self` is required. Use [PoolConnectionStatus::is_next_connected] instead.
@@ -967,7 +967,15 @@ mod test {
 
         let mut clt_pool = CltsPool::new(max_connections);
         for i in 0..max_connections.get() * 2 {
-            let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), CltTestProtocolSupervised::default(), Some("unittest")).unwrap();
+            let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+                addr,
+                setup::net::default_connect_timeout(),
+                setup::net::default_connect_retry_after(),
+                DevNullCallback::new_ref(),
+                CltTestProtocolSupervised::default(),
+                Some("unittest"),
+            )
+            .unwrap();
             info!("#{}, clt: {}", i, clt);
             // all connections over max_connections will be dropped
             if clt_pool.has_capacity() {

@@ -25,11 +25,7 @@ impl<T: Debug> CanonicalEntry<T> {
     }
     pub fn try_into_sent(self) -> T {
         match self.msg {
-            Message::Recv(_) => panic!(
-                "{}::try_into_send: Not a {}::Send variant",
-                asserted_short_name!("Entry", Self),
-                asserted_short_name!("Msg", Message<T>)
-            ),
+            Message::Recv(_) => panic!("{}::try_into_send: Not a {}::Send variant", asserted_short_name!("Entry", Self), asserted_short_name!("Msg", Message<T>)),
             Message::Sent(t) => t,
         }
     }
@@ -41,10 +37,10 @@ impl<T: Debug> Display for CanonicalEntry<T> {
 }
 
 #[derive(Debug)]
-pub struct CanonicalEntryStore<T: Debug+Send+Sync+Clone> {
+pub struct CanonicalEntryStore<T: Debug + Send + Sync + Clone> {
     store: Mutex<Vec<CanonicalEntry<T>>>,
 }
-impl<T: Debug+Send+Sync+Clone> CanonicalEntryStore<T> {
+impl<T: Debug + Send + Sync + Clone> CanonicalEntryStore<T> {
     pub fn new_ref() -> Arc<Self> {
         Arc::new(Self::default())
     }
@@ -120,7 +116,7 @@ impl<T: Debug+Send+Sync+Clone> CanonicalEntryStore<T> {
         self.lock().is_empty()
     }
 }
-impl<T: Debug+Send+Sync+Clone> Storage<T> for CanonicalEntryStore<T> {
+impl<T: Debug + Send + Sync + Clone> Storage<T> for CanonicalEntryStore<T> {
     #[inline(always)]
     fn on_msg(&self, con_id: ConId, msg: Message<T>) {
         self.push(CanonicalEntry {
@@ -131,12 +127,12 @@ impl<T: Debug+Send+Sync+Clone> Storage<T> for CanonicalEntryStore<T> {
         })
     }
 }
-impl<T: Debug+Send+Sync+Clone> Default for CanonicalEntryStore<T> {
+impl<T: Debug + Send + Sync + Clone> Default for CanonicalEntryStore<T> {
     fn default() -> Self {
         Self { store: Default::default() }
     }
 }
-impl<T: Debug+Send+Sync+Clone> Display for CanonicalEntryStore<T> {
+impl<T: Debug + Send + Sync + Clone> Display for CanonicalEntryStore<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         fn writeln<T: Debug>(f: &mut std::fmt::Formatter<'_>, count: usize, delta_window: Duration, entry: &CanonicalEntry<T>) -> std::fmt::Result {
             let dt: DateTime<Local> = entry.time.into();
@@ -210,38 +206,22 @@ mod test {
         assert_eq!(last_entry, last_clt);
 
         // RECV find unpacks the event into TestMsg
-        let svc_recv = store.find_recv(
-            "svc",
-            |msg| matches!(msg, UniTestMsg::Clt(CltTestMsg::Dbg(CltTestMsgDebug{text, ..})) if text == &b"SVC: on_recv Message".as_slice().into() ),
-            None,
-        );
+        let svc_recv = store.find_recv("svc", |msg| matches!(msg, UniTestMsg::Clt(CltTestMsg::Dbg(CltTestMsgDebug{text, ..})) if text == &b"SVC: on_recv Message".as_slice().into() ), None);
         info!("svc_recv: {:?}", svc_recv);
         assert_eq!(svc_recv.unwrap(), UniTestMsg::Clt(svc_on_recv_msg));
 
         // SEND find unpacks the event into TestMsg
-        let svc_sent = store.find_sent(
-            "svc",
-            |msg| matches!(msg, UniTestMsg::Svc(SvcTestMsg::Dbg(SvcTestMsgDebug{text, ..})) if text == &b"SVC: on_send Message".as_slice().into() ),
-            None,
-        );
+        let svc_sent = store.find_sent("svc", |msg| matches!(msg, UniTestMsg::Svc(SvcTestMsg::Dbg(SvcTestMsgDebug{text, ..})) if text == &b"SVC: on_send Message".as_slice().into() ), None);
         info!("svc_sent: {:?}", svc_sent);
         assert_eq!(svc_sent.unwrap(), UniTestMsg::Svc(svc_on_sent_msg));
 
         // RECV find unpacks the event into TestMsg
-        let clt_recv = store.find_recv(
-            "clt",
-            |msg| matches!(msg, UniTestMsg::Svc(SvcTestMsg::Dbg(SvcTestMsgDebug{text, ..})) if text == &b"CLT: on_recv Message".as_slice().into() ),
-            None,
-        );
+        let clt_recv = store.find_recv("clt", |msg| matches!(msg, UniTestMsg::Svc(SvcTestMsg::Dbg(SvcTestMsgDebug{text, ..})) if text == &b"CLT: on_recv Message".as_slice().into() ), None);
         info!("clt_recv: {:?}", clt_recv);
         assert_eq!(clt_recv.unwrap(), UniTestMsg::Svc(clt_on_recv_msg));
 
         // SEND find unpacks the event into TestMsg
-        let clt_sent = store.find_sent(
-            "clt",
-            |msg| matches!(msg, UniTestMsg::Clt(CltTestMsg::Dbg(CltTestMsgDebug{text, ..})) if text == &b"CLT: on_send Message".as_slice().into() ),
-            None,
-        );
+        let clt_sent = store.find_sent("clt", |msg| matches!(msg, UniTestMsg::Clt(CltTestMsg::Dbg(CltTestMsgDebug{text, ..})) if text == &b"CLT: on_send Message".as_slice().into() ), None);
         info!("clt_sent: {:?}", clt_sent);
         assert_eq!(clt_sent.unwrap(), UniTestMsg::Clt(clt_on_send_msg));
 

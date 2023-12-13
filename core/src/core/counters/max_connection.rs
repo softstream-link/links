@@ -16,7 +16,10 @@ pub struct AcceptorConnectionGate {
 }
 impl AcceptorConnectionGate {
     pub fn new(max_count: NonZeroUsize) -> Self {
-        Self { max_count, cur_count: Arc::new(AtomicUsize::new(0)) }
+        Self {
+            max_count,
+            cur_count: Arc::new(AtomicUsize::new(0)),
+        }
     }
     pub fn get_max_count(&self) -> usize {
         self.max_count.get()
@@ -30,7 +33,10 @@ impl AcceptorConnectionGate {
         let mut cur_count = self.cur_count.load(Relaxed);
         loop {
             if cur_count >= self.max_count.get() {
-                return Err(Error::new(ErrorKind::OutOfMemory, format!("{} cur_count: {} reached max: {}", asserted_short_name!("AcceptorConnectionGate", Self), cur_count, self.max_count.get())));
+                return Err(Error::new(
+                    ErrorKind::OutOfMemory,
+                    format!("{} cur_count: {} reached max: {}", asserted_short_name!("AcceptorConnectionGate", Self), cur_count, self.max_count.get()),
+                ));
             }
             match self.cur_count.compare_exchange_weak(cur_count, cur_count + 1, Relaxed, Relaxed) {
                 Ok(_) => return Ok(()),

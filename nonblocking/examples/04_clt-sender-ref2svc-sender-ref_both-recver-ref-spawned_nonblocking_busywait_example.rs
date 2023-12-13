@@ -25,7 +25,9 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let protocol = SvcTestProtocolAuthAndHBeat::default();
     let name = Some("example/svc");
-    let mut svc_sender = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), protocol, name).unwrap().into_sender_with_spawned_recver_ref();
+    let mut svc_sender = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), protocol, name)
+        .unwrap()
+        .into_sender_with_spawned_recver_ref();
     info!("svc_sender: {}", svc_sender);
 
     let protocol = CltTestProtocolAuthAndHbeat::default();
@@ -71,7 +73,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let found = store.find_recv("example/svc", |msg| matches!(msg, UniTestMsg::Clt(CltTestMsg::HBeat(_))), setup::net::optional_find_timeout());
     info!("found: {:?}", found);
     assert_eq!(found.unwrap().try_into_clt(), CltTestMsg::HBeat(UniTestHBeatMsgDebug::default()));
-    
+
     // find sent reply from svc
     let found = store.find_sent("example/svc", |msg| matches!(msg, UniTestMsg::Svc(SvcTestMsg::Pong(_))), setup::net::optional_find_timeout());
     info!("found: {:?}", found);

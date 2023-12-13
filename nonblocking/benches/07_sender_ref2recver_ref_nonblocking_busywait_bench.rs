@@ -62,7 +62,9 @@ fn send_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let (mut _clt_initiator_recv, mut clt_initiator_send) = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolSupervised::default(), name.clone()).unwrap().into_split_ref();
+    let (mut _clt_initiator_recv, mut clt_initiator_send) = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolSupervised::default(), name.clone())
+        .unwrap()
+        .into_split_ref();
     info!("clt_initiator_send: {}", clt_initiator_send);
 
     let id = format!("sender_ref2recver_ref_nonblocking_busywait_send_msg SvcTestMsg");
@@ -113,7 +115,9 @@ fn recv_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let (mut clt_initiator_recv, mut _clt_initiator_send) = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolSupervised::default(), name.clone()).unwrap().into_split_ref();
+    let (mut clt_initiator_recv, mut _clt_initiator_send) = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolSupervised::default(), name.clone())
+        .unwrap()
+        .into_split_ref();
 
     let id = format!("sender_ref2recver_ref_nonblocking_busywait_recv_msg SvcTestMsg");
     let mut clt_initiator_msg_recv_count = 0_usize;
@@ -173,7 +177,9 @@ fn round_trip_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let (mut clt_initiator_recv, mut clt_initiator_send) = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolSupervised::default(), name.clone()).unwrap().into_split_ref();
+    let (mut clt_initiator_recv, mut clt_initiator_send) = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolSupervised::default(), name.clone())
+        .unwrap()
+        .into_split_ref();
     info!("clt_initiator_recv: {}", clt_initiator_recv);
 
     let id = format!("sender_ref2recver_ref_nonblocking_busywait_round_trip_msg SvcTestMsg");
@@ -191,7 +197,11 @@ fn round_trip_msg(c: &mut Criterion) {
 
     drop(clt_initiator_send); // this will allow svc.join to complete
     let clt_acceptor_msg_recv_count = clt_acceptor_jh.join().unwrap();
-    info!("clt_acceptor_msg_recv_count: {:?} > clt_initiator_msg_send_count: {:?}", fmt_num!(clt_acceptor_msg_recv_count), fmt_num!(clt_initiator_msg_send_count));
+    info!(
+        "clt_acceptor_msg_recv_count: {:?} > clt_initiator_msg_send_count: {:?}",
+        fmt_num!(clt_acceptor_msg_recv_count),
+        fmt_num!(clt_initiator_msg_send_count)
+    );
 
     assert_eq!(clt_initiator_msg_send_count, clt_acceptor_msg_recv_count);
 }

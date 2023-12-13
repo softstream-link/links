@@ -1,6 +1,6 @@
 use crate::prelude::{
-    asserted_short_name, into_split_messenger, short_type_name, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, ConnectionStatus, MessageRecver, MessageSender, Messenger, PollAble, PollEventStatus, PollRead, Protocol, RecvNonBlocking, RecvStatus, RemoveConnectionBarrierOnDrop,
-    SendNonBlocking, SendNonBlockingNonMut, SendStatus, TimerTaskStatus,
+    asserted_short_name, into_split_messenger, short_type_name, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, ConnectionStatus, MessageRecver, MessageSender, Messenger, PollAble, PollEventStatus, PollRead, Protocol,
+    RecvNonBlocking, RecvStatus, RemoveConnectionBarrierOnDrop, SendNonBlocking, SendNonBlockingNonMut, SendStatus, TimerTaskStatus,
 };
 use log::{debug, warn};
 use std::{
@@ -547,7 +547,12 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
             }
             None => {
                 if log::log_enabled!(log::Level::Warn) {
-                    warn!("{}::conf_heart_beat_interval() is None, hence {}::send_heart_beat(..) will not be scheduled for this con_id: {}", short_type_name::<P>(), short_type_name::<P>(), sender.con_id(),);
+                    warn!(
+                        "{}::conf_heart_beat_interval() is None, hence {}::send_heart_beat(..) will not be scheduled for this con_id: {}",
+                        short_type_name::<P>(),
+                        short_type_name::<P>(),
+                        sender.con_id(),
+                    );
                 }
             }
         }
@@ -565,6 +570,10 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
         sender
     }
     /// Will split the [Clt] and only return [CltSenderRef] while moving [CltRecverRef] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
+    ///
+    /// # Important
+    /// This configuration will support `all` [Protocol] features, which means that `ref counted clone` of [CltSenderRef] will be returned,
+    /// while another `ref counted clone` of [CltSenderRef] will be moved to the [static@crate::connect::DEFAULT_HBEAT_HANDLER] thread
     pub fn into_sender_with_spawned_recver_ref(self) -> impl SendNonBlocking<P> + Display + ConnectionStatus {
         let (recver, sender) = self.into_split_ref();
         crate::connect::DEFAULT_POLL_HANDLER.add_recver(recver.into());

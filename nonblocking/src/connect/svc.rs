@@ -168,19 +168,32 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     /// Will split [Svc] into owned [TransmittingSvcAcceptorRef], [CltRecversPool] and [CltSendersPool] leveraging [CltRecverRef] and [CltSenderRef] respectively
     ///
     /// # Important
-    /// These parts will support `all` [Protocol] features
+    /// These parts will support `all` [Protocol] features, which means that `ref counted clone` of [CltRecverRef] will be returned,
+    /// while another `ref counted clone` will be moved to run in the [static@crate::connect::DEFAULT_HBEAT_HANDLER] thread
     #[allow(clippy::type_complexity)]
-    pub fn into_split_ref(self) -> (TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE>, CltRecversPool<P, CltRecverRef<P, C, MAX_MSG_SIZE>>, CltSendersPool<P, CltSenderRef<P, C, MAX_MSG_SIZE>>) {
+    pub fn into_split_ref(
+        self,
+    ) -> (
+        TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE>,
+        CltRecversPool<P, CltRecverRef<P, C, MAX_MSG_SIZE>>,
+        CltSendersPool<P, CltSenderRef<P, C, MAX_MSG_SIZE>>,
+    ) {
         let ((tx_recver, tx_sender), (svc_recver, svc_sender)) = self.clts_pool.into_split_ref();
         let acceptor = TransmittingSvcAcceptorRef::new(tx_recver, tx_sender, self.acceptor);
         (acceptor, svc_recver, svc_sender)
     }
 
-    /// Will split [Svc] and only return [CltSendersPool<_, CltSender>] while moving [TransmittingSvcAcceptor] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
+    /// Will split using [`Self::into_split()`] and only return [CltSendersPool<_, CltSender>] while moving [TransmittingSvcAcceptor] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
+    ///
+    /// # Important
+    /// Please note [`Self::into_split()`] will support only 'subset' of [Protocol] features which are part of [crate::prelude::ProtocolCore] trait
     ///
     /// # Warning
-    /// This method `drops` [CltRecversPool<_, CltRecver>], as a result this call will panic if the instance accepted connections prior to calling this method.
-    /// To avoid this call this immediately after creating [Svc] instance and prior to accepting any connections
+    /// This method will have to `drop` any open [CltRecversPool<_, CltRecver>] connections since any [CltRecver] connections accepted from this point on will
+    /// have to be managed by [static@crate::connect::DEFAULT_POLL_HANDLER] thread.
+    ///
+    /// To mitigate `drop` this call will `panic` if the instance accepted any connections prior to calling this method.
+    /// To avoid `panic` call this immediately after creating [Svc] instance
     pub fn into_sender_with_spawned_recver(self) -> impl SendNonBlocking<P> + Display + ConnectionStatus + PoolConnectionStatus {
         if !self.clts_pool.is_empty() {
             panic!(
@@ -197,7 +210,11 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
         sender
     }
 
-    /// Will split [Svc] and only return [CltSendersPool<_, CltSenderRef>] while moving [TransmittingSvcAcceptorRef] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
+    /// Will split using [`Self::into_split_ref()`] and only return [CltSendersPool<_, CltSenderRef>] while moving [TransmittingSvcAcceptorRef] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
+    ///
+    /// # Important
+    /// Please note [`Self::into_split_ref()`] will support `all` [Protocol] features, which means that `ref counted clone` of [CltRecverRef] will be returned,
+    /// while another `ref counted clone` will be moved to run in the [static@crate::connect::DEFAULT_HBEAT_HANDLER] thread
     ///
     /// # Warning
     /// This method `drops` [CltRecversPool<_, CltRecverRef>], as a result this call will panic if the instance accepted connections prior to calling this method.

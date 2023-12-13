@@ -50,7 +50,11 @@ impl Task {
 }
 impl Display for Task {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct(asserted_short_name!("Task", Self)).field("name", &self.name).field("execute_at", &self.execute_at).field("interval", &self.interval).finish()
+        f.debug_struct(asserted_short_name!("Task", Self))
+            .field("name", &self.name)
+            .field("execute_at", &self.execute_at)
+            .field("interval", &self.interval)
+            .finish()
     }
 }
 impl Debug for Task {

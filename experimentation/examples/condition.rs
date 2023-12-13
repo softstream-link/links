@@ -1,7 +1,5 @@
 // use std::{sync::{Condvar, Mutex, atomic::{AtomicUsize, AtomicU32, AtomicI32}}, thread, collections::VecDeque, time::Duration};
-fn main(){
-
-}
+fn main() {}
 // fn main() {
 //     println!("Hello, world!");
 //     let queue = Mutex::new(VecDeque::new());
@@ -29,7 +27,6 @@ fn main(){
 //     });
 // }
 
-
 // fn main() {
 //     let num_done = AtomicUsize::new(0);
 
@@ -56,7 +53,6 @@ fn main(){
 
 //     println!("Done!");
 // }
-
 
 // fn allocate_new_id() -> u32 {
 //     static NEXT_ID: AtomicU32 = AtomicU32::new(0);

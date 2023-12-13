@@ -188,7 +188,12 @@ fn recv_random_frame(c: &mut Criterion) {
 
     drop(clt); // this will allow svc.join to complete
     let frame_send_count = svc_writer.join().unwrap();
-    info!("frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}", fmt_num!(frame_send_count), fmt_num!(frame_recv_count), fmt_num!(frame_send_count - frame_recv_count));
+    info!(
+        "frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}",
+        fmt_num!(frame_send_count),
+        fmt_num!(frame_recv_count),
+        fmt_num!(frame_send_count - frame_recv_count)
+    );
 
     assert!(frame_send_count > frame_recv_count);
 }

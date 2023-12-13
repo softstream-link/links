@@ -22,7 +22,13 @@ impl<M: Messenger> ChainCallback<M> {
 }
 impl<M: Messenger> Display for ChainCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}<{}, [{}]>", asserted_short_name!("ChainCallback", Self), self.chain.len(), self.chain.iter().map(|c| format!("{}", c)).collect::<Vec<_>>().join(", "))
+        write!(
+            f,
+            "{}<{}, [{}]>",
+            asserted_short_name!("ChainCallback", Self),
+            self.chain.len(),
+            self.chain.iter().map(|c| format!("{}", c)).collect::<Vec<_>>().join(", ")
+        )
     }
 }
 impl<M: Messenger> CallbackRecvSend<M> for ChainCallback<M> {}

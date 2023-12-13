@@ -5,7 +5,7 @@ use std::{
     num::NonZeroUsize,
 };
 
-use slab::{Slab, Iter};
+use slab::{Iter, Slab};
 
 use crate::asserted_short_name;
 

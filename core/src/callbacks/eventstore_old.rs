@@ -22,7 +22,8 @@ impl<T> DirOld<T> {
 }
 
 pub trait CallbackEvent<T, M: MessengerOld>: CallbackSendRecvOld<M>
-where T: From<M::RecvT>+From<M::SendT>+Debug+Send+Sync+'static
+where
+    T: From<M::RecvT> + From<M::SendT> + Debug + Send + Sync + 'static,
 {
     fn on_event(&self, cond_id: &ConId, event: DirOld<T>);
 }

@@ -1,8 +1,4 @@
-use std::{
-    // sync::atomic::{AtomicBool, AtomicU32},
-    thread::{park, spawn, self},
-    // time::Instant,
-};
+use std::thread::{self, park, spawn};
 
 fn main() {
     run();
@@ -17,19 +13,19 @@ fn run() {
     // static COMPLETED: AtomicBool = AtomicBool::new(false);
     let jh = spawn(|| {
         // let now = Instant::now();
-        println!("{:?} burning oil" , thread::current().id());
+        println!("{:?} burning oil", thread::current().id());
         // while now.elapsed().as_secs() < 2 {
         //     // burn some oil
         // }
-        println!("{:?} parking" , thread::current().id());
+        println!("{:?} parking", thread::current().id());
         park();
-        println!("{:?} got un-parked" , thread::current().id());
+        println!("{:?} got un-parked", thread::current().id());
 
         // COMPLETED.store(true, std::sync::atomic::Ordering::SeqCst);
     });
 
-    println!("{:?} unpark spawned thread" , thread::current().id());
+    println!("{:?} unpark spawned thread", thread::current().id());
     jh.thread().unpark();
-    println!("{:?} now join spawned thread" , thread::current().id());
+    println!("{:?} now join spawned thread", thread::current().id());
     jh.join().unwrap();
 }

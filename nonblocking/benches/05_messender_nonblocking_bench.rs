@@ -122,7 +122,12 @@ fn recv_msg(c: &mut Criterion) {
     drop(_clt_writer); // TODO git hub issue - https://github.com/bheisler/criterion.rs/issues/726
 
     let msg_send_count = writer_jh.join().unwrap();
-    info!("msg_send_count: {:?} > msg_recv_count: {:?}, diff: {:?}", fmt_num!(msg_send_count), fmt_num!(msg_recv_count), fmt_num!(msg_send_count - msg_recv_count),);
+    info!(
+        "msg_send_count: {:?} > msg_recv_count: {:?}, diff: {:?}",
+        fmt_num!(msg_send_count),
+        fmt_num!(msg_recv_count),
+        fmt_num!(msg_send_count - msg_recv_count),
+    );
 
     assert!(msg_send_count > msg_recv_count);
 }

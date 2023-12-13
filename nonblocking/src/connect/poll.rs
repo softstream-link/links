@@ -300,7 +300,15 @@ mod test {
         let clbk = ChainCallback::new_ref(vec![LoggerCallback::new_ref(), counter.clone()]);
         let svc: Svc<_, _, TEST_MSG_FRAME_SIZE> = Svc::bind(addr, clbk, NonZeroUsize::new(1).unwrap(), SvcTestProtocolSupervised::default(), Some("unittest/svc")).unwrap();
 
-        let mut clt: Clt<_, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), CltTestProtocolSupervised::default(), Some("unittest/clt")).unwrap();
+        let mut clt: Clt<_, _, TEST_MSG_FRAME_SIZE> = Clt::connect(
+            addr,
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
+            DevNullCallback::new_ref(),
+            CltTestProtocolSupervised::default(),
+            Some("unittest/clt"),
+        )
+        .unwrap();
 
         let (acceptor, _, _sender_pool) = svc.into_split();
 
@@ -324,13 +332,29 @@ mod test {
         assert_eq!(counter.recv_count(), write_count);
 
         // test that second connection is denied due to svc having set the limit of 1 on max connections
-        let mut clt1: Clt<_, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), CltTestProtocolSupervised::default(), Some("unittest/clt")).unwrap();
+        let mut clt1: Clt<_, _, TEST_MSG_FRAME_SIZE> = Clt::connect(
+            addr,
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
+            DevNullCallback::new_ref(),
+            CltTestProtocolSupervised::default(),
+            Some("unittest/clt"),
+        )
+        .unwrap();
         let status = clt1.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap();
         info!("status: {:?}", status);
         assert!(status.is_completed_none());
         // however after dropping clt a new connection can be established, drop will close the socket which svc will detect and allow a new connection
         drop(clt);
-        let mut clt1: Clt<_, _, TEST_MSG_FRAME_SIZE> = Clt::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), DevNullCallback::new_ref(), CltTestProtocolSupervised::default(), Some("unittest/clt")).unwrap();
+        let mut clt1: Clt<_, _, TEST_MSG_FRAME_SIZE> = Clt::connect(
+            addr,
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
+            DevNullCallback::new_ref(),
+            CltTestProtocolSupervised::default(),
+            Some("unittest/clt"),
+        )
+        .unwrap();
         let status = clt1.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap();
         info!("status: {:?}", status);
         assert!(status.is_wouldblock());

@@ -159,7 +159,12 @@ fn recv_random_frame(c: &mut Criterion) {
     drop(clt_reader); // this will allow svc.join to complete
     drop(_clt_writer); // TODO git hub issue - https://github.com/bheisler/criterion.rs/issues/726
     let frame_send_count = svc_writer_jh.join().unwrap();
-    info!("frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}", fmt_num!(frame_send_count), fmt_num!(frame_recv_count), fmt_num!(frame_send_count - frame_recv_count));
+    info!(
+        "frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}",
+        fmt_num!(frame_send_count),
+        fmt_num!(frame_recv_count),
+        fmt_num!(frame_send_count - frame_recv_count)
+    );
 
     assert!(frame_send_count > frame_recv_count);
 }

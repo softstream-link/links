@@ -67,7 +67,13 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     drop(clt); // close the connection and allow the acceptor to exit
     let msg_recv_count = svc_jh.join().unwrap();
-    info!("msg_send_count: {}, msg_recv_count: {}, per/write {:?}, total: {:?}", fmt_num!(WRITE_N_TIMES), fmt_num!(msg_recv_count), elapsed / WRITE_N_TIMES as u32, elapsed);
+    info!(
+        "msg_send_count: {}, msg_recv_count: {}, per/write {:?}, total: {:?}",
+        fmt_num!(WRITE_N_TIMES),
+        fmt_num!(msg_recv_count),
+        elapsed / WRITE_N_TIMES as u32,
+        elapsed
+    );
     assert_eq!(msg_recv_count, WRITE_N_TIMES + 1); // +1 for the first message to connect
     Ok(())
 }

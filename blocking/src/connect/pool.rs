@@ -55,9 +55,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> CltsPool<M
     /// # Arguments
     ///  * max_connections - the maximum number of connections that can be added to the pool.
     pub fn with_capacity(max_connections: NonZeroUsize) -> Self {
-        Self {
-            clts: RoundRobinPool::new(max_connections),
-        }
+        Self { clts: RoundRobinPool::new(max_connections) }
     }
     /// Returns a tuple representing len of [CltRecversPool] and [CltSendersPool] respectively
     #[inline(always)]
@@ -153,7 +151,7 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = (
 
 /// A round robin pool of [CltRecver]s with respective [std::sync::mpsc::Receiver] channel
 /// though which the pool can be populated.
-/// 
+///
 /// # Example
 /// ```
 /// use links_blocking::prelude::*;
@@ -179,7 +177,7 @@ pub type SplitCltsPool<M, C, const MAX_MSG_SIZE: usize> = (
 /// }
 /// ```
 #[derive(Debug)]
-pub struct CltRecversPool<M: Messenger+'static, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
+pub struct CltRecversPool<M: Messenger + 'static, C: CallbackRecv<M>, const MAX_MSG_SIZE: usize> {
     rx_recver: Receiver<CltRecver<M, C, MAX_MSG_SIZE>>,
     recvers: RoundRobinPool<CltRecver<M, C, MAX_MSG_SIZE>>,
 }
@@ -396,7 +394,7 @@ impl<M: Messenger, C: CallbackSend<M>, const MAX_MSG_SIZE: usize> Display for Cl
 ///
 /// ```
 #[derive(Debug)]
-pub struct PoolCltAcceptor<M: Messenger+'static, C: CallbackRecvSend<M>+'static, const MAX_MSG_SIZE: usize> {
+pub struct PoolCltAcceptor<M: Messenger + 'static, C: CallbackRecvSend<M> + 'static, const MAX_MSG_SIZE: usize> {
     tx_recver: Sender<CltRecver<M, C, MAX_MSG_SIZE>>,
     tx_sender: Sender<CltSender<M, C, MAX_MSG_SIZE>>,
     acceptor: SvcAcceptor<M, C, MAX_MSG_SIZE>,

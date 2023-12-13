@@ -35,12 +35,7 @@ impl<M: MessengerOld> CounterCallbackOld<M> {
 
 impl<M: MessengerOld> Display for CounterCallbackOld<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "CounterCallback<sent: {}, recv: {}>",
-            fmt_num!(self.sent.load(Ordering::SeqCst)),
-            fmt_num!(self.recv.load(Ordering::SeqCst))
-        )
+        write!(f, "CounterCallback<sent: {}, recv: {}>", fmt_num!(self.sent.load(Ordering::SeqCst)), fmt_num!(self.recv.load(Ordering::SeqCst)))
     }
 }
 
