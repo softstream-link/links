@@ -18,6 +18,7 @@ use log::{info, LevelFilter};
 static LOG_LEVEL: LevelFilter = LevelFilter::Warn;
 
 fn setup<MSvc: Messenger, MClt: Messenger>() -> (&'static str, Arc<impl CallbackRecvSend<MSvc>>, Arc<impl CallbackRecvSend<MClt>>, NonZeroUsize, Option<&'static str>, Duration, Duration) {
+    setup::log::configure_level(LOG_LEVEL);
     let addr = setup::net::rand_avail_addr_port();
     let svc_callback = DevNullCallback::<MSvc>::new_ref();
     let clt_callback = DevNullCallback::<MClt>::new_ref();
@@ -29,7 +30,6 @@ fn setup<MSvc: Messenger, MClt: Messenger>() -> (&'static str, Arc<impl Callback
 }
 
 fn send_msg(c: &mut Criterion) {
-    setup::log::configure_level(LOG_LEVEL);
     let (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after) = setup();
 
     let clt_acceptor_jh = Builder::new()
@@ -84,8 +84,6 @@ fn send_msg(c: &mut Criterion) {
 }
 
 fn recv_msg(c: &mut Criterion) {
-    setup::log::configure_level(LOG_LEVEL);
-
     let (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after) = setup();
 
     // CONFIGURE svc
@@ -142,7 +140,6 @@ fn recv_msg(c: &mut Criterion) {
 }
 
 fn round_trip_msg(c: &mut Criterion) {
-    setup::log::configure_level(LOG_LEVEL);
     let (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after) = setup();
 
     let clt_acceptor_jh = Builder::new()

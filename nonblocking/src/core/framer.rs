@@ -101,7 +101,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
 
         match self.stream_reader.read(&mut buf) {
             Ok(EOF) => {
-                // key to shutdown using Write as this will 
+                // key to shutdown using Write as this will
                 self.shutdown(Shutdown::Write, "read_frame EOF"); // remember to shutdown on both exception and on EOF
                 if self.buffer.is_empty() {
                     Ok(RecvStatus::Completed(None))
@@ -157,7 +157,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> Drop for FrameReader<F, MAX_MSG_SIZE>
     /// the `peer` connection will receive a TCP FIN flag and and once it reaches the `peer` [FrameWriter] it will
     /// get a [ErrorKind::BrokenPipe] error which in turn shall issue a [Shutdown::Write]
     fn drop(&mut self) {
-        self.shutdown(Shutdown::Both, "drop")
+        self.shutdown(Shutdown::Both, "FrameReader::drop")
     }
 }
 impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SIZE> {
@@ -266,7 +266,7 @@ impl FrameWriter {
 impl Drop for FrameWriter {
     /// Will shutdown the underlying [mio::net::TcpStream] in both directions.
     fn drop(&mut self) {
-        self.shutdown(Shutdown::Both, "drop")
+        self.shutdown(Shutdown::Both, "FrameWriter::drop")
     }
 }
 impl Display for FrameWriter {

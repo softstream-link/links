@@ -15,9 +15,10 @@ use links_nonblocking::{
     unittest::setup::protocol::{CltTestProtocolSupervised, SvcTestProtocolSupervised},
 };
 use log::{info, LevelFilter};
-static LOG_LEVEL: LevelFilter = LevelFilter::Warn;
+static LOG_LEVEL: LevelFilter = LevelFilter::Error;
 
 fn setup<MSvc: Messenger, MClt: Messenger>() -> (&'static str, Arc<impl CallbackRecvSend<MSvc>>, Arc<impl CallbackRecvSend<MClt>>, NonZeroUsize, Option<&'static str>, Duration, Duration) {
+    setup::log::configure_level(LOG_LEVEL);
     let addr = setup::net::rand_avail_addr_port();
     let svc_callback = DevNullCallback::<MSvc>::new_ref();
     let clt_callback = DevNullCallback::<MClt>::new_ref();
@@ -29,7 +30,6 @@ fn setup<MSvc: Messenger, MClt: Messenger>() -> (&'static str, Arc<impl Callback
 }
 
 fn send_msg(c: &mut Criterion) {
-    setup::log::configure_level(LOG_LEVEL);
     let (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after) = setup();
 
     let clt_acceptor_jh = Builder::new()
@@ -84,8 +84,6 @@ fn send_msg(c: &mut Criterion) {
 }
 
 fn recv_msg(c: &mut Criterion) {
-    setup::log::configure_level(LOG_LEVEL);
-
     let (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after) = setup();
 
     // CONFIGURE svc
@@ -130,6 +128,7 @@ fn recv_msg(c: &mut Criterion) {
     });
 
     drop(clt_initiator_recv); // this will allow svc.join to complete
+    drop(_clt_initiator_send); // TODO git hub issue - https://github.com/bheisler/criterion.rs/issues/726
     let clt_acceptor_msg_send_count = clt_acceptor_jh.join().unwrap();
     info!(
         "clt_acceptor_msg_send_count: {:?} > clt_initiator_msg_recv_count: {:?}, diff: {:?}",
@@ -142,7 +141,6 @@ fn recv_msg(c: &mut Criterion) {
 }
 
 fn round_trip_msg(c: &mut Criterion) {
-    setup::log::configure_level(LOG_LEVEL);
     let (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after) = setup();
 
     let clt_acceptor_jh = Builder::new()
@@ -191,7 +189,7 @@ fn round_trip_msg(c: &mut Criterion) {
         })
     });
 
-    drop(clt_initiator_recv); // this will allow svc.join to complete
+    drop(clt_initiator_send); // this will allow svc.join to complete
     let clt_acceptor_msg_recv_count = clt_acceptor_jh.join().unwrap();
     info!("clt_acceptor_msg_recv_count: {:?} > clt_initiator_msg_send_count: {:?}", fmt_num!(clt_acceptor_msg_recv_count), fmt_num!(clt_initiator_msg_send_count));
 
