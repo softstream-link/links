@@ -1,16 +1,15 @@
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use links_core::{fmt_num, unittest::setup};
+use log::{info, LevelFilter};
 use std::{
     sync::mpsc::{channel, sync_channel, TryRecvError},
     thread::{self, sleep},
     time::Duration,
 };
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-
-use links_core::{fmt_num, unittest::setup};
-use log::info;
-
+static LOG_LEVEL: LevelFilter = LevelFilter::Error;
 fn channel_rx_tx_send_random_frame(c: &mut Criterion) {
-    setup::log::configure();
+    setup::log::configure_level(LOG_LEVEL);
 
     let (tx, rx) = channel::<&[u8]>();
     // CONFIGURE svc
@@ -35,7 +34,7 @@ fn channel_rx_tx_send_random_frame(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGURE clt
-    let id = format!("channel_rx_tx_send_random_frame size: {} bytes", 128);
+    let id = format!("channel_rx_tx_send_random_frame &[u8] of size: {} bytes", 128);
     let mut frame_recv_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
@@ -59,7 +58,7 @@ fn channel_rx_tx_send_random_frame(c: &mut Criterion) {
 }
 
 fn channel_rx_tx_send_random_frame_sync(c: &mut Criterion) {
-    setup::log::configure();
+    setup::log::configure_level(LOG_LEVEL);
 
     let (tx, rx) = sync_channel::<&[u8]>(0);
     // CONFIGURE svc
@@ -84,7 +83,7 @@ fn channel_rx_tx_send_random_frame_sync(c: &mut Criterion) {
     sleep(Duration::from_millis(100)); // allow the spawned to bind
 
     // CONFIGURE clt
-    let id = format!("channel_rx_tx_send_random_frame_sync size: {} bytes", 128);
+    let id = format!("channel_rx_tx_send_random_frame_sync &[u8] of size: {} bytes", 128);
     let mut frame_recv_count = 0_u32;
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {

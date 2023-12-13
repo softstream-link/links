@@ -1,7 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-
 use links_core::{fmt_num, unittest::setup};
-use log::info;
+use log::{info, LevelFilter};
 use std::io::ErrorKind;
 use std::{
     io::{Read, Write},
@@ -14,8 +13,10 @@ const BENCH_MAX_FRAME_SIZE: usize = 128;
 pub struct BenchMsgFramer;
 
 const EOF: usize = 0;
+static LOG_LEVEL: LevelFilter = LevelFilter::Error;
+
 fn send_random_frame(c: &mut Criterion) {
-    setup::log::configure_level(log::LevelFilter::Info);
+    setup::log::configure_level(LOG_LEVEL);
     let send_frame = setup::data::random_bytes(BENCH_MAX_FRAME_SIZE);
 
     let addr = setup::net::rand_avail_addr_port();
@@ -98,7 +99,7 @@ fn send_random_frame(c: &mut Criterion) {
 }
 
 fn recv_random_frame(c: &mut Criterion) {
-    setup::log::configure_level(log::LevelFilter::Info);
+    setup::log::configure_level(LOG_LEVEL);
     let send_frame = setup::data::random_bytes(BENCH_MAX_FRAME_SIZE);
     let addr = setup::net::rand_avail_addr_port();
 
@@ -187,12 +188,7 @@ fn recv_random_frame(c: &mut Criterion) {
 
     drop(clt); // this will allow svc.join to complete
     let frame_send_count = svc_writer.join().unwrap();
-    info!(
-        "frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}",
-        fmt_num!(frame_send_count),
-        fmt_num!(frame_recv_count),
-        fmt_num!(frame_send_count - frame_recv_count)
-    );
+    info!("frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}", fmt_num!(frame_send_count), fmt_num!(frame_recv_count), fmt_num!(frame_send_count - frame_recv_count));
 
     assert!(frame_send_count > frame_recv_count);
 }

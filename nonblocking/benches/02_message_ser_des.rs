@@ -3,9 +3,11 @@ use links_core::{
     prelude::Messenger,
     unittest::setup::{self, messenger::*},
 };
+use log::LevelFilter;
+static LOG_LEVEL: LevelFilter = LevelFilter::Error;
 
 fn serialize_msg(c: &mut Criterion) {
-    setup::log::configure_level(log::LevelFilter::Info);
+    setup::log::configure_level(LOG_LEVEL);
     let id = format!("serialize TestCltMsg");
     c.bench_function(id.as_str(), |b| {
         b.iter(|| {
@@ -19,7 +21,7 @@ fn serialize_msg(c: &mut Criterion) {
 }
 
 fn deserialize_msg(c: &mut Criterion) {
-    setup::log::configure_level(log::LevelFilter::Info);
+    setup::log::configure_level(LOG_LEVEL);
 
     let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
     let (buf, len) = CltTestMessenger::serialize::<TEST_MSG_FRAME_SIZE>(&msg).unwrap();

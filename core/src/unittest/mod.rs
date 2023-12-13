@@ -18,6 +18,7 @@ pub mod setup {
                 use std::io::Write;
                 if !compact {
                     let _ = env_logger::builder()
+                        .filter_level(level)
                         .format(|buf, record| {
                             let ts = buf.timestamp_nanos();
                             let level = match record.level() {
@@ -37,10 +38,10 @@ pub mod setup {
                         })
                         // .format_timestamp_micro s()
                         .is_test(false) // disables color in the terminal
-                        .filter_level(level)
                         .try_init();
                 } else {
                     let _ = env_logger::builder()
+                        .filter_level(level)
                         .format(|buf, record| {
                             let ts = buf.timestamp_nanos();
                             let level = match record.level() {
@@ -62,7 +63,6 @@ pub mod setup {
                         })
                         // .format_timestamp_micro s()
                         .is_test(false) // disables color in the terminal
-                        .filter_level(level)
                         .try_init();
                 }
             });
@@ -211,7 +211,6 @@ pub mod setup {
                 Self::Ping(value)
             }
         }
-
 
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
         #[byteserde(peek(0, 1))]

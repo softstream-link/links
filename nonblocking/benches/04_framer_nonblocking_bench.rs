@@ -2,7 +2,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use links_core::{fmt_num, unittest::setup};
 use links_nonblocking::prelude::{into_split_framer, ConId, FixedSizeFramer, RecvStatus, SendStatus};
 
-use log::{error, info};
+use log::{error, info, LevelFilter};
 use std::{
     net::{TcpListener, TcpStream},
     thread::{self, sleep},
@@ -12,8 +12,10 @@ use std::{
 const BENCH_MAX_FRAME_SIZE: usize = 128;
 pub type BenchMsgFramer = FixedSizeFramer<BENCH_MAX_FRAME_SIZE>;
 
+static LOG_LEVEL: LevelFilter = LevelFilter::Error;
+
 fn send_random_frame(c: &mut Criterion) {
-    setup::log::configure_level(log::LevelFilter::Info);
+    setup::log::configure_level(LOG_LEVEL);
     let send_frame = setup::data::random_bytes(BENCH_MAX_FRAME_SIZE);
 
     let addr = setup::net::rand_avail_addr_port();
@@ -89,7 +91,7 @@ fn send_random_frame(c: &mut Criterion) {
 }
 
 fn recv_random_frame(c: &mut Criterion) {
-    setup::log::configure_level(log::LevelFilter::Debug);
+    setup::log::configure_level(LOG_LEVEL);
     let send_frame = setup::data::random_bytes(BENCH_MAX_FRAME_SIZE);
     let addr = setup::net::rand_avail_addr_port();
 
@@ -157,18 +159,13 @@ fn recv_random_frame(c: &mut Criterion) {
     drop(clt_reader); // this will allow svc.join to complete
     drop(_clt_writer); // TODO git hub issue - https://github.com/bheisler/criterion.rs/issues/726
     let frame_send_count = svc_writer_jh.join().unwrap();
-    info!(
-        "frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}",
-        fmt_num!(frame_send_count),
-        fmt_num!(frame_recv_count),
-        fmt_num!(frame_send_count - frame_recv_count)
-    );
+    info!("frame_send_count: {:?} > frame_recv_count: {:?}, diff: {:?}", fmt_num!(frame_send_count), fmt_num!(frame_recv_count), fmt_num!(frame_send_count - frame_recv_count));
 
     assert!(frame_send_count > frame_recv_count);
 }
 
 fn round_trip_random_frame(c: &mut Criterion) {
-    setup::log::configure_level(log::LevelFilter::Info);
+    setup::log::configure_level(LOG_LEVEL);
     let send_frame = setup::data::random_bytes(BENCH_MAX_FRAME_SIZE);
 
     let addr = setup::net::rand_avail_addr_port();

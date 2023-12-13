@@ -353,7 +353,7 @@ pub struct CltSenderRef<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usi
     pub(crate) protocol: Arc<P>,
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSenderRef<P, C, MAX_MSG_SIZE> {
-    pub(crate) fn do_heart_beat(&self) -> Result<SendStatus, Error> {
+    pub(crate) fn send_heart_beat(&self) -> Result<SendStatus, Error> {
         let mut guard = self.clt_sender.lock();
         self.protocol.send_heart_beat(guard.deref_mut())
     }
@@ -535,7 +535,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
             Some(interval) => {
                 crate::connect::DEFAULT_HBEAT_HANDLER.schedule(sender.con_id().to_string().as_str(), interval, {
                     let sender = sender.clone();
-                    move || match sender.do_heart_beat() {
+                    move || match sender.send_heart_beat() {
                         Ok(SendStatus::Completed) => TimerTaskStatus::Completed,
                         Ok(SendStatus::WouldBlock) => TimerTaskStatus::RetryAfter(Duration::from_secs(0)),
                         Err(err) => {
@@ -547,7 +547,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
             }
             None => {
                 if log::log_enabled!(log::Level::Warn) {
-                    warn!("{}::conf_heart_beat_interval(), hence {}::do_heart_beat(..) will not be scheduled for this con_id: {}", short_type_name::<P>(), short_type_name::<P>(), sender.con_id(),);
+                    warn!("{}::conf_heart_beat_interval() is None, hence {}::send_heart_beat(..) will not be scheduled for this con_id: {}", short_type_name::<P>(), short_type_name::<P>(), sender.con_id(),);
                 }
             }
         }

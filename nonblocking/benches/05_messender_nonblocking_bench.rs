@@ -14,10 +14,12 @@ use links_core::{
     },
 };
 use links_nonblocking::prelude::{into_split_messenger, ConId, RecvNonBlocking, RecvStatus, SendNonBlockingNonMut, SendStatus};
-use log::info;
+use log::{info, LevelFilter};
+
+static LOG_LEVEL: LevelFilter = LevelFilter::Error;
 
 fn send_msg(c: &mut Criterion) {
-    setup::log::configure_level(log::LevelFilter::Info);
+    setup::log::configure_level(LOG_LEVEL);
 
     let addr = setup::net::rand_avail_addr_port();
 
@@ -73,7 +75,7 @@ fn send_msg(c: &mut Criterion) {
 }
 
 fn recv_msg(c: &mut Criterion) {
-    setup::log::configure_level(log::LevelFilter::Info);
+    setup::log::configure_level(LOG_LEVEL);
 
     let addr = setup::net::rand_avail_addr_port();
 
@@ -120,18 +122,13 @@ fn recv_msg(c: &mut Criterion) {
     drop(_clt_writer); // TODO git hub issue - https://github.com/bheisler/criterion.rs/issues/726
 
     let msg_send_count = writer_jh.join().unwrap();
-    info!(
-        "msg_send_count: {:?} > msg_recv_count: {:?}, diff: {:?}",
-        fmt_num!(msg_send_count),
-        fmt_num!(msg_recv_count),
-        fmt_num!(msg_send_count - msg_recv_count),
-    );
+    info!("msg_send_count: {:?} > msg_recv_count: {:?}, diff: {:?}", fmt_num!(msg_send_count), fmt_num!(msg_recv_count), fmt_num!(msg_send_count - msg_recv_count),);
 
     assert!(msg_send_count > msg_recv_count);
 }
 
 fn round_trip_msg(c: &mut Criterion) {
-    setup::log::configure_level(log::LevelFilter::Info);
+    setup::log::configure_level(LOG_LEVEL);
 
     let addr = setup::net::rand_avail_addr_port();
 
