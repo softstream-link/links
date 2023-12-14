@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use crate::{asserted_short_name, fmt_num, prelude::*};
+use crate::prelude::*;
 
 #[derive(Debug)]
 pub struct CounterCallback<M: Messenger> {
@@ -40,7 +40,7 @@ impl<M: Messenger> CounterCallback<M> {
 
 impl<M: Messenger> Display for CounterCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}<sent: {}, recv: {}>", asserted_short_name!("CounterCallback", Self), fmt_num!(self.sent.load(Relaxed)), fmt_num!(self.recv.load(Relaxed)),)
+        write!(f, "{}<sent: {}, recv: {}>", asserted_short_name!("CounterCallback", Self), self.sent.load(Relaxed), self.recv.load(Relaxed))
     }
 }
 

@@ -1,9 +1,8 @@
-use log::{log_enabled, warn};
-
-use crate::prelude::{ConnectionId, Messenger};
-use std::{io::Error, time::Duration};
-
 use super::{RecvNonBlocking, SendNonBlocking, SendStatus};
+use crate::prelude::{short_instance_type_name, ConnectionId, Messenger};
+use log::{log_enabled, warn};
+use spin::MutexGuard;
+use std::{io::Error, sync::Arc, time::Duration};
 
 /// Core protocol features that will works with any instantiation of [crate::prelude::Clt] and [crate::prelude::Svc] including
 /// [crate::prelude::CltRecver], [crate::prelude::CltRecverRef], [crate::prelude::CltSender], [crate::prelude::CltSenderRef]
@@ -22,7 +21,10 @@ pub trait ProtocolCore: Messenger + Sized {
     #[inline(always)]
     fn is_connected(&self) -> bool {
         if log_enabled!(log::Level::Warn) {
-            warn!("NOTE: this is a default ProtocolCore::is_connected implementation which always yields 'true', you should override this method to provide a meaningful implementation.");
+            warn!(
+                "NOTE: this is default {}::is_connected implementation which always yields 'true', you should override this method to provide a meaningful implementation.",
+                short_instance_type_name(self)
+            );
         }
         true
     }
@@ -72,5 +74,59 @@ pub trait Protocol: ProtocolCore + Clone {
     #[inline(always)]
     fn send_heart_beat<S: SendNonBlocking<Self> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
         Ok(SendStatus::Completed)
+    }
+}
+
+/// This facility helps user capture and maintain protocol state.
+///
+/// # Key Features
+/// * It is useful because all [Protocol] methods are called with an immutable reference `&self` so to maintain state, user must use interior mutability.
+/// * It is also thread safe with help of [spin::Mutex] since different protocol methods can potentially be invoked from different threads. Ex: [ProtocolCore::on_sent] and [ProtocolCore::on_recv]
+/// * It correctly handles [Clone] implementation by cloning state `T` instead of [Arc] clone of the state.
+#[derive(Debug)]
+pub struct ProtocolState<T: Clone>(Arc<spin::Mutex<T>>);
+impl<T: Clone> ProtocolState<T> {
+    #[inline(always)]
+    pub fn new(state: T) -> Self {
+        Self(Arc::new(spin::Mutex::new(state)))
+    }
+    #[inline(always)]
+    pub fn set(&self, state: T) {
+        *self.0.lock() = state;
+    }
+    #[inline(always)]
+    pub fn lock(&self) -> MutexGuard<'_, T> {
+        self.0.lock()
+    }
+}
+impl<T: Clone + Default> Default for ProtocolState<T> {
+    fn default() -> Self {
+        Self(Arc::new(spin::Mutex::new(T::default())))
+    }
+}
+impl<T: Clone> Clone for ProtocolState<T> {
+    fn clone(&self) -> Self {
+        Self(Arc::new(spin::Mutex::new(self.lock().clone())))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_protocol_state() {
+        let state1 = ProtocolState::<Option<usize>>::default();
+        assert_eq!(*state1.lock(), None);
+        state1.set(Some(1));
+        assert_eq!(*state1.lock(), Some(1));
+        *state1.lock() = Some(2);
+        assert_eq!(*state1.lock(), Some(2));
+
+        let state2 = state1.clone();
+        assert_eq!(*state2.lock(), Some(2));
+        state1.set(Some(3));
+        assert_eq!(*state1.lock(), Some(3)); // state1 is changed
+        assert_eq!(*state2.lock(), Some(2)); // state2 is not changed
     }
 }

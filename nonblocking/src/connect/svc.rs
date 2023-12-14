@@ -17,7 +17,7 @@ use super::{clt::CltRecverRef, pool::TransmittingSvcAcceptorRef};
 ///
 /// # Example
 /// ```
-/// use links_nonblocking::{prelude::*, unittest::setup::protocol::SvcTestProtocolSupervised};
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::SvcTestProtocolManual};
 /// use links_core::unittest::setup::{self, messenger::TEST_MSG_FRAME_SIZE};
 /// use std::num::NonZeroUsize;
 ///
@@ -26,7 +26,7 @@ use super::{clt::CltRecverRef, pool::TransmittingSvcAcceptorRef};
 ///     ConId::svc(Some("doctest"), addr, None),
 ///     std::net::TcpListener::bind(addr).unwrap(),
 ///     DevNullCallback::default().into(),
-///     SvcTestProtocolSupervised::default(),
+///     SvcTestProtocolManual::default(),
 ///     NonZeroUsize::new(1).unwrap(),
 /// );
 ///
@@ -109,7 +109,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<Svc<P,
 ///
 /// # Example
 /// ```
-/// use links_nonblocking::{prelude::*, unittest::setup::protocol::SvcTestProtocolSupervised};
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::SvcTestProtocolManual};
 /// use links_core::unittest::setup::{self, messenger::TEST_MSG_FRAME_SIZE};
 /// use std::num::NonZeroUsize;
 /// use std::{io::ErrorKind, fmt::Display};
@@ -119,7 +119,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<Svc<P,
 ///     setup::net::rand_avail_addr_port(), // 127.0.0.1:8080 generates random port
 ///     DevNullCallback::default().into(),
 ///     NonZeroUsize::new(1).unwrap(),
-///     SvcTestProtocolSupervised::default(),
+///     SvcTestProtocolManual::default(),
 ///     Some("doctest"),
 /// ).unwrap();
 ///
@@ -194,7 +194,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     ///
     /// To mitigate `drop` this call will `panic` if the instance accepted any connections prior to calling this method.
     /// To avoid `panic` call this immediately after creating [Svc] instance
-    pub fn into_sender_with_spawned_recver(self) -> impl SendNonBlocking<P> + Display + ConnectionStatus + PoolConnectionStatus {
+    pub fn into_sender_with_spawned_recver(self) -> impl SendNonBlocking<P> + Display + PoolConnectionStatus {
         if !self.clts_pool.is_empty() {
             panic!(
                 "
@@ -287,7 +287,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
 mod test {
     use crate::{
         prelude::*,
-        unittest::setup::protocol::{CltTestProtocolSupervised, SvcTestProtocolSupervised},
+        unittest::setup::protocol::{CltTestProtocolManual, SvcTestProtocolManual},
     };
     use links_core::unittest::setup::{
         self,
@@ -304,7 +304,7 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
 
         let callback = LoggerCallback::new_ref();
-        let protocol = SvcTestProtocolSupervised::default();
+        let protocol = SvcTestProtocolManual::default();
         let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback.clone(), NonZeroUsize::new(2).unwrap(), protocol, Some("unittest")).unwrap();
         info!("svc: {}", svc);
         assert_eq!(svc.pool().len(), 0);
@@ -315,12 +315,12 @@ mod test {
         setup::log::configure_compact(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Info);
-        let protocol = SvcTestProtocolSupervised::default();
+        let protocol = SvcTestProtocolManual::default();
         let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest")).unwrap();
         info!("svc: {}", svc);
 
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
-        let protocol = CltTestProtocolSupervised::default();
+        let protocol = CltTestProtocolManual::default();
         let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
         info!("clt: {}", clt);
 
@@ -368,12 +368,12 @@ mod test {
         setup::log::configure_level(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
-        let protocol = SvcTestProtocolSupervised::default();
+        let protocol = SvcTestProtocolManual::default();
         let (mut svc_acceptor, mut svc_pool_recver, mut svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest")).unwrap().into_split();
         info!("svc_acceptor: {}", svc_acceptor);
 
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
-        let protocol = CltTestProtocolSupervised::default();
+        let protocol = CltTestProtocolManual::default();
         let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, protocol, Some("unittest")).unwrap();
         info!("clt: {}", clt);
 
@@ -445,12 +445,12 @@ mod test {
         setup::log::configure_level(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
-        let protocol = SvcTestProtocolSupervised::default();
+        let protocol = SvcTestProtocolManual::default();
         let (mut svc_acceptor, mut svc_pool_recver, mut svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest")).unwrap().into_split_ref();
         info!("svc_acceptor: {}", svc_acceptor);
 
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
-        let protocol = CltTestProtocolSupervised::default();
+        let protocol = CltTestProtocolManual::default();
         let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, protocol, Some("unittest")).unwrap();
         info!("clt: {}", clt);
 

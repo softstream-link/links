@@ -18,13 +18,13 @@ pub mod setup {
         };
 
         #[derive(Debug, Clone, Default)]
-        pub struct SvcTestProtocolSupervised;
-        impl Framer for SvcTestProtocolSupervised {
+        pub struct SvcTestProtocolManual;
+        impl Framer for SvcTestProtocolManual {
             fn get_frame_length(bytes: &mut bytes::BytesMut) -> Option<usize> {
                 SvcTestMessenger::get_frame_length(bytes)
             }
         }
-        impl Messenger for SvcTestProtocolSupervised {
+        impl Messenger for SvcTestProtocolManual {
             type RecvT = <SvcTestMessenger as Messenger>::RecvT;
             type SendT = <SvcTestMessenger as Messenger>::SendT;
             #[inline]
@@ -36,8 +36,8 @@ pub mod setup {
                 SvcTestMessenger::serialize(msg)
             }
         }
-        impl ProtocolCore for SvcTestProtocolSupervised {}
-        impl Protocol for SvcTestProtocolSupervised {}
+        impl ProtocolCore for SvcTestProtocolManual {}
+        impl Protocol for SvcTestProtocolManual {}
 
         /// Provides an [ProtocolCore::on_connected] implementation
         #[derive(Debug, Clone, Default)]
@@ -96,13 +96,13 @@ pub mod setup {
         }
 
         #[derive(Debug, Clone, Default)]
-        pub struct CltTestProtocolSupervised;
-        impl Framer for CltTestProtocolSupervised {
+        pub struct CltTestProtocolManual;
+        impl Framer for CltTestProtocolManual {
             fn get_frame_length(bytes: &mut bytes::BytesMut) -> Option<usize> {
                 CltTestMessenger::get_frame_length(bytes)
             }
         }
-        impl Messenger for CltTestProtocolSupervised {
+        impl Messenger for CltTestProtocolManual {
             type RecvT = <CltTestMessenger as Messenger>::RecvT;
             type SendT = <CltTestMessenger as Messenger>::SendT;
             #[inline]
@@ -114,8 +114,8 @@ pub mod setup {
                 CltTestMessenger::serialize(msg)
             }
         }
-        impl ProtocolCore for CltTestProtocolSupervised {}
-        impl Protocol for CltTestProtocolSupervised {}
+        impl ProtocolCore for CltTestProtocolManual {}
+        impl Protocol for CltTestProtocolManual {}
 
         /// Provides an [ProtocolCore::on_connected] implementation]
         #[derive(Debug, Clone, Default)]

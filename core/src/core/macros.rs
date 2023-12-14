@@ -12,6 +12,11 @@ pub fn short_type_name<T: ?Sized>() -> &'static str {
     type_name::<T>().split('<').next().unwrap().split("::").last().unwrap_or("Unknown")
 }
 
+pub fn short_instance_type_name<T: Sized>(_: T) -> &'static str {
+    use std::any::type_name;
+    type_name::<T>().split('<').next().unwrap().split("::").last().unwrap_or("Unknown")
+}
+
 #[cfg(debug_assertions)]
 #[track_caller]
 pub fn ty_name<T: ?Sized>(name: &'static str) -> &'static str {

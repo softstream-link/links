@@ -40,7 +40,9 @@ pub use crate::callbacks::store::{Message, Storage, StoreCallback};
 
 pub use crate::stores::canonical_store::{CanonicalEntry, CanonicalEntryStore};
 
-pub use crate::{asserted_short_name, core::macros::short_type_name};
+pub use crate::{asserted_short_name, core::macros::short_instance_type_name, core::macros::short_type_name};
 
+#[cfg(feature = "unittest")]
+pub use crate::fmt_num;
 #[cfg(feature = "unittest")]
 pub use num_format;

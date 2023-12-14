@@ -19,7 +19,7 @@ pub type SplitCltsPool<M, R, S> = ((Sender<R>, Sender<S>), (CltRecversPool<M, R>
 ///
 /// # Example
 /// ```
-/// use links_nonblocking::{prelude::*, unittest::setup::protocol::CltTestProtocolSupervised};
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::CltTestProtocolManual};
 /// use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE, model::{CltTestMsg, CltTestMsgDebug, SvcTestMsg, SvcTestMsgDebug}};
 /// use std::time::Duration;
 ///
@@ -31,7 +31,7 @@ pub type SplitCltsPool<M, R, S> = ((Sender<R>, Sender<S>), (CltRecversPool<M, R>
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::default().into(),
-///     CltTestProtocolSupervised::default(),
+///     CltTestProtocolManual::default(),
 ///     Some("doctest"),
 /// );
 ///
@@ -197,7 +197,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Default for
 ///
 /// # Example
 /// ```
-/// use links_nonblocking::{prelude::*, unittest::setup::protocol::CltTestProtocolSupervised};
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::CltTestProtocolManual};
 /// use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE};
 /// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
 ///
@@ -210,7 +210,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Default for
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::default().into(),
-///     CltTestProtocolSupervised::default(),
+///     CltTestProtocolManual::default(),
 ///     Some("doctest"),
 /// );
 ///
@@ -444,7 +444,7 @@ impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> Display for CltRecv
 ///
 /// # Example
 /// ```
-/// use links_nonblocking::{prelude::*, unittest::setup::protocol::CltTestProtocolSupervised};
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::CltTestProtocolManual};
 /// use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE};
 /// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
 ///
@@ -457,7 +457,7 @@ impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> Display for CltRecv
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::default().into(),
-///     CltTestProtocolSupervised::default(),
+///     CltTestProtocolManual::default(),
 ///     Some("doctest"),
 /// );
 ///
@@ -688,7 +688,7 @@ impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> Display for CltSend
 ///
 /// # Example
 /// ```
-/// use links_nonblocking::{prelude::*, unittest::setup::protocol::{CltTestProtocolSupervised, SvcTestProtocolSupervised}};
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::{CltTestProtocolManual, SvcTestProtocolManual}};
 /// use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE};
 /// use std::num::NonZeroUsize;
 ///
@@ -697,7 +697,7 @@ impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> Display for CltSend
 ///     ConId::svc(Some("doctest"), addr, None),
 ///     std::net::TcpListener::bind(addr).unwrap(),
 ///     DevNullCallback::default().into(),
-///     SvcTestProtocolSupervised::default(),
+///     SvcTestProtocolManual::default(),
 ///     NonZeroUsize::new(1).unwrap(),
 /// );
 ///
@@ -716,7 +716,7 @@ impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> Display for CltSend
 ///     setup::net::default_connect_timeout(),
 ///     setup::net::default_connect_retry_after(),
 ///     DevNullCallback::default().into(),
-///     CltTestProtocolSupervised::default(),
+///     CltTestProtocolManual::default(),
 ///     Some("unittest")).unwrap();
 ///
 /// let res = acceptor.accept_into_pool();
@@ -818,7 +818,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<Transm
 ///
 /// # Example
 /// ```
-/// use links_nonblocking::{prelude::*, unittest::setup::protocol::{CltTestProtocolSupervised, SvcTestProtocolSupervised}};
+/// use links_nonblocking::{prelude::*, unittest::setup::protocol::{CltTestProtocolManual, SvcTestProtocolManual}};
 /// use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE};
 /// use std::num::NonZeroUsize;
 ///
@@ -827,7 +827,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<Transm
 ///     ConId::svc(Some("doctest"), addr, None),
 ///     std::net::TcpListener::bind(addr).unwrap(),
 ///     DevNullCallback::default().into(),
-///     SvcTestProtocolSupervised::default(),
+///     SvcTestProtocolManual::default(),
 ///     NonZeroUsize::new(1).unwrap(),
 /// );
 ///
@@ -846,7 +846,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<Transm
 ///     setup::net::default_connect_timeout(),
 ///     setup::net::default_connect_retry_after(),
 ///     DevNullCallback::default().into(),
-///     CltTestProtocolSupervised::default(),
+///     CltTestProtocolManual::default(),
 ///     Some("unittest")).unwrap();
 ///
 /// let res = acceptor.accept_into_pool();
@@ -947,7 +947,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<Transm
 #[cfg(feature = "unittest")]
 mod test {
     use crate::prelude::*;
-    use crate::unittest::setup::protocol::{CltTestProtocolSupervised, SvcTestProtocolSupervised};
+    use crate::unittest::setup::protocol::{CltTestProtocolManual, SvcTestProtocolManual};
     use links_core::unittest::setup::{
         self,
         framer::TEST_MSG_FRAME_SIZE,
@@ -962,7 +962,7 @@ mod test {
         setup::log::configure_compact(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
         let max_connections = NonZeroUsize::new(2).unwrap();
-        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::new_ref(), max_connections, SvcTestProtocolSupervised::default(), Some("unittest")).unwrap();
+        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::new_ref(), max_connections, SvcTestProtocolManual::default(), Some("unittest")).unwrap();
         info!("svc: {}", svc);
 
         let mut clt_pool = CltsPool::new(max_connections);
@@ -972,7 +972,7 @@ mod test {
                 setup::net::default_connect_timeout(),
                 setup::net::default_connect_retry_after(),
                 DevNullCallback::new_ref(),
-                CltTestProtocolSupervised::default(),
+                CltTestProtocolManual::default(),
                 Some("unittest"),
             )
             .unwrap();

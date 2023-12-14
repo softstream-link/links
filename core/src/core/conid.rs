@@ -89,6 +89,7 @@ pub trait ConnectionId {
 }
 
 pub trait ConnectionStatus {
+    /// logical check of connection status
     fn is_connected(&self) -> bool;
 }
 pub trait PoolConnectionStatus {
