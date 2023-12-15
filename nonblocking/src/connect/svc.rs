@@ -292,7 +292,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
 mod test {
     use crate::{
         prelude::*,
-        unittest::setup::protocol::{CltTestProtocolManual, SvcTestProtocolAuthAndHBeat, SvcTestProtocolManual},
+        unittest::setup::protocol::{CltTestProtocolAuthAndHbeat, CltTestProtocolManual, SvcTestProtocolAuthAndHBeat, SvcTestProtocolManual},
     };
     use links_core::unittest::setup::{
         self,
@@ -318,6 +318,39 @@ mod test {
         let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback.clone(), NonZeroUsize::new(2).unwrap(), protocol, Some("unittest")).unwrap();
         info!("svc: {}", svc);
         assert_eq!(svc.pool().len(), 0);
+    }
+
+    #[test]
+    fn test_svc_clt_connected_max_connection() {
+        setup::log::configure_compact(LevelFilter::Info);
+        let addr = setup::net::rand_avail_addr_port();
+        let callback = LoggerCallback::with_level_ref(Level::Info, Level::Info);
+        let protocol = SvcTestProtocolManual::default();
+        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest"))
+            .unwrap()
+            .into_sender_with_spawned_recver();
+        info!("svc: {}", svc);
+
+        let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
+        let protocol = CltTestProtocolManual::default();
+        let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest"))
+            .unwrap()
+            .into_sender_with_spawned_recver();
+        info!("clt: {}", clt);
+
+        // ********** change protocol ot auth and hbeat so that on_connect is called and err is detected due to max_connect **********
+        let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
+        let protocol = CltTestProtocolAuthAndHbeat::default();
+        // second connection should fail
+        let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest"));
+        info!("res: {:?}", res);
+        assert!(res.is_err());
+
+        drop(clt);
+
+        // after dropping the first connection the second connection should succeed
+        let clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
+        info!("clt: {}", clt);
     }
 
     #[test]

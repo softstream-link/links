@@ -146,7 +146,10 @@ pub mod setup {
                 let timeout = Duration::from_secs(1);
                 let mut msg: CltTestMsg = CltTestMsgLoginReq::default().into();
                 con.send_busywait_timeout(&mut msg, timeout)?.unwrap_completed(); //send login request
-                let _msg = con.recv_busywait_timeout(timeout)?.unwrap_completed_some(); // wait for login accept
+                let status = con.recv_busywait_timeout(timeout)?; // wait for login accept
+                if let RecvStatus::Completed(None) = status {
+                    return Err(Error::new(ErrorKind::ConnectionReset, format!("Expected Login Accept instead got None, cond_id: {}", con.con_id())));
+                }
                 Ok(())
             }
         }
