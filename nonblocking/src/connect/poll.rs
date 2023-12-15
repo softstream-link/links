@@ -298,9 +298,9 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
         let counter = CounterCallback::new_ref();
         let clbk = ChainCallback::new_ref(vec![LoggerCallback::new_ref(), counter.clone()]);
-        let svc: Svc<_, _, TEST_MSG_FRAME_SIZE> = Svc::bind(addr, clbk, NonZeroUsize::new(1).unwrap(), SvcTestProtocolManual::default(), Some("unittest/svc")).unwrap();
+        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, clbk, NonZeroUsize::new(1).unwrap(), SvcTestProtocolManual::default(), Some("unittest/svc")).unwrap();
 
-        let mut clt: Clt<_, _, TEST_MSG_FRAME_SIZE> = Clt::connect(
+        let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
@@ -332,13 +332,13 @@ mod test {
         assert_eq!(counter.recv_count(), write_count);
 
         // test that second connection is denied due to svc having set the limit of 1 on max connections
-        let mut clt1: Clt<_, _, TEST_MSG_FRAME_SIZE> = Clt::connect(
+        let mut clt1 = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr,
             setup::net::default_connect_timeout(),
             setup::net::default_connect_retry_after(),
             DevNullCallback::new_ref(),
             CltTestProtocolManual::default(),
-            Some("unittest/clt"),
+            Some("unittest/clt1"),
         )
         .unwrap();
         let status = clt1.recv_busywait_timeout(setup::net::default_connect_timeout()).unwrap();
