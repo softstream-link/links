@@ -134,7 +134,7 @@ pub mod setup {
         }
 
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
-        pub struct CltTestPing {
+        pub struct CltTestMsgPing {
             pub ty: ConstCharAscii<b'P'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
@@ -160,8 +160,13 @@ pub mod setup {
         }
 
         #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
-        pub struct SvcTestPong {
+        pub struct SvcTestMsgPong {
             pub ty: ConstCharAscii<b'P'>,
+            text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
+        }
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        pub struct SvcTestMsgFinal {
+            pub ty: ConstCharAscii<b'F'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
 
@@ -189,7 +194,7 @@ pub mod setup {
             #[byteserde(eq(&[b'H']))]
             HBeat(UniTestHBeatMsgDebug),
             #[byteserde(eq(&[b'P']))]
-            Ping(CltTestPing),
+            Ping(CltTestMsgPing),
         }
         impl From<CltTestMsgDebug> for CltTestMsg {
             fn from(msg: CltTestMsgDebug) -> Self {
@@ -206,8 +211,8 @@ pub mod setup {
                 Self::HBeat(value)
             }
         }
-        impl From<CltTestPing> for CltTestMsg {
-            fn from(value: CltTestPing) -> Self {
+        impl From<CltTestMsgPing> for CltTestMsg {
+            fn from(value: CltTestMsgPing) -> Self {
                 Self::Ping(value)
             }
         }
@@ -222,7 +227,9 @@ pub mod setup {
             #[byteserde(eq(&[b'H']))]
             HBeat(UniTestHBeatMsgDebug),
             #[byteserde(eq(&[b'P']))]
-            Pong(SvcTestPong),
+            Pong(SvcTestMsgPong),
+            #[byteserde(eq(&[b'F']))]
+            Final(SvcTestMsgFinal),
         }
         impl From<SvcTestMsgDebug> for SvcTestMsg {
             fn from(msg: SvcTestMsgDebug) -> Self {
@@ -239,9 +246,14 @@ pub mod setup {
                 Self::HBeat(value)
             }
         }
-        impl From<SvcTestPong> for SvcTestMsg {
-            fn from(value: SvcTestPong) -> Self {
+        impl From<SvcTestMsgPong> for SvcTestMsg {
+            fn from(value: SvcTestMsgPong) -> Self {
                 Self::Pong(value)
+            }
+        }
+        impl From<SvcTestMsgFinal> for SvcTestMsg {
+            fn from(value: SvcTestMsgFinal) -> Self {
+                Self::Final(value)
             }
         }
 

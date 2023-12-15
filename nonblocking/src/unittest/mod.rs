@@ -39,7 +39,7 @@ pub mod setup {
         impl ProtocolCore for SvcTestProtocolManual {}
         impl Protocol for SvcTestProtocolManual {}
 
-        /// Provides an [ProtocolCore::on_connected] implementation
+        /// Provides an [ProtocolCore::on_connect] implementation
         #[derive(Debug, Clone, Default)]
         pub struct SvcTestProtocolAuthAndHBeat;
         impl Framer for SvcTestProtocolAuthAndHBeat {
@@ -60,8 +60,8 @@ pub mod setup {
             }
         }
         impl ProtocolCore for SvcTestProtocolAuthAndHBeat {
-            fn on_connected<C: SendNonBlocking<Self> + RecvNonBlocking<Self> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
-                info!("on_connected: {}", con.con_id());
+            fn on_connect<C: SendNonBlocking<Self> + RecvNonBlocking<Self> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
+                info!("on_connect: {}", con.con_id());
                 let timeout = Duration::from_secs(1);
                 match con.recv_busywait_timeout(timeout)? {
                     RecvStatus::Completed(Some(CltTestMsg::Login(_login))) => {
@@ -76,6 +76,9 @@ pub mod setup {
                     RecvStatus::WouldBlock => Err(Error::new(ErrorKind::TimedOut, format!("{} Timed out waiting for Login Request", con.con_id())))?,
                 }
             }
+            fn on_disconnect(&self) -> Option<(Duration, <Self as Messenger>::SendT)> {
+                Some((Duration::from_secs(1), SvcTestMsgFinal::default().into()))
+            }
         }
         impl Protocol for SvcTestProtocolAuthAndHBeat {
             fn conf_heart_beat_interval(&self) -> Option<Duration> {
@@ -88,7 +91,7 @@ pub mod setup {
 
             fn send_reply<S: SendNonBlocking<Self> + ConnectionId>(&self, msg: &<Self as Messenger>::RecvT, sender: &mut S) -> Result<(), Error> {
                 if let CltTestMsg::Ping(_ping) = msg {
-                    let mut msg = SvcTestPong::default().into();
+                    let mut msg = SvcTestMsgPong::default().into();
                     sender.send_busywait_timeout(&mut msg, Duration::from_millis(100))?;
                 }
                 Ok(())
@@ -117,7 +120,7 @@ pub mod setup {
         impl ProtocolCore for CltTestProtocolManual {}
         impl Protocol for CltTestProtocolManual {}
 
-        /// Provides an [ProtocolCore::on_connected] implementation]
+        /// Provides an [ProtocolCore::on_connect] implementation]
         #[derive(Debug, Clone, Default)]
         pub struct CltTestProtocolAuthAndHbeat;
         impl Framer for CltTestProtocolAuthAndHbeat {
@@ -138,8 +141,8 @@ pub mod setup {
             }
         }
         impl ProtocolCore for CltTestProtocolAuthAndHbeat {
-            fn on_connected<C: SendNonBlocking<Self> + RecvNonBlocking<Self> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
-                info!("on_connected: {}", con.con_id());
+            fn on_connect<C: SendNonBlocking<Self> + RecvNonBlocking<Self> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
+                info!("on_connect: {}", con.con_id());
                 let timeout = Duration::from_secs(1);
                 let mut msg: CltTestMsg = CltTestMsgLoginReq::default().into();
                 con.send_busywait_timeout(&mut msg, timeout)?.unwrap_completed(); //send login request

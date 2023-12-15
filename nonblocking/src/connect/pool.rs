@@ -167,14 +167,26 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBloc
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionStatus for CltsPool<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolConnectionStatus for CltsPool<P, C, MAX_MSG_SIZE> {
     /// Will only test connection status of the next [Clt] in the pool that will be used to service [SendNonBlocking::send] or [RecvNonBlocking::recv]
     #[inline(always)]
-    fn is_connected(&self) -> bool {
+    fn is_next_connected(&mut self) -> bool {
         match self.clts.current() {
             Some(clt) => clt.is_connected(),
             None => false,
         }
+    }
+    #[inline(always)]
+    fn all_connected(&mut self) -> bool {
+        if self.clts.is_empty() {
+            return false;
+        }
+        for (_k, clt) in self.clts.iter() {
+            if !clt.is_connected() {
+                return false;
+            }
+        }
+        true
     }
 }
 

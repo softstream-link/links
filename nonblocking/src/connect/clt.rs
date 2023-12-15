@@ -2,7 +2,7 @@ use crate::prelude::{
     asserted_short_name, into_split_messenger, short_type_name, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, ConnectionStatus, MessageRecver, MessageSender, Messenger, PollAble, PollEventStatus, PollRead, Protocol,
     RecvNonBlocking, RecvStatus, RemoveConnectionBarrierOnDrop, SendNonBlocking, SendNonBlockingNonMut, SendStatus, TimerTaskStatus,
 };
-use log::{debug, warn};
+use log::{debug, log_enabled, warn};
 use std::{
     fmt::{Debug, Display},
     io::Error,
@@ -105,6 +105,7 @@ pub struct CltSender<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize>
     protocol: Arc<P>,
     #[allow(dead_code)] // exists to indicate to Svc::accept that this connection no longer active when Self is dropped
     acceptor_connection_gate: Option<RemoveConnectionBarrierOnDrop>,
+    on_disconnect_issued: bool,
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSender<P, C, MAX_MSG_SIZE> {
     pub fn new(sender: MessageSender<P, MAX_MSG_SIZE>, callback: Arc<C>, protocol: Arc<P>, acceptor_connection_gate: Option<RemoveConnectionBarrierOnDrop>) -> Self {
@@ -113,7 +114,30 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSender<P, C,
             callback,
             protocol,
             acceptor_connection_gate,
+            on_disconnect_issued: false,
         }
+    }
+    fn on_disconnect(&mut self) {
+        if self.on_disconnect_issued {
+            return;
+        }
+        if let Some((timeout, mut msg)) = self.protocol.on_disconnect() {
+            match self.send_busywait_timeout(&mut msg, timeout) {
+                Ok(SendStatus::Completed) => {
+                    if log_enabled!(log::Level::Debug) {
+                        debug!("Clean {}::on_disconnect msg: {:?}, con_id: {}", asserted_short_name!("CltSender", Self), msg, self.con_id());
+                    }
+                }
+                Ok(SendStatus::WouldBlock) => {
+                    warn!("Timed out {}::on_disconnect timeout: {:?}, msg: {:?}, cond_id: {}", asserted_short_name!("CltSender", Self), timeout, msg, self.con_id());
+                }
+                Err(err) => {
+                    warn!("Failed to complete {}::on_disconnect, did you drop CltRecver before sender? msg: {:?}, err:\n{}", asserted_short_name!("CltSender", Self), msg, err);
+                    // con_id is in the error
+                }
+            }
+        }
+        self.on_disconnect_issued = true;
     }
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for CltSender<P, C, MAX_MSG_SIZE> {
@@ -206,6 +230,11 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for Clt
         let recv_t = std::any::type_name::<P::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
         let send_t = std::any::type_name::<P::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
         write!(f, "{}<{}, RecvT:{}, SendT:{}, {}>", asserted_short_name!("CltSender", Self), self.con_id(), recv_t, send_t, MAX_MSG_SIZE)
+    }
+}
+impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Drop for CltSender<P, C, MAX_MSG_SIZE> {
+    fn drop(&mut self) {
+        self.on_disconnect();
     }
 }
 
@@ -321,6 +350,9 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Drop for CltRecverRef<P, C, MAX_MSG_SIZE> {
     fn drop(&mut self) {
+        // because this is a reference counted instance, need to manually shutdown reader to ensure other references
+        // understand that this instance is terminated. This is part of the contract of [CltRecverRef] and [CltSenderRef]
+        // any of the clones of these instances are dropped, the connection is terminated for both sender & recver.
         self.clt_recver.lock().msg_recver.frm_reader.shutdown(std::net::Shutdown::Both, "CltRecverRef::drop");
     }
 }
@@ -340,7 +372,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clone for C
 ///
 /// # Important
 /// In addition to delegating method calls it enables enhanced features of the [Protocol] trait, such as [Protocol::send_heart_beat] & [Protocol::conf_heart_beat_interval]
-/// by holding a reference to clone of [CltRecverRef]
+/// by registering a clone of [CltSenderRef] to run [static@crate::connect::DEFAULT_HBEAT_HANDLER] thread, when this instance is created during call to [`Clt::into_split_ref()`]
 ///
 /// # Warning
 /// Dropping any of the [CltSenderRef] clones will terminate the connection across all remaining instances,
@@ -348,11 +380,12 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clone for C
 #[derive(Debug)]
 pub struct CltSenderRef<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> {
     con_id: ConId, // this is a clone copy fro CltSender to avoid mutex call to id a connection
-    // clt_sender: Arc<spin::mutex::Mutex<CltSender<P, C, MAX_MSG_SIZE>,Loop>>,
     clt_sender: Arc<spin::Mutex<CltSender<P, C, MAX_MSG_SIZE>>>,
-    pub(crate) protocol: Arc<P>,
+    pub(crate) protocol: Arc<P>, // clone of protocol to avoid locking sender in order to access [ProtocolCore::is_connected] call
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSenderRef<P, C, MAX_MSG_SIZE> {
+    /// This method is only implemented for [CltSenderRef] and not for [CltSender] because it only makes sense to have this method
+    /// when heart beats are sent in a different thread from user thread, but it is not possible to share [CltSender] across threads.
     pub(crate) fn send_heart_beat(&self) -> Result<SendStatus, Error> {
         let mut guard = self.clt_sender.lock();
         self.protocol.send_heart_beat(guard.deref_mut())
@@ -416,7 +449,14 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for Clt
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Drop for CltSenderRef<P, C, MAX_MSG_SIZE> {
     fn drop(&mut self) {
-        self.clt_sender.lock().msg_sender.frm_writer.shutdown(std::net::Shutdown::Both, "CltSenderRef::drop");
+        let mut guard = self.clt_sender.lock();
+        let clt_sender = guard.deref_mut();
+        clt_sender.on_disconnect();
+
+        // because this is a reference counted instance, need to manually shutdown reader to ensure other references
+        // understand that this instance is terminated. This is part of the contract of [CltRecverRef] and [CltSenderRef]
+        // any of the clones of these instances are dropped, the connection is terminated for both sender & recver.
+        clt_sender.msg_sender.frm_writer.shutdown(std::net::Shutdown::Both, "CltSenderRef::drop");
     }
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Clone for CltSenderRef<P, C, MAX_MSG_SIZE> {
@@ -469,8 +509,11 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Clone for CltSe
 /// ```
 #[derive(Debug)]
 pub struct Clt<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
+    // CRITICAL CltSender has a drop impl which allows protocol to send on_disconnect, which itself is called on drop
+    // in order for this to work correctly CltSender must be dropped before CltRecver due to the fact that both will attempt
+    // to shutdown underlying stream, and if CltRecver is dropped first then CltSender will not be able to send on_disconnect
+    clt_sender: CltSender<P, C, MAX_MSG_SIZE>, // DON"T MOVE below clt_recver
     clt_recver: CltRecver<P, C, MAX_MSG_SIZE>,
-    clt_sender: CltSender<P, C, MAX_MSG_SIZE>,
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, MAX_MSG_SIZE> {
     pub fn connect(addr: &str, timeout: Duration, retry_after: Duration, callback: Arc<C>, protocol: P, name: Option<&str>) -> Result<Self, Error> {
@@ -500,7 +543,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
             clt_recver: CltRecver::new(msg_recver, callback.clone(), protocol.clone(), acceptor_connection_gate.clone()),
             clt_sender: CltSender::new(msg_sender, callback.clone(), protocol.clone(), acceptor_connection_gate),
         };
-        protocol.on_connected(&mut con)?;
+        protocol.on_connect(&mut con)?;
 
         Ok(con)
     }
@@ -539,7 +582,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
                         Ok(SendStatus::Completed) => TimerTaskStatus::Completed,
                         Ok(SendStatus::WouldBlock) => TimerTaskStatus::RetryAfter(Duration::from_secs(0)),
                         Err(err) => {
-                            warn!("{} Failed to send heart beat. Will no longer attempt to send. err: {:?}", sender.con_id(), err);
+                            warn!("{} Failed to send heart beat. Will no longer attempt to send. err:\n{}", sender.con_id(), err);
                             TimerTaskStatus::Terminate
                         }
                     }

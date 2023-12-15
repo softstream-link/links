@@ -38,7 +38,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         .into_sender_with_spawned_recver_ref();
     info!("clt_sender: {}", clt_sender);
 
-    let mut clt_msgs = vec![CltTestMsgDebug::new(b"Hello Frm Client Msg").into(), CltTestPing::default().into()];
+    let mut clt_msgs = vec![CltTestMsgDebug::new(b"Hello Frm Client Msg").into(), CltTestMsgPing::default().into()];
     let mut svc_msgs = vec![SvcTestMsgDebug::new(b"Hello Frm Server Msg").into()]; // SvcTestProtocolAuthAndHBeat should send_reply with Pong to Ping
 
     for msg in clt_msgs.iter_mut() {
@@ -77,6 +77,6 @@ fn run() -> Result<(), Box<dyn Error>> {
     // find sent reply from svc
     let found = store.find_sent("example/svc", |msg| matches!(msg, UniTestMsg::Svc(SvcTestMsg::Pong(_))), setup::net::optional_find_timeout());
     info!("found: {:?}", found);
-    assert_eq!(found.unwrap().try_into_svc(), SvcTestMsg::Pong(SvcTestPong::default()));
+    assert_eq!(found.unwrap().try_into_svc(), SvcTestMsg::Pong(SvcTestMsgPong::default()));
     Ok(())
 }

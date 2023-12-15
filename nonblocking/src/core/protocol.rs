@@ -10,8 +10,14 @@ use std::{io::Error, sync::Arc, time::Duration};
 pub trait ProtocolCore: Messenger + Sized {
     /// Called immediately after the connection is established and allows user space to perform a connection handshake
     #[inline(always)]
-    fn on_connected<C: SendNonBlocking<Self> + RecvNonBlocking<Self> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
+    fn on_connect<C: SendNonBlocking<Self> + RecvNonBlocking<Self> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
         Ok(())
+    }
+
+    /// Called right before the sender is dropped and allows user space to send a message to the peer
+    #[inline(always)]
+    fn on_disconnect(&self) -> Option<(Duration, <Self as Messenger>::SendT)> {
+        None
     }
 
     /// This is a hook to provide user space ability to perform a logical check and determine if the connection is still valid

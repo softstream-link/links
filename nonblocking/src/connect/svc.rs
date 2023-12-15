@@ -269,11 +269,16 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBloc
         self.clts_pool.recv()
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionStatus for Svc<P, C, MAX_MSG_SIZE> {
-    /// Will delegate to [CltsPool::is_connected]
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolConnectionStatus for Svc<P, C, MAX_MSG_SIZE> {
+    /// Will delegate to [`CltsPool::is_next_connected()`]
     #[inline(always)]
-    fn is_connected(&self) -> bool {
-        self.clts_pool.is_connected()
+    fn is_next_connected(&mut self) -> bool {
+        self.clts_pool.is_next_connected()
+    }
+    /// Will delegate to [`CltsPool::all_connected()`]
+    #[inline(always)]
+    fn all_connected(&mut self) -> bool {
+        self.clts_pool.all_connected()
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for Svc<P, C, MAX_MSG_SIZE> {
@@ -287,16 +292,21 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
 mod test {
     use crate::{
         prelude::*,
-        unittest::setup::protocol::{CltTestProtocolManual, SvcTestProtocolManual},
+        unittest::setup::protocol::{CltTestProtocolManual, SvcTestProtocolAuthAndHBeat, SvcTestProtocolManual},
     };
     use links_core::unittest::setup::{
         self,
         framer::TEST_MSG_FRAME_SIZE,
-        model::{CltTestMsg, CltTestMsgDebug, SvcTestMsg, SvcTestMsgDebug},
+        model::{CltTestMsg, CltTestMsgDebug, CltTestMsgLoginReq, SvcTestMsg, SvcTestMsgDebug},
     };
     use log::{info, Level, LevelFilter};
     use rand::Rng;
-    use std::{io::ErrorKind, num::NonZeroUsize, time::Duration};
+    use std::{
+        io::ErrorKind,
+        num::NonZeroUsize,
+        thread::Builder,
+        time::{Duration, Instant},
+    };
 
     #[test]
     fn test_svc_not_connected() {
@@ -311,7 +321,7 @@ mod test {
     }
 
     #[test]
-    fn test_svc_clt_connected_not_split() {
+    fn test_svc_clt_connected_not_split_clt_drop() {
         setup::log::configure_compact(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Info);
@@ -324,9 +334,14 @@ mod test {
         let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
         info!("clt: {}", clt);
 
-        assert!(!svc.is_connected());
+        assert!(!svc.is_next_connected());
+        assert!(!svc.all_connected());
+
         svc.accept_into_pool_busywait().unwrap();
-        assert!(svc.is_connected());
+
+        assert!(svc.is_next_connected());
+        assert!(svc.all_connected());
+
         info!("svc: {}", svc);
         assert_eq!(svc.len(), 1);
 
@@ -364,7 +379,39 @@ mod test {
     }
 
     #[test]
-    fn test_svc_clt_connected_split() {
+    fn test_scv_clt_connected_not_split_svc_drop() {
+        setup::log::configure_compact(LevelFilter::Info);
+        let addr = setup::net::rand_avail_addr_port();
+        let callback = LoggerCallback::with_level_ref(Level::Info, Level::Info);
+        let protocol = SvcTestProtocolAuthAndHBeat::default();
+        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest")).unwrap();
+        info!("svc: {}", svc);
+
+        let clt_jh = Builder::new()
+            .name("Clt-Thread".to_owned())
+            .spawn(move || {
+                let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
+                let protocol = CltTestProtocolManual::default();
+                let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
+                info!("clt: {}", clt);
+                let timeout = Duration::from_millis(100);
+                clt.send_busywait_timeout(&mut CltTestMsgLoginReq::default().into(), timeout).unwrap();
+                let msg = clt.recv_busywait_timeout(timeout).unwrap();
+                assert!(matches!(msg, RecvStatus::Completed(Some(SvcTestMsg::Accept(_)))));
+                clt.recv_busywait_timeout(timeout).unwrap()
+            })
+            .unwrap();
+
+        svc.accept_into_pool_busywait().unwrap();
+
+        drop(svc);
+        let status = clt_jh.join().unwrap();
+        info!("status: {:?}", status);
+        assert!(matches!(status, RecvStatus::Completed(Some(SvcTestMsg::Final(_)))));
+    }
+
+    #[test]
+    fn test_svc_clt_connected_split_clt_drop() {
         setup::log::configure_level(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
@@ -441,7 +488,39 @@ mod test {
     }
 
     #[test]
-    fn test_svc_clt_connected_split_ref() {
+    fn test_svc_clt_connected_split_svc_drop() {
+        setup::log::configure_level(LevelFilter::Info);
+        let addr = setup::net::rand_avail_addr_port();
+        let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
+        let protocol = SvcTestProtocolAuthAndHBeat::default();
+        let (mut svc_acceptor, _svc_pool_recver, svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest")).unwrap().into_split();
+        info!("svc_acceptor: {}", svc_acceptor);
+
+        let clt_jh = Builder::new()
+            .name("Clt-Thread".to_owned())
+            .spawn(move || {
+                let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
+                let protocol = CltTestProtocolManual::default();
+                let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
+                info!("clt: {}", clt);
+                let timeout = Duration::from_millis(100);
+                clt.send_busywait_timeout(&mut CltTestMsgLoginReq::default().into(), timeout).unwrap();
+                let msg = clt.recv_busywait_timeout(timeout).unwrap();
+                assert!(matches!(msg, RecvStatus::Completed(Some(SvcTestMsg::Accept(_)))));
+                clt.recv_busywait_timeout(timeout).unwrap()
+            })
+            .unwrap();
+
+        svc_acceptor.accept_into_pool_busywait().unwrap();
+
+        drop(svc_pool_sender);
+        let status = clt_jh.join().unwrap();
+        info!("status: {:?}", status);
+        assert!(matches!(status, RecvStatus::Completed(Some(SvcTestMsg::Final(_)))));
+    }
+
+    #[test]
+    fn test_svc_clt_connected_split_ref_clt_drop() {
         setup::log::configure_level(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
@@ -513,5 +592,46 @@ mod test {
         let err = svc_pool_sender.send(&mut svc_msg_inp).unwrap_err();
         info!("pool_sender err: {}", err);
         assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+    }
+
+    #[test]
+    fn test_svc_clt_connected_split_ref_svc_drop() {
+        setup::log::configure_level(LevelFilter::Info);
+        let addr = setup::net::rand_avail_addr_port();
+        let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
+        let protocol = SvcTestProtocolAuthAndHBeat::default();
+        let (mut svc_acceptor, _svc_pool_recver, svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest")).unwrap().into_split_ref();
+        info!("svc_acceptor: {}", svc_acceptor);
+
+        let clt_jh = Builder::new()
+            .name("Clt-Thread".to_owned())
+            .spawn(move || {
+                let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
+                let protocol = CltTestProtocolManual::default();
+                let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
+                info!("clt: {}", clt);
+                let timeout = Duration::from_millis(100);
+                clt.send_busywait_timeout(&mut CltTestMsgLoginReq::default().into(), timeout).unwrap();
+                let msg = clt.recv_busywait_timeout(timeout).unwrap();
+                assert!(matches!(msg, RecvStatus::Completed(Some(SvcTestMsg::Accept(_)))));
+                let now = Instant::now();
+                loop {
+                    let status = clt.recv_busywait_timeout(timeout).unwrap();
+                    if let RecvStatus::Completed(Some(SvcTestMsg::Final(_))) = status {
+                        return status;
+                    }
+                    if now.elapsed() > timeout {
+                        panic!("Timeout waiting for Final");
+                    }
+                }
+            })
+            .unwrap();
+
+        svc_acceptor.accept_into_pool_busywait().unwrap();
+
+        drop(svc_pool_sender);
+        let status = clt_jh.join().unwrap();
+        info!("status: {:?}", status);
+        assert!(matches!(status, RecvStatus::Completed(Some(SvcTestMsg::Final(_)))));
     }
 }
