@@ -1,4 +1,8 @@
-use std::{fmt::Display, net::SocketAddr};
+use std::{
+    fmt::Display,
+    net::SocketAddr,
+    time::{Duration, Instant},
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConId {
@@ -91,10 +95,37 @@ pub trait ConnectionId {
 pub trait ConnectionStatus {
     /// logical check of connection status
     fn is_connected(&self) -> bool;
+    fn is_connected_busywait_timeout(&self, timeout: Duration) -> bool {
+        let start = Instant::now();
+        while start.elapsed() < timeout {
+            if self.is_connected() {
+                return true;
+            }
+        }
+        false
+    }
 }
 pub trait PoolConnectionStatus {
     fn is_next_connected(&mut self) -> bool;
+    fn is_next_connected_busywait_timeout(&mut self, timeout: Duration) -> bool {
+        let start = Instant::now();
+        while start.elapsed() < timeout {
+            if self.is_next_connected() {
+                return true;
+            }
+        }
+        false
+    }
     fn all_connected(&mut self) -> bool;
+    fn all_connected_busywait_timeout(&mut self, timeout: Duration) -> bool {
+        let start = Instant::now();
+        while start.elapsed() < timeout {
+            if self.all_connected() {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 #[cfg(test)]

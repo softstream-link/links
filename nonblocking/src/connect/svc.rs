@@ -219,7 +219,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     /// # Warning
     /// This method `drops` [CltRecversPool<_, CltRecverRef>], as a result this call will panic if the instance accepted connections prior to calling this method.
     /// To avoid this call this immediately after creating [Svc] instance and prior to accepting any connections
-    pub fn into_sender_with_spawned_recver_ref(self) -> impl SendNonBlocking<P> + Display + ConnectionStatus + PoolConnectionStatus {
+    pub fn into_sender_with_spawned_recver_ref(self) -> impl SendNonBlocking<P> + Display + PoolConnectionStatus {
         if !self.clts_pool.is_empty() {
             panic!(
                 "

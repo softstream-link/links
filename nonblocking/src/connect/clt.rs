@@ -589,14 +589,13 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
                 });
             }
             None => {
-                if log::log_enabled!(log::Level::Warn) {
-                    warn!(
-                        "{}::conf_heart_beat_interval() is None, hence {}::send_heart_beat(..) will not be scheduled for this con_id: {}",
-                        short_type_name::<P>(),
-                        short_type_name::<P>(),
-                        sender.con_id(),
-                    );
-                }
+                #[cfg(debug_assertions)]
+                warn!(
+                    "{}::conf_heart_beat_interval() is None, hence {}::send_heart_beat(..) will not be scheduled for this con_id: {}",
+                    short_type_name::<P>(),
+                    short_type_name::<P>(),
+                    sender.con_id(),
+                );
             }
         }
 
