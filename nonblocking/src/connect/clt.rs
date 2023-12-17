@@ -1,6 +1,6 @@
 use crate::prelude::{
-    asserted_short_name, into_split_messenger, short_type_name, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, ConnectionStatus, MessageRecver, MessageSender, Messenger, PollAble, PollEventStatus, PollRead, Protocol,
-    RecvNonBlocking, RecvStatus, RemoveConnectionBarrierOnDrop, SendNonBlocking, SendNonBlockingNonMut, SendStatus, TimerTaskStatus,
+    asserted_short_name, into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, ConnectionStatus, MessageRecver, MessageSender, Messenger, PollAble, PollEventStatus, PollRead, Protocol, RecvNonBlocking, RecvStatus,
+    RemoveConnectionBarrierOnDrop, SendNonBlocking, SendNonBlockingNonMut, SendStatus, TimerTaskStatus,
 };
 use log::{debug, log_enabled, warn};
 use std::{
@@ -592,8 +592,8 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
                 #[cfg(debug_assertions)]
                 warn!(
                     "{}::conf_heart_beat_interval() is None, hence {}::send_heart_beat(..) will not be scheduled for this con_id: {}",
-                    short_type_name::<P>(),
-                    short_type_name::<P>(),
+                    crate::prelude::short_type_name::<P>(),
+                    crate::prelude::short_type_name::<P>(),
                     sender.con_id(),
                 );
             }
