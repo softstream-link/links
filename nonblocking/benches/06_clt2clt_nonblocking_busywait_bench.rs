@@ -35,7 +35,7 @@ fn send_msg(c: &mut Criterion) {
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, svc_callback, max_connections, SvcTestProtocolManual::default(), name.clone()).unwrap();
+            let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, max_connections, svc_callback, SvcTestProtocolManual::default(), name.clone()).unwrap();
 
             // info!("svc: {}", svc);
 
@@ -90,7 +90,7 @@ fn recv_msg(c: &mut Criterion) {
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, svc_callback, max_connections, SvcTestProtocolManual::default(), name.clone()).unwrap();
+            let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, max_connections, svc_callback, SvcTestProtocolManual::default(), name.clone()).unwrap();
 
             let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap_accepted();
             info!("clt_acceptor: {}", clt_acceptor);
@@ -145,7 +145,7 @@ fn round_trip_msg(c: &mut Criterion) {
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
-            let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, svc_callback, max_connections, SvcTestProtocolManual::default(), name.clone()).unwrap();
+            let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, max_connections, svc_callback, SvcTestProtocolManual::default(), name.clone()).unwrap();
 
             let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap_accepted();
             info!("clt_acceptor: {}", clt_acceptor);

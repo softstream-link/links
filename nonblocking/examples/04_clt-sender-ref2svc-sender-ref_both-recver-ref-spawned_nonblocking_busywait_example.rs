@@ -25,7 +25,7 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let protocol = SvcTestProtocolAuthAndHBeat::default();
     let name = Some("example/svc");
-    let mut svc_sender = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), protocol, name)
+    let mut svc_sender = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), StoreCallback::new_ref(store.clone()), protocol, name)
         .unwrap()
         .into_sender_with_spawned_recver_ref();
     info!("svc_sender: {}", svc_sender);

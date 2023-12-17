@@ -298,7 +298,7 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
         let counter = CounterCallback::new_ref();
         let clbk = ChainCallback::new_ref(vec![LoggerCallback::new_ref(), counter.clone()]);
-        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, clbk, NonZeroUsize::new(1).unwrap(), SvcTestProtocolManual::default(), Some("unittest/svc")).unwrap();
+        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), clbk, SvcTestProtocolManual::default(), Some("unittest/svc")).unwrap();
 
         let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr,
@@ -369,8 +369,8 @@ mod test {
 
         let store = CanonicalEntryStore::<UniTestMsg>::new_ref();
 
-        let svc1 = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr1, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), SvcTestProtocolManual::default(), Some("unittest/svc1")).unwrap();
-        let svc2 = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr2, StoreCallback::new_ref(store.clone()), NonZeroUsize::new(1).unwrap(), SvcTestProtocolManual::default(), Some("unittest/svc2")).unwrap();
+        let svc1 = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr1, NonZeroUsize::new(1).unwrap(), StoreCallback::new_ref(store.clone()), SvcTestProtocolManual::default(), Some("unittest/svc1")).unwrap();
+        let svc2 = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr2, NonZeroUsize::new(1).unwrap(), StoreCallback::new_ref(store.clone()), SvcTestProtocolManual::default(), Some("unittest/svc2")).unwrap();
 
         let clt1 = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
             addr1,

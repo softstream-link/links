@@ -26,6 +26,8 @@
         "nanos",
         "nextest",
         "nonblocking",
+        "popd",
+        "pushd",
         "Recver",
         "recvers",
         "rustfmt",

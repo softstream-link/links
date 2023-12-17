@@ -28,7 +28,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         .spawn(move || {
             let protocol = SvcTestProtocolAuthAndHBeat::default();
             let name = Some("example/svc");
-            let svc = Svc::<SvcTestProtocolAuthAndHBeat, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::new_ref(), NonZeroUsize::new(1).unwrap(), protocol, name).unwrap();
+            let svc = Svc::<SvcTestProtocolAuthAndHBeat, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), DevNullCallback::new_ref(), protocol, name).unwrap();
 
             info!("svc: {}", svc);
             let mut clt = svc.accept_busywait_timeout(setup::net::default_connect_timeout()).unwrap().unwrap_accepted();

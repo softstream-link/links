@@ -28,9 +28,10 @@ categories = ["network"]
 # byteserde_derive = { version = "0.3.0", path = "./../byteserde/byteserde_derive" }
 # byteserde_types = { version = "0.3.0", path = "./../byteserde/byteserde_types" }
 # TODO udpate bytserde to v5 once protocols for async are updated and removed
-byteserde = { version = "0.4" }
-byteserde_derive = { version = "0.4" }
-byteserde_types = { version = "0.4" }
+byteserde = { version = "0.4" }        # TODO should be eliminated once trait Messenger is moved to tempalte serializization
+
+byteserde_types = { version = "0.4" }  # required to setup unit test models
+byteserde_derive = { version = "0.4" } # required to setup unit test models
 derive_more = "0.99"                   # try_into, etc
 
 # networking
@@ -53,10 +54,10 @@ futures = "0.3"                                                      # invoke as
 # utils
 rand = "0.8"
 num-format = "0.4"
-chrono = "0.4" 
+chrono = "0.4"
 
 # spin locks
-spin = { version = "0.9" } 
+spin = { version = "0.9" }
 
 # logging
 log = "0.4"

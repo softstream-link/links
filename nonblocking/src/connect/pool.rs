@@ -946,7 +946,7 @@ mod test {
         setup::log::configure_compact(LevelFilter::Info);
         let addr = setup::net::rand_avail_addr_port();
         let max_connections = NonZeroUsize::new(2).unwrap();
-        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, DevNullCallback::new_ref(), max_connections, SvcTestProtocolManual::default(), Some("unittest")).unwrap();
+        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, max_connections, DevNullCallback::new_ref(), SvcTestProtocolManual::default(), Some("unittest")).unwrap();
         info!("svc: {}", svc);
 
         let mut clt_pool = CltsPool::new(max_connections);

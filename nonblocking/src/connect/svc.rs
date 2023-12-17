@@ -117,8 +117,8 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> From<Svc<P,
 ///
 /// let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(
 ///     setup::net::rand_avail_addr_port(), // 127.0.0.1:8080 generates random port
-///     DevNullCallback::default().into(),
 ///     NonZeroUsize::new(1).unwrap(),
+///     DevNullCallback::default().into(),
 ///     SvcTestProtocolManual::default(),
 ///     Some("doctest"),
 /// ).unwrap();
@@ -135,7 +135,7 @@ pub struct Svc<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, MAX_MSG_SIZE> {
     /// Binds to a given address and returns an instance [Svc]
-    pub fn bind(addr: &str, callback: Arc<C>, max_connections: NonZeroUsize, protocol: P, name: Option<&str>) -> Result<Self, Error> {
+    pub fn bind(addr: &str, max_connections: NonZeroUsize, callback: Arc<C>, protocol: P, name: Option<&str>) -> Result<Self, Error> {
         let acceptor = SvcAcceptor::new(ConId::svc(name, addr, None), std::net::TcpListener::bind(addr)?, callback, protocol, max_connections);
         // make pool twice as big as acceptor will allow to be opened this is to ensure that acceptor is able to add new connections to the pool even
         // if some of the connections in the pool are dead but not closed yet
@@ -315,7 +315,7 @@ mod test {
 
         let callback = LoggerCallback::new_ref();
         let protocol = SvcTestProtocolManual::default();
-        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback.clone(), NonZeroUsize::new(2).unwrap(), protocol, Some("unittest")).unwrap();
+        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(2).unwrap(), callback.clone(), protocol, Some("unittest")).unwrap();
         info!("svc: {}", svc);
         assert_eq!(svc.pool().len(), 0);
     }
@@ -326,7 +326,7 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Info);
         let protocol = SvcTestProtocolManual::default();
-        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest"))
+        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), callback, protocol, Some("unittest"))
             .unwrap()
             .into_sender_with_spawned_recver();
         info!("svc: {}", svc);
@@ -359,7 +359,7 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Info);
         let protocol = SvcTestProtocolManual::default();
-        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest")).unwrap();
+        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), callback, protocol, Some("unittest")).unwrap();
         info!("svc: {}", svc);
 
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
@@ -417,7 +417,7 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Info);
         let protocol = SvcTestProtocolAuthAndHBeat::default();
-        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest")).unwrap();
+        let mut svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), callback, protocol, Some("unittest")).unwrap();
         info!("svc: {}", svc);
 
         let clt_jh = Builder::new()
@@ -449,7 +449,7 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
         let protocol = SvcTestProtocolManual::default();
-        let (mut svc_acceptor, mut svc_pool_recver, mut svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest")).unwrap().into_split();
+        let (mut svc_acceptor, mut svc_pool_recver, mut svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), callback, protocol, Some("unittest")).unwrap().into_split();
         info!("svc_acceptor: {}", svc_acceptor);
 
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
@@ -526,7 +526,7 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
         let protocol = SvcTestProtocolAuthAndHBeat::default();
-        let (mut svc_acceptor, _svc_pool_recver, svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest")).unwrap().into_split();
+        let (mut svc_acceptor, _svc_pool_recver, svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), callback, protocol, Some("unittest")).unwrap().into_split();
         info!("svc_acceptor: {}", svc_acceptor);
 
         let clt_jh = Builder::new()
@@ -558,7 +558,7 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
         let protocol = SvcTestProtocolManual::default();
-        let (mut svc_acceptor, mut svc_pool_recver, mut svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest")).unwrap().into_split_ref();
+        let (mut svc_acceptor, mut svc_pool_recver, mut svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), callback, protocol, Some("unittest")).unwrap().into_split_ref();
         info!("svc_acceptor: {}", svc_acceptor);
 
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
@@ -633,7 +633,7 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
         let protocol = SvcTestProtocolAuthAndHBeat::default();
-        let (mut svc_acceptor, _svc_pool_recver, svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, callback, NonZeroUsize::new(1).unwrap(), protocol, Some("unittest")).unwrap().into_split_ref();
+        let (mut svc_acceptor, _svc_pool_recver, svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), callback, protocol, Some("unittest")).unwrap().into_split_ref();
         info!("svc_acceptor: {}", svc_acceptor);
 
         let clt_jh = Builder::new()
