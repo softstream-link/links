@@ -13,6 +13,12 @@ use crate::prelude::*;
 
 use super::{clt::CltRecverRef, pool::TransmittingSvcAcceptorRef};
 
+pub type SvcRecver<P, C, const MAX_MSG_SIZE: usize> = CltRecversPool<P, CltRecver<P, C, MAX_MSG_SIZE>>;
+pub type SvcSender<P, C, const MAX_MSG_SIZE: usize> = CltSendersPool<P, CltSender<P, C, MAX_MSG_SIZE>>;
+
+pub type SvcRecverRef<P, C, const MAX_MSG_SIZE: usize> = CltRecversPool<P, CltRecverRef<P, C, MAX_MSG_SIZE>>;
+pub type SvcSenderRef<P, C, const MAX_MSG_SIZE: usize> = CltSendersPool<P, CltSenderRef<P, C, MAX_MSG_SIZE>>;
+
 /// Helper class that create [Clt] instances by accepting new connections on a [std::net::TcpListener]
 ///
 /// # Example
@@ -36,7 +42,7 @@ use super::{clt::CltRecverRef, pool::TransmittingSvcAcceptorRef};
 /// ```
 #[derive(Debug)]
 pub struct SvcAcceptor<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> {
-    pub(crate) con_id: ConId,
+    con_id: ConId,
     pub(crate) listener: mio::net::TcpListener,
     acceptor_limiter: AcceptorConnectionGate,
     callback: Arc<C>,
@@ -85,6 +91,11 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcAcceptor
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(AcceptStatus::WouldBlock),
             Err(e) => Err(e),
         }
+    }
+}
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for SvcAcceptor<P, C, MAX_MSG_SIZE> {
+    fn con_id(&self) -> &ConId {
+        &self.con_id
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for SvcAcceptor<P, C, MAX_MSG_SIZE> {
@@ -140,7 +151,8 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
         // make pool twice as big as acceptor will allow to be opened this is to ensure that acceptor is able to add new connections to the pool even
         // if some of the connections in the pool are dead but not closed yet
         let pool_size = max_connections.get() * 2;
-        let clts_pool = CltsPool::new(NonZeroUsize::new(pool_size).unwrap());
+
+        let clts_pool = CltsPool::new(acceptor.con_id().clone(), NonZeroUsize::new(pool_size).unwrap());
         Ok(Self { acceptor, clts_pool })
     }
     #[inline(always)]
@@ -155,46 +167,39 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     pub fn pool(&self) -> &CltsPool<P, C, MAX_MSG_SIZE> {
         &self.clts_pool
     }
-    /// Will split [Svc] into owned [TransmittingSvcAcceptor], [CltRecversPool] and [CltSendersPool] leveraging [CltRecver] and [CltSender] respectively
+    /// Will split [Svc] into owned [TransmittingSvcAcceptor], [SvcRecver] and [SvcSender]
     ///
     /// # Important
     /// These parts will support only 'subset' of [Protocol] features which are part of [crate::prelude::ProtocolCore] trait
-    #[allow(clippy::type_complexity)]
-    pub fn into_split(self) -> (TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE>, CltRecversPool<P, CltRecver<P, C, MAX_MSG_SIZE>>, CltSendersPool<P, CltSender<P, C, MAX_MSG_SIZE>>) {
+    pub fn into_split(self) -> (TransmittingSvcAcceptor<P, C, MAX_MSG_SIZE>, SvcRecver<P, C, MAX_MSG_SIZE>, SvcSender<P, C, MAX_MSG_SIZE>) {
         let ((tx_recver, tx_sender), (svc_recver, svc_sender)) = self.clts_pool.into_split();
         let acceptor = TransmittingSvcAcceptor::new(tx_recver, tx_sender, self.acceptor);
         (acceptor, svc_recver, svc_sender)
     }
-    /// Will split [Svc] into owned [TransmittingSvcAcceptorRef], [CltRecversPool] and [CltSendersPool] leveraging [CltRecverRef] and [CltSenderRef] respectively
+    /// Will split [Svc] into owned [TransmittingSvcAcceptorRef], [SvcRecverRef] and [SvcSenderRef]
     ///
     /// # Important
     /// These parts will support `all` [Protocol] features, which means that `ref counted clone` of [CltRecverRef] will be returned,
     /// while another `ref counted clone` will be moved to run in the [static@crate::connect::DEFAULT_HBEAT_HANDLER] thread
-    #[allow(clippy::type_complexity)]
-    pub fn into_split_ref(
-        self,
-    ) -> (
-        TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE>,
-        CltRecversPool<P, CltRecverRef<P, C, MAX_MSG_SIZE>>,
-        CltSendersPool<P, CltSenderRef<P, C, MAX_MSG_SIZE>>,
-    ) {
+    pub fn into_split_ref(self) -> (TransmittingSvcAcceptorRef<P, C, MAX_MSG_SIZE>, SvcRecverRef<P, C, MAX_MSG_SIZE>, SvcSenderRef<P, C, MAX_MSG_SIZE>) {
         let ((tx_recver, tx_sender), (svc_recver, svc_sender)) = self.clts_pool.into_split_ref();
         let acceptor = TransmittingSvcAcceptorRef::new(tx_recver, tx_sender, self.acceptor);
         (acceptor, svc_recver, svc_sender)
     }
 
-    /// Will split using [`Self::into_split()`] and only return [CltSendersPool<_, CltSender>] while moving [TransmittingSvcAcceptor] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
+    /// Will split using [`Self::into_split()`] and only return [SvcSender] while moving [TransmittingSvcAcceptor] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
     ///
     /// # Important
     /// Please note [`Self::into_split()`] will support only 'subset' of [Protocol] features which are part of [crate::prelude::ProtocolCore] trait
     ///
     /// # Warning
-    /// This method will have to `drop` any open [CltRecversPool<_, CltRecver>] connections since any [CltRecver] connections accepted from this point on will
+    /// This method will have to `drop` any open [SvcRecver] connections since any [SvcRecver] connections accepted from this point on will
     /// have to be managed by [static@crate::connect::DEFAULT_POLL_HANDLER] thread.
     ///
     /// To mitigate `drop` this call will `panic` if the instance accepted any connections prior to calling this method.
     /// To avoid `panic` call this immediately after creating [Svc] instance
-    pub fn into_sender_with_spawned_recver(self) -> impl SendNonBlocking<P> + Display + PoolConnectionStatus {
+    // pub fn into_sender_with_spawned_recver(self) -> impl SendNonBlocking<P> + Display + PoolConnectionStatus {
+    pub fn into_sender_with_spawned_recver(self) -> SvcSender<P, C, MAX_MSG_SIZE> {
         if !self.clts_pool.is_empty() {
             panic!(
                 "
@@ -210,16 +215,17 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
         sender
     }
 
-    /// Will split using [`Self::into_split_ref()`] and only return [CltSendersPool<_, CltSenderRef>] while moving [TransmittingSvcAcceptorRef] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
+    /// Will split using [`Self::into_split_ref()`] and only return [SvcSenderRef] while moving [TransmittingSvcAcceptorRef] to run in the [static@crate::connect::DEFAULT_POLL_HANDLER] thread
     ///
     /// # Important
     /// Please note [`Self::into_split_ref()`] will support `all` [Protocol] features, which means that `ref counted clone` of [CltRecverRef] will be returned,
     /// while another `ref counted clone` will be moved to run in the [static@crate::connect::DEFAULT_HBEAT_HANDLER] thread
     ///
     /// # Warning
-    /// This method `drops` [CltRecversPool<_, CltRecverRef>], as a result this call will panic if the instance accepted connections prior to calling this method.
+    /// This method `drops` [SvcRecverRef], as a result this call will panic if the instance accepted connections prior to calling this method.
     /// To avoid this call this immediately after creating [Svc] instance and prior to accepting any connections
-    pub fn into_sender_with_spawned_recver_ref(self) -> impl SendNonBlocking<P> + Display + PoolConnectionStatus {
+    // pub fn into_sender_with_spawned_recver_ref(self) -> impl SendNonBlocking<P> + Display + PoolConnectionStatus {
+    pub fn into_sender_with_spawned_recver_ref(self) -> SvcSenderRef<P, C, MAX_MSG_SIZE> {
         if !self.clts_pool.is_empty() {
             panic!(
                 "
@@ -267,6 +273,11 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBloc
     #[inline(always)]
     fn recv(&mut self) -> Result<RecvStatus<<P as Messenger>::RecvT>, Error> {
         self.clts_pool.recv()
+    }
+}
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for Svc<P, C, MAX_MSG_SIZE> {
+    fn con_id(&self) -> &ConId {
+        self.acceptor.con_id()
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> PoolConnectionStatus for Svc<P, C, MAX_MSG_SIZE> {

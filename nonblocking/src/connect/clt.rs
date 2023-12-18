@@ -606,7 +606,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
     ///
     /// # Important
     /// This configuration will support only 'subset' of [Protocol] features which are part of [crate::prelude::ProtocolCore] trait
-    pub fn into_sender_with_spawned_recver(self) -> impl SendNonBlocking<P> + Display + ConnectionStatus {
+    pub fn into_sender_with_spawned_recver(self) -> CltSender<P, C, MAX_MSG_SIZE> {
         let (recver, sender) = self.into_split();
         crate::connect::DEFAULT_POLL_HANDLER.add_recver(recver.into());
         sender
@@ -616,7 +616,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
     /// # Important
     /// This configuration will support `all` [Protocol] features, which means that `ref counted clone` of [CltSenderRef] will be returned,
     /// while another `ref counted clone` of [CltSenderRef] will be moved to the [static@crate::connect::DEFAULT_HBEAT_HANDLER] thread
-    pub fn into_sender_with_spawned_recver_ref(self) -> impl SendNonBlocking<P> + Display + ConnectionStatus {
+    pub fn into_sender_with_spawned_recver_ref(self) -> CltSenderRef<P, C, MAX_MSG_SIZE> {
         let (recver, sender) = self.into_split_ref();
         crate::connect::DEFAULT_POLL_HANDLER.add_recver(recver.into());
         sender

@@ -36,7 +36,11 @@ pub mod setup {
                 SvcTestMessenger::serialize(msg)
             }
         }
-        impl ProtocolCore for SvcTestProtocolManual {}
+        impl ProtocolCore for SvcTestProtocolManual {
+            fn is_connected(&self) -> bool {
+                true
+            }
+        }
         impl Protocol for SvcTestProtocolManual {}
 
         /// Provides an [ProtocolCore::on_connect] implementation

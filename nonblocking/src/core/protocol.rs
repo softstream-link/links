@@ -28,11 +28,11 @@ pub trait ProtocolCore: Messenger + Sized {
     fn is_connected(&self) -> bool {
         if log_enabled!(log::Level::Warn) {
             warn!(
-                "NOTE: this is default {}::is_connected implementation which always yields 'true', you should override this method to provide a meaningful implementation.",
+                "NOTE: this is default {}::is_connected implementation which always yields 'false', you should override this method to provide a meaningful implementation.",
                 short_instance_type_name(self)
             );
         }
-        true
+        false
     }
 
     /// This is a hook to provide user space ability to modify the message right before it is serialized and sent

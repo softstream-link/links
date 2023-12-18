@@ -9,7 +9,7 @@ pub use crate::connect::{
     clt::{Clt, CltRecver, CltRecverRef, CltSender, CltSenderRef},
     poll::{PollHandler, PollHandlerDynamic, PollHandlerStatic, SpawnedPollHandler, SpawnedPollHandlerDynamic, SpawnedPollHandlerStatic},
     pool::{CltRecversPool, CltSendersPool, CltsPool, TransmittingSvcAcceptor, TransmittingSvcAcceptorRef},
-    svc::{Svc, SvcAcceptor},
+    svc::{Svc, SvcAcceptor, SvcRecver, SvcRecverRef, SvcSender, SvcSenderRef},
 };
 
 pub use links_core::asserted_short_name;
