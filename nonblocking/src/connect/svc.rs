@@ -198,7 +198,6 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     ///
     /// To mitigate `drop` this call will `panic` if the instance accepted any connections prior to calling this method.
     /// To avoid `panic` call this immediately after creating [Svc] instance
-    // pub fn into_sender_with_spawned_recver(self) -> impl SendNonBlocking<P> + Display + PoolConnectionStatus {
     pub fn into_sender_with_spawned_recver(self) -> SvcSender<P, C, MAX_MSG_SIZE> {
         if !self.clts_pool.is_empty() {
             panic!(
@@ -224,7 +223,6 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
     /// # Warning
     /// This method `drops` [SvcRecverRef], as a result this call will panic if the instance accepted connections prior to calling this method.
     /// To avoid this call this immediately after creating [Svc] instance and prior to accepting any connections
-    // pub fn into_sender_with_spawned_recver_ref(self) -> impl SendNonBlocking<P> + Display + PoolConnectionStatus {
     pub fn into_sender_with_spawned_recver_ref(self) -> SvcSenderRef<P, C, MAX_MSG_SIZE> {
         if !self.clts_pool.is_empty() {
             panic!(
@@ -261,14 +259,15 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcAcceptor
         self.acceptor.accept()
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for Svc<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P::SendT> for Svc<P, C, MAX_MSG_SIZE> {
     /// Will use the underling [CltsPool] to deliver the message to one of the [Clt]'s in the pool.
+
     #[inline(always)]
-    fn send(&mut self, msg: &mut <P as Messenger>::SendT) -> Result<SendStatus, Error> {
+    fn send(&mut self, msg: &mut P::SendT) -> Result<SendStatus, Error> {
         self.clts_pool.send(msg)
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking<P> for Svc<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking<P::RecvT> for Svc<P, C, MAX_MSG_SIZE> {
     /// Will use the underling [CltsPool] to receive a message from one of the [Clt]'s in the pool.
     #[inline(always)]
     fn recv(&mut self) -> Result<RecvStatus<<P as Messenger>::RecvT>, Error> {

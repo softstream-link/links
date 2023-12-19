@@ -10,7 +10,7 @@ use std::{io::Error, sync::Arc, time::Duration};
 pub trait ProtocolCore: Messenger + Sized {
     /// Called immediately after the connection is established and allows user space to perform a connection handshake
     #[inline(always)]
-    fn on_connect<C: SendNonBlocking<Self> + RecvNonBlocking<Self> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
+    fn on_connect<C: SendNonBlocking<<Self as Messenger>::SendT> + RecvNonBlocking<<Self as Messenger>::RecvT> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
         Ok(())
     }
 
@@ -69,7 +69,7 @@ pub trait ProtocolCore: Messenger + Sized {
 pub trait Protocol: ProtocolCore + Clone {
     /// This is a hook to provide user space ability to perform scripted responses, example automatically emulate certain behavior . Called immediately after [ProtocolCore::on_recv].
     #[inline(always)]
-    fn send_reply<S: SendNonBlocking<Self> + ConnectionId>(&self, msg: &<Self as Messenger>::RecvT, sender: &mut S) -> Result<(), Error> {
+    fn send_reply<S: SendNonBlocking<<Self as Messenger>::SendT> + ConnectionId>(&self, msg: &<Self as Messenger>::RecvT, sender: &mut S) -> Result<(), Error> {
         Ok(())
     }
 
@@ -78,7 +78,7 @@ pub trait Protocol: ProtocolCore + Clone {
         None
     }
     #[inline(always)]
-    fn send_heart_beat<S: SendNonBlocking<Self> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
+    fn send_heart_beat<S: SendNonBlocking<<Self as Messenger>::SendT> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
         Ok(SendStatus::Completed)
     }
 }

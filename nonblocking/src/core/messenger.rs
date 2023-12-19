@@ -62,7 +62,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageRecver<M, MAX_MSG_SIZE> {
         }
     }
 }
-impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvNonBlocking<M> for MessageRecver<M, MAX_MSG_SIZE> {
+impl<M: Messenger, const MAX_MSG_SIZE: usize> RecvNonBlocking<M::RecvT> for MessageRecver<M, MAX_MSG_SIZE> {
     #[inline(always)]
     fn recv(&mut self) -> Result<RecvStatus<M::RecvT>, Error> {
         let status = self.frm_reader.read_frame()?;
@@ -97,7 +97,7 @@ impl<M: Messenger, const MAX_MSG_SIZE: usize> MessageSender<M, MAX_MSG_SIZE> {
         }
     }
 }
-impl<M: Messenger, const MAX_MSG_SIZE: usize> SendNonBlockingNonMut<M> for MessageSender<M, MAX_MSG_SIZE> {
+impl<M: Messenger, const MAX_MSG_SIZE: usize> SendNonBlockingNonMut<M::SendT> for MessageSender<M, MAX_MSG_SIZE> {
     #[inline(always)]
     fn send(&mut self, msg: &<M as Messenger>::SendT) -> Result<SendStatus, Error> {
         let (bytes, size) = M::serialize::<MAX_MSG_SIZE>(msg)?;

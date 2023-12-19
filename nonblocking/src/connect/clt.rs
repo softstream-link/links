@@ -39,7 +39,7 @@ impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> CltRecver<P, C,
         }
     }
 }
-impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking<P> for CltRecver<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecv<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking<P::RecvT> for CltRecver<P, C, MAX_MSG_SIZE> {
     // NOTE: that the [RecvNonBlocking::recv_busywait] & [RecvNonBlocking::recv_busywait_timeout] default implementation
     // is not overridden because the callback is only issues when [RecvStatus::Completed] is returned, hence default implementation is sufficient
     #[inline(always)]
@@ -140,7 +140,7 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSender<P, C,
         self.on_disconnect_issued = true;
     }
 }
-impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for CltSender<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P::SendT> for CltSender<P, C, MAX_MSG_SIZE> {
     #[inline(always)]
     fn send(&mut self, msg: &mut <P as Messenger>::SendT) -> Result<SendStatus, Error> {
         self.protocol.on_send(self, msg);
@@ -255,7 +255,7 @@ pub struct CltRecverRef<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE:
     clt_sender: CltSenderRef<P, C, MAX_MSG_SIZE>,
     protocol: Arc<P>,
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking<P> for CltRecverRef<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking<P::RecvT> for CltRecverRef<P, C, MAX_MSG_SIZE> {
     /// Delegates to [CltRecver] and calls [Protocol::send_reply] when a message is received
     #[inline(always)]
     fn recv(&mut self) -> Result<RecvStatus<<P as Messenger>::RecvT>, Error> {
@@ -391,7 +391,7 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSenderRef<P,
         self.protocol.send_heart_beat(guard.deref_mut())
     }
 }
-impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for CltSenderRef<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P::SendT> for CltSenderRef<P, C, MAX_MSG_SIZE> {
     /// Delegates to [CltSender] once a spin lock is acquired.
     #[inline(always)]
     fn send(&mut self, msg: &mut <P as Messenger>::SendT) -> Result<SendStatus, Error> {
@@ -624,7 +624,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
         sender
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for Clt<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P::SendT> for Clt<P, C, MAX_MSG_SIZE> {
     /// Delegates to [CltSender]
     #[inline(always)]
     fn send(&mut self, msg: &mut <P as Messenger>::SendT) -> Result<SendStatus, Error> {
@@ -641,7 +641,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBloc
         self.clt_sender.send_busywait(msg)
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking<P> for Clt<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking<P::RecvT> for Clt<P, C, MAX_MSG_SIZE> {
     /// Delegates to [CltRecver]
     #[inline(always)]
     fn recv(&mut self) -> Result<RecvStatus<<P as Messenger>::RecvT>, Error> {

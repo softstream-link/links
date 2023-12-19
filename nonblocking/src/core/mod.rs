@@ -2,7 +2,7 @@ pub mod framer;
 pub mod messenger;
 pub mod protocol;
 
-use links_core::{core::conid::ConnectionId, prelude::Messenger};
+use links_core::core::conid::ConnectionId;
 use mio::{Interest, Registry, Token};
 use std::{
     fmt::{Debug, Display},
@@ -234,14 +234,14 @@ impl<T> RecvStatus<T> {
     }
 }
 
-pub trait RecvNonBlocking<M: Messenger>: Debug + Display {
+pub trait RecvNonBlocking<T>: Debug + Display {
     /// Will attempt to read a message from the stream. Each call to this method will
     /// attempt to read data from the stream via system call and if sufficient number of bytes were read to
     /// make a single frame it will attempt to deserialize it into a message and return it
-    fn recv(&mut self) -> Result<RecvStatus<M::RecvT>, Error>;
+    fn recv(&mut self) -> Result<RecvStatus<T>, Error>;
 
     /// Will call [Self::recv] until it returns [RecvStatus::Completed] or [RecvStatus::WouldBlock] after the timeout.
-    fn recv_busywait_timeout(&mut self, timeout: Duration) -> Result<RecvStatus<M::RecvT>, Error> {
+    fn recv_busywait_timeout(&mut self, timeout: Duration) -> Result<RecvStatus<T>, Error> {
         use RecvStatus::{Completed, WouldBlock};
         let start = Instant::now();
         loop {
@@ -256,7 +256,7 @@ pub trait RecvNonBlocking<M: Messenger>: Debug + Display {
         }
     }
     /// Will busywait block on [Self::recv] until it returns [RecvStatus::Completed]
-    fn recv_busywait(&mut self) -> Result<Option<M::RecvT>, Error> {
+    fn recv_busywait(&mut self) -> Result<Option<T>, Error> {
         use RecvStatus::{Completed, WouldBlock};
         loop {
             match self.recv()? {
@@ -300,14 +300,14 @@ impl SendStatus {
     }
 }
 
-pub trait SendNonBlocking<M: Messenger>: Debug + Display {
-    /// The call will internally serialize the [Messenger::SendT] and attempt to write the resulting bytes into a stream.
+pub trait SendNonBlocking<T>: Debug + Display {
+    /// The call will internally serialize the `T` and attempt to write the resulting bytes into a stream.
     /// If there was a successfull attempt which wrote some, not all, bytes from serialized message
     /// into the stream and hence the write was only partial, the call will busy wait until all of
     /// remaining bytes are written before returning [SendStatus::Completed].
     /// [SendStatus::WouldBlock] is returned only if the attempt did not write any bytes to the stream
     /// after the first attempt
-    fn send(&mut self, msg: &mut M::SendT) -> Result<SendStatus, Error>;
+    fn send(&mut self, msg: &mut T) -> Result<SendStatus, Error>;
 
     /// Will call [Self::send] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
     /// while propagating all errors from [Self::send]
@@ -316,7 +316,7 @@ pub trait SendNonBlocking<M: Messenger>: Debug + Display {
     /// Consider overriding this default implementation if your [Self::send] implementation issues callback functions
     /// calls which must be called once and only once.
     #[inline(always)]
-    fn send_busywait_timeout(&mut self, msg: &mut M::SendT, timeout: Duration) -> Result<SendStatus, Error> {
+    fn send_busywait_timeout(&mut self, msg: &mut T, timeout: Duration) -> Result<SendStatus, Error> {
         use SendStatus::{Completed, WouldBlock};
         let start = Instant::now();
         loop {
@@ -336,7 +336,7 @@ pub trait SendNonBlocking<M: Messenger>: Debug + Display {
     /// Consider overriding this default implementation if your [Self::send] implementation issues callback functions
     /// calls which must be called once and only once.
     #[inline(always)]
-    fn send_busywait(&mut self, msg: &mut M::SendT) -> Result<(), Error> {
+    fn send_busywait(&mut self, msg: &mut T) -> Result<(), Error> {
         use SendStatus::{Completed, WouldBlock};
         loop {
             match self.send(msg)? {
@@ -347,18 +347,18 @@ pub trait SendNonBlocking<M: Messenger>: Debug + Display {
     }
 }
 
-pub trait SendNonBlockingNonMut<M: Messenger> {
+pub trait SendNonBlockingNonMut<T> {
     /// The call will internally serialize the msg and attempt to write the resulting bytes into a stream.
     /// If there was a successfull attempt which wrote some bytes from serialized message
     /// into the stream but the write was only partial then the call will busy wait until all of
     /// remaining bytes were written before returning [SendStatus::Completed].
     /// [SendStatus::WouldBlock] is returned only if the attempt did not write any bytes to the stream
     /// after the first attempt
-    fn send(&mut self, msg: &<M as Messenger>::SendT) -> Result<SendStatus, Error>;
+    fn send(&mut self, msg: &T) -> Result<SendStatus, Error>;
 
     /// Will call [Self::send] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
     #[inline(always)]
-    fn send_busywait_timeout(&mut self, msg: &<M as Messenger>::SendT, timeout: Duration) -> Result<SendStatus, Error> {
+    fn send_busywait_timeout(&mut self, msg: &T, timeout: Duration) -> Result<SendStatus, Error> {
         let start = Instant::now();
         loop {
             match self.send(msg)? {
@@ -373,7 +373,7 @@ pub trait SendNonBlockingNonMut<M: Messenger> {
     }
     /// Will call [Self::send] until it returns [SendStatus::Completed]
     #[inline(always)]
-    fn send_busywait(&mut self, msg: &<M as Messenger>::SendT) -> Result<(), Error> {
+    fn send_busywait(&mut self, msg: &T) -> Result<(), Error> {
         use SendStatus::{Completed, WouldBlock};
         loop {
             match self.send(msg)? {

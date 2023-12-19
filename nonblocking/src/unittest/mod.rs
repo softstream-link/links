@@ -64,7 +64,7 @@ pub mod setup {
             }
         }
         impl ProtocolCore for SvcTestProtocolAuthAndHBeat {
-            fn on_connect<C: SendNonBlocking<Self> + RecvNonBlocking<Self> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
+            fn on_connect<C: SendNonBlocking<<Self as Messenger>::SendT> + RecvNonBlocking<<Self as Messenger>::RecvT> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
                 info!("on_connect: {}", con.con_id());
                 let timeout = Duration::from_secs(1);
                 match con.recv_busywait_timeout(timeout)? {
@@ -88,12 +88,12 @@ pub mod setup {
             fn conf_heart_beat_interval(&self) -> Option<Duration> {
                 Some(Duration::from_millis(100))
             }
-            fn send_heart_beat<S: SendNonBlocking<Self> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
+            fn send_heart_beat<S: SendNonBlocking<<Self as Messenger>::SendT> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
                 let mut msg: SvcTestMsg = SvcTestMsg::HBeat(Default::default());
                 sender.send(&mut msg)
             }
 
-            fn send_reply<S: SendNonBlocking<Self> + ConnectionId>(&self, msg: &<Self as Messenger>::RecvT, sender: &mut S) -> Result<(), Error> {
+            fn send_reply<S: SendNonBlocking<<Self as Messenger>::SendT> + ConnectionId>(&self, msg: &<Self as Messenger>::RecvT, sender: &mut S) -> Result<(), Error> {
                 if let CltTestMsg::Ping(_ping) = msg {
                     let mut msg = SvcTestMsgPong::default().into();
                     sender.send_busywait_timeout(&mut msg, Duration::from_millis(100))?;
@@ -145,7 +145,7 @@ pub mod setup {
             }
         }
         impl ProtocolCore for CltTestProtocolAuthAndHbeat {
-            fn on_connect<C: SendNonBlocking<Self> + RecvNonBlocking<Self> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
+            fn on_connect<C: SendNonBlocking<<Self as Messenger>::SendT> + RecvNonBlocking<<Self as Messenger>::RecvT> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
                 info!("on_connect: {}", con.con_id());
                 let timeout = Duration::from_secs(1);
                 let mut msg: CltTestMsg = CltTestMsgLoginReq::default().into();
@@ -161,7 +161,7 @@ pub mod setup {
             fn conf_heart_beat_interval(&self) -> Option<Duration> {
                 Some(Duration::from_millis(100))
             }
-            fn send_heart_beat<S: SendNonBlocking<Self> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
+            fn send_heart_beat<S: SendNonBlocking<<Self as Messenger>::SendT> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
                 let mut msg: CltTestMsg = CltTestMsg::HBeat(Default::default());
                 sender.send(&mut msg)
             }

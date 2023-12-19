@@ -131,7 +131,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> CltsPool<P,
         ((tx_recver, tx_sender), (recver_pool, sender_pool))
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P> for CltsPool<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking<P::SendT> for CltsPool<P, C, MAX_MSG_SIZE> {
     /// Will round robin [Clt]'s in the pool to propagate the call.
     ///
     /// # Important
@@ -145,7 +145,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBloc
         }
     }
 }
-impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking<P> for CltsPool<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBlocking<P::RecvT> for CltsPool<P, C, MAX_MSG_SIZE> {
     /// Will round robin [Clt]'s in the pool to propagate the call.
     /// Will return [Err(ErrorKind::NotConnected)] if the pool is empty, so that the [Self::recv_busywait] does not block indefinitely.
     #[inline(always)]
@@ -219,7 +219,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
 ///
 /// let addr = setup::net::rand_avail_addr_port();
 /// let (tx_recver, rx_recver) = channel();
-/// let mut pool = CltRecversPool::new(ConId::clt(None, None, addr), rx_recver, NonZeroUsize::new(2).unwrap());
+/// let mut pool = CltRecversPool::<CltTestProtocolManual, _>::new(ConId::clt(None, None, addr), rx_recver, NonZeroUsize::new(2).unwrap());
 ///
 /// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
 ///     addr, // "127.0.0.1:8080" generates a random port
@@ -237,13 +237,13 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
 /// }
 /// ```
 #[derive(Debug)]
-pub struct CltRecversPool<M: Messenger + 'static, R: RecvNonBlocking<M> + ConnectionStatus> {
+pub struct CltRecversPool<M: Messenger + 'static, R: RecvNonBlocking<M::RecvT> + ConnectionStatus> {
     con_id: ConId,
     rx_recver: Receiver<R>,
     recvers: RoundRobinPool<R>,
     phantom: PhantomData<M>,
 }
-impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> CltRecversPool<M, R> {
+impl<M: Messenger, R: RecvNonBlocking<M::RecvT> + ConnectionStatus> CltRecversPool<M, R> {
     /// Creates a new instance of [CltRecversPool]
     pub fn new(con_id: ConId, rx_recver: Receiver<R>, max_connections: NonZeroUsize) -> Self {
         Self {
@@ -270,7 +270,7 @@ impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> CltRecversPool<M, R
         self.recvers.max_capacity()
     }
 }
-impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> SvcAcceptorOfCltNonBlocking<R> for CltRecversPool<M, R> {
+impl<M: Messenger, R: RecvNonBlocking<M::RecvT> + ConnectionStatus> SvcAcceptorOfCltNonBlocking<R> for CltRecversPool<M, R> {
     /// Will interrogate internal [channel] for new [CltRecver]s.
     /// # Returns
     /// * [Ok(AcceptStatus::Accepted(Some))] - if a new [CltRecver] is available
@@ -286,7 +286,7 @@ impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> SvcAcceptorOfCltNon
         }
     }
 }
-impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> PoolSvcAcceptorOfCltNonBlocking for CltRecversPool<M, R> {
+impl<M: Messenger, R: RecvNonBlocking<M::RecvT> + ConnectionStatus> PoolSvcAcceptorOfCltNonBlocking for CltRecversPool<M, R> {
     /// Will `once ` interrogate internal [channel] for a new [CltRecver] and add it to the connection pool if there is capacity.
     /// Otherwise the [CltRecver] will be dropped and [Ok(PoolAcceptStatus::WouldBlock)] returned
     fn accept_into_pool(&mut self) -> Result<PoolAcceptStatus, Error> {
@@ -304,12 +304,12 @@ impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> PoolSvcAcceptorOfCl
         }
     }
 }
-impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> ConnectionId for CltRecversPool<M, R> {
+impl<M: Messenger, R: RecvNonBlocking<M::RecvT> + ConnectionStatus> ConnectionId for CltRecversPool<M, R> {
     fn con_id(&self) -> &ConId {
         &self.con_id
     }
 }
-impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> RecvNonBlocking<M> for CltRecversPool<M, R> {
+impl<M: Messenger, R: RecvNonBlocking<M::RecvT> + ConnectionStatus> RecvNonBlocking<M::RecvT> for CltRecversPool<M, R> {
     /// Will round robin [CltRecver]'s in the pool to propagate the call.
     /// If the recver connection is dead it will be removed and relevant error propagated.
     /// In order to try next recver the caller must call this method again.
@@ -404,7 +404,7 @@ impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> RecvNonBlocking<M> 
         }
     }
 }
-impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> PoolConnectionStatus for CltRecversPool<M, R> {
+impl<M: Messenger, R: RecvNonBlocking<M::RecvT> + ConnectionStatus> PoolConnectionStatus for CltRecversPool<M, R> {
     /// Will test connection status of the next [CltRecver] in the pool that will be used to service [RecvNonBlocking::recv]
     ///
     /// # Important
@@ -440,7 +440,7 @@ impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> PoolConnectionStatu
         true
     }
 }
-impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> Display for CltRecversPool<M, R> {
+impl<M: Messenger, R: RecvNonBlocking<M::RecvT> + ConnectionStatus> Display for CltRecversPool<M, R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
         let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
@@ -459,7 +459,7 @@ impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> Display for CltRecv
 ///
 /// let addr = setup::net::rand_avail_addr_port(); // "127.0.0.1:8080" generates a random port
 /// let (tx_recver, rx_recver) = channel();
-/// let mut pool = CltSendersPool::new(ConId::clt(None, None, addr), rx_recver, NonZeroUsize::new(2).unwrap());
+/// let mut pool = CltSendersPool::<CltTestProtocolManual, _>::new(ConId::clt(None, None, addr), rx_recver, NonZeroUsize::new(2).unwrap());
 ///
 /// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
 ///     addr,
@@ -477,13 +477,13 @@ impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> Display for CltRecv
 /// }
 /// ```
 #[derive(Debug)]
-pub struct CltSendersPool<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> {
+pub struct CltSendersPool<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> {
     con_id: ConId,
     rx_sender: Receiver<S>,
     senders: RoundRobinPool<S>,
     phantom: PhantomData<M>,
 }
-impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> CltSendersPool<M, S> {
     /// Creates a new instance of [CltSendersPool]
     pub fn new(con_id: ConId, rx_sender: Receiver<S>, max_connections: NonZeroUsize) -> Self {
         Self {
@@ -513,7 +513,7 @@ impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> CltSendersPool<M, S
         self.senders.iter()
     }
 }
-impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> SvcAcceptorOfCltNonBlocking<S> for CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> SvcAcceptorOfCltNonBlocking<S> for CltSendersPool<M, S> {
     /// Will interrogate internal [channel] for new [CltSender]s.
     /// # Returns
     /// * [Ok(AcceptStatus::Accepted(Some))] - if a new [CltSender] is available
@@ -529,7 +529,7 @@ impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> SvcAcceptorOfCltNon
         }
     }
 }
-impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> PoolSvcAcceptorOfCltNonBlocking for CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> PoolSvcAcceptorOfCltNonBlocking for CltSendersPool<M, S> {
     /// Will `once ` interrogate internal [channel] for a new [CltSender] and add it to the connection pool if there is capacity.
     /// Otherwise the [CltSender] will be dropped and [Ok(PoolAcceptStatus::WouldBlock)] returned
     #[inline(always)]
@@ -548,12 +548,12 @@ impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> PoolSvcAcceptorOfCl
         }
     }
 }
-impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> ConnectionId for CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> ConnectionId for CltSendersPool<M, S> {
     fn con_id(&self) -> &ConId {
         &self.con_id
     }
 }
-impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> SendNonBlocking<M> for CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> SendNonBlocking<M::SendT> for CltSendersPool<M, S> {
     /// Will round robin [CltSender]'s in the pool to propagate the call.
     /// If the sender connection is dead it will be removed and relevant error propagated.
     /// In order to try next recver the caller must call this method again.
@@ -640,7 +640,7 @@ impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> SendNonBlocking<M> 
         }
     }
 }
-impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> PoolConnectionStatus for CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> PoolConnectionStatus for CltSendersPool<M, S> {
     /// Will test connection status of the next [CltSender] in the pool that will be used to service [SendNonBlocking::send]
     ///
     /// # Important
@@ -676,7 +676,7 @@ impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> PoolConnectionStatu
         true
     }
 }
-impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> Display for CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> Display for CltSendersPool<M, S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let recv_t = std::any::type_name::<M::RecvT>().split("::").last().unwrap_or("Unknown").replace('>', "");
         let send_t = std::any::type_name::<M::SendT>().split("::").last().unwrap_or("Unknown").replace('>', "");
