@@ -22,13 +22,13 @@ pub type SplitCltsPool<M, R, S> = ((Sender<R>, Sender<S>), (CltRecversPool<M, R>
 /// ```
 /// use links_nonblocking::{prelude::*, unittest::setup::protocol::CltTestProtocolManual};
 /// use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE, model::{CltTestMsg, CltTestMsgDebug, SvcTestMsg, SvcTestMsgDebug}};
-/// use std::time::Duration;
+/// use std::{time::Duration, num::NonZeroUsize};
 ///
-///
-/// let mut pool = CltsPool::default();
+/// let addr = setup::net::rand_avail_addr_port();
+/// let mut pool = CltsPool::new( ConId::clt(None, None, addr), NonZeroUsize::new(1).unwrap());
 ///
 /// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-///     setup::net::rand_avail_addr_port(), // "127.0.0.1:9090" generates a random port
+///     addr, // "127.0.0.1:9090" generates a random port
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::default().into(),
@@ -217,12 +217,12 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
 /// use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE};
 /// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
 ///
-///
+/// let addr = setup::net::rand_avail_addr_port();
 /// let (tx_recver, rx_recver) = channel();
-/// let mut pool = CltRecversPool::new(rx_recver, NonZeroUsize::new(2).unwrap());
+/// let mut pool = CltRecversPool::new(ConId::clt(None, None, addr), rx_recver, NonZeroUsize::new(2).unwrap());
 ///
 /// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-///     setup::net::rand_avail_addr_port(), // "127.0.0.1:8080" generates a random port
+///     addr, // "127.0.0.1:8080" generates a random port
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::default().into(),
@@ -266,7 +266,7 @@ impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> CltRecversPool<M, R
     pub fn has_capacity(&self) -> bool {
         self.recvers.has_capacity()
     }
-    pub fn max_connection(&self) -> NonZeroUsize {
+    pub fn max_connections(&self) -> NonZeroUsize {
         self.recvers.max_capacity()
     }
 }
@@ -457,12 +457,12 @@ impl<M: Messenger, R: RecvNonBlocking<M> + ConnectionStatus> Display for CltRecv
 /// use links_core::unittest::setup::{self, framer::TEST_MSG_FRAME_SIZE};
 /// use std::{sync::mpsc::channel, time::Duration, num::NonZeroUsize};
 ///
-///
+/// let addr = setup::net::rand_avail_addr_port(); // "127.0.0.1:8080" generates a random port
 /// let (tx_recver, rx_recver) = channel();
-/// let mut pool = CltSendersPool::new(rx_recver, NonZeroUsize::new(2).unwrap());
+/// let mut pool = CltSendersPool::new(ConId::clt(None, None, addr), rx_recver, NonZeroUsize::new(2).unwrap());
 ///
 /// let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
-///     setup::net::rand_avail_addr_port(), // "127.0.0.1:8080" generates a random port
+///     addr,
 ///     Duration::from_millis(100),
 ///     Duration::from_millis(10),
 ///     DevNullCallback::default().into(),
@@ -506,7 +506,7 @@ impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> CltSendersPool<M, S
     pub fn has_capacity(&self) -> bool {
         self.senders.has_capacity()
     }
-    pub fn max_connection(&self) -> NonZeroUsize {
+    pub fn max_connections(&self) -> NonZeroUsize {
         self.senders.max_capacity()
     }
     pub fn iter(&self) -> Iter<'_, S> {
