@@ -113,6 +113,7 @@ pub trait PoolConnectionStatus {
             if self.is_next_connected() {
                 return true;
             }
+            std::hint::spin_loop();
         }
         false
     }

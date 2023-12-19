@@ -10,7 +10,7 @@ use std::{
     marker::PhantomData,
     num::NonZeroUsize,
     sync::mpsc::{channel, Receiver, Sender},
-    time::Instant,
+    time::Instant
 };
 
 use super::clt::{Clt, CltRecverRef, CltSenderRef};
@@ -616,8 +616,6 @@ impl<M: Messenger, S: SendNonBlocking<M> + ConnectionStatus> SendNonBlocking<M> 
                     if start.elapsed() > timeout {
                         return Err(e);
                     }
-
-                    // info!("sending busy_wait_timeout not timeout yet");
                     continue;
                 }
                 Err(e) => return Err(e),

@@ -524,7 +524,9 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clt<P, C, M
             match TcpStream::connect(addr) {
                 Err(e) => {
                     sleep(retry_after); // NOTE this will not be use by poll because it creates a client using a from_stream method
-                    debug!("{} connection failed. e: {:?}", con_id, e);
+                    if log_enabled!(log::Level::Debug) {
+                        debug!("{} connection failed. e: {:?}", con_id, e);
+                    }
                     continue;
                 }
                 Ok(stream) => {

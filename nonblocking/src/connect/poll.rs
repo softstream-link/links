@@ -4,6 +4,7 @@ use log::{debug, info, log_enabled, warn, Level};
 use mio::{Events, Poll, Token, Waker};
 use slab::Slab;
 use std::{
+    fmt::Display,
     io::Error,
     sync::mpsc::{channel, Receiver, Sender, TryRecvError},
     thread::Builder,
@@ -49,6 +50,16 @@ enum Serviceable<R: PollRead, A: PollAccept<R>> {
     Acceptor(A),
     Recver(R),
     Waker,
+}
+impl<R: PollRead, A: PollAccept<R>> Display for Serviceable<R, A> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = asserted_short_name!("Serviceable", Self);
+        match self {
+            Serviceable::Acceptor(acceptor) => write!(f, "{}::Acceptor({})", name, acceptor.con_id()),
+            Serviceable::Recver(recver) => write!(f, "{}::Recver({})", name, recver.con_id()),
+            Serviceable::Waker => write!(f, "{}::Waker", name),
+        }
+    }
 }
 
 /// A wrapper struct to that will use a designated thread to handle [TransmittingSvcAcceptor] or [TransmittingSvcAcceptorRef] events
@@ -122,70 +133,80 @@ impl<R: PollRead, A: PollAccept<R>> PollHandler<R, A> {
         loop {
             // keep going until all serviceable for the given poll events can't yield anymore
             let mut had_yield = false;
+            let mut iteration = 0;
             for event in &self.events {
+                iteration += 1;
                 let key = event.token().into();
-                let serviceable = self.serviceable.get_mut(key);
-                match serviceable {
-                    Some(Recver(recver)) => match recver.on_readable_event() {
-                        Ok(Completed) => {
-                            had_yield = true;
-                            continue;
-                        }
-                        Ok(WouldBlock) => continue,
-                        Ok(Terminate) => {
-                            if log_enabled!(Level::Info) {
-                                info!("Clean, service loop termination recver: {}", recver);
+                let opt = self.serviceable.get_mut(key);
+                if let Some(serviceable) = opt {
+                    if log_enabled!(Level::Debug) {
+                        debug!("Iteration #{}, Servicing {} with token: {:?} 1 of #{}", iteration, serviceable, Token(key), self.events.iter().count());
+                    }
+
+                    match serviceable {
+                        Recver(recver) => match recver.on_readable_event() {
+                            Ok(Completed) => {
+                                had_yield = true;
+                                continue;
                             }
-                            // USING recver.deregister method instead of recver.source to enable overriding of deregister method when locking is required
-                            // self.poll.registry().deregister(*recver.source())?;
-                            recver.deregister(self.poll.registry())?;
-                            self.serviceable.remove(key);
-                        }
-                        Err(e) => {
-                            if log_enabled!(Level::Warn) {
-                                warn!("Error, service loop termination recver: {}, error: {}", recver, e);
+                            Ok(WouldBlock) => continue,
+                            Ok(Terminate) => {
+                                if log_enabled!(Level::Info) {
+                                    info!("Clean, service loop termination recver: {}", recver);
+                                }
+                                // USING recver.deregister method instead of recver.source to enable overriding of deregister method when locking is required
+                                // self.poll.registry().deregister(*recver.source())?;
+                                recver.deregister(self.poll.registry())?;
+                                self.serviceable.remove(key);
                             }
-                            // USING recver.deregister method instead of recver.source to enable overriding of deregister method when locking is required
-                            // self.poll.registry().deregister(*recver.source())?;
-                            recver.deregister(self.poll.registry())?;
-                            self.serviceable.remove(key);
-                        }
-                    },
-                    Some(Acceptor(acceptor)) => match acceptor.poll_accept() {
-                        Ok(AcceptStatus::Accepted(recver)) => {
-                            let token = Token(self.serviceable.insert(Recver(recver)));
-                            if let Recver(ref mut recver) = self.serviceable[token.into()] {
-                                register_recver_as_readable!(self, recver, token);
+                            Err(e) => {
+                                if log_enabled!(Level::Warn) {
+                                    warn!("Error, service loop termination recver: {}, error: {}", recver, e);
+                                }
+                                // USING recver.deregister method instead of recver.source to enable overriding of deregister method when locking is required
+                                // self.poll.registry().deregister(*recver.source())?;
+                                recver.deregister(self.poll.registry())?;
+                                self.serviceable.remove(key);
                             }
-                            had_yield = true;
-                        }
-                        Ok(AcceptStatus::Rejected) => {
-                            had_yield = true;
-                        }
-                        Ok(AcceptStatus::WouldBlock) => continue,
-                        Err(e) => {
-                            if log_enabled!(Level::Warn) {
-                                warn!("Error, service loop termination acceptor: {}, error: {}", acceptor, e);
-                            }
-                            // USING acceptor.deregister method instead of acceptor.source to enable overriding of deregister method when locking is required
-                            // self.poll.registry().deregister(*acceptor.source())?;
-                            acceptor.deregister(self.poll.registry())?;
-                            self.serviceable.remove(key);
-                        }
-                    },
-                    Some(Waker) => {
-                        // logging here causes python to hang
-                        match rx_serviceable.try_recv() {
-                            Ok(serviceable) => {
-                                register_serviceable_as_readable!(self, serviceable);
+                        },
+                        Acceptor(acceptor) => match acceptor.poll_accept() {
+                            Ok(AcceptStatus::Accepted(recver)) => {
+                                let token = Token(self.serviceable.insert(Recver(recver)));
+                                if let Recver(ref mut recver) = self.serviceable[token.into()] {
+                                    register_recver_as_readable!(self, recver, token);
+                                }
                                 had_yield = true;
                             }
-                            Err(TryRecvError::Empty) => {}
-                            Err(e) => panic!("Could not receive Serviceable from rx_serviceable channel: {:?}. This is not a possible condition error: {}", rx_serviceable, e),
+                            Ok(AcceptStatus::Rejected) => {
+                                had_yield = true;
+                            }
+                            Ok(AcceptStatus::WouldBlock) => continue,
+                            Err(e) => {
+                                if log_enabled!(Level::Warn) {
+                                    warn!("Error, service loop termination acceptor: {}, error: {}", acceptor, e);
+                                }
+                                // USING acceptor.deregister method instead of acceptor.source to enable overriding of deregister method when locking is required
+                                // self.poll.registry().deregister(*acceptor.source())?;
+                                acceptor.deregister(self.poll.registry())?;
+                                self.serviceable.remove(key);
+                            }
+                        },
+                        Waker => {
+                            match rx_serviceable.try_recv() {
+                                Ok(serviceable) => {
+                                    if log_enabled!(Level::Debug) {
+                                        debug!("Waker received new serviceable: {}", serviceable);
+                                    }
+                                    register_serviceable_as_readable!(self, serviceable);
+                                    had_yield = true;
+                                }
+                                Err(TryRecvError::Empty) => {}
+                                Err(e) => panic!("Could not receive Serviceable from rx_serviceable channel: {:?}. This is not a possible condition error: {}", rx_serviceable, e),
+                            }
                         }
                     }
-                    None => {} // possible when the serviceable is removed during error or terminate request but other serviceable still yielding
                 }
+                // else ==> None  // possible when the serviceable is removed during error or terminate request but other serviceable still yielding
             }
             // only return once every event in the for loop yields WouldBlock
             if !had_yield {
@@ -259,13 +280,22 @@ impl<R: PollRead, A: PollAccept<R>> SpawnedPollHandler<R, A> {
     pub fn add_acceptor(&self, acceptor: A) {
         self.tx_serviceable.send(Serviceable::Acceptor(acceptor)).expect("Failed to send acceptor to PollHandler");
         self.waker.wake().expect("Failed to wake PollHandler after sending acceptor");
+        if log_enabled!(Level::Debug) {
+            debug!("{}::add_acceptor sent acceptor to PollHandler and called waker", asserted_short_name!("SpawnedPollHandler", Self));
+        }
     }
     pub fn add_recver(&self, recver: R) {
         self.tx_serviceable.send(Serviceable::Recver(recver)).expect("Failed to send recver to PollHandler");
         self.waker.wake().expect("Failed to wake PollHandler after sending recver");
+        if log_enabled!(Level::Debug) {
+            debug!("{}::add_recver sent recver to PollHandler and called waker", asserted_short_name!("SpawnedPollHandler", Self));
+        }
     }
     pub fn wake(&self) {
         self.waker.wake().expect("Failed to wake PollHandler");
+        if log_enabled!(Level::Debug) {
+            debug!("{}::wake to PollHandler", asserted_short_name!("SpawnedPollHandler", Self));
+        }
     }
 }
 /// A [PollHandler] that can handle any [PollAccept] and [PollRead] instances using dynamic dispatch at the cost of performance
@@ -401,10 +431,10 @@ mod test {
         poll_handler.add_acceptor(acceptor1.into());
         poll_handler.add_acceptor(acceptor2.into());
 
-        let poll_adder = poll_handler.into_spawned_handler("Dynamic-Svc/Clt-Poll-Thread");
+        let spawned_poll_handler = poll_handler.into_spawned_handler("Dynamic-Svc/Clt-Poll-Thread");
         // try adding after spawning
-        poll_adder.add_recver(Box::new(clt1_recver));
-        poll_adder.add_recver(Box::new(clt2_recver));
+        spawned_poll_handler.add_recver(Box::new(clt1_recver));
+        spawned_poll_handler.add_recver(Box::new(clt2_recver));
 
         clt1.send_busywait(&mut CltTestMsgDebug::new(b"Hello From Clt1").into()).unwrap();
         clt2.send_busywait(&mut CltTestMsgDebug::new(b"Hello From Clt2").into()).unwrap();
