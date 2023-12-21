@@ -387,7 +387,7 @@ pub trait SendNonBlockingNonMut<T> {
     }
 }
 
-pub trait SendNonBlockingNonMutByPass<T> {
+pub trait ReSendNonBlocking<T> {
     /// The call will internally serialize the msg and attempt to write the resulting bytes into a stream.
     /// If there was a successfull attempt which wrote some bytes from serialized message
     /// into the stream but the write was only partial then the call will busy wait until all of
@@ -397,14 +397,14 @@ pub trait SendNonBlockingNonMutByPass<T> {
     ///
     /// # Important
     /// * The implementation will Not [crate::prelude::Protocol] & [links_core::prelude::CallbackSend] hooks
-    fn send_bypass(&mut self, msg: &T) -> Result<SendStatus, Error>;
+    fn re_send(&mut self, msg: &T) -> Result<SendStatus, Error>;
 
-    /// Will call [`Self::send_bypass`] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
+    /// Will call [`Self::re_send`] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
     #[inline(always)]
-    fn send_busywait_timeout_bypass(&mut self, msg: &T, timeout: Duration) -> Result<SendStatus, Error> {
+    fn re_send_busywait_timeout(&mut self, msg: &T, timeout: Duration) -> Result<SendStatus, Error> {
         let start = Instant::now();
         loop {
-            match self.send_bypass(msg)? {
+            match self.re_send(msg)? {
                 SendStatus::Completed => return Ok(SendStatus::Completed),
                 SendStatus::WouldBlock => {
                     if start.elapsed() > timeout {
@@ -414,12 +414,12 @@ pub trait SendNonBlockingNonMutByPass<T> {
             }
         }
     }
-    /// Will call [`Self::send_bypass`] until it returns [SendStatus::Completed]
+    /// Will call [`Self::re_send`] until it returns [SendStatus::Completed]
     #[inline(always)]
-    fn send_busywait_bypasss(&mut self, msg: &T) -> Result<(), Error> {
+    fn re_send_busywait(&mut self, msg: &T) -> Result<(), Error> {
         use SendStatus::{Completed, WouldBlock};
         loop {
-            match self.send_bypass(msg)? {
+            match self.re_send(msg)? {
                 Completed => return Ok(()),
                 WouldBlock => continue,
             }
