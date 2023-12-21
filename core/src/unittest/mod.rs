@@ -98,7 +98,7 @@ pub mod setup {
         }
 
         pub fn default_connect_timeout() -> Duration {
-            Duration::from_millis(500) // 0.5 sec
+            Duration::from_millis(500) // 500 mil | 0.5 sec
         }
         
         pub fn default_connect_retry_after() -> Duration {
@@ -109,7 +109,7 @@ pub mod setup {
             Duration::from_micros(500) // 500 mic | 0.5 mil | 0.000500 sec
         }
         pub fn optional_find_timeout() -> Option<Duration> {
-            Some(Duration::from_millis(10)) // 0.01 sec
+            Some(Duration::from_millis(10)) // 10 mil  | 0.001 sec
         }
     }
     pub mod data {

@@ -132,7 +132,7 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSender<P, C,
                     warn!("Timed out {}::on_disconnect timeout: {:?}, msg: {:?}, cond_id: {}", asserted_short_name!("CltSender", Self), timeout, msg, self.con_id());
                 }
                 Err(err) => {
-                    warn!("Failed to complete {}::on_disconnect, did you drop CltRecver before sender? msg: {:?}, err:\n{}", asserted_short_name!("CltSender", Self), msg, err);
+                    warn!("Failed to complete {}::on_disconnect, did peer terminate connection or did you drop CltRecver before sender? msg: {:?}, err:\n{}", asserted_short_name!("CltSender", Self), msg, err);
                     // con_id is in the error
                 }
             }
