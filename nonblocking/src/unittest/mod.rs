@@ -1,7 +1,7 @@
 pub mod setup {
     pub mod protocol {
         use crate::{
-            core::{protocol::ProtocolCore, RecvNonBlocking, RecvStatus, SendNonBlocking, SendStatus},
+            core::{protocol::ProtocolCore, ReSendNonBlocking, RecvNonBlocking, RecvStatus, SendNonBlocking, SendStatus},
             prelude::{Framer, Messenger, Protocol},
         };
         use links_core::{
@@ -64,7 +64,7 @@ pub mod setup {
             }
         }
         impl ProtocolCore for SvcTestProtocolAuthAndHBeat {
-            fn on_connect<C: SendNonBlocking<<Self as Messenger>::SendT> + RecvNonBlocking<<Self as Messenger>::RecvT> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
+            fn on_connect<C: SendNonBlocking<<Self as Messenger>::SendT> + ReSendNonBlocking<<Self as Messenger>::SendT> + RecvNonBlocking<<Self as Messenger>::RecvT> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
                 info!("on_connect: {}", con.con_id());
                 let timeout = Duration::from_secs(1);
                 match con.recv_busywait_timeout(timeout)? {
@@ -149,7 +149,7 @@ pub mod setup {
             }
         }
         impl ProtocolCore for CltTestProtocolAuthAndHbeat {
-            fn on_connect<C: SendNonBlocking<<Self as Messenger>::SendT> + RecvNonBlocking<<Self as Messenger>::RecvT> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
+            fn on_connect<C: SendNonBlocking<<Self as Messenger>::SendT> + ReSendNonBlocking<<Self as Messenger>::SendT> + RecvNonBlocking<<Self as Messenger>::RecvT> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
                 info!("on_connect: {}", con.con_id());
                 let timeout = Duration::from_secs(1);
                 let mut msg: CltTestMsg = CltTestMsgLoginReq::default().into();
