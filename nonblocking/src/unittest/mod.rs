@@ -121,7 +121,11 @@ pub mod setup {
                 CltTestMessenger::serialize(msg)
             }
         }
-        impl ProtocolCore for CltTestProtocolManual {}
+        impl ProtocolCore for CltTestProtocolManual {
+            fn is_connected(&self) -> bool {
+                true
+            }
+        }
         impl Protocol for CltTestProtocolManual {}
 
         /// Provides an [ProtocolCore::on_connect] implementation]

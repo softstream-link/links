@@ -677,4 +677,96 @@ mod test {
         info!("status: {:?}", status);
         assert!(matches!(status, RecvStatus::Completed(Some(SvcTestMsg::Final(_)))));
     }
+
+    #[test]
+    fn test_svc_clt_connected_spawned_recver() {
+        setup::log::configure_level(LevelFilter::Info);
+        let addr = setup::net::rand_avail_addr_port();
+        let clt_count = CounterCallback::new_ref();
+        let svc_count = CounterCallback::new_ref();
+        let clt_clbk = ChainCallback::new_ref(vec![LoggerCallback::with_level_ref(log::Level::Info, log::Level::Debug), clt_count.clone()]);
+        let svc_clbk = ChainCallback::new_ref(vec![LoggerCallback::with_level_ref(log::Level::Info, log::Level::Debug), svc_count.clone()]);
+        let io_timeout = setup::net::default_io_timeout();
+
+        let protocol = SvcTestProtocolManual::default();
+        let mut svc_sender = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), svc_clbk, protocol, Some("unittest"))
+            .unwrap()
+            .into_sender_with_spawned_recver();
+
+        let protocol = CltTestProtocolManual::default();
+        let mut clt_sender = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), clt_clbk, protocol, Some("unittest"))
+            .unwrap()
+            .into_sender_with_spawned_recver();
+
+        info!("clt_sender.is_connected(): {}", clt_sender.is_connected());
+        info!("svc_sender.all_connected(): {}", svc_sender.all_connected());
+
+        info!("clt_count: {}", clt_count);
+        assert_eq!(clt_count.sent_count(), 0);
+        info!("svc_count: {}", svc_count);
+        assert_eq!(svc_count.sent_count(), 0);
+
+        const N: usize = 10;
+        for i in 1..=N {
+            clt_sender.send_busywait_timeout(&mut CltTestMsgDebug::new(format!("Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
+        }
+        assert_eq!(svc_count.recv_count_busywait_timeout(N, io_timeout), N);
+        info!("scv_count: {}", svc_count);
+        assert_eq!(svc_count.sent_count(), 0);
+        assert_eq!(clt_count.sent_count(), N);
+
+        for i in 1..=N {
+            svc_sender.send_busywait_timeout(&mut SvcTestMsgDebug::new(format!("Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
+        }
+        assert_eq!(clt_count.recv_count_busywait_timeout(N, io_timeout), N);
+        info!("clt_count: {}", clt_count);
+        assert_eq!(svc_count.sent_count(), N);
+        assert_eq!(clt_count.sent_count(), N);
+    }
+
+    #[test]
+    fn test_svc_clt_connected_spawned_recver_ref() {
+        setup::log::configure_level(LevelFilter::Info);
+        let addr = setup::net::rand_avail_addr_port();
+        let clt_count = CounterCallback::new_ref();
+        let svc_count = CounterCallback::new_ref();
+        let clt_clbk = ChainCallback::new_ref(vec![LoggerCallback::with_level_ref(log::Level::Info, log::Level::Debug), clt_count.clone()]);
+        let svc_clbk = ChainCallback::new_ref(vec![LoggerCallback::with_level_ref(log::Level::Info, log::Level::Debug), svc_count.clone()]);
+        let io_timeout = setup::net::default_io_timeout();
+
+        let protocol = SvcTestProtocolManual::default();
+        let mut svc_sender = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), svc_clbk, protocol, Some("unittest"))
+            .unwrap()
+            .into_sender_with_spawned_recver_ref();
+
+        let protocol = CltTestProtocolManual::default();
+        let mut clt_sender = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), clt_clbk, protocol, Some("unittest"))
+            .unwrap()
+            .into_sender_with_spawned_recver_ref();
+
+        info!("clt_sender.is_connected(): {}", clt_sender.is_connected());
+        info!("svc_sender.all_connected(): {}", svc_sender.all_connected());
+
+        info!("clt_count: {}", clt_count);
+        assert_eq!(clt_count.sent_count(), 0);
+        info!("svc_count: {}", svc_count);
+        assert_eq!(svc_count.sent_count(), 0);
+
+        const N: usize = 10;
+        for i in 1..=N {
+            clt_sender.send_busywait_timeout(&mut CltTestMsgDebug::new(format!("Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
+        }
+        assert_eq!(svc_count.recv_count_busywait_timeout(N, io_timeout), N);
+        info!("scv_count: {}", svc_count);
+        assert_eq!(svc_count.sent_count(), 0);
+        assert_eq!(clt_count.sent_count(), N);
+
+        for i in 1..=N {
+            svc_sender.send_busywait_timeout(&mut SvcTestMsgDebug::new(format!("Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
+        }
+        assert_eq!(clt_count.recv_count_busywait_timeout(N, io_timeout), N);
+        info!("clt_count: {}", clt_count);
+        assert_eq!(svc_count.sent_count(), N);
+        assert_eq!(clt_count.sent_count(), N);
+    }
 }
