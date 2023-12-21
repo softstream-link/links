@@ -95,6 +95,9 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
     /// If the [FrameWriter] `pair` is dropped this method will return [RecvStatus::Completed(None)]
     #[inline(always)]
     pub fn read_frame(&mut self) -> Result<RecvStatus<Bytes>, Error> {
+        if let Some(bytes) = F::get_frame(&mut self.buffer) {
+            return Ok(RecvStatus::Completed(Some(bytes)));
+        }
         // TODO evaluate if it is possible to use unsafe set_len on buf then we would not need a MAX_MSG_SIZE generic as it can just be an non const arg to new
         #[allow(clippy::uninit_assumed_init)]
         let mut buf: [u8; MAX_MSG_SIZE] = unsafe { MaybeUninit::uninit().assume_init() };
@@ -224,6 +227,7 @@ impl FrameWriter {
                 }
                 Ok(len) => {
                     if len == residual.len() {
+                        self.stream_writer.flush().unwrap();
                         return Ok(SendStatus::Completed);
                     } else {
                         residual = &residual[len..];
@@ -253,6 +257,7 @@ impl FrameWriter {
                 }
             }
         }
+        // Shall never get here as it would indicate that we are trying to send an empty slice
         Ok(SendStatus::Completed)
     }
 

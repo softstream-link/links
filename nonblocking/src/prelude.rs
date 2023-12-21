@@ -1,7 +1,11 @@
 pub use crate::core::{
     framer::{into_split_framer, FrameReader, FrameWriter},
     messenger::{into_split_messenger, MessageRecver, MessageSender},
-    protocol::{Protocol, ProtocolCore, ProtocolConnectionState, ProtocolSessionState},
+    protocol::{
+        persistance::{FileMessageLog, InMemoryMessageLog, ProtocolStorage},
+        state::{ProtocolConnectionState, ProtocolSessionState},
+        Protocol, ProtocolCore,
+    },
     AcceptStatus, PollAble, PollAccept, PollEventStatus, PollRead, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut, SendStatus, SvcAcceptorOfCltNonBlocking,
 };
 

@@ -644,7 +644,7 @@ mod test {
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
         let protocol = SvcTestProtocolAuthAndHBeat::default();
         let (mut svc_acceptor, _svc_pool_recver, svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), callback, protocol, Some("unittest")).unwrap().into_split_ref();
-        info!("svc_acceptor: {}", svc_acceptor);
+        // info!("svc_acceptor: {}", svc_acceptor);
 
         let clt_jh = Builder::new()
             .name("Clt-Thread".to_owned())
@@ -652,7 +652,7 @@ mod test {
                 let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
                 let protocol = CltTestProtocolManual::default();
                 let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
-                info!("clt: {}", clt);
+                // info!("clt: {}", clt);
                 let timeout = Duration::from_millis(100);
                 clt.send_busywait_timeout(&mut CltTestMsgLoginReq::default().into(), timeout).unwrap();
                 let msg = clt.recv_busywait_timeout(timeout).unwrap();

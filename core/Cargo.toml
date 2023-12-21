@@ -12,6 +12,7 @@ log = { workspace = true }
 slab = { workspace = true } # slab allocator
 
 chrono = { workspace = true }
+spin = { workspace = true } # spin mutex
 
 byteserde = { workspace = true } # TODO should be eliminated once trait Messenger is moved to tempalte serializization
 

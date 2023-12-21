@@ -59,7 +59,15 @@ pub mod setup {
                             let _ = it.next();
                             let last = it.next().unwrap();
                             let args = record.args();
-                            writeln!(buf, "{ts} {level} {first}::*::{last} {args}")
+
+                            let thread = std::thread::current();
+                            let id = thread.id();
+                            let mut name = thread.name().unwrap_or(format!("Thread-{id:?}").as_str()).to_owned();
+                            if name.contains("::"){
+                                name = "main-Thread".to_owned();
+                            }
+
+                            writeln!(buf, "{ts} {level} ({name}) {first}::*::{last} {args}")
                         })
                         // .format_timestamp_micro s()
                         .is_test(false) // disables color in the terminal
@@ -92,10 +100,14 @@ pub mod setup {
         pub fn default_connect_timeout() -> Duration {
             Duration::from_millis(500) // 0.5 sec
         }
+        
         pub fn default_connect_retry_after() -> Duration {
             default_connect_timeout() / 5 // 0.1 sec
         }
 
+        pub fn default_io_timeout() -> Duration {
+            Duration::from_micros(500) // 500 mic | 0.5 mil | 0.000500 sec
+        }
         pub fn optional_find_timeout() -> Option<Duration> {
             Some(Duration::from_millis(10)) // 0.01 sec
         }

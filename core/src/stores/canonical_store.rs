@@ -1,7 +1,6 @@
 use std::{
     fmt::{Debug, Display},
-    sync::{Arc, Mutex, MutexGuard},
-    thread::yield_now,
+    sync::Arc,
     time::{Duration, Instant, SystemTime},
 };
 
@@ -38,20 +37,20 @@ impl<T: Debug> Display for CanonicalEntry<T> {
 
 #[derive(Debug)]
 pub struct CanonicalEntryStore<T: Debug + Send + Sync + Clone> {
-    store: Mutex<Vec<CanonicalEntry<T>>>,
+    store: spin::Mutex<Vec<CanonicalEntry<T>>>,
 }
 impl<T: Debug + Send + Sync + Clone> CanonicalEntryStore<T> {
     pub fn new_ref() -> Arc<Self> {
         Arc::new(Self::default())
     }
-    fn lock(&self) -> MutexGuard<'_, Vec<CanonicalEntry<T>>> {
-        let grd = self.store.lock().expect("Could Not Lock MsgStore");
-        grd
+    fn lock(&self) -> spin::MutexGuard<'_, Vec<CanonicalEntry<T>>> {
+        // let grd = self.store.lock().expect("Could Not Lock MsgStore");
+        self.store.lock()
     }
     pub fn push(&self, e: CanonicalEntry<T>) {
         self.lock().push(e);
     }
-    pub fn find<P: FnMut(&CanonicalEntry<T>) -> bool>(&self, con_id_name: &str, mut predicate: P, timeout: Option<Duration>) -> Option<CanonicalEntry<T>> {
+    pub fn find<P: Fn(&CanonicalEntry<T>) -> bool>(&self, con_id_name: &str, predicate: P, timeout: Option<Duration>) -> Option<CanonicalEntry<T>> {
         let now = Instant::now();
         let timeout = timeout.unwrap_or_else(|| Duration::from_secs(0));
         loop {
@@ -67,11 +66,10 @@ impl<T: Debug + Send + Sync + Clone> CanonicalEntryStore<T> {
             if now.elapsed() > timeout {
                 break;
             }
-            yield_now();
         }
         None
     }
-    pub fn find_recv<P: FnMut(&T) -> bool>(&self, con_id_name: &str, mut predicate: P, timeout: Option<Duration>) -> Option<T> {
+    pub fn find_recv<P: Fn(&T) -> bool>(&self, con_id_name: &str, predicate: P, timeout: Option<Duration>) -> Option<T> {
         let entry = self.find(
             con_id_name,
             |entry| match entry.msg {
@@ -88,7 +86,7 @@ impl<T: Debug + Send + Sync + Clone> CanonicalEntryStore<T> {
             _ => None,
         }
     }
-    pub fn find_sent<P: FnMut(&T) -> bool>(&self, con_id_name: &str, mut predicate: P, timeout: Option<Duration>) -> Option<T> {
+    pub fn find_sent<P: Fn(&T) -> bool>(&self, con_id_name: &str, predicate: P, timeout: Option<Duration>) -> Option<T> {
         let entry = self.find(
             con_id_name,
             |entry| match entry.msg {

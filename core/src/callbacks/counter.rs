@@ -4,6 +4,7 @@ use std::{
         atomic::{AtomicUsize, Ordering::Relaxed},
         Arc,
     },
+    time::{Duration, Instant},
 };
 
 use crate::prelude::*;
@@ -35,6 +36,19 @@ impl<M: Messenger> CounterCallback<M> {
     #[inline(always)]
     pub fn recv_count(&self) -> usize {
         self.recv.load(Relaxed)
+    }
+    #[inline(always)]
+    pub fn recv_count_busywait_timeout(&self, at_least: usize, timeout: Duration) -> usize {
+        let start = Instant::now();
+        let mut count = self.recv_count();
+        while start.elapsed() < timeout {
+            if count >= at_least {
+                return count;
+            } else {
+                count = self.recv_count();
+            }
+        }
+        count
     }
 }
 
