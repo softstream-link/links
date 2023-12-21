@@ -39,14 +39,13 @@
 //!         // clt_recv & svc_send
 //!         // svc_recv & clt_send
 //! ```
+use crate::prelude::{ConId, FrameReader, FrameWriter, Messenger, RecvNonBlocking, RecvStatus, SendNonBlockingNonMut, SendStatus};
 use std::{
     any::type_name,
     fmt::Display,
     io::Error,
     time::{Duration, Instant},
 };
-
-use crate::prelude::{ConId, FrameReader, FrameWriter, Messenger, RecvNonBlocking, RecvStatus, SendNonBlockingNonMut, SendStatus};
 
 /// Represents an abstraction for receiving exactly one message utilizing the underlying [FrameReader]
 #[derive(Debug)]
@@ -166,12 +165,6 @@ pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(mut con_id:
 
 #[cfg(test)]
 mod test {
-    use std::{
-        io::ErrorKind,
-        thread::{sleep, Builder},
-        time::{Duration, Instant},
-    };
-
     use crate::prelude::*;
     use links_core::{
         unittest::setup::{
@@ -181,9 +174,13 @@ mod test {
         },
         {fmt_num, prelude::ConId},
     };
-
     use log::info;
     use rand::Rng;
+    use std::{
+        io::ErrorKind,
+        thread::{sleep, Builder},
+        time::{Duration, Instant},
+    };
 
     #[test]
     fn test_messenger() {

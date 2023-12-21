@@ -1,6 +1,6 @@
 use crate::prelude::{
     asserted_short_name, into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, ConnectionStatus, MessageRecver, MessageSender, Messenger, PollAble, PollEventStatus, PollRead, Protocol, RecvNonBlocking, RecvStatus,
-    RemoveConnectionBarrierOnDrop, SendNonBlocking, SendNonBlockingNonMut, SendStatus, TimerTaskStatus,
+    RemoveConnectionBarrierOnDrop, SendNonBlocking, SendNonBlockingNonMut, SendNonBlockingNonMutByPass, SendStatus, TimerTaskStatus,
 };
 use log::{debug, log_enabled, warn};
 use std::{
@@ -132,7 +132,12 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSender<P, C,
                     warn!("Timed out {}::on_disconnect timeout: {:?}, msg: {:?}, cond_id: {}", asserted_short_name!("CltSender", Self), timeout, msg, self.con_id());
                 }
                 Err(err) => {
-                    warn!("Failed to complete {}::on_disconnect, did peer terminate connection or did you drop CltRecver before sender? msg: {:?}, err:\n{}", asserted_short_name!("CltSender", Self), msg, err);
+                    warn!(
+                        "Failed to complete {}::on_disconnect, did peer terminate connection or did you drop CltRecver before sender? msg: {:?}, err:\n{}",
+                        asserted_short_name!("CltSender", Self),
+                        msg,
+                        err
+                    );
                     // con_id is in the error
                 }
             }
@@ -211,6 +216,11 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> SendNonBlocking
                 }
             }
         }
+    }
+}
+impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> SendNonBlockingNonMutByPass<P::SendT> for CltSender<P, C, MAX_MSG_SIZE> {
+    fn send_bypass(&mut self, msg: &P::SendT) -> Result<SendStatus, Error> {
+        self.msg_sender.send(msg)
     }
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for CltSender<P, C, MAX_MSG_SIZE> {
@@ -656,6 +666,11 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> RecvNonBloc
     #[inline(always)]
     fn recv_busywait(&mut self) -> Result<Option<<P as Messenger>::RecvT>, Error> {
         self.clt_recver.recv_busywait()
+    }
+}
+impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SendNonBlockingNonMutByPass<P::SendT> for Clt<P, C, MAX_MSG_SIZE> {
+    fn send_bypass(&mut self, msg: &P::SendT) -> Result<SendStatus, Error> {
+        self.clt_sender.send_bypass(msg)
     }
 }
 impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> ConnectionId for Clt<P, C, MAX_MSG_SIZE> {

@@ -1,7 +1,7 @@
 pub mod persistance;
 pub mod state;
 
-use super::{RecvNonBlocking, SendNonBlocking, SendStatus};
+use super::{RecvNonBlocking, SendNonBlocking, SendNonBlockingNonMutByPass, SendStatus};
 use crate::prelude::{short_instance_type_name, ConnectionId, Messenger};
 use log::{log_enabled, warn};
 use std::{io::Error, time::Duration};
@@ -12,7 +12,7 @@ use std::{io::Error, time::Duration};
 pub trait ProtocolCore: Messenger + Sized {
     /// Called immediately after the connection is established and allows user space to perform a connection handshake
     #[inline(always)]
-    fn on_connect<C: SendNonBlocking<<Self as Messenger>::SendT> + RecvNonBlocking<<Self as Messenger>::RecvT> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
+    fn on_connect<C: SendNonBlocking<<Self as Messenger>::SendT> + SendNonBlockingNonMutByPass<<Self as Messenger>::SendT> + RecvNonBlocking<<Self as Messenger>::RecvT> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
         Ok(())
     }
 

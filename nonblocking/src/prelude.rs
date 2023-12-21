@@ -6,7 +6,8 @@ pub use crate::core::{
         state::{ProtocolConnectionState, ProtocolSessionState},
         Protocol, ProtocolCore,
     },
-    AcceptStatus, PollAble, PollAccept, PollEventStatus, PollRead, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut, SendStatus, SvcAcceptorOfCltNonBlocking,
+    AcceptStatus, PollAble, PollAccept, PollEventStatus, PollRead, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut, SendNonBlockingNonMutByPass, SendStatus,
+    SvcAcceptorOfCltNonBlocking,
 };
 
 pub use crate::connect::{

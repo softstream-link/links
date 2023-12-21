@@ -63,7 +63,7 @@ pub mod setup {
                             let thread = std::thread::current();
                             let id = thread.id();
                             let mut name = thread.name().unwrap_or(format!("Thread-{id:?}").as_str()).to_owned();
-                            if name.contains("::"){
+                            if name.contains("::") {
                                 name = "main-Thread".to_owned();
                             }
 
@@ -100,7 +100,7 @@ pub mod setup {
         pub fn default_connect_timeout() -> Duration {
             Duration::from_millis(500) // 500 mil | 0.5 sec
         }
-        
+
         pub fn default_connect_retry_after() -> Duration {
             default_connect_timeout() / 5 // 0.1 sec
         }
@@ -108,8 +108,11 @@ pub mod setup {
         pub fn default_io_timeout() -> Duration {
             Duration::from_micros(500) // 500 mic | 0.5 mil | 0.000500 sec
         }
+        pub fn find_timeout() -> Duration {
+            Duration::from_millis(10) // 10 mil  | 0.001 sec
+        }
         pub fn optional_find_timeout() -> Option<Duration> {
-            Some(Duration::from_millis(10)) // 10 mil  | 0.001 sec
+            Some(find_timeout())
         }
     }
     pub mod data {
