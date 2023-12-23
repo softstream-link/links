@@ -3,6 +3,8 @@ pub use crate::core::conid::{ConId, ConnectionId, ConnectionStatus, PoolConnecti
 pub use crate::core::messenger::Messenger;
 pub use crate::core::MessengerOld; // TODO remove
 
+pub use crate::core::Shutdown;
+
 pub use crate::core::framer::{FixedSizeFramer, Framer, PacketLengthU16Framer};
 pub use crate::core::pool::RoundRobinPool;
 

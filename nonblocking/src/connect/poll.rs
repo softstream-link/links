@@ -333,7 +333,9 @@ impl<R: PollRead, A: PollAccept<R>> SpawnedPollHandler<R, A> {
         }
     }
     pub fn terminate(&self) {
-        self.terminate_check();
+        if self.terminated {
+            return;
+        }
         self.tx_serviceable.send(Serviceable::Waker).expect("Failed to send waker/terminate to PollHandler");
         self.waker.wake().expect("Failed to wake PollHandler after sending waker/terminate");
         if log_enabled!(Level::Debug) {
@@ -360,10 +362,7 @@ impl<R: PollRead, A: PollAccept<R>> SpawnedPollHandler<R, A> {
 }
 impl<R: PollRead, A: PollAccept<R>> Drop for SpawnedPollHandler<R, A> {
     fn drop(&mut self) {
-        self.waker.wake().expect("Failed to wake PollHandler");
-        if log_enabled!(Level::Debug) {
-            debug!("{}::drop to PollHandler", asserted_short_name!("SpawnedPollHandler", Self));
-        }
+        self.terminate();
     }
 }
 /// A [PollHandler] that can handle any [PollAccept] and [PollRead] instances using dynamic dispatch at the cost of performance
@@ -413,7 +412,7 @@ mod test {
         let mut poll_handler = PollHandlerStatic::<_, _, TEST_MSG_FRAME_SIZE>::default();
         poll_handler.add_acceptor(acceptor);
 
-        let _ = poll_handler.into_spawned_handler("Static-Svc-Poll-Thread");
+        let _spawned_poll_handler = poll_handler.into_spawned_handler("Static-Svc-Poll-Thread");
 
         let mut msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg"));
         let write_count = 10;
@@ -547,7 +546,7 @@ mod test {
             setup::net::default_connect_retry_after(),
             DevNullCallback::new_ref(),
             CltTestProtocolManual::default(),
-            Some("clt/unitest"),
+            Some("clt/unittest"),
         )
         .unwrap()
         .into_sender_with_spawned_recver_ref();
@@ -556,13 +555,17 @@ mod test {
         crate::connect::DEFAULT_POLL_HANDLER.terminate();
 
         // This loop should terminate quickly as the pool handler has been terminated and dropped other references
+        let start = Instant::now();
         loop {
             match clt.send(&mut CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello From Clt1"))) {
                 Ok(status) => {
                     log::info!("status: {:?}", status);
+                    if start.elapsed() > setup::net::default_connect_timeout() {
+                        assert!(false, "Failed to detect that poll handler terminated, which should have shutdown the clt receiver, which in turn should have shutdown the socket for clt sender");
+                    }
                 }
                 Err(e) => {
-                    log::info!("error: {}", e);
+                    log::info!("expected error: {}", e);
                     break;
                 }
             }
@@ -575,7 +578,7 @@ mod test {
             setup::net::default_connect_retry_after(),
             DevNullCallback::new_ref(),
             CltTestProtocolManual::default(),
-            Some("clt/unitest"),
+            Some("clt/unittest"),
         );
         log::info!("res: {:?}", res);
         assert!(res.is_err());

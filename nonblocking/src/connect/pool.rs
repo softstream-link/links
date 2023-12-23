@@ -1,6 +1,7 @@
+use super::clt::{Clt, CltRecverRef, CltSenderRef};
 use crate::prelude::{
     asserted_short_name, AcceptStatus, CallbackRecvSend, CltRecver, CltSender, ConId, ConnectionId, ConnectionStatus, Messenger, PollAble, PollAccept, PollRead, PoolAcceptStatus, PoolConnectionStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol,
-    RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking, SendStatus, SvcAcceptor, SvcAcceptorOfCltNonBlocking,
+    RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking, SendStatus, Shutdown, SvcAcceptor, SvcAcceptorOfCltNonBlocking,
 };
 use log::{info, log_enabled, warn, Level};
 use slab::Iter;
@@ -10,10 +11,8 @@ use std::{
     marker::PhantomData,
     num::NonZeroUsize,
     sync::mpsc::{channel, Receiver, Sender},
-    time::Instant
+    time::Instant,
 };
-
-use super::clt::{Clt, CltRecverRef, CltSenderRef};
 
 pub type SplitCltsPool<M, R, S> = ((Sender<R>, Sender<S>), (CltRecversPool<M, R>, CltSendersPool<M, S>));
 /// An abstraction layer representing a pool of [Clt]'s connections
@@ -206,7 +205,6 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
         write!(f, "{}<{} RecvP:{}, SendP:{}, {}>", asserted_short_name!("CltsPool", Self), self.con_id, recv_t, send_t, self.clts)
     }
 }
-
 
 /// A round robin pool of [CltRecver]s with respective [Receiver] channel
 /// though which the pool can be populated.
@@ -638,6 +636,11 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> SendNonBlock
                 Err(e) => return Err(e),
             }
         }
+    }
+}
+impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> Shutdown for CltSendersPool<M, S> {
+    fn shutdown(&mut self) {
+        self.clear(); // this will issue drop on the sender which in turn will call shutdown trait
     }
 }
 impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> PoolConnectionStatus for CltSendersPool<M, S> {

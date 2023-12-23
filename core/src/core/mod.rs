@@ -16,3 +16,8 @@ pub trait MessengerOld: Debug+Send+Sync+'static {
     type SendT: ByteDeserializeSlice<Self::SendT>+ByteSerializeStack+Debug+Clone+PartialEq+Send+Sync+'static;
     type RecvT: ByteDeserializeSlice<Self::RecvT>+ByteSerializeStack+Debug+Clone+PartialEq+Send+Sync+'static;
 }
+
+
+pub trait Shutdown {
+    fn shutdown(&mut self);
+}
