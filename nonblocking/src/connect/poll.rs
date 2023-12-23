@@ -45,7 +45,30 @@ macro_rules! register_serviceable_as_readable {
         }
     };
 }
+macro_rules! deregister_and_drop_all_serviceable {
+    ($self:ident) => {
+        for mut serviceable in $self.serviceable.drain() {
+            match serviceable {
+                Recver(ref mut recver) => {
+                    // USING recver.deregister method instead of recver.source to enable overriding of deregister method when locking is required
+                    // self.poll.registry().deregister(*recver.source())?;
+                    recver.deregister($self.poll.registry())?;
+                }
+                Acceptor(ref mut acceptor) => {
+                    // USING acceptor.deregister method instead of acceptor.source to enable overriding of deregister method when locking is required
+                    // self.poll.registry().deregister(*acceptor.source())?;
+                    acceptor.deregister($self.poll.registry())?;
+                }
+                Waker => {}
+            }
+        }
+    };
+}
 
+enum ServiceStatus {
+    Continue,
+    Terminate,
+}
 enum Serviceable<R: PollRead, A: PollAccept<R>> {
     Acceptor(A),
     Recver(R),
@@ -106,26 +129,24 @@ impl<R: PollRead, A: PollAccept<R>> PollHandler<R, A> {
 
         Builder::new()
             .name(name.to_owned())
-            .spawn(move || {
-                // let rx_serviceable = rx_serviceable;
-                loop {
-                    match self.service(&rx_serviceable) {
-                        Ok(()) => {}
-                        Err(e) => {
-                            panic!("Error, service loop termination: {}", e);
-                        }
+            .spawn(move || loop {
+                match self.service(&rx_serviceable) {
+                    Ok(ServiceStatus::Continue) => {}
+                    Ok(ServiceStatus::Terminate) => break,
+                    Err(e) => {
+                        panic!("Error, service loop termination: {}", e);
                     }
                 }
             })
             .unwrap_or_else(|_| panic!("Failed to start a poll thread name: '{}'", name));
-        SpawnedPollHandler { tx_serviceable, waker }
+        SpawnedPollHandler { tx_serviceable, waker, terminated: false }
     }
 
     fn add_serviceable(&mut self, serviceable: Serviceable<R, A>) {
         register_serviceable_as_readable!(self, serviceable);
     }
 
-    fn service(&mut self, rx_serviceable: &Receiver<Serviceable<R, A>>) -> Result<(), Error> {
+    fn service(&mut self, rx_serviceable: &Receiver<Serviceable<R, A>>) -> Result<ServiceStatus, Error> {
         use PollEventStatus::*;
         use Serviceable::*;
         self.poll.poll(&mut self.events, None)?;
@@ -191,26 +212,43 @@ impl<R: PollRead, A: PollAccept<R>> PollHandler<R, A> {
                                 self.serviceable.remove(key);
                             }
                         },
-                        Waker => {
-                            match rx_serviceable.try_recv() {
-                                Ok(serviceable) => {
-                                    if log_enabled!(Level::Debug) {
-                                        debug!("Waker received new serviceable: {}", serviceable);
-                                    }
-                                    register_serviceable_as_readable!(self, serviceable);
-                                    had_yield = true;
+                        Waker => match rx_serviceable.try_recv() {
+                            Ok(serviceable) => {
+                                if log_enabled!(Level::Debug) {
+                                    debug!("Waker received new serviceable: {}", serviceable);
                                 }
-                                Err(TryRecvError::Empty) => {}
-                                Err(e) => panic!("Could not receive Serviceable from rx_serviceable channel: {:?}. This is not a possible condition error: {}", rx_serviceable, e),
+                                if let Waker = serviceable {
+                                    if log_enabled!(Level::Info) {
+                                        warn!(
+                                            "{} Waker received Waker, this will result in any active Receivers & Acceptors to be deregistered and dropped",
+                                            asserted_short_name!("PollHandler", Self)
+                                        );
+                                    }
+                                    deregister_and_drop_all_serviceable!(self);
+                                    return Ok(ServiceStatus::Terminate);
+                                }
+                                register_serviceable_as_readable!(self, serviceable);
+                                had_yield = true;
                             }
-                        }
+                            Err(TryRecvError::Empty) => {}
+                            Err(TryRecvError::Disconnected) => {
+                                if log_enabled!(Level::Warn) {
+                                    warn!(
+                                        "{} rx_serviceable channel is `Disconnected`, this will result in any active Receivers & Acceptors to be deregistered and dropped",
+                                        asserted_short_name!("PollHandler", Self)
+                                    );
+                                }
+                                deregister_and_drop_all_serviceable!(self);
+                                return Ok(ServiceStatus::Terminate);
+                            }
+                        },
                     }
                 }
                 // else ==> None  // possible when the serviceable is removed during error or terminate request but other serviceable still yielding
             }
             // only return once every event in the for loop yields WouldBlock
             if !had_yield {
-                return Ok(());
+                return Ok(ServiceStatus::Continue);
             }
         }
     }
@@ -275,9 +313,11 @@ pub struct SpawnedPollHandler<R: PollRead, A: PollAccept<R>> {
     // tx_serviceable: SyncSender<Serviceable<R, A>>,
     tx_serviceable: Sender<Serviceable<R, A>>,
     waker: Waker,
+    terminated: bool,
 }
 impl<R: PollRead, A: PollAccept<R>> SpawnedPollHandler<R, A> {
     pub fn add_acceptor(&self, acceptor: A) {
+        self.terminate_check();
         self.tx_serviceable.send(Serviceable::Acceptor(acceptor)).expect("Failed to send acceptor to PollHandler");
         self.waker.wake().expect("Failed to wake PollHandler after sending acceptor");
         if log_enabled!(Level::Debug) {
@@ -285,16 +325,44 @@ impl<R: PollRead, A: PollAccept<R>> SpawnedPollHandler<R, A> {
         }
     }
     pub fn add_recver(&self, recver: R) {
+        self.terminate_check();
         self.tx_serviceable.send(Serviceable::Recver(recver)).expect("Failed to send recver to PollHandler");
         self.waker.wake().expect("Failed to wake PollHandler after sending recver");
         if log_enabled!(Level::Debug) {
             debug!("{}::add_recver sent recver to PollHandler and called waker", asserted_short_name!("SpawnedPollHandler", Self));
         }
     }
+    pub fn terminate(&self) {
+        self.terminate_check();
+        self.tx_serviceable.send(Serviceable::Waker).expect("Failed to send waker/terminate to PollHandler");
+        self.waker.wake().expect("Failed to wake PollHandler after sending waker/terminate");
+        if log_enabled!(Level::Debug) {
+            debug!("{}::terminate sent waker/terminate to PollHandler and called waker", asserted_short_name!("SpawnedPollHandler", Self));
+        }
+    }
     pub fn wake(&self) {
+        self.terminate_check();
         self.waker.wake().expect("Failed to wake PollHandler");
         if log_enabled!(Level::Debug) {
             debug!("{}::wake to PollHandler", asserted_short_name!("SpawnedPollHandler", Self));
+        }
+    }
+    #[track_caller]
+    fn terminate_check(&self) {
+        if self.terminated {
+            panic!(
+                "Invalid API usage. Trying to use {} after {}::terminate has been issued.",
+                asserted_short_name!("SpawnedPollHandler", Self),
+                asserted_short_name!("SpawnedPollHandler", Self)
+            );
+        }
+    }
+}
+impl<R: PollRead, A: PollAccept<R>> Drop for SpawnedPollHandler<R, A> {
+    fn drop(&mut self) {
+        self.waker.wake().expect("Failed to wake PollHandler");
+        if log_enabled!(Level::Debug) {
+            debug!("{}::drop to PollHandler", asserted_short_name!("SpawnedPollHandler", Self));
         }
     }
 }
@@ -462,5 +530,55 @@ mod test {
         assert!(matches!(found.unwrap(), UniTestMsg::Svc(SvcTestMsg::Dbg(msg)) if msg == SvcTestMsgDebug::new(b"Hello From Svc2")));
 
         info!("store: {}", store);
+    }
+
+    #[test]
+    fn test_poller_spawned_terminate() {
+        setup::log::configure_level(log::LevelFilter::Info);
+
+        // let poll_handler = PollHandlerDynamic::default().into_spawned_handler("TestDrop");
+        let addr = setup::net::rand_avail_addr_port();
+        let _svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), DevNullCallback::new_ref(), SvcTestProtocolManual::default(), Some("svc/unittest"))
+            .unwrap()
+            .into_sender_with_spawned_recver_ref();
+        let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+            addr,
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
+            DevNullCallback::new_ref(),
+            CltTestProtocolManual::default(),
+            Some("clt/unitest"),
+        )
+        .unwrap()
+        .into_sender_with_spawned_recver_ref();
+
+        clt.send(&mut CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello From Clt1"))).unwrap().unwrap_completed();
+        crate::connect::DEFAULT_POLL_HANDLER.terminate();
+
+        // This loop should terminate quickly as the pool handler has been terminated and dropped other references
+        loop {
+            match clt.send(&mut CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello From Clt1"))) {
+                Ok(status) => {
+                    log::info!("status: {:?}", status);
+                }
+                Err(e) => {
+                    log::info!("error: {}", e);
+                    break;
+                }
+            }
+        }
+
+        // this connection should timeout because Svc poll accept has been terminated
+        let res = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(
+            addr,
+            setup::net::default_connect_timeout(),
+            setup::net::default_connect_retry_after(),
+            DevNullCallback::new_ref(),
+            CltTestProtocolManual::default(),
+            Some("clt/unitest"),
+        );
+        log::info!("res: {:?}", res);
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err().kind(), std::io::ErrorKind::TimedOut);
     }
 }
