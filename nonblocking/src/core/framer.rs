@@ -47,14 +47,26 @@ use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
 use links_core::asserted_short_name;
 use mio::net::TcpStream;
+use std::mem::MaybeUninit;
 use std::{
     fmt::Display,
     io::{Error, ErrorKind, Read, Write},
     net::Shutdown,
 };
 
-use std::mem::MaybeUninit;
-use std::os::fd::AsRawFd;
+#[cfg(target_family = "unix")]
+#[inline]
+fn fd(stream: &TcpStream) -> std::os::fd::RawFd {
+    use std::os::fd::AsRawFd;
+    stream.as_raw_fd()
+}
+#[cfg(target_family = "windows")]
+#[inline]
+fn fd(stream: &TcpStream) -> &'static str {
+    "windows"
+    // use std::os::fd::AsRawSocket;
+    // stream.as_raw_file_handle()
+}
 
 use log::{debug, log_enabled};
 const EOF: usize = 0;
@@ -183,7 +195,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SI
                 Ok(_) => "connected",
                 Err(_) => "disconnected",
             },
-            self.stream_reader.as_raw_fd(),
+            fd(&self.stream_reader),
         )
     }
 }
@@ -300,7 +312,7 @@ impl Display for FrameWriter {
                 Ok(_) => "connected",
                 Err(_) => "disconnected",
             },
-            self.stream_writer.as_raw_fd(),
+            fd(&self.stream_writer),
         )
     }
 }

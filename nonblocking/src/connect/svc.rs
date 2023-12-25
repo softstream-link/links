@@ -1,10 +1,4 @@
-use std::{
-    fmt::Display,
-    io::Error,
-    num::NonZeroUsize,
-    os::fd::{FromRawFd, IntoRawFd},
-    sync::Arc,
-};
+use std::{fmt::Display, io::Error, num::NonZeroUsize, sync::Arc};
 
 use links_core::asserted_short_name;
 use log::{debug, log_enabled, warn};
@@ -18,6 +12,17 @@ pub type SvcSender<P, C, const MAX_MSG_SIZE: usize> = CltSendersPool<P, CltSende
 
 pub type SvcRecverRef<P, C, const MAX_MSG_SIZE: usize> = CltRecversPool<P, CltRecverRef<P, C, MAX_MSG_SIZE>>;
 pub type SvcSenderRef<P, C, const MAX_MSG_SIZE: usize> = CltSendersPool<P, CltSenderRef<P, C, MAX_MSG_SIZE>>;
+
+#[cfg(target_family = "unix")]
+fn into_std_from_mio(stream: mio::net::TcpStream) -> std::net::TcpStream {
+    use std::os::fd::{FromRawFd, IntoRawFd};
+    unsafe { std::net::TcpStream::from_raw_fd(stream.into_raw_fd()) }
+}
+#[cfg(target_family = "windows")]
+fn into_std_from_mio(stream: mio::net::TcpStream) -> std::net::TcpStream {
+    use std::os::windows::io::{FromRawHandle, IntoRawHandle};
+    unsafe { std::net::TcpStream::from_raw_handle(stream.into_raw_handle()) }
+}
 
 /// Helper class that create [Clt] instances by accepting new connections on a [std::net::TcpListener]
 ///
@@ -74,7 +79,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcAcceptor
                     }
                 }
 
-                let stream = unsafe { std::net::TcpStream::from_raw_fd(stream.into_raw_fd()) };
+                let stream = into_std_from_mio(stream);
 
                 let con_id = {
                     let mut con_id = self.con_id.clone();
