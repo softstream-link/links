@@ -16,6 +16,7 @@ pub mod setup {
             io::{Error, ErrorKind},
             time::Duration,
         };
+        const HBEAT_INTERVAL: Duration = Duration::from_millis(1000);
 
         #[derive(Debug, Clone, Default)]
         pub struct SvcTestProtocolManual;
@@ -86,7 +87,7 @@ pub mod setup {
         }
         impl Protocol for SvcTestProtocolAuthAndHBeat {
             fn conf_heart_beat_interval(&self) -> Option<Duration> {
-                Some(Duration::from_millis(100))
+                Some(HBEAT_INTERVAL)
             }
             fn send_heart_beat<S: SendNonBlocking<<Self as Messenger>::SendT> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
                 let mut msg: SvcTestMsg = SvcTestMsg::HBeat(Default::default());
@@ -163,7 +164,7 @@ pub mod setup {
         }
         impl Protocol for CltTestProtocolAuthAndHbeat {
             fn conf_heart_beat_interval(&self) -> Option<Duration> {
-                Some(Duration::from_millis(100))
+                Some(HBEAT_INTERVAL)
             }
             fn send_heart_beat<S: SendNonBlocking<<Self as Messenger>::SendT> + ConnectionId>(&self, sender: &mut S) -> Result<SendStatus, Error> {
                 let mut msg: CltTestMsg = CltTestMsg::HBeat(Default::default());
