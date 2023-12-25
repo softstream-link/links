@@ -25,6 +25,7 @@ num-format = { workspace = true, optional = true }
 
 
 [dev-dependencies]
+more-asserts = { workspace = true }
 
 [features]
 default = [] # TODO remove before publishing

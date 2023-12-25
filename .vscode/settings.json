@@ -42,6 +42,7 @@
         "Uninit",
         "unpark",
         "unsequenced",
+        "ures",
         "workdir",
         "wouldblock"
     ]

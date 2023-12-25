@@ -36,6 +36,7 @@ rand = "0.8"
 num-format = "0.4"
 chrono = "0.4"
 lazy_static = "1.4.0"
+more-asserts = "0.3"
 
 # spin locks
 spin = { version = "0.9" }
@@ -44,6 +45,9 @@ spin = { version = "0.9" }
 log = "0.4"
 env_logger = "0.10"
 colored = "2.0"
+
+
+
 
 # bechmarking only
 criterion = { version = "0.5", features = ["async_tokio", "async_futures"] }

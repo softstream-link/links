@@ -153,6 +153,8 @@ impl Executor {
 
 #[cfg(test)]
 mod test {
+    use more_asserts::assert_lt;
+
     use super::*;
     use crate::unittest::setup;
     use std::{
@@ -165,12 +167,12 @@ mod test {
         setup::log::configure_level(log::LevelFilter::Debug);
         let timer = Timer::new("unittest");
 
-        static TASK1_TOTAL_ITERATIONS: AtomicU32 = AtomicU32::new(5);
-        static TASK2_TOTAL_ITERATIONS: AtomicU32 = AtomicU32::new(3);
+        static TASK1_REMAINING_ITERATIONS: AtomicU32 = AtomicU32::new(5);
+        static TASK2_REMAINING_ITERATIONS: AtomicU32 = AtomicU32::new(3);
         static REPEAT_INTERVAL: Duration = Duration::from_millis(100);
 
         timer.schedule("task1", REPEAT_INTERVAL, || {
-            let iteration_remaining = TASK1_TOTAL_ITERATIONS.fetch_sub(1, Ordering::Relaxed) - 1;
+            let iteration_remaining = TASK1_REMAINING_ITERATIONS.fetch_sub(1, Ordering::Relaxed) - 1;
             info!("task1, iteration {}", iteration_remaining + 1);
             if iteration_remaining == 0 {
                 TimerTaskStatus::Terminate
@@ -180,7 +182,7 @@ mod test {
         });
 
         timer.schedule("task2", REPEAT_INTERVAL, || {
-            let iteration_remaining = TASK2_TOTAL_ITERATIONS.fetch_sub(1, Ordering::Relaxed) - 1;
+            let iteration_remaining = TASK2_REMAINING_ITERATIONS.fetch_sub(1, Ordering::Relaxed) - 1;
             info!("task2, iterations_remaining {}", iteration_remaining);
             if iteration_remaining == 0 {
                 TimerTaskStatus::Terminate
@@ -190,13 +192,15 @@ mod test {
         });
 
         let now = Instant::now();
-        while TASK1_TOTAL_ITERATIONS.load(Ordering::Relaxed) > 0 {}
+        while TASK1_REMAINING_ITERATIONS.load(Ordering::Relaxed) > 0 {}
         timer.stop();
         let elapsed = now.elapsed();
-        info!("Elapsed: {:?}", elapsed);
-        assert!(elapsed < REPEAT_INTERVAL * 5);
+        let expected_completion = REPEAT_INTERVAL * 5;
+        info!("elapsed: {:?}", elapsed);
+        info!("expected_completion: {:?}", expected_completion);
+        assert_lt!(elapsed , expected_completion);
 
-        assert_eq!(TASK1_TOTAL_ITERATIONS.load(Ordering::Relaxed), 0);
-        assert_eq!(TASK2_TOTAL_ITERATIONS.load(Ordering::Relaxed), 0);
+        assert_eq!(TASK1_REMAINING_ITERATIONS.load(Ordering::Relaxed), 0);
+        assert_eq!(TASK2_REMAINING_ITERATIONS.load(Ordering::Relaxed), 0);
     }
 }
