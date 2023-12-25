@@ -193,8 +193,8 @@ mod test {
 
         let now = Instant::now();
         while TASK1_REMAINING_ITERATIONS.load(Ordering::Relaxed) > 0 {}
-        timer.stop();
         let elapsed = now.elapsed();
+        timer.stop();
         let expected_completion = REPEAT_INTERVAL * 5;
         info!("elapsed: {:?}", elapsed);
         info!("expected_completion: {:?}", expected_completion);
