@@ -33,6 +33,7 @@
         "rustfmt",
         "SOUPBIN",
         "soupbintcp",
+        "struct",
         "successfull",
         "svcpool",
         "svcs",

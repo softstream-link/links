@@ -1,6 +1,9 @@
-name: Pull Request Build On Stable
+name: Feature Branch Build
 on:
-  pull_request:
+  push:
+     branches:
+      - '*'
+      - '!master'
 
 jobs:
   test-matrix:
@@ -9,4 +12,4 @@ jobs:
     uses: softstream-link/workflows/.github/workflows/rust-clippy-toolchain.yml@v1
   bench-matrix:
     uses: softstream-link/workflows/.github/workflows/rust-bench-matrix-toolchain-os.yml@v1
-     
+ 

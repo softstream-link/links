@@ -1,13 +1,5 @@
 [workspace]
-members = [
-    "core",
-    "nonblocking",
-    "blocking",
-    # "async",
-    # "protocols/ouch",
-    # "protocols/soupbintcp",
-    "experimentation",
-]
+members = ["core", "nonblocking", "blocking", "experimentation"]
 resolver = "2"
 
 [workspace.package]
@@ -24,18 +16,12 @@ categories = ["network"]
 
 [workspace.dependencies]
 # derive
-# byteserde = { version = "0.3.0", path = "./../byteserde/byteserde" }
-# byteserde_derive = { version = "0.3.0", path = "./../byteserde/byteserde_derive" }
-# byteserde_types = { version = "0.3.0", path = "./../byteserde/byteserde_types" }
-# TODO udpate bytserde to v5 once protocols for async are updated and removed
-byteserde = { version = "0.4" }        # TODO should be eliminated once trait Messenger is moved to tempalte serializization
-
-byteserde_types = { version = "0.4" }  # required to setup unit test models
-byteserde_derive = { version = "0.4" } # required to setup unit test models
+byteserde = { version = "0.6" }        # TODO should be eliminated once trait Messenger is moved to tempalte serializization
+byteserde_types = { version = "0.6" }  # required to setup unit test models
+byteserde_derive = { version = "0.6" } # required to setup unit test models
 derive_more = "0.99"                   # try_into, etc
 
 # networking
-links_async = { path = "./async" }
 links_nonblocking = { path = "./nonblocking" }
 links_blocking = { path = "./blocking" }
 links_core = { path = "./core" }
@@ -45,16 +31,11 @@ bytes = "1.4"
 mio = { version = "0.8", features = ["os-poll", "net"] }
 
 
-# rayon = { version = "1.7" }
-
-# async 
-tokio = { version = "1.29", features = ["full", "rt-multi-thread"] }
-futures = "0.3"                                                      # invoke async functions from sync code
-
 # utils
 rand = "0.8"
 num-format = "0.4"
 chrono = "0.4"
+lazy_static = "1.4.0"
 
 # spin locks
 spin = { version = "0.9" }
@@ -63,14 +44,6 @@ spin = { version = "0.9" }
 log = "0.4"
 env_logger = "0.10"
 colored = "2.0"
-
-# protocols
-links_soupbintcp_async = { path = "./protocols/soupbintcp" }
-
-# testing only
-tokio-test = "0.4.2"
-lazy_static = "1.4.0"
-
 
 # bechmarking only
 criterion = { version = "0.5", features = ["async_tokio", "async_futures"] }
