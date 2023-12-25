@@ -61,6 +61,7 @@ fn fd(stream: &TcpStream) -> std::os::fd::RawFd {
 #[cfg(target_family = "windows")]
 #[inline]
 fn fd(stream: &TcpStream) -> std::os::windows::io::RawSocket {
+    use std::os::windows::io::AsRawSocket;
     stream.as_raw_socket()
 }
 
