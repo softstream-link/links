@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     run()
 }
 #[test]
-fn test() -> Result<(), Box<dyn Error>> {
+fn test_02() -> Result<(), Box<dyn Error>> {
     run()
 }
 fn run() -> Result<(), Box<dyn Error>> {

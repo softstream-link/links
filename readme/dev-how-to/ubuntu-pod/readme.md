@@ -30,8 +30,9 @@ docker exec \
     rustup default stable ; \
     pushd links ; \
     cargo nextest run --all-features ; \
-    # cargo nextest run --examples --all-features ; \
-    # cargo test --doc; \
+    cargo nextest run --examples --all-features ; \
+    cargo test --doc --all-features; \
+    cargo doc --all-features; \
     "
 ```
 ## To run specific test 

@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 #[cfg(feature = "unittest")]
 #[test]
-fn test() -> Result<(), Box<dyn Error>> {
+fn test_01() -> Result<(), Box<dyn Error>> {
     run()
 }
 fn run() -> Result<(), Box<dyn Error>> {
