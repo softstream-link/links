@@ -24,7 +24,7 @@ fn setup<MSvc: Messenger, MClt: Messenger>() -> (&'static str, Arc<impl Callback
     let clt_callback = DevNullCallback::<MClt>::new_ref();
     let name = Some("bench");
     let max_connections = NonZeroUsize::new(1).unwrap();
-    let timeout = Duration::from_micros(1_000);
+    let timeout = setup::net::default_connect_timeout();
     let retry_after = timeout / 10;
     (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after)
 }
