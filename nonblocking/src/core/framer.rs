@@ -62,8 +62,8 @@ fn fd(stream: &TcpStream) -> std::os::fd::RawFd {
 }
 #[cfg(target_family = "windows")]
 #[inline]
-fn fd(stream: &TcpStream) -> &'static str {
-    "windows"
+fn fd(stream: &TcpStream) -> std::os::windows::io::RawSocket {
+    stream.as_raw_socket()
 }
 
 use log::{debug, log_enabled};

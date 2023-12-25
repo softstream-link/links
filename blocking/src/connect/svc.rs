@@ -1,5 +1,4 @@
 use std::{fmt::Display, io::Error, net::TcpListener, num::NonZeroUsize, sync::Arc};
-
 use links_core::asserted_short_name;
 use log::{debug, log_enabled};
 

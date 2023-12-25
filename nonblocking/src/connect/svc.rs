@@ -21,7 +21,7 @@ fn into_std_from_mio(stream: mio::net::TcpStream) -> std::net::TcpStream {
 #[cfg(target_family = "windows")]
 fn into_std_from_mio(stream: mio::net::TcpStream) -> std::net::TcpStream {
     use std::os::windows::io::{FromRawSocket, IntoRawSocket};
-    std::net::TcpStream::from_raw_socket(stream.into_raw_socket())
+    unsafe { std::net::TcpStream::from_raw_socket(stream.into_raw_socket()) }
 }
 
 /// Helper class that create [Clt] instances by accepting new connections on a [std::net::TcpListener]
