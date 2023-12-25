@@ -24,13 +24,13 @@ fn setup<MSvc: Messenger, MClt: Messenger>() -> (&'static str, Arc<impl Callback
     let clt_callback = DevNullCallback::<MClt>::new_ref();
     let name = Some("bench");
     let max_connections = NonZeroUsize::new(1).unwrap();
-    let timeout = Duration::from_micros(1_000);
-    let retry_after = timeout / 10;
-    (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after)
+    let connect_timeout = setup::net::default_connect_timeout();
+    let retry_after = setup::net::default_connect_retry_after();
+    (addr, svc_callback, clt_callback, max_connections, name, connect_timeout, retry_after)
 }
 
 fn send_msg(c: &mut Criterion) {
-    let (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after) = setup();
+    let (addr, svc_callback, clt_callback, max_connections, name, connect_timeout, retry_after) = setup();
 
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
@@ -39,7 +39,7 @@ fn send_msg(c: &mut Criterion) {
 
             // info!("svc: {}", svc);
 
-            let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap_accepted();
+            let mut clt_acceptor = svc.accept_busywait_timeout(connect_timeout).unwrap().unwrap_accepted();
             info!("clt_acceptor: {}", clt_acceptor);
 
             let mut clt_acceptor_msg_recv_count = 0_usize;
@@ -62,7 +62,7 @@ fn send_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let mut clt_initiator = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolManual::default(), name.clone()).unwrap();
+    let mut clt_initiator = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, connect_timeout, retry_after, clt_callback, CltTestProtocolManual::default(), name.clone()).unwrap();
     info!("clt_initiator: {}", clt_initiator);
 
     let id = format!("clt2clt_nonblocking_busywait_send_msg SvcTestMsg");
@@ -84,7 +84,7 @@ fn send_msg(c: &mut Criterion) {
 }
 
 fn recv_msg(c: &mut Criterion) {
-    let (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after) = setup();
+    let (addr, svc_callback, clt_callback, max_connections, name, connect_timeout, retry_after) = setup();
 
     // CONFIGURE svc
     let clt_acceptor_jh = Builder::new()
@@ -92,7 +92,7 @@ fn recv_msg(c: &mut Criterion) {
         .spawn(move || {
             let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, max_connections, svc_callback, SvcTestProtocolManual::default(), name.clone()).unwrap();
 
-            let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap_accepted();
+            let mut clt_acceptor = svc.accept_busywait_timeout(connect_timeout).unwrap().unwrap_accepted();
             info!("clt_acceptor: {}", clt_acceptor);
 
             let mut clt_acceptor_msg_recv_count = 0_usize;
@@ -113,7 +113,7 @@ fn recv_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let mut clt_initiator = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolManual::default(), name.clone()).unwrap();
+    let mut clt_initiator = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, connect_timeout, retry_after, clt_callback, CltTestProtocolManual::default(), name.clone()).unwrap();
 
     let id = format!("clt2clt_nonblocking_busywait_recv_msg SvcTestMsg");
     let mut clt_initiator_msg_recv_count = 0_usize;
@@ -140,14 +140,14 @@ fn recv_msg(c: &mut Criterion) {
 }
 
 fn round_trip_msg(c: &mut Criterion) {
-    let (addr, svc_callback, clt_callback, max_connections, name, timeout, retry_after) = setup();
+    let (addr, svc_callback, clt_callback, max_connections, name, connect_timeout, retry_after) = setup();
 
     let clt_acceptor_jh = Builder::new()
         .name("Acceptor-Thread".to_owned())
         .spawn(move || {
             let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, max_connections, svc_callback, SvcTestProtocolManual::default(), name.clone()).unwrap();
 
-            let mut clt_acceptor = svc.accept_busywait_timeout(timeout).unwrap().unwrap_accepted();
+            let mut clt_acceptor = svc.accept_busywait_timeout(connect_timeout).unwrap().unwrap_accepted();
             info!("clt_acceptor: {}", clt_acceptor);
 
             let mut clt_acceptor_msg_recv_count = 0_usize;
@@ -172,7 +172,7 @@ fn round_trip_msg(c: &mut Criterion) {
         })
         .unwrap();
 
-    let mut clt_initiator = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, timeout, retry_after, clt_callback, CltTestProtocolManual::default(), name.clone()).unwrap();
+    let mut clt_initiator = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, connect_timeout, retry_after, clt_callback, CltTestProtocolManual::default(), name.clone()).unwrap();
     info!("clt_initiator: {}", clt_initiator);
 
     let id = format!("clt2clt_nonblocking_busywait_round_trip_msg SvcTestMsg");
