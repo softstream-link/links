@@ -31,15 +31,18 @@
         "Recver",
         "recvers",
         "rustfmt",
+        "rustup",
         "SOUPBIN",
         "soupbintcp",
         "struct",
         "successfull",
         "svcpool",
         "svcs",
+        "tshark",
         "Uninit",
         "unpark",
         "unsequenced",
+        "workdir",
         "wouldblock"
     ]
 }

@@ -5,9 +5,12 @@ ARG RUN_UNAME
 ARG RUN_GID
 
 
+RUN rustup toolchain install stable
 RUN rustup toolchain install nightly
 
 RUN apt update && apt install -y wireshark tshark && apt clean
+
+RUN curl -LsSf https://get.nexte.st/latest/linux-arm | tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
 
 RUN useradd --no-log-init \
                 --create-home \

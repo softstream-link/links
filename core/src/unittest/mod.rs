@@ -109,7 +109,7 @@ pub mod setup {
             Duration::from_micros(500) // 500 mic | 0.5 mil | 0.000500 sec
         }
         pub fn find_timeout() -> Duration {
-            Duration::from_millis(10) // 10 mil  | 0.001 sec
+            Duration::from_millis(200) // 200 mil  | 0.002 sec
         }
         pub fn optional_find_timeout() -> Option<Duration> {
             Some(find_timeout())
