@@ -23,7 +23,6 @@ pub use crate::callbacks::eventstore_old::{CallbackEvent, DirOld, EntryOld};
 pub use crate::callbacks::logger_old::LoggerCallbackOld;
 
 // counters
-pub use crate::core::counters::interval::EventIntervalTracker;
 pub use crate::core::counters::max_connection::{AcceptorConnectionGate, RemoveConnectionBarrierOnDrop};
 
 // timer
