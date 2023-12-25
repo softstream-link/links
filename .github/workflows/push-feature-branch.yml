@@ -14,4 +14,6 @@ jobs:
     uses: softstream-link/workflows/.github/workflows/rust-clippy-toolchain.yml@v1
   bench-matrix:
     uses: softstream-link/workflows/.github/workflows/rust-bench-matrix-toolchain-os.yml@v1
+    with:
+      fail-fast: false
  
