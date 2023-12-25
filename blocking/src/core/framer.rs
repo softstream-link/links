@@ -50,8 +50,19 @@ use std::fmt::Display;
 use std::io::{ErrorKind, Read, Write};
 use std::mem::MaybeUninit;
 use std::net::Shutdown;
-use std::os::fd::AsRawFd;
 use std::{io::Error, net::TcpStream};
+
+#[cfg(target_family = "unix")]
+#[inline]
+fn fd(stream: &TcpStream) -> std::os::fd::RawFd {
+    use std::os::fd::AsRawFd;
+    stream.as_raw_fd()
+}
+#[cfg(target_family = "windows")]
+#[inline]
+fn fd(stream: &TcpStream) -> &'static str {
+    "windows"
+}
 
 const EOF: usize = 0;
 
@@ -168,7 +179,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SI
                 Ok(_) => "connected",
                 Err(_) => "disconnected",
             },
-            self.stream_reader.as_raw_fd(),
+            fd(&self.stream_reader),
         )
     }
 }
@@ -242,7 +253,7 @@ impl Display for FrameWriter {
                 Ok(_) => "connected",
                 Err(_) => "disconnected",
             },
-            self.stream_writer.as_raw_fd(),
+            fd(&self.stream_writer),
         )
     }
 }

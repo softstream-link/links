@@ -64,8 +64,6 @@ fn fd(stream: &TcpStream) -> std::os::fd::RawFd {
 #[inline]
 fn fd(stream: &TcpStream) -> &'static str {
     "windows"
-    // use std::os::fd::AsRawSocket;
-    // stream.as_raw_file_handle()
 }
 
 use log::{debug, log_enabled};
