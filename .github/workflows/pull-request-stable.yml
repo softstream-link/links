@@ -1,0 +1,12 @@
+name: Pull Request Build On Stable
+on:
+  pull_request:
+
+jobs:
+  test-matrix:
+    uses: softstream-link/workflows/.github/workflows/rust-test-matrix-toolchain-os.yml@v1
+  clippy:
+    uses: softstream-link/workflows/.github/workflows/rust-clippy-toolchain.yml@v1
+  bench-matrix:
+    uses: softstream-link/workflows/.github/workflows/rust-bench-matrix-toolchain-os.yml@v1
+     
