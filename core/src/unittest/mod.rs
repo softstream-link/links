@@ -93,7 +93,7 @@ pub mod setup {
 
         pub fn rand_avail_addr_port() -> &'static str {
             let port = find_available_port(8_000..60_000);
-            let addr = format!("0.0.0.0:{}", port).into_boxed_str();
+            let addr = format!("127.0.0.1:{}", port).into_boxed_str();
             Box::leak(addr)
         }
 
