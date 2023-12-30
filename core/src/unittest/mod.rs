@@ -98,11 +98,11 @@ pub mod setup {
         }
 
         pub fn default_connect_timeout() -> Duration {
-            Duration::from_millis(500) // 500 mil | 0.5 sec
+            Duration::from_millis(1000) // 1000 mil | 1 sec
         }
 
         pub fn default_connect_retry_after() -> Duration {
-            default_connect_timeout() / 5 // 0.1 sec
+            default_connect_timeout() / 5 // 0.2 sec
         }
 
         pub fn default_io_timeout() -> Duration {

@@ -130,17 +130,9 @@ pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(mut con_id:
 #[cfg(feature = "unittest")]
 mod test {
 
-    use std::{
-        io::ErrorKind,
-        net::{TcpListener, TcpStream},
-        thread::{sleep, Builder},
-        time::{Duration, Instant},
-    };
-
     use crate::prelude::*;
-
     use links_core::{
-        fmt_num,
+        assert_error_kind_on_target_family, fmt_num,
         prelude::ConId,
         unittest::setup::{
             self,
@@ -150,6 +142,11 @@ mod test {
     };
     use log::info;
     use rand::Rng;
+    use std::{
+        net::{TcpListener, TcpStream},
+        thread::{sleep, Builder},
+        time::{Duration, Instant},
+    };
 
     #[test]
     fn test_messenger() {
@@ -206,7 +203,7 @@ mod test {
             drop(clt_recver);
             let err = clt_sender.send(&inp_clt_msg).unwrap_err();
             info!("clt_sender.send(): {}", err);
-            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+            assert_error_kind_on_target_family!(err, std::io::ErrorKind::BrokenPipe);
         }
 
         let (svc_msg_sent_count, svc_msg_recv_count) = svc.join().unwrap();

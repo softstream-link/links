@@ -1,10 +1,8 @@
-use std::{fmt::Display, io::Error, net::TcpListener, num::NonZeroUsize, sync::Arc};
+use super::pool::PoolCltAcceptor;
+use crate::prelude::{AcceptClt, CallbackRecvSend, Clt, CltRecversPool, CltSendersPool, CltsPool, ConId, Messenger, PoolAcceptClt, RecvMsg, SendMsg};
 use links_core::asserted_short_name;
 use log::{debug, log_enabled};
-
-use crate::prelude::{AcceptClt, CallbackRecvSend, Clt, CltRecversPool, CltSendersPool, CltsPool, ConId, Messenger, PoolAcceptClt, RecvMsg, SendMsg};
-
-use super::pool::PoolCltAcceptor;
+use std::{fmt::Display, io::Error, net::TcpListener, num::NonZeroUsize, sync::Arc};
 
 #[derive(Debug)]
 pub struct SvcAcceptor<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> {
@@ -122,8 +120,7 @@ impl<M: Messenger, C: CallbackRecvSend<M>, const MAX_MSG_SIZE: usize> Display fo
 #[cfg(any(test, feature = "unittest"))]
 mod test {
 
-    use std::{io::ErrorKind, num::NonZeroUsize};
-
+    use crate::prelude::*;
     use links_core::{
         prelude::{DevNullCallback, LoggerCallback},
         unittest::setup::{
@@ -135,8 +132,7 @@ mod test {
     };
     use log::{info, LevelFilter};
     use rand::Rng;
-
-    use crate::prelude::*;
+    use std::num::NonZeroUsize;
 
     #[test]
     fn test_svc_not_connected() {
@@ -211,7 +207,7 @@ mod test {
             drop(clt_recv); // drop of recv shuts down Write half of cloned stream and hence impacts clt_send
             let err = clt_send.send(&mut clt_msg_inp).unwrap_err();
             info!("clt_send err: {}", err);
-            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+            assert_error_kind_on_target_family!(err, std::io::ErrorKind::BrokenPipe);
         }
 
         info!("--------- SVC RECV/SEND SHOULD FAIL CLT DROPS HALF ---------");
@@ -223,6 +219,6 @@ mod test {
         // direction which in turn will force send to fail with ErrorKind::BrokenPipe
         let err = pool_sender.send(&mut svc_msg_inp).unwrap_err();
         info!("pool_sender err: {}", err);
-        assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+        assert_error_kind_on_target_family!(err, std::io::ErrorKind::BrokenPipe);
     }
 }

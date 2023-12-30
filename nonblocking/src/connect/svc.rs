@@ -317,7 +317,6 @@ mod test {
     use log::{info, Level, LevelFilter};
     use rand::Rng;
     use std::{
-        io::ErrorKind,
         num::NonZeroUsize,
         thread::Builder,
         time::{Duration, Instant},
@@ -519,7 +518,7 @@ mod test {
             drop(clt_recv); // drop of recv shuts down Write half of cloned stream and hence impacts clt_send
             let err = clt_send.send(&mut clt_msg_inp).unwrap_err();
             info!("clt_send err: {}", err);
-            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+            assert_error_kind_on_target_family!(err, std::io::ErrorKind::BrokenPipe);
         }
 
         info!("--------- SVC RECV/SEND SHOULD FAIL CLT DROPS HALF ---------");
@@ -532,7 +531,7 @@ mod test {
         let res = svc_pool_sender.send(&mut svc_msg_inp);
         info!("pool_sender res: {:?}", res);
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err().kind(), ErrorKind::BrokenPipe);
+        assert_error_kind_on_target_family!(res.unwrap_err(), std::io::ErrorKind::BrokenPipe);
     }
 
     #[test]
@@ -627,7 +626,7 @@ mod test {
             drop(clt_recv); // drop of recv shuts down Write half of cloned stream and hence impacts clt_send
             let err = clt_send.send(&mut clt_msg_inp).unwrap_err();
             info!("clt_send err: {}", err);
-            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+            assert_error_kind_on_target_family!(err, std::io::ErrorKind::BrokenPipe);
         }
 
         info!("--------- SVC RECV/SEND SHOULD FAIL CLT DROPS clt_recv ---------");
@@ -639,7 +638,7 @@ mod test {
         // direction which in turn will force send to fail with ErrorKind::BrokenPipe
         let err = svc_pool_sender.send(&mut svc_msg_inp).unwrap_err();
         info!("pool_sender err: {}", err);
-        assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+        assert_error_kind_on_target_family!(err, std::io::ErrorKind::BrokenPipe);
     }
 
     #[test]
