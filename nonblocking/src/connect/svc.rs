@@ -762,7 +762,7 @@ mod test {
 
         const N: usize = 10;
         for i in 1..=N {
-            clt_sender.send_busywait_timeout(&mut CltTestMsgDebug::new(format!("Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
+            clt_sender.send_busywait_timeout(&mut CltTestMsgDebug::new(format!("Clt Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
         }
 
         assert_eq!(svc_count.recv_count_busywait_timeout(N, setup::net::find_timeout()), N);
@@ -771,9 +771,9 @@ mod test {
         assert_eq!(clt_count.sent_count(), N);
 
         for i in 1..=N {
-            svc_sender.send_busywait_timeout(&mut SvcTestMsgDebug::new(format!("Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
+            svc_sender.send_busywait_timeout(&mut SvcTestMsgDebug::new(format!("Svc Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
         }
-        assert_eq!(clt_count.recv_count_busywait_timeout(N, io_timeout), N);
+        assert_eq!(clt_count.recv_count_busywait_timeout(N, setup::net::find_timeout()), N);
         info!("clt_count: {}", clt_count);
         assert_eq!(svc_count.sent_count(), N);
         assert_eq!(clt_count.sent_count(), N);
