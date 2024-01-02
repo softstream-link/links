@@ -8,7 +8,7 @@ jobs:
   test-matrix:
     uses: softstream-link/workflows/.github/workflows/rust-test-matrix-toolchain-os.yml@v1
     with:
-      toolchain: "stable"
+      toolchain: '["stable"]'
       fail-fast: false
   clippy:
     uses: softstream-link/workflows/.github/workflows/rust-clippy-toolchain.yml@v1

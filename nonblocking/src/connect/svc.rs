@@ -657,7 +657,7 @@ mod test {
                 let protocol = CltTestProtocolManual::default();
                 let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
                 // info!("clt: {}", clt);
-                let timeout = Duration::from_millis(100);
+                let timeout = setup::net::find_timeout();
                 clt.send_busywait_timeout(&mut CltTestMsgLoginReq::default().into(), timeout).unwrap();
                 let msg = clt.recv_busywait_timeout(timeout).unwrap();
                 assert!(matches!(msg, RecvStatus::Completed(Some(SvcTestMsg::Accept(_)))));
@@ -668,7 +668,7 @@ mod test {
                         return status;
                     }
                     if now.elapsed() > timeout {
-                        panic!("Timeout waiting for Final");
+                        panic!("Timeout waiting for SvcTestMsg::Final msg type");
                     }
                 }
             })
