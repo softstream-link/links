@@ -340,19 +340,16 @@ pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(mut con_id: ConId
 
 #[cfg(test)]
 mod test {
-    use std::{
-        io::ErrorKind,
-        net::{TcpListener, TcpStream},
-        thread::{self, sleep},
-        time::{Duration, Instant},
-    };
-
     use crate::prelude::*;
-
     use byteserde::utils::hex::to_hex_pretty;
     use links_core::{fmt_num, prelude::ConId, unittest::setup};
     use log::{error, info};
     use rand::Rng;
+    use std::{
+        net::{TcpListener, TcpStream},
+        thread::{self, sleep},
+        time::{Duration, Instant},
+    };
 
     /// # High Level Approach
     /// 1. Spawn Svc FrameReader in a separate thread
@@ -453,7 +450,8 @@ mod test {
         let elapsed = start.elapsed();
 
         // drop either clt_reader or clt_writer and validate that the `pair` is acting correction
-        if rand::thread_rng().gen_range(1..=2) % 2 == 0 {
+        let drop_scenario = rand::thread_rng().gen_range(1..=2);
+        if drop_scenario % 2 == 0 {
             info!("dropping clt_writer");
             drop(clt_writer);
             let status = clt_reader.read_frame().unwrap();
@@ -464,7 +462,7 @@ mod test {
             drop(clt_reader);
             let err = clt_writer.write_frame(send_frame).unwrap_err();
             info!("clt_writer.write_frame() err: {}", err);
-            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+            assert_error_kind_on_target_family!(err, std::io::ErrorKind::BrokenPipe);
         }
         let frame_recv_count = svc.join().unwrap();
         info!("frame_send_count: {}, frame_recv_count: {}", fmt_num!(frame_send_count), fmt_num!(frame_recv_count));

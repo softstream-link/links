@@ -317,7 +317,6 @@ mod test {
     use log::{info, Level, LevelFilter};
     use rand::Rng;
     use std::{
-        io::ErrorKind,
         num::NonZeroUsize,
         thread::Builder,
         time::{Duration, Instant},
@@ -519,7 +518,7 @@ mod test {
             drop(clt_recv); // drop of recv shuts down Write half of cloned stream and hence impacts clt_send
             let err = clt_send.send(&mut clt_msg_inp).unwrap_err();
             info!("clt_send err: {}", err);
-            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+            assert_error_kind_on_target_family!(err, std::io::ErrorKind::BrokenPipe);
         }
 
         info!("--------- SVC RECV/SEND SHOULD FAIL CLT DROPS HALF ---------");
@@ -532,7 +531,7 @@ mod test {
         let res = svc_pool_sender.send(&mut svc_msg_inp);
         info!("pool_sender res: {:?}", res);
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err().kind(), ErrorKind::BrokenPipe);
+        assert_error_kind_on_target_family!(res.unwrap_err(), std::io::ErrorKind::BrokenPipe);
     }
 
     #[test]
@@ -627,7 +626,7 @@ mod test {
             drop(clt_recv); // drop of recv shuts down Write half of cloned stream and hence impacts clt_send
             let err = clt_send.send(&mut clt_msg_inp).unwrap_err();
             info!("clt_send err: {}", err);
-            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+            assert_error_kind_on_target_family!(err, std::io::ErrorKind::BrokenPipe);
         }
 
         info!("--------- SVC RECV/SEND SHOULD FAIL CLT DROPS clt_recv ---------");
@@ -639,7 +638,7 @@ mod test {
         // direction which in turn will force send to fail with ErrorKind::BrokenPipe
         let err = svc_pool_sender.send(&mut svc_msg_inp).unwrap_err();
         info!("pool_sender err: {}", err);
-        assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+        assert_error_kind_on_target_family!(err, std::io::ErrorKind::BrokenPipe);
     }
 
     #[test]
@@ -658,7 +657,7 @@ mod test {
                 let protocol = CltTestProtocolManual::default();
                 let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
                 // info!("clt: {}", clt);
-                let timeout = Duration::from_millis(100);
+                let timeout = setup::net::find_timeout();
                 clt.send_busywait_timeout(&mut CltTestMsgLoginReq::default().into(), timeout).unwrap();
                 let msg = clt.recv_busywait_timeout(timeout).unwrap();
                 assert!(matches!(msg, RecvStatus::Completed(Some(SvcTestMsg::Accept(_)))));
@@ -669,7 +668,7 @@ mod test {
                         return status;
                     }
                     if now.elapsed() > timeout {
-                        panic!("Timeout waiting for Final");
+                        panic!("Timeout waiting for SvcTestMsg::Final msg type");
                     }
                 }
             })
@@ -763,7 +762,7 @@ mod test {
 
         const N: usize = 10;
         for i in 1..=N {
-            clt_sender.send_busywait_timeout(&mut CltTestMsgDebug::new(format!("Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
+            clt_sender.send_busywait_timeout(&mut CltTestMsgDebug::new(format!("Clt Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
         }
 
         assert_eq!(svc_count.recv_count_busywait_timeout(N, setup::net::find_timeout()), N);
@@ -772,9 +771,9 @@ mod test {
         assert_eq!(clt_count.sent_count(), N);
 
         for i in 1..=N {
-            svc_sender.send_busywait_timeout(&mut SvcTestMsgDebug::new(format!("Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
+            svc_sender.send_busywait_timeout(&mut SvcTestMsgDebug::new(format!("Svc Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
         }
-        assert_eq!(clt_count.recv_count_busywait_timeout(N, io_timeout), N);
+        assert_eq!(clt_count.recv_count_busywait_timeout(N, setup::net::find_timeout()), N);
         info!("clt_count: {}", clt_count);
         assert_eq!(svc_count.sent_count(), N);
         assert_eq!(clt_count.sent_count(), N);

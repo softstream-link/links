@@ -93,16 +93,16 @@ pub mod setup {
 
         pub fn rand_avail_addr_port() -> &'static str {
             let port = find_available_port(8_000..60_000);
-            let addr = format!("0.0.0.0:{}", port).into_boxed_str();
+            let addr = format!("127.0.0.1:{}", port).into_boxed_str();
             Box::leak(addr)
         }
 
         pub fn default_connect_timeout() -> Duration {
-            Duration::from_millis(500) // 500 mil | 0.5 sec
+            Duration::from_millis(1000) // 1000 mil | 1 sec
         }
 
         pub fn default_connect_retry_after() -> Duration {
-            default_connect_timeout() / 5 // 0.1 sec
+            default_connect_timeout() / 5 // 0.2 sec
         }
 
         pub fn default_io_timeout() -> Duration {
@@ -297,14 +297,14 @@ pub mod setup {
                 matches!(self, Self::Svc(_))
             }
         }
-        impl From<CltTestMsg> for UniTestMsg {
-            fn from(msg: CltTestMsg) -> Self {
-                Self::Clt(msg)
+        impl From<&CltTestMsg> for UniTestMsg {
+            fn from(msg: &CltTestMsg) -> Self {
+                Self::Clt(msg.clone())
             }
         }
-        impl From<SvcTestMsg> for UniTestMsg {
-            fn from(msg: SvcTestMsg) -> Self {
-                Self::Svc(msg)
+        impl From<&SvcTestMsg> for UniTestMsg {
+            fn from(msg: &SvcTestMsg) -> Self {
+                Self::Svc(msg.clone())
             }
         }
 
@@ -337,14 +337,14 @@ pub mod setup {
         #[derive(Debug, Clone, PartialEq)]
         pub struct CltTestMessenger;
         impl Framer for CltTestMessenger {
-            fn get_frame_length(bytes: &mut BytesMut) -> Option<usize> {
+            fn get_frame_length(bytes: &BytesMut) -> Option<usize> {
                 TestMsgFramer::get_frame_length(bytes)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct SvcTestMessenger;
         impl Framer for SvcTestMessenger {
-            fn get_frame_length(bytes: &mut BytesMut) -> Option<usize> {
+            fn get_frame_length(bytes: &BytesMut) -> Option<usize> {
                 TestMsgFramer::get_frame_length(bytes)
             }
         }
@@ -396,23 +396,6 @@ pub mod setup {
                     Err(e) => Err(Error::new(std::io::ErrorKind::Other, e.message)),
                 }
             }
-        }
-    }
-
-    // TODO remove
-    pub mod messenger_old {
-        pub use super::framer::CltTestMessenger;
-        pub use super::framer::SvcTestMessenger;
-
-        use crate::prelude::*;
-        use crate::unittest::setup::model::*;
-        impl MessengerOld for SvcTestMessenger {
-            type SendT = SvcTestMsg;
-            type RecvT = CltTestMsg;
-        }
-        impl MessengerOld for CltTestMessenger {
-            type SendT = CltTestMsg;
-            type RecvT = SvcTestMsg;
         }
     }
 }

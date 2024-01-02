@@ -5,16 +5,24 @@ cargo bench
 
 # local build
 ```shell
-cargo nextest run --all-features ; \
-cargo nextest run --examples --all-features ; \
-cargo test --doc --all-features ; \
-cargo doc  --all-features ; \
-cargo clippy --all-features -- --deny warnings 
+cargo nextest run --all-features &&
+cargo nextest run --examples --all-features &&
+cargo test --doc --all-features &&
+RUSTDOCFLAGS="-D warnings" cargo  doc --all-features &&
+cargo clippy --all-features -- --deny warnings
 ```
 
-# bench nonblocking only
+# bench nonblocking only 
 ```shell
-pushd nonblocking ; \
-cargo bench --all-features ; \
+pushd nonblocking &&
+cargo bench --all-features &&
 popd
+```
+
+# test book nonblocking
+```shell
+mdbook test
+```
+```shell
+mdbook serve --open
 ```

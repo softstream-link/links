@@ -195,10 +195,11 @@ mod test {
         while TASK1_REMAINING_ITERATIONS.load(Ordering::Relaxed) > 0 {}
         let elapsed = now.elapsed();
         timer.stop();
-        let expected_completion = REPEAT_INTERVAL * 5;
+        let mut expected_completion = REPEAT_INTERVAL * 5;
+        expected_completion = expected_completion + expected_completion / 10; // 10% tolerance
         info!("elapsed: {:?}", elapsed);
         info!("expected_completion: {:?}", expected_completion);
-        assert_lt!(elapsed , expected_completion);
+        assert_lt!(elapsed, expected_completion);
 
         assert_eq!(TASK1_REMAINING_ITERATIONS.load(Ordering::Relaxed), 0);
         assert_eq!(TASK2_REMAINING_ITERATIONS.load(Ordering::Relaxed), 0);

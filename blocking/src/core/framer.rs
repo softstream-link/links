@@ -41,29 +41,15 @@
 //!         // svc_reader & clt_writer
 //! ```
 
-use crate::prelude::{ConId, Framer};
+use crate::prelude::{asserted_short_name, cross_os_fd, ConId, Framer};
 use bytes::{Bytes, BytesMut};
 use byteserde::utils::hex::to_hex_pretty;
-use links_core::asserted_short_name;
 use log::{debug, log_enabled};
 use std::fmt::Display;
 use std::io::{ErrorKind, Read, Write};
 use std::mem::MaybeUninit;
 use std::net::Shutdown;
 use std::{io::Error, net::TcpStream};
-
-#[cfg(target_family = "unix")]
-#[inline]
-fn fd(stream: &TcpStream) -> std::os::fd::RawFd {
-    use std::os::fd::AsRawFd;
-    stream.as_raw_fd()
-}
-#[cfg(target_family = "windows")]
-#[inline]
-fn fd(stream: &TcpStream) -> std::os::windows::io::RawSocket {
-    use std::os::windows::io::AsRawSocket;
-    stream.as_raw_socket()
-}
 
 const EOF: usize = 0;
 
@@ -180,7 +166,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> Display for FrameReader<F, MAX_MSG_SI
                 Ok(_) => "connected",
                 Err(_) => "disconnected",
             },
-            fd(&self.stream_reader),
+            cross_os_fd!(&self.stream_reader),
         )
     }
 }
@@ -254,7 +240,7 @@ impl Display for FrameWriter {
                 Ok(_) => "connected",
                 Err(_) => "disconnected",
             },
-            fd(&self.stream_writer),
+            cross_os_fd!(&self.stream_writer),
         )
     }
 }
@@ -279,20 +265,16 @@ pub fn into_split_framer<F: Framer, const MAX_MSG_SIZE: usize>(mut con_id: ConId
 #[cfg(test)]
 mod test {
 
+    use crate::prelude::*;
+    use byteserde::utils::hex::to_hex_pretty;
+    use links_core::{assert_error_kind_on_target_family, fmt_num, prelude::ConId, unittest::setup};
+    use log::{error, info};
+    use rand::Rng;
     use std::{
-        io::ErrorKind,
         net::{TcpListener, TcpStream},
         thread::{self, sleep},
         time::{Duration, Instant},
     };
-
-    use crate::prelude::*;
-
-    use byteserde::utils::hex::to_hex_pretty;
-    use links_core::{fmt_num, prelude::ConId, unittest::setup};
-
-    use log::{error, info};
-    use rand::Rng;
 
     /// # High Level Approach
     /// 1. Spawn Svc FrameReader in a separate thread
@@ -376,7 +358,7 @@ mod test {
             drop(clt_reader);
             let err = clt_writer.write_frame(send_frame).unwrap_err();
             info!("clt_writer.write_frame() err: {}", err);
-            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+            assert_error_kind_on_target_family!(err, std::io::ErrorKind::BrokenPipe);
         }
         let frame_recv_count = svc.join().unwrap();
 

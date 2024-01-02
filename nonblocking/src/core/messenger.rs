@@ -177,7 +177,6 @@ mod test {
     use log::info;
     use rand::Rng;
     use std::{
-        io::ErrorKind,
         thread::{sleep, Builder},
         time::{Duration, Instant},
     };
@@ -243,7 +242,7 @@ mod test {
             drop(clt_recver);
             let err = clt_sender.send_busywait(&inp_clt_msg).unwrap_err();
             info!("clt_sender.send_busywait(): {}", err);
-            assert_eq!(err.kind(), ErrorKind::BrokenPipe);
+            assert_error_kind_on_target_family!(err, std::io::ErrorKind::BrokenPipe);
         }
 
         let (svc_msg_sent_count, svc_msg_recv_count) = svc.join().unwrap();

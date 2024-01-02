@@ -21,7 +21,7 @@ pub mod setup {
         #[derive(Debug, Clone, Default)]
         pub struct SvcTestProtocolManual;
         impl Framer for SvcTestProtocolManual {
-            fn get_frame_length(bytes: &mut bytes::BytesMut) -> Option<usize> {
+            fn get_frame_length(bytes: &bytes::BytesMut) -> Option<usize> {
                 SvcTestMessenger::get_frame_length(bytes)
             }
         }
@@ -48,7 +48,7 @@ pub mod setup {
         #[derive(Debug, Clone, Default)]
         pub struct SvcTestProtocolAuthAndHBeat;
         impl Framer for SvcTestProtocolAuthAndHBeat {
-            fn get_frame_length(bytes: &mut bytes::BytesMut) -> Option<usize> {
+            fn get_frame_length(bytes: &bytes::BytesMut) -> Option<usize> {
                 SvcTestMessenger::get_frame_length(bytes)
             }
         }
@@ -106,7 +106,7 @@ pub mod setup {
         #[derive(Debug, Clone, Default)]
         pub struct CltTestProtocolManual;
         impl Framer for CltTestProtocolManual {
-            fn get_frame_length(bytes: &mut bytes::BytesMut) -> Option<usize> {
+            fn get_frame_length(bytes: &bytes::BytesMut) -> Option<usize> {
                 CltTestMessenger::get_frame_length(bytes)
             }
         }
@@ -133,7 +133,7 @@ pub mod setup {
         #[derive(Debug, Clone, Default)]
         pub struct CltTestProtocolAuthAndHbeat;
         impl Framer for CltTestProtocolAuthAndHbeat {
-            fn get_frame_length(bytes: &mut bytes::BytesMut) -> Option<usize> {
+            fn get_frame_length(bytes: &bytes::BytesMut) -> Option<usize> {
                 CltTestMessenger::get_frame_length(bytes)
             }
         }

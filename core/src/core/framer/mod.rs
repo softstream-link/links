@@ -4,7 +4,7 @@ use bytes::{Bytes, BytesMut};
 pub trait Framer {
     /// The implementation of this function should use protocol specific logic to determine when enough bytes are available
     /// to make up a single complete message/frame and return the [Some(usize)] frame length or [None] if not enough bytes are available.
-    fn get_frame_length(bytes: &mut BytesMut) -> Option<usize>;
+    fn get_frame_length(bytes: &BytesMut) -> Option<usize>;
 
     /// Will return a frame as [Some(Bytes)] of length determined by the [Self::get_frame_length] function.
     #[inline(always)]
@@ -23,7 +23,7 @@ pub trait Framer {
 pub struct FixedSizeFramer<const FRAME_SIZE: usize>;
 impl<const FRAME_SIZE: usize> Framer for FixedSizeFramer<FRAME_SIZE> {
     #[inline(always)]
-    fn get_frame_length(bytes: &mut BytesMut) -> Option<usize> {
+    fn get_frame_length(bytes: &BytesMut) -> Option<usize> {
         if bytes.len() < FRAME_SIZE {
             None
         } else {
@@ -75,7 +75,7 @@ impl<const START_IDX: usize, const IS_BIG_ENDIAN: bool, const ADD_PACKET_LEN_TO_
 }
 impl<const START_IDX: usize, const IS_BIG_ENDIAN: bool, const ADD_PACKET_LEN_TO_FRAME_SIZE: bool> Framer for PacketLengthU16Framer<START_IDX, IS_BIG_ENDIAN, ADD_PACKET_LEN_TO_FRAME_SIZE> {
     #[inline(always)]
-    fn get_frame_length(bytes: &mut BytesMut) -> Option<usize> {
+    fn get_frame_length(bytes: &BytesMut) -> Option<usize> {
         let packet_length = Self::packet_len(bytes)?;
 
         let frame_length = {

@@ -1,8 +1,16 @@
 [package]
 name = "links_nonblocking"
 version.workspace = true
+authors.workspace = true
+readme.workspace = true
+license-file.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
+description = "Nonblocking implementation of the links_nonblocking crate"
 
 [dependencies]
 # networking nonblocking
@@ -35,8 +43,11 @@ byteserde_types = { workspace = true }  # required to setup unit test models
 byteserde_derive = { workspace = true } # required to setup unit test models
 
 
-criterion = { workspace = true } # required to setup benchmarks
-rand = { workspace = true }      # required to setup benchmarks
+criterion = { workspace = true }  # required to setup benchmarks
+rand = { workspace = true }       # required to setup benchmarks
+
+serde = { workspace = true }      # required to exmples
+serde_json = { workspace = true } # required to exmples
 
 
 [features]

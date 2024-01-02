@@ -1,5 +1,5 @@
 [workspace]
-members = ["core", "nonblocking", "blocking", "experimentation"]
+members = ["core", "nonblocking", "blocking"]
 resolver = "2"
 
 [workspace.package]
@@ -21,10 +21,10 @@ byteserde_types = { version = "0.6" }  # required to setup unit test models
 byteserde_derive = { version = "0.6" } # required to setup unit test models
 derive_more = "0.99"                   # try_into, etc
 
+links_core = { version = "0.1.0", path = "./core" }
+links_nonblocking = { version = "0.1.0", path = "./nonblocking" }
+links_blocking = { version = "0.1.0", path = "./blocking" }
 # networking
-links_nonblocking = { path = "./nonblocking" }
-links_blocking = { path = "./blocking" }
-links_core = { path = "./core" }
 bytes = "1.4"
 
 # synch
@@ -47,10 +47,12 @@ env_logger = "0.10"
 colored = "2.0"
 
 
-
-
 # bechmarking only
 criterion = { version = "0.5", features = ["async_tokio", "async_futures"] }
 
 # collections
 slab = "0.4"
+
+# serde
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }

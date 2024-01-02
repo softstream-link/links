@@ -1,7 +1,16 @@
 [package]
 name = "links_blocking"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+readme.workspace = true
+license-file.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+description = "Blocking implementation of links_blocking crate"
 
 [features]
 default = ["full"]               # TODO desable all default features during release
@@ -41,11 +50,11 @@ rand = { workspace = true }      # required to setup benchmarks
 
 # BENCHMARKS
 [[bench]]
-name = "framer_blocking_bench"
+name = "01_framer_blocking_bench"
 harness = false
 
 
 [[bench]]
-name = "messender_blocking_bench"
+name = "02_messender_blocking_bench"
 harness = false
 required-features = ["unittest"]
