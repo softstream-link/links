@@ -1,9 +1,16 @@
 [package]
 name = "links_core"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+readme.workspace = true
+license-file.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Core create of the links collection"
 
 [dependencies]
 bytes = { workspace = true }

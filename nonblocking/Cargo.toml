@@ -1,8 +1,16 @@
 [package]
 name = "links_nonblocking"
 version.workspace = true
+authors.workspace = true
+readme.workspace = true
+license-file.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
+description = "Nonblocking implementation of the links_nonblocking crate"
 
 [dependencies]
 # networking nonblocking

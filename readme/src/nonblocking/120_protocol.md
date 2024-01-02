@@ -1,6 +1,6 @@
 # Protocol
 
-The next step after defining the data model is to implement a `Protocol` trait. The purpose of this trait is to define several key functions for the `links_connect_nonblocking` library to be able to send & receive messages over the network link.
+The next step after defining the data model is to implement a `Protocol` trait. The purpose of this trait is to define several key functions for the `links_nonblocking` library to be able to send & receive messages over the network link.
 
 The `trait Protocol` itself is a super trait which consists of several other traits, namely:
 
