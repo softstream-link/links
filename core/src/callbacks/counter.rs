@@ -77,7 +77,7 @@ impl<M: Messenger> CallbackSend<M> for CounterCallback<M> {
 mod test {
 
     use crate::prelude::*;
-    use crate::unittest::setup::{self, messenger_old::CltTestMessenger, model::*};
+    use crate::unittest::setup::{self, messenger::CltTestMessenger, model::*};
     use log::info;
 
     #[test]

@@ -3,11 +3,16 @@ use std::{fmt::Debug, io::Error};
 use super::framer::Framer;
 
 pub trait Messenger: Framer + Debug + Send + Sync + 'static {
-    // TODO Once Arc<C> is removed from signature see if removing Synch is possible, Send is still likely required because we should be able to pass CltRecver to a Poll Thread
-    type SendT: Debug + Clone + PartialEq;
-    type RecvT: Debug + Clone + PartialEq;
+    type SendT: Debug;
+    type RecvT: Debug;
 
-    //  TODO explore how to return a &[u8] instead of a [u8; MAX_MESSAGE_SIZE] with self as an argument
+    /// Serializes application message of type [`Self::SendT`] into an array of size `MAX_MSG_SIZE` and return it along with the number 
+    /// of bytes written as a tuple.
+    /// 
+    /// # Important
+    /// * to avoid a copy of this array on the stack during function call remember to `#[inline]` implementation of this function
     fn serialize<const MAX_MSG_SIZE: usize>(msg: &Self::SendT) -> Result<([u8; MAX_MSG_SIZE], usize), Error>;
+
+    /// Deserializes application message from a byte slice and returns a concrete message of type [`Self::RecvT`].
     fn deserialize(frame: &[u8]) -> Result<Self::RecvT, Error>;
 }

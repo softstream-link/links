@@ -126,7 +126,7 @@ mod test {
         unittest::setup::{
             self,
             framer::{SvcTestMessenger, TEST_MSG_FRAME_SIZE},
-            messenger_old::CltTestMessenger,
+            messenger::CltTestMessenger,
             model::{CltTestMsg, CltTestMsgDebug, SvcTestMsg, SvcTestMsgDebug},
         },
     };

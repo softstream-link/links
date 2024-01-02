@@ -41,11 +41,11 @@ rand = { workspace = true }      # required to setup benchmarks
 
 # BENCHMARKS
 [[bench]]
-name = "framer_blocking_bench"
+name = "01_framer_blocking_bench"
 harness = false
 
 
 [[bench]]
-name = "messender_blocking_bench"
+name = "02_messender_blocking_bench"
 harness = false
 required-features = ["unittest"]

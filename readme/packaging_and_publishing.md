@@ -18,3 +18,11 @@ pushd nonblocking &&
 cargo bench --all-features &&
 popd
 ```
+
+# test book nonblocking
+```shell
+mdbook test
+```
+```shell
+mdbook serve --open
+```

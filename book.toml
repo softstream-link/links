@@ -1,0 +1,9 @@
+[book]
+src = "./readme/src"
+
+[build]
+build-dir = "./target/readme"
+
+[rust]
+edition = "2018"
+

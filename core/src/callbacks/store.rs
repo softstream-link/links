@@ -9,7 +9,6 @@ use crate::{asserted_short_name, core::macros::short_type_name, prelude::*};
 pub enum Message<T: Debug> {
     Recv(T),
     Sent(T),
-    // Failed(T),
 }
 impl<T: Debug> Message<T> {
     pub fn into_t(self) -> T {
@@ -27,43 +26,42 @@ pub trait Storage<T: Debug + Send + Sync>: Debug + Send + Sync {
 #[derive(Debug)]
 pub struct StoreCallback<M: Messenger, INTO: Debug + Send + Sync, S: Storage<INTO>>
 where
-    INTO: From<M::RecvT> + From<M::SendT>,
+    INTO: for<'s> From<&'s M::RecvT> + for<'s> From<&'s M::SendT>,
 {
     storage: Arc<S>,
     phantom: std::marker::PhantomData<(INTO, M)>,
 }
-impl<INTO, M: Messenger, S: Storage<INTO>> StoreCallback<M, INTO, S>
+impl<M: Messenger, INTO, S: Storage<INTO>> StoreCallback<M, INTO, S>
 where
-    INTO: From<M::RecvT> + From<M::SendT> + Debug + Send + Sync,
+    INTO: for<'s> From<&'s M::RecvT> + for<'s> From<&'s M::SendT> + Debug + Send + Sync,
 {
     pub fn new_ref(storage: Arc<S>) -> Arc<Self> {
         Arc::new(Self { storage, phantom: std::marker::PhantomData })
     }
 }
-impl<M: Messenger, INTO, S: Storage<INTO> + 'static> CallbackRecvSend<M> for StoreCallback<M, INTO, S> where INTO: From<M::RecvT> + From<M::SendT> + Debug + Send + Sync + 'static {}
+
+impl<M: Messenger, INTO, S: Storage<INTO> + 'static> CallbackRecvSend<M> for StoreCallback<M, INTO, S> where INTO: for<'s> From<&'s M::RecvT> + for<'s> From<&'s M::SendT> + Debug + Send + Sync + 'static {}
 impl<M: Messenger, INTO, S: Storage<INTO> + 'static> CallbackRecv<M> for StoreCallback<M, INTO, S>
 where
-    INTO: From<M::RecvT> + From<M::SendT> + Debug + Send + Sync + 'static,
+    INTO: for<'s> From<&'s M::RecvT> + for<'s> From<&'s M::SendT> + Debug + Send + Sync + 'static,
 {
     #[inline(always)]
     fn on_recv(&self, con_id: &ConId, msg: &<M as Messenger>::RecvT) {
-        let msg = msg.clone();
         self.storage.on_msg(con_id.clone(), Message::Recv(INTO::from(msg)));
     }
 }
 impl<M: Messenger, INTO, S: Storage<INTO>> CallbackSend<M> for StoreCallback<M, INTO, S>
 where
-    INTO: From<M::RecvT> + From<M::SendT> + Debug + Send + Sync + 'static,
+    INTO: for<'s> From<&'s M::RecvT> + for<'s> From<&'s M::SendT> + Debug + Send + Sync + 'static,
 {
     #[inline(always)]
     fn on_sent(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {
-        let msg = msg.clone();
         self.storage.on_msg(con_id.clone(), Message::Sent(INTO::from(msg)));
     }
 }
 impl<M: Messenger, INTO, S: Storage<INTO>> Display for StoreCallback<M, INTO, S>
 where
-    INTO: From<M::RecvT> + From<M::SendT> + Debug + Send + Sync,
+    INTO: for<'s> From<&'s M::RecvT> + for<'s> From<&'s M::SendT> + Debug + Send + Sync,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}<{}>", asserted_short_name!("StoreCallback", Self), short_type_name::<INTO>())
@@ -92,7 +90,7 @@ mod test {
                 Arc::new(Self(std::marker::PhantomData))
             }
         }
-        impl<T: Debug + Send + Sync> Storage<T> for LogStore<T> {
+        impl<T: Debug + Send + Sync + 'static> Storage<T> for LogStore<T> {
             fn on_msg(&self, cond_id: ConId, msg: Message<T>) {
                 info!("{}: {:?}", cond_id, msg);
             }
