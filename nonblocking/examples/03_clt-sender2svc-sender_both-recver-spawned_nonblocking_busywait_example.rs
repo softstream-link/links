@@ -55,7 +55,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let found = store.find_recv(
         "example/svc",
         |msg| matches!(msg, UniTestMsg::Clt(CltTestMsg::Dbg(CltTestMsgDebug{text, ..})) if text == &b"Hello Frm Client Msg".as_slice().into()),
-        setup::net::optional_find_timeout(),
+        setup::net::default_optional_find_timeout(),
     );
 
     info!("found: {:?}", found);

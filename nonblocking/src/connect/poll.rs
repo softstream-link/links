@@ -421,7 +421,7 @@ mod test {
         }
 
         let start = Instant::now();
-        while start.elapsed() < setup::net::optional_find_timeout().unwrap() {
+        while start.elapsed() < setup::net::default_find_timeout() {
             if counter.recv_count() == write_count {
                 break;
             }
@@ -508,22 +508,22 @@ mod test {
         svc1.send_busywait(&mut SvcTestMsgDebug::new(b"Hello From Svc1").into()).unwrap();
         svc2.send_busywait(&mut SvcTestMsgDebug::new(b"Hello From Svc2").into()).unwrap();
 
-        let found = store.find_recv("unittest/svc1", |_x| true, setup::net::optional_find_timeout());
+        let found = store.find_recv("unittest/svc1", |_x| true, setup::net::default_optional_find_timeout());
         info!("found: {:?}", found);
         assert!(found.is_some());
         assert!(matches!(found.unwrap(), UniTestMsg::Clt(CltTestMsg::Dbg(msg)) if msg == CltTestMsgDebug::new(b"Hello From Clt1")));
 
-        let found = store.find_recv("unittest/svc2", |_x| true, setup::net::optional_find_timeout());
+        let found = store.find_recv("unittest/svc2", |_x| true, setup::net::default_optional_find_timeout());
         info!("found: {:?}", found);
         assert!(found.is_some());
         assert!(matches!(found.unwrap(), UniTestMsg::Clt(CltTestMsg::Dbg(msg)) if msg == CltTestMsgDebug::new(b"Hello From Clt2")));
 
-        let found = store.find_recv("unittest/clt1", |_x| true, setup::net::optional_find_timeout());
+        let found = store.find_recv("unittest/clt1", |_x| true, setup::net::default_optional_find_timeout());
         info!("found: {:?}", found);
         assert!(found.is_some());
         assert!(matches!(found.unwrap(), UniTestMsg::Svc(SvcTestMsg::Dbg(msg)) if msg == SvcTestMsgDebug::new(b"Hello From Svc1")));
 
-        let found = store.find_recv("unittest/clt2", |_x| true, setup::net::optional_find_timeout());
+        let found = store.find_recv("unittest/clt2", |_x| true, setup::net::default_optional_find_timeout());
         info!("found: {:?}", found);
         assert!(found.is_some());
         assert!(matches!(found.unwrap(), UniTestMsg::Svc(SvcTestMsg::Dbg(msg)) if msg == SvcTestMsgDebug::new(b"Hello From Svc2")));
