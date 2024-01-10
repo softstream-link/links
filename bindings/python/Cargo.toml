@@ -1,0 +1,24 @@
+[package]
+name = "links_bindings_python"
+version.workspace = true
+authors.workspace = true
+readme.workspace = true
+license-file.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+description = "Macros to facilitate creation python extension modules over links_connect_nonblocking crate"
+
+[dependencies]
+pyo3 = { version = "0.20", features = ["auto-initialize"] }
+links_nonblocking = { workpace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+log = { workspace = true }
+
+[dev-dependencies]
+links_nonblocking = { workpace = true, features = ["unittest"] }

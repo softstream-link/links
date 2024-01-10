@@ -127,8 +127,9 @@ pub mod setup {
         pub const TEST_MSG_FRAME_SIZE: usize = TEXT_SIZE + 1;
         use byteserde_derive::{ByteDeserializeSlice, ByteSerializeStack, ByteSerializedLenOf};
         use byteserde_types::prelude::*;
+        use serde::{Deserialize, Serialize};
 
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default, Serialize, Deserialize)]
         pub struct CltTestMsgDebug {
             ty: ConstCharAscii<b'1'>,
             pub text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
@@ -142,19 +143,19 @@ pub mod setup {
             }
         }
 
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default, Serialize, Deserialize)]
         pub struct CltTestMsgLoginReq {
             pub ty: ConstCharAscii<b'L'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
 
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default, Serialize, Deserialize)]
         pub struct CltTestMsgPing {
             pub ty: ConstCharAscii<b'P'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
 
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default, Serialize, Deserialize)]
         pub struct SvcTestMsgDebug {
             ty: ConstCharAscii<b'2'>,
             pub text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
@@ -168,24 +169,24 @@ pub mod setup {
             }
         }
 
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default, Serialize, Deserialize)]
         pub struct SvcTestMsgLoginAcpt {
             pub ty: ConstCharAscii<b'L'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
 
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default, Serialize, Deserialize)]
         pub struct SvcTestMsgPong {
             pub ty: ConstCharAscii<b'P'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default, Serialize, Deserialize)]
         pub struct SvcTestMsgFinal {
             pub ty: ConstCharAscii<b'F'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
         }
 
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default)]
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Default, Serialize, Deserialize)]
         pub struct UniTestHBeatMsgDebug {
             ty: ConstCharAscii<b'H'>,
             text: StringAsciiFixed<TEXT_SIZE, b' ', true>,
@@ -199,7 +200,7 @@ pub mod setup {
             }
         }
 
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Serialize, Deserialize)]
         #[byteserde(peek(0, 1))]
         pub enum CltTestMsg {
             #[byteserde(eq(&[b'1']))]
@@ -232,7 +233,7 @@ pub mod setup {
             }
         }
 
-        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug)]
+        #[derive(ByteSerializeStack, ByteDeserializeSlice, ByteSerializedLenOf, PartialEq, Clone, Debug, Serialize, Deserialize)]
         #[byteserde(peek(0, 1))]
         pub enum SvcTestMsg {
             #[byteserde(eq(&[b'2']))]
