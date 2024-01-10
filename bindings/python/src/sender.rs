@@ -2,7 +2,7 @@
 macro_rules! create_clt_sender(
     ($name:ident, $sender:ident, $protocol:ident, $callback:ident) => {
         $crate::create_struct!($name, $sender, $protocol, $callback);
-        $crate::send!($name);
+        $crate::send!($name, $sender, $protocol);
         $crate::clt_is_connected!($name, $sender, $protocol);
         $crate::clt__repr__!($name);
         $crate::__enter__!($name);
@@ -15,7 +15,7 @@ macro_rules! create_clt_sender(
 macro_rules! create_svc_sender(
     ($name:ident, $sender:ident, $protocol:ident, $callback:ident) => {
         $crate::create_struct!($name, $sender, $protocol, $callback);
-        $crate::send!($name);
+        $crate::send!($name, $sender, $protocol);
         $crate::svc_is_connected!($name, $sender, $protocol);
         $crate::svc__repr__!($name);
         $crate::__enter__!($name);
@@ -25,10 +25,26 @@ macro_rules! create_svc_sender(
 );
 
 #[macro_export]
+macro_rules! create_struct(
+    ($name:ident, $sender:ident, $protocol:ident, $callback:ident) => {
+        #[doc = concat!("[`", stringify!($name), "`] is a python extension module for [`", stringify!($sender), "`] sender, implementing [`", stringify!($protocol) ,"`] protocol", )]
+        #[pyo3::pyclass]
+        pub struct $name {
+            sender: $sender<$protocol, $callback>,
+            io_timeout: Option<f64>,
+        }
+    }
+);
+
+#[macro_export]
 macro_rules! send(
-    ($name:ident) => {
+    ($name:ident, $sender:ident, $protocol:ident ) => {
         #[pyo3::pymethods]
         impl $name{
+            #[doc = concat!(
+                "[`", stringify!($name), ".send`] converts `msg` argument into [`", stringify!($protocol) ,"`] protocol format and sends it to connected peer, will raise exception if `io_timeout` is reached.",
+                "\n[`", stringify!($name), ".msg_samples`] provides valid sample messages for [`", stringify!($protocol) ,"`] protocol."
+            )]
             fn send(&mut self, _py: pyo3::Python<'_>, msg: pyo3::Py<pyo3::types::PyDict>, io_timeout: Option<f64>) -> pyo3::PyResult<()> {
                 let io_timeout = $crate::timeout_selector(io_timeout, self.io_timeout);
                 let json_module = pyo3::types::PyModule::import(_py, "json")?;
@@ -103,18 +119,6 @@ macro_rules! svc__repr__(
                     }
                 })
             }
-        }
-    }
-);
-
-#[macro_export]
-macro_rules! create_struct(
-    ($name:ident, $sender:ident, $protocol:ident, $callback:ident) => {
-        #[doc = concat!("[`", stringify!($name), "`] is a python extension module for [`", stringify!($sender), "`] sender, implementing [`", stringify!($protocol) ,"`] protocol")]
-        #[pyo3::pyclass]
-        pub struct $name {
-            sender: $sender<$protocol, $callback>,
-            io_timeout: Option<f64>,
         }
     }
 );
