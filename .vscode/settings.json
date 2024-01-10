@@ -50,6 +50,7 @@
         "successfull",
         "svcpool",
         "svcs",
+        "traceback",
         "tshark",
         "Uninit",
         "unpark",
