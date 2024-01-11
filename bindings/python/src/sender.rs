@@ -53,7 +53,7 @@ macro_rules! send(
 
                 _py.allow_threads(move || match self.sender.send_busywait_timeout(&mut msg, io_timeout)? {
                     SendStatus::Completed => Ok(()),
-                    SendStatus::WouldBlock => Err(Error::new(ErrorKind::WouldBlock, format!("Message not delivered due timeout: {:?}, msg: {}", io_timeout, json)).into()),
+                    SendStatus::WouldBlock => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, format!("Message not delivered due timeout: {:?}, msg: {}", io_timeout, json)).into()),
                 })
             }
         }
@@ -162,11 +162,82 @@ macro_rules! __del__(
 
 #[cfg(test)]
 mod test {
+    use std::num::NonZeroUsize;
+
+    use crate::{callback, prelude::*};
+    use callback::ConId;
+    use links_nonblocking::{
+        prelude::{
+            setup::net::{default_connect_retry_after, default_connect_timeout},
+            *,
+        },
+        unittest::setup::{
+            connection::{CltTest, CltTestSender, SvcTest, SvcTestSender},
+            protocol::{CltTestProtocolManual, SvcTestProtocolManual},
+        },
+    };
+    use log::info;
+    use pyo3::{prelude::*, types::PyDict};
+
+    #[pyclass]
+    struct PyLoggerCallback;
+    #[pymethods]
+    impl PyLoggerCallback {
+        fn on_recv(&self, con_id: ConId, msg: Py<PyDict>) {
+            info!("on_recv -> cond_id {}, msg: {}", con_id, msg)
+        }
+        fn on_sent(&self, con_id: ConId, msg: Py<PyDict>) {
+            info!("on_sent -> cond_id {}, msg: {}", con_id, msg)
+        }
+    }
 
     #[test]
-    fn test___enter__() {
-        #[pyo3::pyclass]
-        struct CltManual;
-        __enter__!(CltManual);
+
+    fn test_clt2svc() {
+        setup::log::configure_compact(log::LevelFilter::Info);
+        create_callback_for_messenger!(CltTestProtocolManualCallback, CltTestProtocolManual);
+        create_callback_for_messenger!(SvcTestProtocolManualCallback, SvcTestProtocolManual);
+        create_clt_sender!(CltManual, CltTestSender, CltTestProtocolManual, CltTestProtocolManualCallback);
+        create_svc_sender!(SvcManual, SvcTestSender, SvcTestProtocolManual, SvcTestProtocolManualCallback);
+
+        #[pymethods]
+        impl CltManual {
+            #[new]
+            fn new(_py: Python<'_>, host: &str, callback: PyObject) -> Self {
+                let protocol = CltTestProtocolManual::default();
+                let callback = CltTestProtocolManualCallback::new_ref(callback);
+                let clt = CltTest::connect(host, default_connect_timeout(), default_connect_retry_after(), callback, protocol, Some("py-clt"))
+                    .unwrap()
+                    .into_sender_with_spawned_recver();
+                Self { sender: clt, io_timeout: None }
+            }
+        }
+        #[pymethods]
+        impl SvcManual {
+            #[new]
+            fn new(_py: Python<'_>, host: &str, callback: PyObject) -> Self {
+                let protocol = SvcTestProtocolManual::default();
+                let callback = SvcTestProtocolManualCallback::new_ref(callback);
+                let max_connections = NonZeroUsize::new(1).unwrap();
+                let clt = SvcTest::bind(host, max_connections, callback, protocol, Some("py-svc")).unwrap().into_sender_with_spawned_recver();
+                Self { sender: clt, io_timeout: None }
+            }
+        }
+
+        Python::with_gil(|py| {
+            let callback = PyLoggerCallback {}.into_py(py);
+            let addr = setup::net::rand_avail_addr_port();
+            let _svc = SvcManual::new(py, addr, callback.clone());
+            let mut clt = CltManual::new(py, addr, callback);
+
+            let hbeat = PyDict::new(py);
+            hbeat.set_item("ty", "H").unwrap();
+            hbeat.set_item("text", "Blah").unwrap();
+            let msg = PyDict::new(py);
+
+            msg.set_item("HBeat", hbeat).unwrap();
+            info!("msg: {}", msg); // "{'HBeat': {'ty': 'H', 'text': 'Blah'}}"
+            clt.send(py, msg.into(), None).unwrap();
+        });
     }
 }

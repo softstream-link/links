@@ -172,4 +172,12 @@ pub mod setup {
             }
         }
     }
+    pub mod connection {
+        use crate::prelude::{setup::framer::TEST_MSG_FRAME_SIZE, Clt, CltSender, Svc, SvcSender};
+
+        pub type CltTest<P, C> = Clt<P, C, TEST_MSG_FRAME_SIZE>;
+        pub type SvcTest<P, C> = Svc<P, C, TEST_MSG_FRAME_SIZE>;
+        pub type CltTestSender<P, C> = CltSender<P, C, TEST_MSG_FRAME_SIZE>;
+        pub type SvcTestSender<P, C> = SvcSender<P, C, TEST_MSG_FRAME_SIZE>;
+    }
 }

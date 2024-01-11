@@ -13,7 +13,7 @@ categories.workspace = true
 description = "Macros to facilitate creation python extension modules over links_connect_nonblocking crate"
 
 [dependencies]
-pyo3 = { version = "0.20", features = ["auto-initialize"] }
+pyo3 = { version = "0.20", features = ["auto-initialize", "multiple-pymethods"] }
 links_nonblocking = { workpace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
