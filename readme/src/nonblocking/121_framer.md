@@ -7,7 +7,7 @@ You only need to implement one method here, called `get_frame_length`, which wil
 Below example looks for the `\n` new line character and returns its positions. 
 
 ------
-> **Note**: Your Protocol structure `must` also implement `Debug` & `Clone` which are typically done via `derive` macro.
+> **Note**: Your Framer, Messenger, Protocol handling structure `must` also implement `Debug` & `Clone` which are typically done via `derive` macro.
 >> * `Clone` is necessary because each new connection that the `Svc` accepts will get a new and independent "copy" of the `Protocol` instance. This is necessary because some methods in the `Protocol` trait require a `self` reference that enables feature of the protocol to track the state of each individual connection separately from one another.
 >> * `Debug` is required to provide a meaningful messages during logging or exception handling under certain conditions.
 ------

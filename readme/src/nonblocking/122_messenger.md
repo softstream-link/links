@@ -5,9 +5,9 @@ Now lets implement the `Messenger` trait for our `Clt` & `Svc` types. The `Messe
 A few things to note about the `Messenger` trait implementation:
 1. The two associated types `RecvT` & `SendT` are used to specify what message types `Clt` & `Svc` will be able to `recv` & `send`. In our example, we chose to use the same message type for both `Clt` & `Svc` but in a real world scenario `Clt` & `Svc` would likely have different message types. Hence, both `Clt` & `Svc` would need to provide their own implementation of the `Messenger` trait. That would mean there will be two separate structures `CltMessageProtocol` & `SvcMessageProtocol` one for `Clt` & one for `Svc` respectively.
    
-2. `links` library is designed with performance in mind and is aiming to avoid run time heap allocation. As a result it returns an owned type on `deserialize` while providing a fixed size `stack allocated` byte array for `serialization`. As a result to a void a stack frame copy on the function return we encourage you to `inline` both `deserialize` & `serialize` methods implementations.
+2. `links` library is designed with performance in mind and is aiming to avoid runtime heap allocation. As a result `Messenger::deserialize` method signature returns an owned type instead of a smart pointer, while `Messenger::serialize` returns a fixed size `stack allocated` byte array. Note that to a void a stack frame copy on these function invocations we encourage you to `inline` both of these method's implementations.
    
-   > Note: The `MAX_MSG_SIZE` is a generic argument that will be propagated from instantiations that will looks something like this:
+   > Note: The `Messenger::serialize<const MAX_MSG_SIZE: usize>` has a generic `const` argument that will be propagated from instantiations that will looks something like this:
    > * `Clt::<_, _, MAX_MSG_SIZE>::connect(...)` 
    > * `Svc::<_, _, MAX_MSG_SIZE>::bind(...)` 
    

@@ -55,6 +55,13 @@ impl ConId {
             ConId::Acceptor { local, .. } => Some(*local),
         }
     }
+    pub fn from_same_lineage(&self, other: &Self) -> bool {
+        match (self, other) {
+            // listening ports are unique hence must be ( self IS other | other is a Clt that was started by self )
+            (ConId::Acceptor { local: l1, .. }, ConId::Acceptor { local: l2, .. }) => l1 == l2, 
+            _ => false,
+        }
+    }
 }
 impl Default for ConId {
     fn default() -> Self {

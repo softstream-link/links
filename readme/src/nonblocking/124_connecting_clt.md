@@ -118,7 +118,7 @@ fn main() {
         .unwrap()
         .unwrap_completed();
 
-    std::thread::sleep(timeout);
+    std::thread::sleep(timeout); // to allow us see received messages in the log
 }
 
 ```

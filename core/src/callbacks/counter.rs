@@ -50,6 +50,11 @@ impl<M: Messenger> CounterCallback<M> {
         }
         count
     }
+    #[inline(always)]
+    pub fn assert_recv_count_busywait_timeout(&self, at_least: usize, timeout: Duration) {
+        let count = self.recv_count_busywait_timeout(at_least, timeout);
+        assert!(count >= at_least, "count: {}, at_least: {}", count, at_least);
+    }
 }
 
 impl<M: Messenger> Display for CounterCallback<M> {
