@@ -151,7 +151,7 @@ impl Display for PyProxyCallback {
 macro_rules! create_callback_for_messenger(
     ($name:ident, $protocol:ident) => {
         #[derive(Debug)]
-        struct $name($crate::prelude::PyProxyCallback);
+        pub struct $name($crate::prelude::PyProxyCallback);
         impl $name {
             pub fn new_ref(callback: pyo3::PyObject) -> std::sync::Arc<Self> {
                 std::sync::Arc::new(Self($crate::prelude::PyProxyCallback::new(callback)))

@@ -12,9 +12,20 @@ categories.workspace = true
 
 description = "Macros to facilitate creation python extension modules over links_connect_nonblocking crate"
 
+[lib]
+name = "links_connect"
+crate-type = [
+    "cdylib",
+    "rlib",   # rlib is necessary for tests to work, this includes both tests in docs & ./tests folder
+]
+
 [dependencies]
-pyo3 = { version = "0.20", features = ["auto-initialize", "multiple-pymethods"] }
-links_nonblocking = { workpace = true }
+pyo3 = { version = "0.20", features = [
+    "auto-initialize",
+    "multiple-pymethods",
+] }
+pyo3-log = { version = "0.9", optional = true } # allows rust logging to write to python logging
+links_nonblocking = { workpace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
@@ -22,3 +33,15 @@ log = { workspace = true }
 
 [dev-dependencies]
 links_nonblocking = { workpace = true, features = ["unittest"] }
+
+[build-dependencies]
+pyo3-build-config = { version = "0.20" } # used in the build.rs
+
+[features]
+default = ["dep:links_nonblocking"] 
+full = ["unittest"]
+unittest = [
+    "dep:pyo3-log",
+    "dep:links_nonblocking",
+    "links_nonblocking/unittest",
+]

@@ -157,7 +157,7 @@ impl<R: PollRead, A: PollAccept<R>> PollHandler<R, A> {
             let waker = Waker::new(self.poll.registry(), Token(key)).expect("Failed to create Waker");
             entry.insert(Serviceable::Waker(None));
             if log_enabled!(Level::Debug) {
-                debug!("registering waker with token: {:?}", Token(key));
+                debug!("{}::into_spawned_handler registering waker with token: {:?}", asserted_short_name!("PollHandler", Self), Token(key));
             }
             waker
         };
@@ -383,19 +383,19 @@ pub struct SpawnedPollHandler<R: PollRead, A: PollAccept<R>> {
 impl<R: PollRead, A: PollAccept<R>> SpawnedPollHandler<R, A> {
     pub fn add_acceptor(&self, acceptor: A) {
         self.total_shutdown_check();
+        if log_enabled!(Level::Debug) {
+            debug!("{}::add_acceptor sending acceptor: {} to PollHandler and called waker", asserted_short_name!("SpawnedPollHandler", Self), acceptor);
+        }
         self.tx_serviceable.send(Serviceable::Acceptor(acceptor)).expect("Failed to send acceptor to PollHandler");
         self.waker.wake().expect("Failed to wake PollHandler after sending acceptor");
-        if log_enabled!(Level::Debug) {
-            debug!("{}::add_acceptor sent acceptor to PollHandler and called waker", asserted_short_name!("SpawnedPollHandler", Self));
-        }
     }
     pub fn add_recver(&self, recver: R) {
         self.total_shutdown_check();
+        if log_enabled!(Level::Debug) {
+            debug!("{}::add_recver sending recver: {} to PollHandler and called waker", asserted_short_name!("SpawnedPollHandler", Self), recver);
+        }
         self.tx_serviceable.send(Serviceable::Recver(recver)).expect("Failed to send recver to PollHandler");
         self.waker.wake().expect("Failed to wake PollHandler after sending recver");
-        if log_enabled!(Level::Debug) {
-            debug!("{}::add_recver sent recver to PollHandler and called waker", asserted_short_name!("SpawnedPollHandler", Self));
-        }
     }
     pub fn shutdown(&self, con_id: Option<ConId>) {
         if self.total_shutdown.load(Ordering::Acquire) {

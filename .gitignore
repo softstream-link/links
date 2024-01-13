@@ -14,3 +14,4 @@ Cargo.lock
 
 target/*
 **/book/
+**/__pycache__/
