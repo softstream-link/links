@@ -25,7 +25,7 @@ pub trait Storage<T: Debug + Send + Sync>: Debug + Send + Sync {
     fn on_msg(&self, cond_id: ConId, msg: Message<T>);
 }
 
-/// A callback designed to direct all messages to the [Storage::on_msg] instance after converting 
+/// A callback designed to direct all messages to the [Storage::on_msg] instance after converting
 /// each message into a `Canonical` type using `INTO` generic argument
 #[derive(Debug)]
 pub struct StoreCallback<M: Messenger, INTO: Debug + Send + Sync, S: Storage<INTO>>
@@ -74,15 +74,12 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::fmt::Debug;
-    use std::sync::Arc;
-    use std::thread::Builder;
-
+    use crate::prelude::{
+        setup::{self, messenger::CltTestMessenger, model::*},
+        *,
+    };
     use log::info;
-
-    use crate::unittest::setup::{self, messenger::CltTestMessenger, model::*};
-
-    use crate::prelude::*;
+    use std::{fmt::Debug, sync::Arc};
 
     #[test]
     fn test_callback() {
