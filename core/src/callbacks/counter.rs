@@ -9,6 +9,7 @@ use std::{
 
 use crate::prelude::*;
 
+/// Implements [CallbackSend] and [CallbackRecv] and provides access methods to get the number/count of sent and received messages.
 #[derive(Debug)]
 pub struct CounterCallback<M: Messenger> {
     sent: AtomicUsize,
@@ -24,7 +25,6 @@ impl<M: Messenger> Default for CounterCallback<M> {
         }
     }
 }
-
 impl<M: Messenger> CounterCallback<M> {
     pub fn new_ref() -> Arc<Self> {
         Arc::new(Self::default())
@@ -56,23 +56,19 @@ impl<M: Messenger> CounterCallback<M> {
         assert!(count >= at_least, "count: {}, at_least: {}", count, at_least);
     }
 }
-
 impl<M: Messenger> Display for CounterCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}<sent: {}, recv: {}>", asserted_short_name!("CounterCallback", Self), self.sent.load(Relaxed), self.recv.load(Relaxed))
     }
 }
-
 impl<M: Messenger> CallbackRecvSend<M> for CounterCallback<M> {}
-#[allow(unused_variables)]
 impl<M: Messenger> CallbackRecv<M> for CounterCallback<M> {
-    fn on_recv(&self, con_id: &ConId, msg: &M::RecvT) {
+    fn on_recv(&self, _con_id: &ConId, _msg: &M::RecvT) {
         self.recv.fetch_add(1, Relaxed);
     }
 }
-#[allow(unused_variables)]
 impl<M: Messenger> CallbackSend<M> for CounterCallback<M> {
-    fn on_sent(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {
+    fn on_sent(&self, _con_id: &ConId, _msg: &<M as Messenger>::SendT) {
         self.sent.fetch_add(1, Relaxed);
     }
 }

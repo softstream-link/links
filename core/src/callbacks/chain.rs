@@ -7,6 +7,7 @@ use crate::{asserted_short_name, prelude::*};
 
 pub type Chain<M> = Vec<Arc<dyn CallbackRecvSend<M>>>;
 
+/// Implements [CallbackSend] and [CallbackRecv] by delegating all respective calls to the internal [Vec] of other callbacks. Will use dynamic dispatch.
 #[derive(Debug)]
 pub struct ChainCallback<M: Messenger> {
     chain: Chain<M>,

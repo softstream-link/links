@@ -22,6 +22,7 @@ macro_rules! assert_error_kind_on_target_family {
     }};
 }
 
+/// returns raw fd or socket number depending on the target family
 #[macro_export]
 macro_rules! cross_os_fd {
     ($stream:expr) => {{

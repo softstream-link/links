@@ -5,6 +5,7 @@ use std::{
 
 use crate::{asserted_short_name, core::macros::short_type_name, prelude::*};
 
+/// Enum that captures a relative direction of the type `T` being `sent` or `received`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Message<T: Debug> {
     Recv(T),
@@ -19,10 +20,13 @@ impl<T: Debug> Message<T> {
     }
 }
 
+/// Traits providing an `on_msg` method that Memory/File/Etc implementations can use to persist incoming message
 pub trait Storage<T: Debug + Send + Sync>: Debug + Send + Sync {
     fn on_msg(&self, cond_id: ConId, msg: Message<T>);
 }
 
+/// A callback designed to direct all messages to the [Storage::on_msg] instance after converting 
+/// each message into a `Canonical` type using `INTO` generic argument
 #[derive(Debug)]
 pub struct StoreCallback<M: Messenger, INTO: Debug + Send + Sync, S: Storage<INTO>>
 where
@@ -98,18 +102,10 @@ mod test {
 
         let log_store = LogStore::<UniTestMsg>::new_ref();
 
-        Builder::new()
-            .name("Callback-Thread".to_owned())
-            .spawn({
-                let log_store = log_store.clone();
-                move || {
-                    let clbk = StoreCallback::<CltTestMessenger, _, _>::new_ref(log_store);
-                    let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"hello".as_slice()));
-                    clbk.on_sent(&ConId::default(), &msg);
-                    let msg = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"hello".as_slice()));
-                    clbk.on_recv(&ConId::default(), &msg);
-                }
-            })
-            .unwrap();
+        let clbk = StoreCallback::<CltTestMessenger, _, _>::new_ref(log_store);
+        let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"hello".as_slice()));
+        clbk.on_sent(&ConId::default(), &msg);
+        let msg = SvcTestMsg::Dbg(SvcTestMsgDebug::new(b"hello".as_slice()));
+        clbk.on_recv(&ConId::default(), &msg);
     }
 }
