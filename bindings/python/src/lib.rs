@@ -64,15 +64,16 @@ fn links_connect(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pymethods]
     impl CltManual {
         #[new]
-        fn new(_py: Python<'_>, host: &str, callback: PyObject, io_timeout: Option<f64>, name: Option<&str>) -> Self {
+        fn new(_py: Python<'_>, host: &str, callback: PyObject, io_timeout: Option<f64>, name: Option<&str>) -> pyo3::PyResult<Self> {
             let callback = CltTestProtocolManualCallback::new_ref(callback);
             let protocol = CltTestProtocolManual;
-            let sender = _py.allow_threads(move || {
-                CltTest::connect(host, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, protocol, name)
-                    .unwrap()
-                    .into_sender_with_spawned_recver()
-            });
-            Self { sender, io_timeout }
+            match _py.allow_threads(move || CltTest::connect(host, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, protocol, name)) {
+                Err(e) => Err(e.into()),
+                Ok(sender) => Ok(Self {
+                    sender: _py.allow_threads(move || sender.into_sender_with_spawned_recver()),
+                    io_timeout,
+                }),
+            }
         }
     }
     // m.add_class::<ConId>()?;
