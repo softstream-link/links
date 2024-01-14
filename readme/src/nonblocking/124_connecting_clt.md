@@ -57,13 +57,13 @@ The last step remaining is to connect the `Clt` to a running `Svc`. Below is a c
 #     type SendT = ExchangeDataModel;
 #     #[inline(always)]
 #     fn deserialize(frame: &[u8]) -> Result<Self::RecvT, std::io::Error> {
-#         let frame = std::str::from_utf8(frame).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, # e))?;
-#         let frame = serde_json::from_str(frame).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, # e))?;
+#         let frame = std::str::from_utf8(frame).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+#         let frame = serde_json::from_str(frame).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 #         Ok(frame)
 #     }
 #     #[inline(always)]
-#     fn serialize<const MAX_MSG_SIZE: usize>(msg: &Self::SendT) -> Result<([u8; MAX_MSG_SIZE], usize), # std::io::Error> {
-#         let msg = serde_json::to_string(msg).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, # e))?;
+#     fn serialize<const MAX_MSG_SIZE: usize>(msg: &Self::SendT) -> Result<([u8; MAX_MSG_SIZE], usize), std::io::Error> {
+#         let msg = serde_json::to_string(msg).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 #         let mut msg = msg.into_bytes();
 #         msg.push(b'\n');
 #         let mut buf = [0_u8; MAX_MSG_SIZE];
