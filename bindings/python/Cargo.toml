@@ -13,7 +13,7 @@ categories.workspace = true
 description = "Macros to facilitate creation python extension modules over links_connect_nonblocking crate"
 
 [lib]
-name = "links_connect"
+# name = "links_connect"
 crate-type = [
     "cdylib",
     "rlib",   # rlib is necessary for tests to work, this includes both tests in docs & ./tests folder
@@ -30,6 +30,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 log = { workspace = true }
+cfg-if = { workspace = true }
 
 [dev-dependencies]
 links_nonblocking = { workpace = true, features = ["unittest"] }
@@ -38,7 +39,7 @@ links_nonblocking = { workpace = true, features = ["unittest"] }
 pyo3-build-config = { version = "0.20" } # used in the build.rs
 
 [features]
-default = ["dep:links_nonblocking"] 
+default = ["dep:links_nonblocking"]
 full = ["unittest"]
 unittest = [
     "dep:pyo3-log",

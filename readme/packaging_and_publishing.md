@@ -26,8 +26,8 @@ micromamba run --name links_build_env --cwd ./bindings/python pytest
 
 # Regenerate `links_connect.pyi` file
 ```shell    
-micromamba run --name links_build_env --cwd ./bindings/python/links_connect pip install cogapp
-micromamba run --name links_build_env --cwd ./bindings/python/links_connect cog -r links_connect.pyi
+micromamba run --name links_build_env --cwd ./bindings/python/links_bindings_python pip install cogapp
+micromamba run --name links_build_env --cwd ./bindings/python/links_bindings_python cog -r links_bindings_python.pyi
 ```
 
 # bench nonblocking only 

@@ -10,7 +10,7 @@ jobs:
     uses: softstream-link/workflows/.github/workflows/maturin-pytest-matrix-toolchain-os.yml@v1
     with:
       fail-fast: false
-      extension-module-dir: "bindings/python"
+      maturin-module-dir: "bindings/python"
   clippy:
     uses: softstream-link/workflows/.github/workflows/maturin-clippy-toolchain.yml@v1
   bench-matrix:

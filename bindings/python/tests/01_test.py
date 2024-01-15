@@ -2,7 +2,7 @@ import logging
 import pytest
 from time import sleep
 from random import randint
-from links_connect import SvcManual, CltManual, LoggerCallback
+from links_bindings_python import SvcManual, CltManual, LoggerCallback
 
 
 logging.basicConfig(format="%(levelname)s  %(asctime)-15s %(threadName)s %(name)s %(filename)s:%(lineno)d %(message)s")
