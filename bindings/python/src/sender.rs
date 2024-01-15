@@ -161,6 +161,7 @@ macro_rules! __del__(
 );
 
 #[cfg(test)]
+#[cfg(feature = "unittest")]
 mod test {
     use std::num::NonZeroUsize;
 
