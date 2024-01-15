@@ -652,7 +652,6 @@ mod test {
         clt1.send(&mut CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello From Clt1"))).unwrap().unwrap_completed();
         // drop to ensure the poll_handler releases all connections associated with the acceptor
         drop(svc1);
-        // crate::connect::DEFAULT_POLL_HANDLER.shutdown(Some(svc1.con_id().clone()));
 
         // This loop should terminate quickly as the pool handler should shutdown all svc1 connections including acceptor
         let start = Instant::now();
