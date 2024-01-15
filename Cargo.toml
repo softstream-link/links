@@ -16,15 +16,15 @@ categories = ["network"]
 
 [workspace.dependencies]
 # derive
-byteserde = { version = "0.6.1" }        # TODO should be eliminated once trait Messenger is moved to tempalte serializization
-byteserde_types = { version = "0.6.1" }  # required to setup unit test models
-byteserde_derive = { version = "0.6.1" } # required to setup unit test models
+byteserde = { version = "0.6.2" }        # TODO should be eliminated once trait Messenger is moved to tempalte serializization
+byteserde_types = { version = "0.6.2" }  # required to setup unit test models
+byteserde_derive = { version = "0.6.2" } # required to setup unit test models
 derive_more = "0.99"                     # try_into, etc
 
-links_core = { version = "~0.2.0", path = "./core" }
-links_nonblocking = { version = "~0.2.0", path = "./nonblocking" }
-links_blocking = { version = "~0.2.0", path = "./blocking" }
-links_bindings_python = { version = "~0.2.0", path = "./bindings/python" }
+links_core = { path = "./core" }
+links_nonblocking = { path = "./nonblocking" }
+links_blocking = { path = "./blocking" }
+links_bindings_python = { path = "./bindings/python" }
 
 # networking
 bytes = "1.4"
@@ -61,13 +61,3 @@ serde_json = { version = "1.0" }
 
 # conditional compilation
 cfg-if = { version = "1.0" }
-
-# [patch.crates-io]
-# links_core = { path = "./core" }
-# links_nonblocking = { path = "./nonblocking" }
-# links_blocking = { path = "./blocking" }
-# links_bindings_python = { path = "./bindings/python" }
-# links_core = { version = "~0.2.0", path = "./core" }
-# links_nonblocking = { version = "~0.2.0", path = "./nonblocking" }
-# links_blocking = { version = "~0.2.0", path = "./blocking" }
-# links_bindings_python = { version = "~0.2.0", path = "./bindings/python" }
