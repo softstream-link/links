@@ -62,6 +62,3 @@ serde_json = { version = "1.0" }
 # conditional compilation
 cfg-if = { version = "1.0" }
 
-[patch.crates-io]
-links_core = { path = "./core" }
-links_nonblocking = { path = "./nonblocking" }
