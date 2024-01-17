@@ -11,7 +11,7 @@ edition = "2021"
 rust-version = "1.69"
 repository = "https://github.com/softstream-link/links"
 keywords = ["network"]
-categories = ["network"]
+categories = ["network-programming"]
 
 
 [workspace.dependencies]
