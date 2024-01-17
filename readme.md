@@ -1,7 +1,7 @@
 
 # Motivation
 
-* Project motivation is to simplify application code development in the area of network communication.
+* Project motivation is to simplify application code development in the area of network communication. With focus on performance and ergonomics.
 
 # How does it simplify?
 * Traditionally, network api provide methods that exposes access to very low level `byte arrays` of data where as an application layer prefers to work with `struct`s which carry information about application state.

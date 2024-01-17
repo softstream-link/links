@@ -9,6 +9,34 @@ use std::{
 
 use crate::asserted_short_name;
 
+/// Utility to track the number of active connections.
+/// 
+/// # Example
+/// ```
+/// use links_core::prelude::*;
+/// use std::num::NonZeroUsize;
+/// 
+/// let tracker = AcceptorConnectionGate::new(NonZeroUsize::new(2).unwrap());
+/// assert_eq!(tracker.get_max_count(), 2);
+/// assert_eq!(tracker.get_cur_count(), 0);
+/// 
+/// assert!( matches!(tracker.increment(), Ok(()) ) );
+/// assert_eq!(tracker.get_cur_count(), 1);
+/// 
+/// assert!( matches!(tracker.increment(), Ok(()) ) );
+/// assert_eq!(tracker.get_cur_count(), 2);
+/// 
+/// assert!( matches!(tracker.increment(), Err(_) ) );
+/// assert_eq!(tracker.get_cur_count(), 2);
+/// 
+/// let barrier = tracker.get_new_connection_barrier();
+/// let barrier2 = barrier.clone();
+/// 
+/// drop(barrier);
+/// assert_eq!(tracker.get_cur_count(), 1);
+/// drop(barrier2);
+/// assert_eq!(tracker.get_cur_count(), 1);
+/// ```
 #[derive(Debug, Clone)]
 pub struct AcceptorConnectionGate {
     max_count: NonZeroUsize,
@@ -27,6 +55,7 @@ impl AcceptorConnectionGate {
     pub fn get_cur_count(&self) -> usize {
         self.cur_count.load(Relaxed)
     }
+    /// Increments the current connection count by `1` if `max_count` is not exceeded, otherwise returns an [ErrorKind::OutOfMemory].
     pub fn increment(&self) -> Result<(), Error> {
         // load current count, note this can theoretically change,
         // if the existing connection gets dropped at the same time by calling decrement
@@ -55,8 +84,7 @@ impl AcceptorConnectionGate {
     }
 }
 
-/// Event a single clone copy drop will decrement the connection count for the acceptor. Please be careful and only clone
-/// where required and don't accidentally drop the connection unless you are the connection it counts as active is itself dropped/shutdown.
+/// Utility to track number of active connections. See [AcceptorConnectionGate] for usage.
 #[derive(Debug, Clone)]
 pub struct RemoveConnectionBarrierOnDrop {
     completed: Arc<AtomicBool>,

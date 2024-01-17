@@ -8,6 +8,11 @@ use chrono::{DateTime, Local};
 
 use crate::{asserted_short_name, core::macros::short_type_name, prelude::*};
 
+/// A structure that is used to capture not only information about the message but also the following attributes:
+/// * `con_id` - Connection detail information via [ConId]
+/// * `instant` - The instant of time the message was received via [Instant]
+/// * `time` - The system time the message was received via [SystemTime]
+/// * `msg` - relative direction of the message being `sent` or `received` via [Message] variants [Message::Sent] or [Message::Recv]
 #[derive(Debug, Clone, PartialEq)]
 pub struct CanonicalEntry<T: Debug> {
     pub con_id: ConId,
@@ -35,6 +40,26 @@ impl<T: Debug> Display for CanonicalEntry<T> {
     }
 }
 
+/// An in-memory [Vec] of [CanonicalEntry]'s protected by a [spin::Mutex]. 
+/// 
+/// # Example
+/// ```
+/// use links_core::prelude::{*, setup::model::*};
+/// use std::time::{Instant, SystemTime};
+/// let store = CanonicalEntryStore::<UniTestMsg>::new_ref();
+/// let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"SVC: on_recv Message"));
+/// let msg = Message::Recv(UniTestMsg::Clt(msg));
+/// let entry = CanonicalEntry {
+///                 con_id: ConId::default(),
+///                 instant: Instant::now(),
+///                 time: SystemTime::now(),
+///                 msg,
+///              };
+/// store.push( entry.clone() );
+/// assert_eq!(store.len(), 1);
+/// assert_eq!(store.last(), Some(entry.clone()));
+/// 
+/// ```
 #[derive(Debug)]
 pub struct CanonicalEntryStore<T: Debug + Send + Sync + Clone> {
     store: spin::Mutex<Vec<CanonicalEntry<T>>>,

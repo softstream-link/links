@@ -4,6 +4,11 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// Connection identifier
+/// 
+/// #Variants
+/// * Initiator: Indicates a Clt connection or the side of the link which initiated the connection
+/// * Acceptor: Indicates a Svc connection or the side of the link which accepted the connection
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConId {
     Initiator { name: String, local: Option<SocketAddr>, peer: SocketAddr },
@@ -55,6 +60,13 @@ impl ConId {
             ConId::Acceptor { local, .. } => Some(*local),
         }
     }
+    pub fn from_same_lineage(&self, other: &Self) -> bool {
+        match (self, other) {
+            // listening ports are unique hence must be ( self IS other | other is a Clt that was started by self )
+            (ConId::Acceptor { local: l1, .. }, ConId::Acceptor { local: l2, .. }) => l1 == l2, 
+            _ => false,
+        }
+    }
 }
 impl Default for ConId {
     fn default() -> Self {
@@ -88,6 +100,7 @@ impl Display for ConId {
     }
 }
 
+/// Trait that maintain an active connection can disclose its connection information via [ConId] struct
 pub trait ConnectionId {
     fn con_id(&self) -> &ConId;
 }
@@ -105,6 +118,7 @@ pub trait ConnectionStatus {
         false
     }
 }
+/// Provides methods for testing status of connections in the Pool
 pub trait PoolConnectionStatus {
     fn is_next_connected(&mut self) -> bool;
     fn is_next_connected_busywait_timeout(&mut self, timeout: Duration) -> bool {

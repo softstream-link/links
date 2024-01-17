@@ -1,7 +1,7 @@
 use std::{fmt::Debug, io::Error};
 
 use super::framer::Framer;
-
+/// Trait defining `serialize` & `deserialize` methods for `Send` & `Recv` types
 pub trait Messenger: Framer + Debug + Send + Sync + 'static {
     type SendT: Debug;
     type RecvT: Debug;

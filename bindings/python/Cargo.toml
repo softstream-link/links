@@ -1,0 +1,45 @@
+[package]
+name = "links_bindings_python"
+version.workspace = true
+authors.workspace = true
+readme.workspace = true
+license-file.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+description = "Python bindings for the links_connect_nonblocking library"
+
+[lib]
+crate-type = [
+    "cdylib",
+    "rlib",   # rlib is necessary for tests to work, this includes both tests in docs & ./tests folder
+]
+
+[dependencies]
+pyo3 = { version = "0.20", features = [
+    "auto-initialize",
+    "multiple-pymethods",
+] }
+pyo3-log = { version = "0.9", optional = true } # allows rust logging to write to python logging
+links_nonblocking = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+log = { workspace = true }
+cfg-if = { workspace = true }
+
+
+[build-dependencies]
+pyo3-build-config = { version = "0.20" } # used in the build.rs
+
+[features]
+default = ["dep:links_nonblocking"]
+full = ["unittest"]
+unittest = [
+    "dep:pyo3-log",
+    "dep:links_nonblocking",
+    "links_nonblocking/unittest",
+]

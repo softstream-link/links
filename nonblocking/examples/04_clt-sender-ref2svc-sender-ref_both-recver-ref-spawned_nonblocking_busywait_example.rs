@@ -64,18 +64,18 @@ fn run() -> Result<(), Box<dyn Error>> {
     let found = store.find_recv(
         "example/svc",
         |msg| matches!(msg, UniTestMsg::Clt(CltTestMsg::Dbg(CltTestMsgDebug{text, ..})) if text == &b"Hello Frm Client Msg".as_slice().into()),
-        setup::net::optional_find_timeout(),
+        setup::net::default_optional_find_timeout(),
     );
     info!("found: {:?}", found);
     assert_eq!(found.unwrap().try_into_clt(), CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello Frm Client Msg")));
 
     // find hbeat from clt
-    let found = store.find_recv("example/svc", |msg| matches!(msg, UniTestMsg::Clt(CltTestMsg::HBeat(_))), setup::net::optional_find_timeout());
+    let found = store.find_recv("example/svc", |msg| matches!(msg, UniTestMsg::Clt(CltTestMsg::HBeat(_))), setup::net::default_optional_find_timeout());
     info!("found: {:?}", found);
     assert_eq!(found.unwrap().try_into_clt(), CltTestMsg::HBeat(UniTestHBeatMsgDebug::default()));
 
     // find sent reply from svc
-    let found = store.find_sent("example/svc", |msg| matches!(msg, UniTestMsg::Svc(SvcTestMsg::Pong(_))), setup::net::optional_find_timeout());
+    let found = store.find_sent("example/svc", |msg| matches!(msg, UniTestMsg::Svc(SvcTestMsg::Pong(_))), setup::net::default_optional_find_timeout());
     info!("found: {:?}", found);
     assert_eq!(found.unwrap().try_into_svc(), SvcTestMsg::Pong(SvcTestMsgPong::default()));
     Ok(())

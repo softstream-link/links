@@ -640,7 +640,13 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> SendNonBlock
 }
 impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> Shutdown for CltSendersPool<M, S> {
     fn shutdown(&mut self) {
-        self.clear(); // this will issue drop on the sender which in turn will call shutdown trait
+        self.clear(); // this will issue CltSender.drop() which in turn will call CltSender.shutdown() trait
+        crate::connect::DEFAULT_POLL_HANDLER.shutdown(Some(self.con_id().clone()))
+    }
+}
+impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> Drop for CltSendersPool<M, S> {
+    fn drop(&mut self) {
+        self.shutdown();
     }
 }
 impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> PoolConnectionStatus for CltSendersPool<M, S> {

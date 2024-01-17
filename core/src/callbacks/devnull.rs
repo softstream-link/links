@@ -5,6 +5,7 @@ use std::{
 
 use crate::{asserted_short_name, prelude::*};
 
+/// Implements [CallbackSend] and [CallbackRecv] but simply ignores all messages. Complier should optimize away this callback
 #[derive(Debug, Clone)]
 pub struct DevNullCallback<M: Messenger> {
     phantom: std::marker::PhantomData<M>,
@@ -14,13 +15,11 @@ impl<M: Messenger> Default for DevNullCallback<M> {
         Self { phantom: std::marker::PhantomData }
     }
 }
-
 impl<M: Messenger> DevNullCallback<M> {
     pub fn new_ref() -> Arc<Self> {
         Self::default().into()
     }
 }
-
 impl<M: Messenger> Display for DevNullCallback<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", asserted_short_name!("DevNullCallback", Self))
@@ -28,14 +27,12 @@ impl<M: Messenger> Display for DevNullCallback<M> {
 }
 impl<M: Messenger> CallbackRecvSend<M> for DevNullCallback<M> {}
 impl<M: Messenger> CallbackRecv<M> for DevNullCallback<M> {
-    #[allow(unused_variables)]
     #[inline(always)]
-    fn on_recv(&self, con_id: &ConId, msg: &<M as Messenger>::RecvT) {}
+    fn on_recv(&self, _con_id: &ConId, _msg: &<M as Messenger>::RecvT) {}
 }
 impl<M: Messenger> CallbackSend<M> for DevNullCallback<M> {
-    #[allow(unused_variables)]
     #[inline(always)]
-    fn on_sent(&self, con_id: &ConId, msg: &<M as Messenger>::SendT) {}
+    fn on_sent(&self, _con_id: &ConId, _msg: &<M as Messenger>::SendT) {}
 }
 
 #[cfg(test)]

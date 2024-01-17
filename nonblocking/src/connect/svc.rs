@@ -657,7 +657,7 @@ mod test {
                 let protocol = CltTestProtocolManual::default();
                 let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
                 // info!("clt: {}", clt);
-                let timeout = setup::net::find_timeout();
+                let timeout = setup::net::default_find_timeout();
                 clt.send_busywait_timeout(&mut CltTestMsgLoginReq::default().into(), timeout).unwrap();
                 let msg = clt.recv_busywait_timeout(timeout).unwrap();
                 assert!(matches!(msg, RecvStatus::Completed(Some(SvcTestMsg::Accept(_)))));
@@ -714,7 +714,7 @@ mod test {
         for i in 1..=N {
             clt_sender.send_busywait_timeout(&mut CltTestMsgDebug::new(format!("Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
         }
-        assert_eq!(svc_count.recv_count_busywait_timeout(N, setup::net::find_timeout()), N);
+        assert_eq!(svc_count.recv_count_busywait_timeout(N, setup::net::default_find_timeout()), N);
         info!("scv_count: {}", svc_count);
         assert_eq!(svc_count.sent_count(), 0);
         assert_eq!(clt_count.sent_count(), N);
@@ -722,7 +722,7 @@ mod test {
         for i in 1..=N {
             svc_sender.send_busywait_timeout(&mut SvcTestMsgDebug::new(format!("Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
         }
-        assert_eq!(clt_count.recv_count_busywait_timeout(N, setup::net::find_timeout()), N);
+        assert_eq!(clt_count.recv_count_busywait_timeout(N, setup::net::default_find_timeout()), N);
         info!("clt_count: {}", clt_count);
         assert_eq!(svc_count.sent_count(), N);
         assert_eq!(clt_count.sent_count(), N);
@@ -749,7 +749,7 @@ mod test {
             .into_sender_with_spawned_recver_ref();
 
         let clt_connected = clt_sender.is_connected();
-        let svc_connected = svc_sender.all_connected_busywait_timeout(setup::net::find_timeout());
+        let svc_connected = svc_sender.all_connected_busywait_timeout(setup::net::default_find_timeout());
         info!("clt_sender.is_connected(): {}", clt_connected);
         info!("svc_sender.all_connected(): {}", svc_connected);
         assert!(clt_connected);
@@ -765,7 +765,7 @@ mod test {
             clt_sender.send_busywait_timeout(&mut CltTestMsgDebug::new(format!("Clt Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
         }
 
-        assert_eq!(svc_count.recv_count_busywait_timeout(N, setup::net::find_timeout()), N);
+        assert_eq!(svc_count.recv_count_busywait_timeout(N, setup::net::default_find_timeout()), N);
         info!("scv_count: {}", svc_count);
         assert_eq!(svc_count.sent_count(), 0);
         assert_eq!(clt_count.sent_count(), N);
@@ -773,7 +773,7 @@ mod test {
         for i in 1..=N {
             svc_sender.send_busywait_timeout(&mut SvcTestMsgDebug::new(format!("Svc Msg  #{}", i).as_bytes()).into(), io_timeout).unwrap().unwrap_completed();
         }
-        assert_eq!(clt_count.recv_count_busywait_timeout(N, setup::net::find_timeout()), N);
+        assert_eq!(clt_count.recv_count_busywait_timeout(N, setup::net::default_find_timeout()), N);
         info!("clt_count: {}", clt_count);
         assert_eq!(svc_count.sent_count(), N);
         assert_eq!(clt_count.sent_count(), N);

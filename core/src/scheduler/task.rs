@@ -7,6 +7,7 @@ use std::{
 
 use crate::asserted_short_name;
 
+/// Enum representing the status of a timer task
 #[derive(Debug, PartialEq)]
 pub enum TimerTaskStatus {
     Completed,
