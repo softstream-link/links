@@ -13,7 +13,7 @@ macro_rules! assert_error_kind_on_target_family {
         #[cfg(target_family = "windows")]
         {
             let kind = format!("{:?}", $err.kind());
-            assert_eq!(kind.as_str(), "Uncategorized"); // TODO - unstable workaround ErrorKind::Uncategorized
+            assert_eq!(kind.as_str(), "Uncategorized"); // not available on stable rust toolchain, workaround ErrorKind::Uncategorized
         }
         #[cfg(target_family = "unix")]
         {

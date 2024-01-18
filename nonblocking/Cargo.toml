@@ -24,7 +24,7 @@ log = { workspace = true }
 
 slab = { workspace = true } # used by poller
 
-byteserde = { workspace = true } # byteserde::utils::hex::to_hex_pretty #TODO move to seperate crate
+byteserde = { workspace = true } # byteserde::utils::hex::to_hex_pretty #TODO move to seperate hex_util crate
 
 lazy_static = { workspace = true } # used by common poller
 

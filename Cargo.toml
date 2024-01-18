@@ -16,7 +16,7 @@ categories = ["network-programming"]
 
 [workspace.dependencies]
 # derive
-byteserde = { version = "0.6.2" }        # TODO should be eliminated once trait Messenger is moved to tempalte serializization
+byteserde = { version = "0.6.2" }        # required to setup unit test models
 byteserde_types = { version = "0.6.2" }  # required to setup unit test models
 byteserde_derive = { version = "0.6.2" } # required to setup unit test models
 derive_more = "0.99"                     # try_into, etc
@@ -24,7 +24,7 @@ derive_more = "0.99"                     # try_into, etc
 links_core = { version = "0.2.1", path = "./core" }
 links_nonblocking = { version = "0.2.1", path = "./nonblocking" }
 links_blocking = { version = "0.2.1", path = "./blocking" }
-links_bindings_python = { version = "0.2.1", path = "./bindings/python" }
+# links_bindings_python = { version = "0.2.1", path = "./bindings/python" } Not used
 
 # networking
 bytes = "1.4"
