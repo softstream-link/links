@@ -111,8 +111,8 @@ macro_rules! send(
                 let mut msg = serde_json::from_str(json.as_str()).unwrap();
 
                 _py.allow_threads(move || match self.sender.send_busywait_timeout(&mut msg, io_timeout)? {
-                    SendStatus::Completed => Ok(()),
-                    SendStatus::WouldBlock => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, format!("Message not delivered due timeout: {:?}, msg: {}", io_timeout, json)).into()),
+                    links_nonblocking::prelude::SendStatus::Completed => Ok(()), 
+                    links_nonblocking::prelude::SendStatus::WouldBlock => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, format!("Message not delivered due timeout: {:?}, msg: {}", io_timeout, json)).into()),
                 })
             }
         }
