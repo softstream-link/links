@@ -6,8 +6,7 @@ pub use crate::core::{
         state::{ProtocolConnectionState, ProtocolSessionState},
         Protocol, ProtocolCore,
     },
-    AcceptStatus, PollAble, PollAccept, PollEventStatus, PollRead, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut, ReSendNonBlocking, SendStatus,
-    SvcAcceptorOfCltNonBlocking,
+    AcceptStatus, PollAble, PollAccept, PollEventStatus, PollRead, PoolAcceptStatus, PoolSvcAcceptorOfCltNonBlocking, ReSendNonBlocking, RecvNonBlocking, RecvStatus, SendNonBlocking, SendNonBlockingNonMut, SendStatus, SvcAcceptorOfCltNonBlocking,
 };
 
 pub use crate::connect::{
@@ -18,3 +17,6 @@ pub use crate::connect::{
 };
 
 pub use links_core::prelude::*;
+
+// #[cfg(feature = "unittest")]
+// pub use crate::unittest::{self }; // doing this will shadow the unittest module in links_core

@@ -73,9 +73,10 @@ where
 }
 
 #[cfg(test)]
+#[cfg(feature = "unittest")]
 mod test {
     use crate::prelude::{
-        setup::{self, messenger::CltTestMessenger, model::*},
+        unittest::setup::{self, messenger::CltTestMessenger, model::*},
         *,
     };
     use log::info;

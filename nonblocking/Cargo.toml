@@ -17,8 +17,8 @@ description = "Nonblocking implementation of the links_nonblocking crate"
 mio = { workspace = true } # epoll wrapper
 
 # blocking & nonblocking
-bytes = { workspace = true }      # read buffer
-links_core = { workspace = true } # traits
+bytes = { workspace = true }                       # read buffer
+links_core = { workspace = true, optional = true } # traits
 
 log = { workspace = true }
 
@@ -34,7 +34,6 @@ chrono = { workspace = true }
 
 
 [dev-dependencies]
-links_core = { workspace = true, features = ["unittest"] } # traits
 
 env_logger = { workspace = true }
 num-format = { workspace = true }
@@ -43,22 +42,20 @@ byteserde_types = { workspace = true }  # required to setup unit test models
 byteserde_derive = { workspace = true } # required to setup unit test models
 
 
-criterion = { workspace = true }  # required to setup benchmarks
-rand = { workspace = true }       # required to setup benchmarks
+criterion = { workspace = true } # required to setup benchmarks
+rand = { workspace = true }      # required to setup benchmarks
 
 serde = { workspace = true }      # required to exmples
 serde_json = { workspace = true } # required to exmples
 
 
 [features]
-default = [
-    # "dep:links_core",
-]
+default = ["dep:links_core"]
 full = ["unittest"]
 unittest = [
-    # "dep:links_core", "links_core/unittest"
-    "links_core/unittest",
-] # exists to provide test implementation of the Protocol trait for test Messenger coming from links_core::unittest::...
+    "dep:links_core",
+    "links_core/unittest", # enables links_core::prelude::unitest::* , # which provides test implementation of the Protocol trait for test Messenger 
+]
 
 
 # BENCHMARKS

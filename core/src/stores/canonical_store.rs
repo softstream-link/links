@@ -44,7 +44,7 @@ impl<T: Debug> Display for CanonicalEntry<T> {
 /// 
 /// # Example
 /// ```
-/// use links_core::prelude::{*, setup::model::*};
+/// use links_core::prelude::{*, unittest::setup::model::*};
 /// use std::time::{Instant, SystemTime};
 /// let store = CanonicalEntryStore::<UniTestMsg>::new_ref();
 /// let msg = CltTestMsg::Dbg(CltTestMsgDebug::new(b"SVC: on_recv Message"));

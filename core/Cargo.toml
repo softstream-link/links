@@ -19,13 +19,14 @@ log = { workspace = true }
 slab = { workspace = true } # slab allocator
 
 chrono = { workspace = true }
-spin = { workspace = true } # spin mutex
+spin = { workspace = true }   # spin mutex
 
-byteserde = { workspace = true } # TODO should be eliminated once trait Messenger is moved to tempalte serializization
 
+# activated by feature "unittest"
+byteserde = { workspace = true, optional = true }        # required to setup unit test models
 byteserde_types = { workspace = true, optional = true }  # required to setup unit test models
 byteserde_derive = { workspace = true, optional = true } # required to setup unit test models
-serde = { workspace = true, optional = true } # required to setup unit test models
+serde = { workspace = true, optional = true }            # required to setup unit test models
 rand = { workspace = true, optional = true }             # required to setup unit test ports
 colored = { workspace = true, optional = true }          # required to setup logging
 env_logger = { workspace = true, optional = true }
@@ -34,13 +35,16 @@ num-format = { workspace = true, optional = true }
 
 [dev-dependencies]
 more-asserts = { workspace = true }
+# activated by feature "unittest"
+
 
 [features]
-default = [] # TODO remove before publishing
+default = []
 full = ["unittest"]
 unittest = [
-    "dep:byteserde_types",
+    "dep:byteserde",
     "dep:byteserde_derive",
+    "dep:byteserde_types",
     "dep:serde",
     "dep:rand",
     "dep:colored",
