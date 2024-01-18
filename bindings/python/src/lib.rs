@@ -21,7 +21,7 @@ cfg_if! {
 
         use pyo3::prelude::*;
         use std::num::NonZeroUsize;
-        
+
         #[pymodule]
         fn links_bindings_python(_py: Python, m: &PyModule) -> PyResult<()> {
                 // IMPORTANT - py03 logger can cause background threads to block or deadlock as they need to acquire the GIL to log messages in python.
@@ -29,7 +29,9 @@ cfg_if! {
                 // hence being conservative and only allowing WARN & above to be logged in release mode
                 // https://docs.rs/pyo3-log/latest/pyo3_log/ LOGGING WILL DEAD LOCK PYTHON
                 use links_nonblocking::{
-                    prelude::*,
+                    prelude::{
+                        unittest::setup::{self},
+                        *},
                     unittest::setup::{
                         connection::{CltTest, CltTestSender, SvcTest, SvcTestSender},
                         protocol::{CltTestProtocolManual, SvcTestProtocolManual},
@@ -49,8 +51,8 @@ cfg_if! {
                     Logger::new(_py, Caching::LoggersAndLevels)?.filter(log::LevelFilter::Warn).install().expect("Someone installed a logger before us :-(");
                 }
 
-                create_callback_for_messenger!(CltTestProtocolManualCallback, CltTestProtocolManual);
-                create_callback_for_messenger!(SvcTestProtocolManualCallback, SvcTestProtocolManual);
+                create_callback_for_messenger!(CltTestProtocolManual, CltTestProtocolManualCallback);
+                create_callback_for_messenger!(SvcTestProtocolManual, SvcTestProtocolManualCallback);
                 create_clt_sender!(CltManual, CltTestSender, CltTestProtocolManual, CltTestProtocolManualCallback);
                 create_svc_sender!(SvcManual, SvcTestSender, SvcTestProtocolManual, SvcTestProtocolManualCallback);
                 #[pymethods]

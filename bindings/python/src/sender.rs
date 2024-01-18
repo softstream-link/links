@@ -1,3 +1,40 @@
+/// Macro for generating a [macro@pyo3::pyclass] extension over a [links_nonblocking::prelude::CltSender]
+/// 
+/// # Arguments
+/// * `name` - Name python extension class to be created
+/// * `sender` - Type of the [links_nonblocking::prelude::CltSender] type to be extended
+/// * `protocol` - Type of the [links_nonblocking::prelude::Protocol] type to be used by the sender
+/// * `callback` - Type of the [links_nonblocking::prelude::CallbackRecvSend] type to be used by the sender
+/// 
+/// # Result
+/// ## Methods & signatures
+/// * `send` - (msg: dict, io_timeout: float | None = None) -> None
+/// * `is_connected` - (io_timeout: float | None = None) -> bool
+/// ## Python Dunders
+/// * `__enter__` - context manager
+/// * `__exit__` - context manager
+/// * `__del__` - destructor
+/// * `__repr__` - representation
+/// 
+/// # Important
+/// * all arguments must be fully qualified types and cannot have unresolved generics
+/// * The resulting struct is missing a constructor, you need to implement it yourself, see example below. This is due
+/// to the fact that constructor needs to provide necessary arguments to the `Protocol` which are not known to this macro
+/// ```ignore
+/// create_clt_sender!(CltManual, CltTestSender, CltTestProtocolManual, CltTestProtocolManualCallback);
+/// #[pymethods]
+/// impl CltManual {
+///     #[new]
+///     fn new(_py: Python<'_>, host: &str, callback: PyObject) -> Self {
+///         let protocol = CltTestProtocolManual::default();
+///         let callback = CltTestProtocolManualCallback::new_ref(callback);
+///         let clt = CltTest::connect(host, default_connect_timeout(), default_connect_retry_after(), callback, protocol, Some("py-clt"))
+///             .unwrap()
+///             .into_sender_with_spawned_recver();
+///         Self { sender: clt, io_timeout: None }
+///     }
+/// }
+/// ``` 
 #[macro_export]
 macro_rules! create_clt_sender(
     ($name:ident, $sender:ident, $protocol:ident, $callback:ident) => {
@@ -11,6 +48,28 @@ macro_rules! create_clt_sender(
     }
 );
 
+/// Macro for generating a [macro@pyo3::pyclass] extension over a [links_nonblocking::prelude::SvcSender]
+/// 
+/// # Arguments
+/// * `name` - Name python extension class to be created
+/// * `sender` - Type of the [links_nonblocking::prelude::SvcSender] type to be extended
+/// * `protocol` - Type of the [links_nonblocking::prelude::Protocol] type to be used by the sender
+/// * `callback` - Type of the [links_nonblocking::prelude::CallbackRecvSend] type to be used by the sender
+/// 
+/// # Result
+/// ## Methods & signatures
+/// * `send` - (msg: dict, io_timeout: float | None = None) -> None
+/// * `is_connected` - (io_timeout: float | None = None) -> bool
+/// ## Python Dunders
+/// * `__enter__` - context manager
+/// * `__exit__` - context manager
+/// * `__del__` - destructor
+/// * `__repr__` - representation
+/// 
+/// # Important
+/// * all arguments must be fully qualified types and cannot have unresolved generics
+/// * The resulting struct is missing a constructor, you need to implement it yourself, see example below. This is due
+/// to the fact that constructor needs to provide necessary arguments to the `Protocol` which are not known to this macro
 #[macro_export]
 macro_rules! create_svc_sender(
     ($name:ident, $sender:ident, $protocol:ident, $callback:ident) => {
@@ -163,13 +222,14 @@ macro_rules! __del__(
 #[cfg(test)]
 #[cfg(feature = "unittest")]
 mod test {
-    use std::num::NonZeroUsize;
-
     use crate::{callback, prelude::*};
     use callback::ConId;
     use links_nonblocking::{
         prelude::{
-            setup::net::{default_connect_retry_after, default_connect_timeout},
+            unittest::setup::{
+                self,
+                net::{default_connect_retry_after, default_connect_timeout},
+            },
             *,
         },
         unittest::setup::{
@@ -179,6 +239,7 @@ mod test {
     };
     use log::info;
     use pyo3::{prelude::*, types::PyDict};
+    use std::num::NonZeroUsize;
 
     #[pyclass]
     struct PyLoggerCallback;
@@ -196,8 +257,8 @@ mod test {
 
     fn test_clt2svc() {
         setup::log::configure_compact(log::LevelFilter::Info);
-        create_callback_for_messenger!(CltTestProtocolManualCallback, CltTestProtocolManual);
-        create_callback_for_messenger!(SvcTestProtocolManualCallback, SvcTestProtocolManual);
+        create_callback_for_messenger!(CltTestProtocolManual, CltTestProtocolManualCallback);
+        create_callback_for_messenger!(SvcTestProtocolManual, SvcTestProtocolManualCallback);
         create_clt_sender!(CltManual, CltTestSender, CltTestProtocolManual, CltTestProtocolManualCallback);
         create_svc_sender!(SvcManual, SvcTestSender, SvcTestProtocolManual, SvcTestProtocolManualCallback);
 

@@ -147,9 +147,15 @@ impl Display for PyProxyCallback {
     }
 }
 
+/// Macro for implementing a [links_nonblocking::prelude::CallbackRecvSend] for a for a given [links_nonblocking::prelude::Messenger]
+/// to enable delegating `on_recv` and `on_sent` method calls to a [PyObject]
+///
+/// # Arguments
+/// * `messenger` - type name of the structure that implements [links_nonblocking::prelude::Messenger] trait, ex: `MyMessenger`
+/// * `name` - name of the desired callback structure that will be created, ex: `MyMessengerCallback`
 #[macro_export]
 macro_rules! create_callback_for_messenger(
-    ($name:ident, $protocol:ident) => {
+    ($messenger:ident, $name:ident) => {
         #[derive(Debug)]
         pub struct $name($crate::prelude::PyProxyCallback);
         impl $name {
@@ -157,17 +163,17 @@ macro_rules! create_callback_for_messenger(
                 std::sync::Arc::new(Self($crate::prelude::PyProxyCallback::new(callback)))
             }
         }
-        impl $crate::prelude::CallbackRecv<$protocol> for $name {
-            fn on_recv(&self, con_id: &$crate::prelude::ConIdRs, msg: &<$protocol as $crate::prelude::Messenger>::RecvT) {
+        impl links_nonblocking::prelude::CallbackRecv<$messenger> for $name {
+            fn on_recv(&self, con_id: &links_nonblocking::prelude::ConId, msg: &<$messenger as links_nonblocking::prelude::Messenger>::RecvT) {
                 self.0.issue_callback($crate::prelude::PyCallbackMethod::OnRecv, con_id, msg)
             }
         }
-        impl $crate::prelude::CallbackSend<$protocol> for $name {
-            fn on_sent(&self, con_id: &$crate::prelude::ConIdRs, msg: &<$protocol as $crate::prelude::Messenger>::SendT) {
+        impl links_nonblocking::prelude::CallbackSend<$messenger> for $name {
+            fn on_sent(&self, con_id: &links_nonblocking::prelude::ConId, msg: &<$messenger as links_nonblocking::prelude::Messenger>::SendT) {
                 self.0.issue_callback($crate::prelude::PyCallbackMethod::OnSent, con_id, msg);
             }
         }
-        impl $crate::prelude::CallbackRecvSend<$protocol> for $name {}
+        impl links_nonblocking::prelude::CallbackRecvSend<$messenger> for $name {}
         impl std::fmt::Display for $name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f,  std::stringify!($name))
@@ -177,15 +183,17 @@ macro_rules! create_callback_for_messenger(
 );
 
 #[cfg(test)]
+#[cfg(feature = "unittest")]
 mod test {
     use crate::prelude::*;
     use links_nonblocking::prelude::{
-        setup::{
+        unittest::setup::{
             self,
             model::{CltTestMsgDebug, SvcTestMsgDebug},
         },
-        ConId as ConIdRs,
+        CallbackRecv, CallbackSend, ConId as ConIdRs,
     };
+    use links_nonblocking::unittest::setup::protocol::CltTestProtocolManual;
     use log::info;
     use pyo3::{prelude::*, types::PyDict};
 
@@ -197,8 +205,7 @@ mod test {
             any
         });
 
-        use links_nonblocking::unittest::setup::protocol::CltTestProtocolManual;
-        create_callback_for_messenger!(CltTestProtocolManualCallback, CltTestProtocolManual);
+        create_callback_for_messenger!(CltTestProtocolManual, CltTestProtocolManualCallback);
         let _ = CltTestProtocolManualCallback::new_ref(invalid_python_callback);
     }
 
@@ -222,8 +229,7 @@ mod test {
             any
         });
 
-        use links_nonblocking::unittest::setup::protocol::CltTestProtocolManual;
-        create_callback_for_messenger!(CltTestProtocolManualCallback, CltTestProtocolManual);
+        create_callback_for_messenger!(CltTestProtocolManual, CltTestProtocolManualCallback);
         let callback = CltTestProtocolManualCallback::new_ref(valid_python_callback);
         let con_id = ConIdRs::clt(Some("clt"), None, "127.0.0.1:8080");
         let msg = CltTestMsgDebug::default().into();

@@ -29,4 +29,7 @@ pub use crate::stores::canonical_store::{CanonicalEntry, CanonicalEntryStore};
 pub use crate::{asserted_short_name, core::macros::short_instance_type_name, core::macros::short_type_name, cross_os_fd};
 
 #[cfg(feature = "unittest")]
-pub use crate::{assert_error_kind_on_target_family, fmt_num, unittest::*};
+pub use crate::{
+    assert_error_kind_on_target_family, fmt_num,
+    unittest::{self},
+};

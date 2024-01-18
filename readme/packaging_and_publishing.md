@@ -8,7 +8,7 @@ cargo bench
 cargo nextest run --all-features &&
 cargo nextest run --examples --all-features &&
 cargo test --doc --all-features &&
-cargo  doc --all-features &&
+cargo doc --all-features &&
 cargo clippy --all-features -- --deny warnings
 ```
 
@@ -20,6 +20,7 @@ micromamba run --name links_build_env cargo nextest run --all-features &&
 micromamba run --name links_build_env cargo nextest run --examples --all-features && 
 micromamba run --name links_build_env cargo test --doc --all-features &&
 micromamba run --name links_build_env cargo clippy --all-features -- --deny warnings &&
+micromamba run --name links_build_env cargo doc --all-features &&
 micromamba run --name links_build_env --cwd ./bindings/python maturin develop &&
 micromamba run --name links_build_env --cwd ./bindings/python pytest
 ```
