@@ -1,4 +1,4 @@
-/// Macro for generating a [pyo3::pyclass] extension over a [links_nonblocking::prelude::CltSender]
+/// Macro for generating a [macro@pyo3::pyclass] extension over a [links_nonblocking::prelude::CltSender]
 /// 
 /// # Arguments
 /// * `name` - Name python extension class to be created
@@ -48,7 +48,7 @@ macro_rules! create_clt_sender(
     }
 );
 
-/// Macro for generating a [pyo3::pyclass] extension over a [links_nonblocking::prelude::SvcSender]
+/// Macro for generating a [macro@pyo3::pyclass] extension over a [links_nonblocking::prelude::SvcSender]
 /// 
 /// # Arguments
 /// * `name` - Name python extension class to be created
