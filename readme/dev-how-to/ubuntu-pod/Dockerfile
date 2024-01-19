@@ -21,6 +21,9 @@ RUN useradd --no-log-init \
 
 RUN usermod --append --groups sudo ${RUN_UNAME}
 RUN chmod a+r /etc/sudoers
+RUN mkdir -p /home/${RUN_UNAME}/.local/bin
+RUN export HOME=/home/${RUN_UNAME}; export CONDA_FORGE_YES="yes"; curl -L micro.mamba.pm/install.sh | bash
+RUN chown -R ${RUN_UNAME}:${RUN_GID} /home/${RUN_UNAME}/micromamba
 
 RUN echo "\
 ${RUN_UNAME} ALL = NOPASSWD : ALL \

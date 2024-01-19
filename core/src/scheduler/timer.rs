@@ -11,7 +11,8 @@ use std::{
 #[derive(Debug)]
 enum Operation {
     Execute(Task),
-    Stop,
+    Terminate,
+    Clear,
 }
 
 /// Class that allows scheduling tasks to be executed at repeating interval.
@@ -34,11 +35,17 @@ impl Timer {
         self.jh_executor.thread().unpark();
     }
 
-    /// Drops all scheduled tasks and stops the executor thread until new task is scheduled.
-    pub fn stop(self) {
-        self.tx_task.send(Operation::Stop).unwrap();
+    /// Drops all scheduled tasks and stops the executor thread
+    pub fn terminate(self) {
+        self.tx_task.send(Operation::Terminate).unwrap();
         self.jh_executor.thread().unpark();
         self.jh_executor.join().unwrap();
+    }
+
+    /// Drops all scheduled tasks and parks executor thread until new tasks are scheduled.
+    pub fn clear(&self) {
+        self.tx_task.send(Operation::Clear).unwrap();
+        self.jh_executor.thread().unpark();
     }
 }
 
@@ -69,17 +76,16 @@ impl Executor {
         loop {
             // first check for new schedules as they never run and by design executed to be executed first time immediately
 
-            use Operation::{Execute, Stop};
             match self.rx_task.try_recv() {
-                Ok(Execute(task)) => {
+                Ok(Operation::Execute(task)) => {
                     if log_enabled!(log::Level::Info) {
                         info!("Adding Operation::Execute({})", task);
                     }
                     self.tasks.push(task);
                 }
-                Ok(Stop) => {
+                Ok(operation) => {
                     if log_enabled!(log::Level::Info) {
-                        info!("{:?} {} and dropping all schedules tasks", Stop, asserted_short_name!("Executor", Self));
+                        info!("{:?} {} and dropping all schedules tasks", operation, asserted_short_name!("Executor", Self));
                     }
                     for task in self.tasks.drain() {
                         if log_enabled!(log::Level::Info) {
@@ -87,7 +93,9 @@ impl Executor {
                             drop(task);
                         }
                     }
-                    break;
+                    if matches!(operation, Operation::Terminate) {
+                        break;
+                    }
                 }
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {
@@ -159,11 +167,12 @@ mod test {
     use crate::unittest::setup;
     use std::{
         sync::atomic::{AtomicU32, Ordering},
+        thread::sleep,
         time::Instant,
     };
 
     #[test]
-    fn test_timer() {
+    fn test_timer_terminate() {
         setup::log::configure_level(log::LevelFilter::Debug);
         let timer = Timer::new("unittest");
 
@@ -194,7 +203,7 @@ mod test {
         let now = Instant::now();
         while TASK1_REMAINING_ITERATIONS.load(Ordering::Relaxed) > 0 {}
         let elapsed = now.elapsed();
-        timer.stop();
+        timer.terminate();
         let mut expected_completion = REPEAT_INTERVAL * 5;
         expected_completion = expected_completion + expected_completion / 10; // 10% tolerance
         info!("elapsed: {:?}", elapsed);
@@ -203,5 +212,47 @@ mod test {
 
         assert_eq!(TASK1_REMAINING_ITERATIONS.load(Ordering::Relaxed), 0);
         assert_eq!(TASK2_REMAINING_ITERATIONS.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn test_timer_clear() {
+        setup::log::configure_level(log::LevelFilter::Debug);
+        let timer = Timer::new("unittest");
+
+        static TASK1_REMAINING_ITERATIONS: AtomicU32 = AtomicU32::new(u32::MAX);
+        static TASK2_REMAINING_ITERATIONS: AtomicU32 = AtomicU32::new(3);
+        static REPEAT_INTERVAL: Duration = Duration::from_millis(100);
+
+        timer.schedule("task1", REPEAT_INTERVAL, || {
+            let iteration_remaining = TASK1_REMAINING_ITERATIONS.fetch_sub(1, Ordering::Relaxed) - 1;
+            info!("task1, iteration {}", iteration_remaining + 1);
+
+            TimerTaskStatus::Completed
+        });
+
+        let now = Instant::now();
+        while TASK1_REMAINING_ITERATIONS.load(Ordering::Relaxed) > u32::MAX - 5 {}
+        let elapsed = now.elapsed();
+        timer.clear();
+        info!("elapsed: {:?}", elapsed);
+        sleep(REPEAT_INTERVAL * 2);
+        let task1_remaining_after_clear = TASK1_REMAINING_ITERATIONS.load(Ordering::Relaxed);
+        info!("task1_remaining_after_clear: {}", task1_remaining_after_clear);
+        sleep(REPEAT_INTERVAL * 2);
+        let task1_remaining_after_sleep = TASK1_REMAINING_ITERATIONS.load(Ordering::Relaxed);
+        info!("task1_remaining_after_sleep: {}", task1_remaining_after_sleep);
+        assert_eq!(task1_remaining_after_clear, task1_remaining_after_sleep);
+
+        timer.schedule("task2", REPEAT_INTERVAL, || {
+            let iteration_remaining = TASK2_REMAINING_ITERATIONS.fetch_sub(1, Ordering::Relaxed) - 1;
+            info!("task2, iterations_remaining {}", iteration_remaining);
+            if iteration_remaining == 0 {
+                TimerTaskStatus::Terminate
+            } else {
+                TimerTaskStatus::Completed
+            }
+        });
+
+        sleep(REPEAT_INTERVAL * 2);
     }
 }

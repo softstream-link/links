@@ -14,6 +14,8 @@ pub use crate::connect::{
     poll::{PollHandler, PollHandlerDynamic, PollHandlerStatic, SpawnedPollHandler, SpawnedPollHandlerDynamic, SpawnedPollHandlerStatic},
     pool::{CltRecversPool, CltSendersPool, CltsPool, TransmittingSvcAcceptor, TransmittingSvcAcceptorRef},
     svc::{Svc, SvcAcceptor, SvcRecver, SvcRecverRef, SvcSender, SvcSenderRef},
+    DEFAULT_HBEAT_HANDLER, DEFAULT_POLL_HANDLER,
 };
+
 
 pub use links_core::prelude::*;

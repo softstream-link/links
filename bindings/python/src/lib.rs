@@ -5,6 +5,7 @@ use cfg_if::cfg_if;
 pub mod callback;
 pub mod prelude;
 pub mod sender;
+pub mod atexit;
 
 #[inline]
 pub fn timeout_selector(priority_1: Option<f64>, priority_2: Option<f64>) -> Duration {
@@ -21,9 +22,12 @@ cfg_if! {
 
         use pyo3::prelude::*;
         use std::num::NonZeroUsize;
+        create_register_atexit!();
 
         #[pymodule]
         fn links_bindings_python(_py: Python, m: &PyModule) -> PyResult<()> {
+                register_atexit()?;
+
                 // IMPORTANT - py03 logger can cause background threads to block or deadlock as they need to acquire the GIL to log messages in python.
                 // IMPORTANT - py03_log::init() will enable all logging including debug to be passed to python, even if PYTHON only logs INFO.
                 // hence being conservative and only allowing WARN & above to be logged in release mode

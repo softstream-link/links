@@ -4,6 +4,7 @@
     ],
     "workbench.editor.revealIfOpen": true,
     "cSpell.words": [
+        "atexit",
         "builtins",
         "busywait",
         "byteserde",
@@ -44,6 +45,7 @@
         "println",
         "pushd",
         "pyclass",
+        "pyfunction",
         "pymethods",
         "pymodule",
         "pytest",
