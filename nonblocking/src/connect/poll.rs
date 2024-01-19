@@ -397,6 +397,10 @@ impl<R: PollRead, A: PollAccept<R>> SpawnedPollHandler<R, A> {
         self.tx_serviceable.send(Serviceable::Recver(recver)).expect("Failed to send recver to PollHandler");
         self.waker.wake().expect("Failed to wake PollHandler after sending recver");
     }
+    /// Will deregister and drop serviceable [PollRead] & [PollAccept] associated with the [PollHandler] instance 
+    /// 
+    /// # Arguments
+    /// * `con_id` - If None will deregister and drop `all`, otherwise `only` those that share lineage with the given `con_id`
     pub fn shutdown(&self, con_id: Option<ConId>) {
         if self.total_shutdown.load(Ordering::Acquire) {
             return;

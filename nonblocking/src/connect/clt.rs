@@ -232,8 +232,9 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Shutdown for Cl
                 }
                 Err(err) => {
                     warn!(
-                        "Failed to complete {}::on_disconnect, did peer terminate connection or did you drop CltRecver before sender? msg: {:?}, err:\n{}",
+                        "Failed to complete {}::on_disconnect, did peer terminate connection or did you drop CltRecver before sender? con_id: {}, msg: {:?}, err:\n{}",
                         asserted_short_name!("CltSender", Self),
+                        self.con_id(),
                         msg,
                         err
                     );

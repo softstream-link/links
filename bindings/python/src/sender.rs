@@ -1,11 +1,11 @@
 /// Macro for generating a [macro@pyo3::pyclass] extension over a [links_nonblocking::prelude::CltSender]
-/// 
+///
 /// # Arguments
 /// * `name` - Name python extension class to be created
 /// * `sender` - Type of the [links_nonblocking::prelude::CltSender] type to be extended
 /// * `protocol` - Type of the [links_nonblocking::prelude::Protocol] type to be used by the sender
 /// * `callback` - Type of the [links_nonblocking::prelude::CallbackRecvSend] type to be used by the sender
-/// 
+///
 /// # Result
 /// ## Methods & signatures
 /// * `send` - (msg: dict, io_timeout: float | None = None) -> None
@@ -15,7 +15,7 @@
 /// * `__exit__` - context manager
 /// * `__del__` - destructor
 /// * `__repr__` - representation
-/// 
+///
 /// # Important
 /// * all arguments must be fully qualified types and cannot have unresolved generics
 /// * The resulting struct is missing a constructor, you need to implement it yourself, see example below. This is due
@@ -34,7 +34,7 @@
 ///         Self { sender: clt, io_timeout: None }
 ///     }
 /// }
-/// ``` 
+/// ```
 #[macro_export]
 macro_rules! create_clt_sender(
     ($name:ident, $sender:ident, $protocol:ident, $callback:ident) => {
@@ -49,13 +49,13 @@ macro_rules! create_clt_sender(
 );
 
 /// Macro for generating a [macro@pyo3::pyclass] extension over a [links_nonblocking::prelude::SvcSender]
-/// 
+///
 /// # Arguments
 /// * `name` - Name python extension class to be created
 /// * `sender` - Type of the [links_nonblocking::prelude::SvcSender] type to be extended
 /// * `protocol` - Type of the [links_nonblocking::prelude::Protocol] type to be used by the sender
 /// * `callback` - Type of the [links_nonblocking::prelude::CallbackRecvSend] type to be used by the sender
-/// 
+///
 /// # Result
 /// ## Methods & signatures
 /// * `send` - (msg: dict, io_timeout: float | None = None) -> None
@@ -65,7 +65,7 @@ macro_rules! create_clt_sender(
 /// * `__exit__` - context manager
 /// * `__del__` - destructor
 /// * `__repr__` - representation
-/// 
+///
 /// # Important
 /// * all arguments must be fully qualified types and cannot have unresolved generics
 /// * The resulting struct is missing a constructor, you need to implement it yourself, see example below. This is due
@@ -111,7 +111,7 @@ macro_rules! send(
                 let mut msg = serde_json::from_str(json.as_str()).unwrap();
 
                 _py.allow_threads(move || match self.sender.send_busywait_timeout(&mut msg, io_timeout)? {
-                    links_nonblocking::prelude::SendStatus::Completed => Ok(()), 
+                    links_nonblocking::prelude::SendStatus::Completed => Ok(()),
                     links_nonblocking::prelude::SendStatus::WouldBlock => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, format!("Message not delivered due timeout: {:?}, msg: {}", io_timeout, json)).into()),
                 })
             }
@@ -201,7 +201,7 @@ macro_rules! __exit__(
         #[pyo3::pymethods]
         impl $name{
             fn __exit__(&mut self, _py: pyo3::Python<'_>, _exc_type: Option<&pyo3::PyAny>, _exc_value: Option<&pyo3::PyAny>, _traceback: Option<&pyo3::PyAny>) {
-                self.sender.shutdown()
+                _py.allow_threads(move || self.sender.shutdown())
             }
         }
     }
@@ -212,8 +212,8 @@ macro_rules! __del__(
         /// Calls [`Shutdown::shutdown`] on the sender.
         #[pyo3::pymethods]
         impl $name{
-            fn __del__(&mut self) {
-                self.sender.shutdown()
+            fn __del__(&mut self, _py: pyo3::Python<'_>) {
+                _py.allow_threads(move || self.sender.shutdown())
             }
         }
     }
