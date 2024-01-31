@@ -4,23 +4,28 @@ build-backend = "maturin"
 
 [project]
 name = "links_bindings_python"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dynamic = ["version"]
-
+dependencies = [
+    "links_connect>=0.1.1",]
 [tool.maturin]
 features = [
     "pyo3/extension-module",
     "pyo3/abi3",
     "pyo3/abi3-py310",
     "pyo3/multiple-pymethods",
-    "links_bindings_python/unittest"
+    "links_bindings_python/unittest",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 cache_dir = "./../../target/.pytest_cache"
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s.%(msecs)03d [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"

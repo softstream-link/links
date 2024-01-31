@@ -18,6 +18,6 @@ macro_rules! create_register_atexit {
                 fn_register.call1(py, (fn_atexit_register_hook,))?;
                 Ok(())
             })
-        }        
+        }
     };
 }

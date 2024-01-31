@@ -6,7 +6,7 @@
 # cog.out(
 # f"""
 # from types import TracebackType
-# from links_bindings_python import Callback, MsgDict
+# from links_connect.callbacks import Callback
 # """
 # )
 # for name in names:
@@ -36,7 +36,7 @@
 # ]]]
 
 from types import TracebackType
-from links_bindings_python import Callback, MsgDict
+from links_connect.callbacks import Callback
 
 class CltManual:
     def __enter__(self) -> CltManual: ...

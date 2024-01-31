@@ -267,8 +267,8 @@ impl<R: PollRead, A: PollAccept<R>> PollHandler<R, A> {
                                 }
                                 match serviceable {
                                     Waker(None) => {
-                                        if log_enabled!(Level::Warn) {
-                                            warn!(
+                                        if log_enabled!(Level::Info) {
+                                            info!(
                                                 "{} Waker received Waker, this will result in any active Receivers & Acceptors to be deregistered and dropped",
                                                 asserted_short_name!("PollHandler", Self)
                                             );

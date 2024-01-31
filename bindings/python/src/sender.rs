@@ -83,6 +83,37 @@ macro_rules! create_svc_sender(
     }
 );
 
+/// Marco will patch the `PyObject` if it is an instance of `links_connect.callbacks.SettableSender`
+/// by setting the `sender` attribute to the provided `sender` argument.
+///
+/// # Arguments
+/// * `py` - python interpreter token [`Python<'_>`]
+/// * `sender` - This is a Rust class instance of type [`pyo3::pyclass`]
+/// * `callback` - This is a [pyo3::PyObject] representing a callback for `on_sent` and `on_recv` events for which a reference will be stored in the `sender` property of the
+/// * `pyclass_name` - This is a string literal representing the name of the python class for which the callback is being patched, it is used for logging purposes
+#[macro_export]
+macro_rules! patch_callback_if_settable_sender {
+    ($py:ident, $sender:ident, $callback:ident, $pyclass_name:expr) => {{
+        let locals = pyo3::types::PyDict::new($py);
+        locals.set_item("callback", &$callback)?;
+        match pyo3::Python::run($py, "from links_connect.callbacks import SettableSender; is_settable_sender = isinstance(callback, SettableSender)", None, Some(locals)) {
+            Ok(_) => {
+                let is_settable_sender: bool = locals.get_item("is_settable_sender").map_or(false, |opt| opt.map_or(false, |any| any.extract::<bool>().map_or(false, |v| v)));
+                // let is_settable_sender: bool = locals.get_item("is_settable_sender").unwrap().unwrap().extract::<bool>().unwrap();
+                if is_settable_sender {
+                    log::info!("{}: callback is an instance of `links_connect.callbacks.SettableSender`, setting callback.sender: {:?}", $pyclass_name, $sender);
+                    $callback.setattr($py, "sender", $sender.clone())?;
+                } else {
+                    log::info!("{}: callback is NOT an instance of `links_connect.callbacks.SettableSender`, callback.sender will NOT be set", $pyclass_name);
+                }
+            }
+            Err(err) => {
+                log::warn!("failed to validate if callback is an instance of `links_connect.callbacks.SettableSender` err: {:?}", err);
+            }
+        }
+    }};
+}
+
 #[macro_export]
 macro_rules! create_struct(
     ($name:ident, $sender:ident, $protocol:ident, $callback:ident) => {

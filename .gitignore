@@ -16,3 +16,4 @@ target/*
 **/book/
 **/__pycache__/
 **/*.so
+**/.pytest_cache*
