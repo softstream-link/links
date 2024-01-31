@@ -155,8 +155,8 @@ pub type MessageProcessor<M, const MAX_MSG_SIZE: usize> = (MessageRecver<M, MAX_
 pub fn into_split_messenger<M: Messenger, const MAX_MSG_SIZE: usize>(mut con_id: ConId, stream: std::net::TcpStream) -> MessageProcessor<M, MAX_MSG_SIZE> {
     stream.set_nonblocking(true).expect("Failed to set nonblocking on TcpStream");
 
-    con_id.set_local(stream.local_addr().unwrap());
-    con_id.set_peer(stream.peer_addr().unwrap());
+    con_id.set_local(stream.local_addr().unwrap_or_else(|_| panic!("Failed to get local_addr from stream: {:?}", stream)));
+    con_id.set_peer(stream.peer_addr().unwrap_or_else(|_| panic!("Failed to get peer_addr from stream: {:?}", stream)));
     let (reader, writer) = (stream.try_clone().expect("Failed to try_clone TcpStream for MessageRecver"), stream);
 
     let (reader, writer) = (mio::net::TcpStream::from_std(reader), mio::net::TcpStream::from_std(writer));

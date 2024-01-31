@@ -88,7 +88,7 @@ macro_rules! create_svc_sender(
 ///
 /// # Arguments
 /// * `py` - python interpreter token [`Python<'_>`]
-/// * `sender` - This is a Rust class instance of type [`pyo3::pyclass`]
+/// * `sender` - This is a Rust class instance of type [macro@pyo3::pyclass]
 /// * `callback` - This is a [pyo3::PyObject] representing a callback for `on_sent` and `on_recv` events for which a reference will be stored in the `sender` property of the
 /// * `pyclass_name` - This is a string literal representing the name of the python class for which the callback is being patched, it is used for logging purposes
 #[macro_export]
