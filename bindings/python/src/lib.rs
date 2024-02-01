@@ -57,8 +57,8 @@ cfg_if! {
 
                 create_callback_for_messenger!(CltTestProtocolManual, CltTestProtocolManualCallback);
                 create_callback_for_messenger!(SvcTestProtocolManual, SvcTestProtocolManualCallback);
-                create_clt_sender!(CltManual, CltTestSender, CltTestProtocolManual, CltTestProtocolManualCallback);
-                create_svc_sender!(SvcManual, SvcTestSender, SvcTestProtocolManual, SvcTestProtocolManualCallback);
+                create_clt_sender!(CltManual, CltTestSender, CltTestProtocolManual, CltTestProtocolManualCallback, "unittest");
+                create_svc_sender!(SvcManual, SvcTestSender, SvcTestProtocolManual, SvcTestProtocolManualCallback, "unittest");
                 #[pymethods]
                 impl SvcManual {
                     #[new]
