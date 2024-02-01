@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 logger = LoggerCallback()
 
 
-addr = f"127.0.0.1:{randint(1_000, 65_000)}"
+addr = f"127.0.0.1:{randint(2_000, 65_000)}"
 max_connections = 1
 io_timeout = 0.2
 
