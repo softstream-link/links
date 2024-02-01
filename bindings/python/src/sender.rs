@@ -5,6 +5,7 @@
 /// * `sender` - Type of the [links_nonblocking::prelude::CltSender] type to be extended
 /// * `protocol` - Type of the [links_nonblocking::prelude::Protocol] type to be used by the sender
 /// * `callback` - Type of the [links_nonblocking::prelude::CallbackRecvSend] type to be used by the sender
+/// * `module` - Name of the python module that will contains the sender
 ///
 /// # Result
 /// ## Methods & signatures
@@ -37,8 +38,8 @@
 /// ```
 #[macro_export]
 macro_rules! create_clt_sender(
-    ($name:ident, $sender:ident, $protocol:ident, $callback:ident) => {
-        $crate::create_struct!($name, $sender, $protocol, $callback);
+    ($name:ident, $sender:ident, $protocol:ident, $callback:ident, $module:literal) => {
+        $crate::create_struct!($name, $sender, $protocol, $callback, $module);
         $crate::send!($name, $sender, $protocol);
         $crate::clt_is_connected!($name, $sender, $protocol);
         $crate::clt__repr__!($name);
@@ -55,6 +56,7 @@ macro_rules! create_clt_sender(
 /// * `sender` - Type of the [links_nonblocking::prelude::SvcSender] type to be extended
 /// * `protocol` - Type of the [links_nonblocking::prelude::Protocol] type to be used by the sender
 /// * `callback` - Type of the [links_nonblocking::prelude::CallbackRecvSend] type to be used by the sender
+/// * `module` - Name of the python module that will contains the sender
 ///
 /// # Result
 /// ## Methods & signatures
@@ -72,8 +74,8 @@ macro_rules! create_clt_sender(
 /// to the fact that constructor needs to provide necessary arguments to the `Protocol` which are not known to this macro
 #[macro_export]
 macro_rules! create_svc_sender(
-    ($name:ident, $sender:ident, $protocol:ident, $callback:ident) => {
-        $crate::create_struct!($name, $sender, $protocol, $callback);
+    ($name:ident, $sender:ident, $protocol:ident, $callback:ident, $module:literal) => {
+        $crate::create_struct!($name, $sender, $protocol, $callback, $module);
         $crate::send!($name, $sender, $protocol);
         $crate::svc_is_connected!($name, $sender, $protocol);
         $crate::svc__repr__!($name);
@@ -83,11 +85,46 @@ macro_rules! create_svc_sender(
     }
 );
 
+/// Marco will patch the `PyObject` if it is an instance of `links_connect.callbacks.SettableSender`
+/// by setting the `sender` attribute to the provided `sender` argument.
+///
+/// # Arguments
+/// * `py` - python interpreter token [`Python<'_>`]
+/// * `sender` - This is a Rust class instance of type [macro@pyo3::pyclass]
+/// * `callback` - This is a [pyo3::PyObject] representing a callback for `on_sent` and `on_recv` events for which a reference will be stored in the `sender` property of the
+/// * `pyclass_name` - This is a string literal representing the name of the python class for which the callback is being patched, it is used for logging purposes
+#[macro_export]
+macro_rules! patch_callback_if_settable_sender {
+    ($py:ident, $sender:ident, $callback:ident, $pyclass_name:expr) => {{
+        let locals = pyo3::types::PyDict::new($py);
+        locals.set_item("callback", &$callback)?;
+        match pyo3::Python::run($py, "from links_connect.callbacks import SettableSender; is_settable_sender = isinstance(callback, SettableSender)", None, Some(locals)) {
+            Ok(_) => {
+                let is_settable_sender: bool = locals.get_item("is_settable_sender").map_or(false, |opt| opt.map_or(false, |any| any.extract::<bool>().map_or(false, |v| v)));
+                // let is_settable_sender: bool = locals.get_item("is_settable_sender").unwrap().unwrap().extract::<bool>().unwrap();
+                if is_settable_sender {
+                    log::info!(
+                        "{}: callback is an instance of `links_connect.callbacks.SettableSender`, setting callback.sender: {}",
+                        $pyclass_name,
+                        $sender.borrow_mut($py).__repr__($py)
+                    );
+                    $callback.setattr($py, "sender", $sender.clone())?;
+                } else {
+                    log::info!("{}: callback is NOT an instance of `links_connect.callbacks.SettableSender`, callback.sender will NOT be set", $pyclass_name);
+                }
+            }
+            Err(err) => {
+                log::warn!("failed to validate if callback is an instance of `links_connect.callbacks.SettableSender` err: {:?}", err);
+            }
+        }
+    }};
+}
+
 #[macro_export]
 macro_rules! create_struct(
-    ($name:ident, $sender:ident, $protocol:ident, $callback:ident) => {
+    ($name:ident, $sender:ident, $protocol:ident, $callback:ident, $py_module:literal) => {
         #[doc = concat!("[`", stringify!($name), "`] is a python extension module for [`", stringify!($sender), "`] sender, implementing [`", stringify!($protocol) ,"`] protocol", )]
-        #[pyo3::pyclass]
+        #[pyo3::pyclass(module = $py_module)]
         pub struct $name {
             sender: $sender<$protocol, $callback>,
             io_timeout: Option<f64>,
@@ -152,10 +189,7 @@ macro_rules! clt__repr__(
         #[pyo3::pymethods]
         impl $name{
             fn __repr__(&self, _py: pyo3::Python<'_>) -> String {
-                _py.allow_threads(move || {
-                    let is_connected = self.sender.is_connected();
-                    format!("{}({}, is_connected: {})", stringify!($name), self.sender.con_id(), is_connected)
-                })
+                _py.allow_threads(move || { format!("{}({}, is_connected: {})", stringify!($name), self.sender.con_id(), self.sender.is_connected()) })
             }
         }
     }
@@ -168,15 +202,16 @@ macro_rules! svc__repr__(
             fn __repr__(&mut self, _py: pyo3::Python<'_>) -> String {
                 _py.allow_threads(move || {
                     let is_connected = self.sender.is_next_connected();
-                    if !is_connected {
-                        format!("{}({}, is_connected: {})", stringify!($name), self.sender.con_id(), is_connected)
-                    } else {
-                        let num = self.sender.len();
-                        let max = self.sender.max_connections();
-                        let connections = self.sender.iter().map(|(_, s)| format!("[{}, is_connected: {}]", s.con_id(), s.is_connected())).collect::<Vec<_>>().join(",");
-                        format!("{}(#{} of max {} {})", stringify!($name), num, max, connections)
-                    }
-                })
+                    let status = if !is_connected {
+                            format!("{}({}, is_connected: {})", stringify!($name), self.sender.con_id(), is_connected)
+                        } else {
+                            let num = self.sender.len();
+                            let max = self.sender.max_connections().get() / links_nonblocking::prelude::SVC_MAX_CONNECTIONS_2_POOL_SIZE_FACTOR.get();
+                            let connections = self.sender.iter().map(|(_, s)| format!("[{}, is_connected: {}]", s.con_id(), s.is_connected())).collect::<Vec<_>>().join(",");
+                            format!("{}(#{} of max {} {})", stringify!($name), num, max, connections)
+                        };
+                    format!("{}", status)
+                 })
             }
         }
     }
@@ -201,7 +236,7 @@ macro_rules! __exit__(
         #[pyo3::pymethods]
         impl $name{
             fn __exit__(&mut self, _py: pyo3::Python<'_>, _exc_type: Option<&pyo3::PyAny>, _exc_value: Option<&pyo3::PyAny>, _traceback: Option<&pyo3::PyAny>) {
-                _py.allow_threads(move || self.sender.shutdown())
+                _py.allow_threads(move || self.sender.__exit__())
             }
         }
     }
@@ -213,7 +248,7 @@ macro_rules! __del__(
         #[pyo3::pymethods]
         impl $name{
             fn __del__(&mut self, _py: pyo3::Python<'_>) {
-                _py.allow_threads(move || self.sender.shutdown())
+                _py.allow_threads(move || self.sender.__exit__())
             }
         }
     }
@@ -259,8 +294,8 @@ mod test {
         setup::log::configure_compact(log::LevelFilter::Info);
         create_callback_for_messenger!(CltTestProtocolManual, CltTestProtocolManualCallback);
         create_callback_for_messenger!(SvcTestProtocolManual, SvcTestProtocolManualCallback);
-        create_clt_sender!(CltManual, CltTestSender, CltTestProtocolManual, CltTestProtocolManualCallback);
-        create_svc_sender!(SvcManual, SvcTestSender, SvcTestProtocolManual, SvcTestProtocolManualCallback);
+        create_clt_sender!(CltManual, CltTestSender, CltTestProtocolManual, CltTestProtocolManualCallback, "unittest");
+        create_svc_sender!(SvcManual, SvcTestSender, SvcTestProtocolManual, SvcTestProtocolManualCallback, "unittest");
 
         #[pymethods]
         impl CltManual {

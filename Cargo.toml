@@ -3,7 +3,7 @@ members = ["core", "nonblocking", "blocking", "bindings/python"]
 resolver = "2"
 
 [workspace.package]
-version = "0.2.4"
+version = "0.2.5"
 authors = ["Softstream <softstream.link@gmail.com>"]
 readme = "readme.md"
 license-file = "LICENSE"
@@ -21,9 +21,9 @@ byteserde_types = { version = "0.6.2" }  # required to setup unit test models
 byteserde_derive = { version = "0.6.2" } # required to setup unit test models
 derive_more = "0.99"                     # try_into, etc
 
-links_core = { version = "0.2.4", path = "./core" }
-links_nonblocking = { version = "0.2.4", path = "./nonblocking" }
-links_blocking = { version = "0.2.4", path = "./blocking" }
+links_core = { version = "0.2.5", path = "./core" }
+links_nonblocking = { version = "0.2.5", path = "./nonblocking" }
+links_blocking = { version = "0.2.5", path = "./blocking" }
 
 # networking
 bytes = "1.4"
@@ -44,7 +44,7 @@ spin = { version = "0.9" }
 
 # logging
 log = "0.4"
-env_logger = "0.10"
+env_logger = "0.11"
 colored = "2.0"
 
 

@@ -10,7 +10,7 @@ use std::{
 };
 
 /// An enum `pyclass` that is used in the python callback to indicate if the connection is an initiator or acceptor.
-#[pyclass]
+#[pyclass(module = "links_connect.callbacks")]
 #[derive(Debug, Clone)]
 pub enum ConType {
     Initiator,
@@ -26,7 +26,7 @@ impl Display for ConType {
 }
 
 /// A `pyclass` structure that is used in the python callback to provide connection information.
-#[pyclass]
+#[pyclass(module = "links_connect.callbacks")]
 #[derive(Debug, Clone)]
 pub struct ConId {
     pub con_type: ConType,

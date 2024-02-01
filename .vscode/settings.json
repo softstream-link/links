@@ -3,6 +3,25 @@
         "full"
     ],
     "workbench.editor.revealIfOpen": true,
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.autoImportCompletions": true,
+    "python.terminal.activateEnvironment": false,
+    "black-formatter.args": [
+        "--line-length",
+        "150"
+    ],
+    "files.exclude": {
+        "**/__pycache__": true,
+    },
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true,
+    },
+    "python.testing.pytestArgs": [
+        "bindings/python/tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
     "cSpell.words": [
         "atexit",
         "builtins",
@@ -31,6 +50,7 @@
         "hbeat",
         "hbeats",
         "Initiatr",
+        "isinstance",
         "kwargs",
         "levelname",
         "libpython",
@@ -58,6 +78,7 @@
         "rustfmt",
         "rustup",
         "serde",
+        "setattr",
         "SOUPBIN",
         "soupbintcp",
         "struct",
@@ -75,20 +96,4 @@
         "workdir",
         "wouldblock"
     ],
-    "python.analysis.typeCheckingMode": "basic",
-    "python.analysis.autoImportCompletions": true,
-    "python.terminal.activateEnvironment": false,
-    "black-formatter.args": [
-        "--line-length",
-        "150"
-    ],
-    "[python]": {
-        "editor.defaultFormatter": "ms-python.black-formatter",
-        "editor.formatOnSave": true,
-    },
-    "python.testing.pytestArgs": [
-        "bindings/python/tests"
-    ],
-    "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true,
 }

@@ -104,8 +104,9 @@ pub struct CltSender<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize>
     callback: Arc<C>,
     protocol: Arc<P>,
     #[allow(dead_code)] // exists to indicate to Svc::accept that this connection no longer active when Self is dropped
+    // Options because only Svc sets up the barrier but Clt does not
     acceptor_connection_gate: Option<RemoveConnectionBarrierOnDrop>,
-    shutdown_issued: bool,
+    is_shutdown: bool,
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSender<P, C, MAX_MSG_SIZE> {
     pub fn new(sender: MessageSender<P, MAX_MSG_SIZE>, callback: Arc<C>, protocol: Arc<P>, acceptor_connection_gate: Option<RemoveConnectionBarrierOnDrop>) -> Self {
@@ -114,7 +115,7 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSender<P, C,
             callback,
             protocol,
             acceptor_connection_gate,
-            shutdown_issued: false,
+            is_shutdown: false,
         }
     }
 }
@@ -216,39 +217,38 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for Clt
     }
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Shutdown for CltSender<P, C, MAX_MSG_SIZE> {
-    fn shutdown(&mut self) {
-        if self.shutdown_issued {
-            return;
-        }
-        if let Some((timeout, mut msg)) = self.protocol.on_disconnect() {
-            match self.send_busywait_timeout(&mut msg, timeout) {
-                Ok(SendStatus::Completed) => {
-                    if log_enabled!(log::Level::Debug) {
-                        debug!("Clean {}::on_disconnect msg: {:?}, con_id: {}", asserted_short_name!("CltSender", Self), msg, self.con_id());
+    fn __exit__(&mut self) {
+        if !self.is_shutdown {
+            if let Some((timeout, mut msg)) = self.protocol.on_disconnect() {
+                match self.send_busywait_timeout(&mut msg, timeout) {
+                    Ok(SendStatus::Completed) => {
+                        if log_enabled!(log::Level::Debug) {
+                            debug!("Clean {}::on_disconnect msg: {:?}, con_id: {}", asserted_short_name!("CltSender", Self), msg, self.con_id());
+                        }
+                    }
+                    Ok(SendStatus::WouldBlock) => {
+                        warn!("Timed out {}::on_disconnect timeout: {:?}, msg: {:?}, cond_id: {}", asserted_short_name!("CltSender", Self), timeout, msg, self.con_id());
+                    }
+                    Err(err) => {
+                        warn!(
+                            "Failed to complete {}::on_disconnect, did peer terminate connection or did you drop CltRecver before sender? con_id: {}, msg: {:?}, err:\n{}",
+                            asserted_short_name!("CltSender", Self),
+                            self.con_id(),
+                            msg,
+                            err
+                        );
                     }
                 }
-                Ok(SendStatus::WouldBlock) => {
-                    warn!("Timed out {}::on_disconnect timeout: {:?}, msg: {:?}, cond_id: {}", asserted_short_name!("CltSender", Self), timeout, msg, self.con_id());
-                }
-                Err(err) => {
-                    warn!(
-                        "Failed to complete {}::on_disconnect, did peer terminate connection or did you drop CltRecver before sender? con_id: {}, msg: {:?}, err:\n{}",
-                        asserted_short_name!("CltSender", Self),
-                        self.con_id(),
-                        msg,
-                        err
-                    );
-                }
             }
+            // shutdown writer to ensure that reader is notified of termination
+            self.msg_sender.frm_writer.shutdown(std::net::Shutdown::Both, "CltSender::shutdown");
+            self.is_shutdown = true;
         }
-        // shutdown writer to ensure that reader is notified of termination
-        self.msg_sender.frm_writer.shutdown(std::net::Shutdown::Both, "CltSender::shutdown");
-        self.shutdown_issued = true;
     }
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Drop for CltSender<P, C, MAX_MSG_SIZE> {
     fn drop(&mut self) {
-        self.shutdown();
+        self.__exit__();
     }
 }
 
@@ -462,13 +462,13 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for Clt
     }
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Shutdown for CltSenderRef<P, C, MAX_MSG_SIZE> {
-    fn shutdown(&mut self) {
-        self.clt_sender.lock().shutdown()
+    fn __exit__(&mut self) {
+        self.clt_sender.lock().__exit__()
     }
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Drop for CltSenderRef<P, C, MAX_MSG_SIZE> {
     fn drop(&mut self) {
-        self.shutdown()
+        self.__exit__()
     }
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Clone for CltSenderRef<P, C, MAX_MSG_SIZE> {
