@@ -641,21 +641,21 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> SendNonBlock
     }
 }
 impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> Shutdown for CltSendersPool<M, S> {
-    fn shutdown(&mut self) {
+    fn __exit__(&mut self) {
         // avoid double second shutdown if first called manually typically from binding/python __exit__ and then on Rust drop 
         // in addition rust drop shutdown seems to cause a deadlock when running pytest as it is likely trying to cause logging while python GIL is acquired trying to connect new clt & svc pair
         if self.is_shutdown {
             return;
         }else{
-            self.clear(); // this will issue CltSender.drop() which in turn will call CltSender.shutdown() trait
             crate::connect::DEFAULT_POLL_HANDLER.shutdown(Some(self.con_id().clone()));
+            self.clear(); // this will issue CltSender.drop() which in turn will call CltSender.shutdown() trait
             self.is_shutdown = true;
         }
     }
 }
 impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> Drop for CltSendersPool<M, S> {
     fn drop(&mut self) {
-        self.shutdown();
+        self.__exit__();
     }
 }
 impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> PoolConnectionStatus for CltSendersPool<M, S> {

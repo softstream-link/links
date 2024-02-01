@@ -232,7 +232,7 @@ macro_rules! __exit__(
         #[pyo3::pymethods]
         impl $name{
             fn __exit__(&mut self, _py: pyo3::Python<'_>, _exc_type: Option<&pyo3::PyAny>, _exc_value: Option<&pyo3::PyAny>, _traceback: Option<&pyo3::PyAny>) {
-                _py.allow_threads(move || self.sender.shutdown())
+                _py.allow_threads(move || self.sender.__exit__())
             }
         }
     }
@@ -244,7 +244,7 @@ macro_rules! __del__(
         #[pyo3::pymethods]
         impl $name{
             fn __del__(&mut self, _py: pyo3::Python<'_>) {
-                _py.allow_threads(move || self.sender.shutdown())
+                _py.allow_threads(move || self.sender.__exit__())
             }
         }
     }
