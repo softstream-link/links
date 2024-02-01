@@ -479,6 +479,7 @@ pub struct CltSendersPool<M: Messenger, S: SendNonBlocking<M::SendT> + Connectio
     con_id: ConId,
     rx_sender: Receiver<S>,
     senders: RoundRobinPool<S>,
+    is_shutdown: bool,
     phantom: PhantomData<M>,
 }
 impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> CltSendersPool<M, S> {
@@ -488,6 +489,7 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> CltSendersPo
             con_id,
             rx_sender,
             senders: RoundRobinPool::new(max_connections),
+            is_shutdown: false,
             phantom: PhantomData,
         }
     }
@@ -640,8 +642,15 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> SendNonBlock
 }
 impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> Shutdown for CltSendersPool<M, S> {
     fn shutdown(&mut self) {
-        self.clear(); // this will issue CltSender.drop() which in turn will call CltSender.shutdown() trait
-        crate::connect::DEFAULT_POLL_HANDLER.shutdown(Some(self.con_id().clone()))
+        // avoid double second shutdown if first called manually typically from binding/python __exit__ and then on Rust drop 
+        // in addition rust drop shutdown seems to cause a deadlock when running pytest as it is likely trying to cause logging while python GIL is acquired trying to connect new clt & svc pair
+        if self.is_shutdown {
+            return;
+        }else{
+            self.clear(); // this will issue CltSender.drop() which in turn will call CltSender.shutdown() trait
+            crate::connect::DEFAULT_POLL_HANDLER.shutdown(Some(self.con_id().clone()));
+            self.is_shutdown = true;
+        }
     }
 }
 impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> Drop for CltSendersPool<M, S> {

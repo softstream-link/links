@@ -17,26 +17,6 @@ max_connections = 1
 io_timeout = 0.2
 
 
-def test_clt_svc():
-    with (
-        SvcManual(addr, callback, max_connections, io_timeout, "svc") as svc,
-        CltManual(addr, callback, io_timeout, "clt") as clt,
-    ):
-        assert svc.is_connected()
-        assert clt.is_connected()
-        log.info(f"svc: {svc}")
-        log.info(f"clt: {clt}")
-        clt.send({"Ping": {"ty": "P", "text": "ping"}})
-        svc.send({"Pong": {"ty": "P", "text": "pong"}})
-
-        found = store.find_recv(name=None, filter={"Ping": {}}, io_timeout=0.2)
-        log.info(f"found: {found}")
-        assert found is not None
-        found = store.find_recv(name=None, filter={"Pong": {}}, io_timeout=0.2)
-        log.info(f"found: {found}")
-        assert found is not None
-
-
 def test_svc():
     with SvcManual(
         addr,
@@ -65,6 +45,26 @@ def test_clt():
         with CltManual(addr, callback) as clt:
             log.info(f"clt: {clt}")
     log.info(f"e_info: {e_info}")
+
+
+def test_clt_svc():
+    with (
+        SvcManual(addr, callback, max_connections, io_timeout, "svc") as svc,
+        CltManual(addr, callback, io_timeout, "clt") as clt,
+    ):
+        assert svc.is_connected()
+        assert clt.is_connected()
+        log.info(f"svc: {svc}")
+        log.info(f"clt: {clt}")
+        clt.send({"Ping": {"ty": "P", "text": "ping"}})
+        svc.send({"Pong": {"ty": "P", "text": "pong"}})
+
+        found = store.find_recv(name=None, filter={"Ping": {}}, io_timeout=0.2)
+        log.info(f"found: {found}")
+        assert found is not None
+        found = store.find_recv(name=None, filter={"Pong": {}}, io_timeout=0.2)
+        log.info(f"found: {found}")
+        assert found is not None
 
 
 if __name__ == "__main__":

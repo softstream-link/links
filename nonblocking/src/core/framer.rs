@@ -140,8 +140,12 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(RecvStatus::WouldBlock),
             Err(e) => {
                 self.shutdown(Shutdown::Write, "read_frame error"); // remember to shutdown on both exception and on EOF
-                let msg = format!("{} {}::read_frame caused by: [{}] residual buf:\n{}", self.con_id, asserted_short_name!("FrameReader", Self), e, to_hex_pretty(&self.buffer[..]));
-
+                let buf = format!(
+                    "len: {} content: {}",
+                    self.buffer.len(),
+                    if self.buffer.len() != 0 { format!("\n{}", to_hex_pretty(&self.buffer[..])) } else { format!("Empty") }
+                );
+                let msg = format!("{} {}::read_frame caused by: [{}] residual buf {}", self.con_id, asserted_short_name!("FrameReader", Self), e, buf);
                 Err(Error::new(e.kind(), msg))
             }
         }
