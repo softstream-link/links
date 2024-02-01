@@ -6,7 +6,7 @@ from random import randint
 from links_bindings_python import SvcManual, CltManual
 
 # , LoggerCallback
-from links_connect.callbacks import LoggerCallback, DecoratorDriver, MemoryStoreCallback
+from links_connect.callbacks import LoggerCallback, DecoratorDriver, MemoryStoreCallback, on_recv, on_sent, ConId, Message
 
 
 log = logging.getLogger(__name__)
@@ -45,9 +45,21 @@ def test_clt_not_connected_raises_exception():
 
 
 def test_clt_svc_connected_ping_pong():
+    class NothingDecorator(DecoratorDriver):
+        def __init__(self):
+            super().__init__()
+
+        @on_recv({}, "NothingDecorator")
+        def on_recv_default(self, con_id: ConId, msg: Message):
+            log.info(f"on_recv_default: {type(con_id)} {type(msg)} {con_id} {msg}")
+
+        @on_sent({}, "NothingDecorator")
+        def on_sent_default(self, con_id: ConId, msg: Message):
+            log.info(f"on_sent_default: {type(con_id)} {type(msg)} {con_id} {msg}")
+
     store = MemoryStoreCallback()
-    svc_decor = DecoratorDriver()
-    clt_decor = DecoratorDriver()
+    svc_decor = NothingDecorator()
+    clt_decor = NothingDecorator()
     svc_decor = svc_decor + store + LoggerCallback()
     clt_decor = clt_decor + store + LoggerCallback()
     with (
