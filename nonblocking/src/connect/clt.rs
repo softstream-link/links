@@ -104,6 +104,7 @@ pub struct CltSender<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize>
     callback: Arc<C>,
     protocol: Arc<P>,
     #[allow(dead_code)] // exists to indicate to Svc::accept that this connection no longer active when Self is dropped
+    // Options because only Svc sets up the barrier but Clt does not
     acceptor_connection_gate: Option<RemoveConnectionBarrierOnDrop>,
     is_shutdown: bool,
 }
@@ -217,9 +218,7 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for Clt
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Shutdown for CltSender<P, C, MAX_MSG_SIZE> {
     fn __exit__(&mut self) {
-        if self.is_shutdown {
-            return;
-        } else {
+        if !self.is_shutdown {
             if let Some((timeout, mut msg)) = self.protocol.on_disconnect() {
                 match self.send_busywait_timeout(&mut msg, timeout) {
                     Ok(SendStatus::Completed) => {

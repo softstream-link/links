@@ -101,7 +101,7 @@ macro_rules! patch_callback_if_settable_sender {
                 let is_settable_sender: bool = locals.get_item("is_settable_sender").map_or(false, |opt| opt.map_or(false, |any| any.extract::<bool>().map_or(false, |v| v)));
                 // let is_settable_sender: bool = locals.get_item("is_settable_sender").unwrap().unwrap().extract::<bool>().unwrap();
                 if is_settable_sender {
-                    log::info!("{}: callback is an instance of `links_connect.callbacks.SettableSender`, setting callback.sender: {:?}", $pyclass_name, $sender);
+                    log::info!("{}: callback is an instance of `links_connect.callbacks.SettableSender`, setting callback.sender: {}", $pyclass_name, $sender.borrow_mut($py).__repr__($py));
                     $callback.setattr($py, "sender", $sender.clone())?;
                 } else {
                     log::info!("{}: callback is NOT an instance of `links_connect.callbacks.SettableSender`, callback.sender will NOT be set", $pyclass_name);
@@ -183,10 +183,7 @@ macro_rules! clt__repr__(
         #[pyo3::pymethods]
         impl $name{
             fn __repr__(&self, _py: pyo3::Python<'_>) -> String {
-                _py.allow_threads(move || {
-                    let is_connected = self.sender.is_connected();
-                    format!("{}({}, is_connected: {})", stringify!($name), self.sender.con_id(), is_connected)
-                })
+                _py.allow_threads(move || { format!("{}({}, is_connected: {})", stringify!($name), self.sender.con_id(), self.sender.is_connected()) })
             }
         }
     }
@@ -199,15 +196,16 @@ macro_rules! svc__repr__(
             fn __repr__(&mut self, _py: pyo3::Python<'_>) -> String {
                 _py.allow_threads(move || {
                     let is_connected = self.sender.is_next_connected();
-                    if !is_connected {
-                        format!("{}({}, is_connected: {})", stringify!($name), self.sender.con_id(), is_connected)
-                    } else {
-                        let num = self.sender.len();
-                        let max = self.sender.max_connections();
-                        let connections = self.sender.iter().map(|(_, s)| format!("[{}, is_connected: {}]", s.con_id(), s.is_connected())).collect::<Vec<_>>().join(",");
-                        format!("{}(#{} of max {} {})", stringify!($name), num, max, connections)
-                    }
-                })
+                    let status = if !is_connected {
+                            format!("{}({}, is_connected: {})", stringify!($name), self.sender.con_id(), is_connected)
+                        } else {
+                            let num = self.sender.len();
+                            let max = self.sender.max_connections().get() / links_nonblocking::prelude::SVC_MAX_CONNECTIONS_2_POOL_SIZE_FACTOR.get();
+                            let connections = self.sender.iter().map(|(_, s)| format!("[{}, is_connected: {}]", s.con_id(), s.is_connected())).collect::<Vec<_>>().join(",");
+                            format!("{}(#{} of max {} {})", stringify!($name), num, max, connections)
+                        };
+                    format!("{}", status)
+                 })
             }
         }
     }

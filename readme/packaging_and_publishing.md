@@ -15,14 +15,15 @@ cargo clippy --all-features -- --deny warnings
 # Local build & test rust & python extension
 * `links_bindings_python` will use `micromamba` env which has `python, maturin, pytest`
 ```shell
+if [ -d ./links_bindings_pythons ] ; then PREFIX="./../.." ; else PREFIX="." fi
 micromamba create --name links_build_env --yes python maturin pytest &&
-micromamba run --name links_build_env --cwd ./bindings/python maturin develop &&
-micromamba run --name links_build_env --cwd ./bindings/python pytest
-# micromamba run --name links_build_env cargo nextest run --all-features &&
-# micromamba run --name links_build_env cargo nextest run --examples --all-features && 
-# micromamba run --name links_build_env cargo test --doc --all-features &&
-# micromamba run --name links_build_env cargo clippy --all-features -- --deny warnings &&
-# micromamba run --name links_build_env cargo doc --all-features &&
+micromamba run --name links_build_env --cwd ${PREFIX}/bindings/python cargo nextest run --all-features &&
+micromamba run --name links_build_env --cwd ${PREFIX}/bindings/python cargo nextest run --examples --all-features && 
+micromamba run --name links_build_env --cwd ${PREFIX}/bindings/python cargo test --doc --all-features &&
+micromamba run --name links_build_env --cwd ${PREFIX}/bindings/python cargo clippy --all-features -- --deny warnings &&
+micromamba run --name links_build_env --cwd ${PREFIX}/bindings/python cargo doc --all-features &&
+micromamba run --name links_build_env --cwd ${PREFIX}/bindings/python maturin develop &&
+micromamba run --name links_build_env --cwd ${PREFIX}/bindings/python pytest
 ```
 
 # Regenerate `links_connect.pyi` file

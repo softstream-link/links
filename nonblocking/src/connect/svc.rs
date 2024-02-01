@@ -13,6 +13,8 @@ pub type SvcSender<P, C, const MAX_MSG_SIZE: usize> = CltSendersPool<P, CltSende
 pub type SvcRecverRef<P, C, const MAX_MSG_SIZE: usize> = CltRecversPool<P, CltRecverRef<P, C, MAX_MSG_SIZE>>;
 pub type SvcSenderRef<P, C, const MAX_MSG_SIZE: usize> = CltSendersPool<P, CltSenderRef<P, C, MAX_MSG_SIZE>>;
 
+pub const SVC_MAX_CONNECTIONS_2_POOL_SIZE_FACTOR: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(2) };
+
 #[cfg(target_family = "unix")]
 fn into_std_from_mio(stream: mio::net::TcpStream) -> std::net::TcpStream {
     use std::os::fd::{FromRawFd, IntoRawFd};
@@ -155,9 +157,9 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Svc<P, C, M
         let acceptor = SvcAcceptor::new(ConId::svc(name, addr, None), std::net::TcpListener::bind(addr)?, callback, protocol, max_connections);
         // make pool twice as big as acceptor will allow to be opened this is to ensure that acceptor is able to add new connections to the pool even
         // if some of the connections in the pool are dead but not closed yet
-        let pool_size = max_connections.get() * 2;
+        let pool_size = max_connections.checked_mul(SVC_MAX_CONNECTIONS_2_POOL_SIZE_FACTOR).expect("pool size overflow");
 
-        let clts_pool = CltsPool::new(acceptor.con_id().clone(), NonZeroUsize::new(pool_size).unwrap());
+        let clts_pool = CltsPool::new(acceptor.con_id().clone(), pool_size);
         Ok(Self { acceptor, clts_pool })
     }
     #[inline(always)]

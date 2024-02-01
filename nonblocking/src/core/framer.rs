@@ -143,7 +143,7 @@ impl<F: Framer, const MAX_MSG_SIZE: usize> FrameReader<F, MAX_MSG_SIZE> {
                 let buf = format!(
                     "len: {} content: {}",
                     self.buffer.len(),
-                    if self.buffer.len() != 0 { format!("\n{}", to_hex_pretty(&self.buffer[..])) } else { format!("Empty") }
+                    if !self.buffer.is_empty() { format!("\n{}", to_hex_pretty(&self.buffer[..])) } else { "Empty".to_owned() }
                 );
                 let msg = format!("{} {}::read_frame caused by: [{}] residual buf {}", self.con_id, asserted_short_name!("FrameReader", Self), e, buf);
                 Err(Error::new(e.kind(), msg))
