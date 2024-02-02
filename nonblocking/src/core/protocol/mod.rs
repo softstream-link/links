@@ -15,11 +15,6 @@ pub trait ProtocolCore: Messenger + Sized {
     fn on_connect<C: SendNonBlocking<<Self as Messenger>::SendT> + ReSendNonBlocking<<Self as Messenger>::SendT> + RecvNonBlocking<<Self as Messenger>::RecvT> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
         Ok(())
     }
-    /// Used in the implementation of [ProtocolCore::on_connect] to determine the maximum time to wait on each `send` & `recv` call during connection handshake stage
-    #[inline(always)]
-    fn on_connect_timeout(&self) -> Duration {
-        Duration::from_secs(0)
-    }
 
     /// Called right before the sender is dropped and allows user space to send a message to the peer
     #[inline(always)]
