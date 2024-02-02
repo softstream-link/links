@@ -67,7 +67,7 @@ pub mod setup {
         impl ProtocolCore for SvcTestProtocolAuthAndHBeat {
             fn on_connect<C: SendNonBlocking<<Self as Messenger>::SendT> + ReSendNonBlocking<<Self as Messenger>::SendT> + RecvNonBlocking<<Self as Messenger>::RecvT> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
                 info!("on_connect: {}", con.con_id());
-                let timeout = self.on_connect_timeout();
+                let timeout = Duration::from_secs(1);
                 match con.recv_busywait_timeout(timeout)? {
                     RecvStatus::Completed(Some(CltTestMsg::Login(_login))) => {
                         // info!("{} {:?}", clt.con_id(), login);
@@ -80,9 +80,6 @@ pub mod setup {
                     RecvStatus::Completed(msg) => Err(Error::new(ErrorKind::InvalidData, format!("{} Expected Login Request instead got msg: {:?}", con.con_id(), msg))),
                     RecvStatus::WouldBlock => Err(Error::new(ErrorKind::TimedOut, format!("{} Timed out waiting for Login Request", con.con_id())))?,
                 }
-            }
-            fn on_connect_timeout(&self) -> Duration {
-                Duration::from_secs(1)
             }
             fn on_disconnect(&self) -> Option<(Duration, <Self as Messenger>::SendT)> {
                 Some((Duration::from_secs(1), SvcTestMsgFinal::default().into()))
@@ -155,7 +152,7 @@ pub mod setup {
         impl ProtocolCore for CltTestProtocolAuthAndHbeat {
             fn on_connect<C: SendNonBlocking<<Self as Messenger>::SendT> + ReSendNonBlocking<<Self as Messenger>::SendT> + RecvNonBlocking<<Self as Messenger>::RecvT> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
                 info!("on_connect: {}", con.con_id());
-                let timeout = self.on_connect_timeout();
+                let timeout = Duration::from_secs(1);
                 let mut msg: CltTestMsg = CltTestMsgLoginReq::default().into();
                 con.send_busywait_timeout(&mut msg, timeout)?.unwrap_completed(); //send login request
                 let status = con.recv_busywait_timeout(timeout)?; // wait for login accept
@@ -163,9 +160,6 @@ pub mod setup {
                     return Err(Error::new(ErrorKind::ConnectionReset, format!("Expected Login Accept instead got None, cond_id: {}", con.con_id())));
                 }
                 Ok(())
-            }
-            fn on_connect_timeout(&self) -> Duration {
-                Duration::from_secs(1)
             }
         }
         impl Protocol for CltTestProtocolAuthAndHbeat {
