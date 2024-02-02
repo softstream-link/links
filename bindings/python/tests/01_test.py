@@ -1,11 +1,7 @@
 import logging
-from re import M
-import pytest
 from time import sleep
 from random import randint
 from links_bindings_python import SvcManual, CltManual
-
-# , LoggerCallback
 from links_connect.callbacks import LoggerCallback, DecoratorDriver, MemoryStoreCallback, on_recv, on_sent, ConId, Message
 
 
@@ -37,7 +33,24 @@ def test_svc_port_reuse():
         assert not svc.is_connected()
 
 
+def test_config():
+    import pytest
+
+    with pytest.raises(Exception) as e_info:
+        with CltManual(addr, logger) as clt:
+            pass
+    log.info(f"e_info: {e_info}")
+    with pytest.raises(Exception) as e_info:
+        with CltManual(addr, logger, **{"name": "clt"}) as clt:
+            pass
+    log.info(f"e_info: {e_info}")
+    # log.info(f"clt: {clt}")
+    # assert not clt.is_connected()
+
+
 def test_clt_not_connected_raises_exception():
+    import pytest
+
     with pytest.raises(Exception) as e_info:
         with CltManual(addr, logger) as clt:
             log.info(f"clt: {clt}")
@@ -49,11 +62,11 @@ def test_clt_svc_connected_ping_pong():
         def __init__(self):
             super().__init__()
 
-        @on_recv({}, "NothingDecorator")
+        @on_recv({})
         def on_recv_default(self, con_id: ConId, msg: Message):
             log.info(f"on_recv_default: {type(con_id)} {type(msg)} {con_id} {msg}")
 
-        @on_sent({}, "NothingDecorator")
+        @on_sent({})
         def on_sent_default(self, con_id: ConId, msg: Message):
             log.info(f"on_sent_default: {type(con_id)} {type(msg)} {con_id} {msg}")
 
@@ -63,8 +76,8 @@ def test_clt_svc_connected_ping_pong():
     svc_decor = svc_decor + store + LoggerCallback()
     clt_decor = clt_decor + store + LoggerCallback()
     with (
-        SvcManual(addr, svc_decor, max_connections, io_timeout, "svc") as svc,
-        CltManual(addr, clt_decor, io_timeout, "clt") as clt,
+        SvcManual(addr, svc_decor, **dict(name="svc")) as svc,
+        CltManual(addr, clt_decor, **dict(name="clt")) as clt,
     ):
         assert svc.is_connected()
         assert clt.is_connected()
@@ -85,4 +98,6 @@ def test_clt_svc_connected_ping_pong():
 
 
 if __name__ == "__main__":
+    import pytest
+
     pytest.main([__file__])
