@@ -29,9 +29,13 @@ impl Display for ConType {
 #[pyclass(module = "links_connect.callbacks")]
 #[derive(Debug, Clone)]
 pub struct ConId {
+    #[pyo3(get)]
     pub con_type: ConType,
+    #[pyo3(get)]
     pub name: String,
+    #[pyo3(get)]
     pub local: String,
+    #[pyo3(get)]
     pub peer: String,
 }
 #[pymethods]
