@@ -676,7 +676,7 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> PoolConnecti
             None => {
                 if let PoolAcceptStatus::Accepted = self
                     .accept_into_pool()
-                    .expect(format!("CltSendersPool::accept_into_pool con_id: {} - Failed to service rx_sender, was the tx_sender dropped?", self.con_id).as_str())
+                    .unwrap_or_else(|_| panic!("CltSendersPool::accept_into_pool con_id: {} - Failed to service rx_sender, was the tx_sender dropped?", self.con_id))
                 {
                     self.is_next_connected()
                 } else {
@@ -710,7 +710,7 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> PoolConnecti
         if self.senders.is_empty() {
             if let PoolAcceptStatus::Accepted = self
                 .accept_into_pool()
-                .expect(format!("CltSendersPool::accept_into_pool con_id: {} - Failed to service rx_sender, was the tx_sender dropped?", self.con_id).as_str())
+                .unwrap_or_else(|_| panic!("CltSendersPool::accept_into_pool con_id: {} - Failed to service rx_sender, was the tx_sender dropped?", self.con_id))
             {
                 return self.all_connected();
             } else {
