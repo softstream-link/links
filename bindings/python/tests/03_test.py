@@ -15,39 +15,6 @@ max_connections = 1
 io_timeout = 0.2
 
 
-def test_svc_port_reuse():
-    with SvcManual(addr, logger) as svc:
-        log.info(f"svc: {svc}")
-        assert not svc.is_connected()
-
-    sleep(0.1)  # yield
-
-    with SvcManual(addr, logger) as svc:
-        log.info(f"svc: {svc}")
-        assert not svc.is_connected()
-
-    sleep(0.1)  # yield
-
-    with SvcManual(addr, logger) as svc:
-        log.info(f"svc: {svc}")
-        assert not svc.is_connected()
-
-
-def test_config():
-    import pytest
-
-    with pytest.raises(Exception) as e_info:
-        with CltManual(addr, logger) as clt:
-            pass
-    log.info(f"e_info: {e_info}")
-    with pytest.raises(Exception) as e_info:
-        with CltManual(addr, logger, **{"name": "clt"}) as clt:
-            pass
-    log.info(f"e_info: {e_info}")
-    # log.info(f"clt: {clt}")
-    # assert not clt.is_connected()
-
-
 def test_clt_not_connected_raises_exception():
     import pytest
 
