@@ -1,6 +1,6 @@
 use crate::prelude::{
-    asserted_short_name, into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, ConnectionStatus, MessageRecver, MessageSender, Messenger, PollAble, PollEventStatus, PollRead, Protocol, ReSendNonBlocking,
-    RecvNonBlocking, RecvStatus, RemoveConnectionBarrierOnDrop, SendNonBlocking, SendNonBlockingNonMut, SendStatus, Shutdown, TimerTaskStatus,
+    asserted_short_name, into_split_messenger, CallbackRecv, CallbackRecvSend, CallbackSend, ConId, ConnectionId, ConnectionStatus, MessageRecver, MessageSender, Messenger, PollAble, PollEventStatus, PollRead, Protocol, PyShutdown,
+    ReSendNonBlocking, RecvNonBlocking, RecvStatus, RemoveConnectionBarrierOnDrop, SendNonBlocking, SendNonBlockingNonMut, SendStatus, TimerTaskStatus,
 };
 use log::{debug, log_enabled, warn};
 use std::{
@@ -106,7 +106,7 @@ pub struct CltSender<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize>
     #[allow(dead_code)] // exists to indicate to Svc::accept that this connection no longer active when Self is dropped
     // Options because only Svc sets up the barrier but Clt does not
     acceptor_connection_gate: Option<RemoveConnectionBarrierOnDrop>,
-    is_shutdown: bool,
+    is_exit_called: bool,
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSender<P, C, MAX_MSG_SIZE> {
     pub fn new(sender: MessageSender<P, MAX_MSG_SIZE>, callback: Arc<C>, protocol: Arc<P>, acceptor_connection_gate: Option<RemoveConnectionBarrierOnDrop>) -> Self {
@@ -115,7 +115,7 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> CltSender<P, C,
             callback,
             protocol,
             acceptor_connection_gate,
-            is_shutdown: false,
+            is_exit_called: false,
         }
     }
 }
@@ -206,6 +206,9 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> ConnectionId fo
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> ConnectionStatus for CltSender<P, C, MAX_MSG_SIZE> {
     #[inline(always)]
     fn is_connected(&self) -> bool {
+        if self.is_exit_called {
+            return false;
+        }
         self.protocol.is_connected()
     }
 }
@@ -216,9 +219,9 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for Clt
         write!(f, "{}<{}, RecvT:{}, SendT:{}, {}>", asserted_short_name!("CltSender", Self), self.con_id(), recv_t, send_t, MAX_MSG_SIZE)
     }
 }
-impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Shutdown for CltSender<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> PyShutdown for CltSender<P, C, MAX_MSG_SIZE> {
     fn __exit__(&mut self) {
-        if !self.is_shutdown {
+        if !self.is_exit_called {
             if let Some((timeout, mut msg)) = self.protocol.on_disconnect() {
                 match self.send_busywait_timeout(&mut msg, timeout) {
                     Ok(SendStatus::Completed) => {
@@ -242,7 +245,7 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Shutdown for Cl
             }
             // shutdown writer to ensure that reader is notified of termination
             self.msg_sender.frm_writer.shutdown(std::net::Shutdown::Both, "CltSender::shutdown");
-            self.is_shutdown = true;
+            self.is_exit_called = true;
         }
     }
 }
@@ -451,7 +454,8 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> ConnectionId fo
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> ConnectionStatus for CltSenderRef<P, C, MAX_MSG_SIZE> {
     #[inline(always)]
     fn is_connected(&self) -> bool {
-        self.protocol.is_connected()
+        // need to lock clt_sender to ensure __exit__ was not called
+        self.clt_sender.lock().is_connected() 
     }
 }
 impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for CltSenderRef<P, C, MAX_MSG_SIZE> {
@@ -461,7 +465,7 @@ impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Display for Clt
         write!(f, "{}<{}, RecvT:{}, SendT:{}, {}>", asserted_short_name!("CltSenderRef", Self), self.con_id(), recv_t, send_t, MAX_MSG_SIZE)
     }
 }
-impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> Shutdown for CltSenderRef<P, C, MAX_MSG_SIZE> {
+impl<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> PyShutdown for CltSenderRef<P, C, MAX_MSG_SIZE> {
     fn __exit__(&mut self) {
         self.clt_sender.lock().__exit__()
     }

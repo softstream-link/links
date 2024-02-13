@@ -84,6 +84,9 @@ pub mod setup {
             fn on_disconnect(&self) -> Option<(Duration, <Self as Messenger>::SendT)> {
                 Some((Duration::from_secs(1), SvcTestMsgFinal::default().into()))
             }
+            fn is_connected(&self) -> bool {
+                true
+            }
         }
         impl Protocol for SvcTestProtocolAuthAndHBeat {
             fn conf_heart_beat_interval(&self) -> Option<Duration> {
@@ -161,6 +164,9 @@ pub mod setup {
                 }
                 Ok(())
             }
+            fn is_connected(&self) -> bool {
+                true
+            }
         }
         impl Protocol for CltTestProtocolAuthAndHbeat {
             fn conf_heart_beat_interval(&self) -> Option<Duration> {
@@ -173,11 +179,13 @@ pub mod setup {
         }
     }
     pub mod connection {
-        use crate::prelude::{unittest::setup::framer::TEST_MSG_FRAME_SIZE, Clt, CltSender, Svc, SvcSender};
+        use crate::prelude::{unittest::setup::framer::TEST_MSG_FRAME_SIZE, Clt, CltSender, CltSenderRef, Svc, SvcSender, SvcSenderRef};
 
         pub type CltTest<P, C> = Clt<P, C, TEST_MSG_FRAME_SIZE>;
         pub type SvcTest<P, C> = Svc<P, C, TEST_MSG_FRAME_SIZE>;
         pub type CltTestSender<P, C> = CltSender<P, C, TEST_MSG_FRAME_SIZE>;
         pub type SvcTestSender<P, C> = SvcSender<P, C, TEST_MSG_FRAME_SIZE>;
+        pub type CltTestSenderRef<P, C> = CltSenderRef<P, C, TEST_MSG_FRAME_SIZE>;
+        pub type SvcTestSenderRef<P, C> = SvcSenderRef<P, C, TEST_MSG_FRAME_SIZE>;
     }
 }

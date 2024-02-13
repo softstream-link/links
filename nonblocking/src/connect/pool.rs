@@ -1,7 +1,7 @@
 use super::clt::{Clt, CltRecverRef, CltSenderRef};
 use crate::prelude::{
     asserted_short_name, AcceptStatus, CallbackRecvSend, CltRecver, CltSender, ConId, ConnectionId, ConnectionStatus, Messenger, PollAble, PollAccept, PollRead, PoolAcceptStatus, PoolConnectionStatus, PoolSvcAcceptorOfCltNonBlocking, Protocol,
-    RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking, SendStatus, Shutdown, SvcAcceptor, SvcAcceptorOfCltNonBlocking,
+    PyShutdown, RecvNonBlocking, RecvStatus, RoundRobinPool, SendNonBlocking, SendStatus, SvcAcceptor, SvcAcceptorOfCltNonBlocking,
 };
 use log::{info, log_enabled, warn, Level};
 use slab::Iter;
@@ -11,7 +11,7 @@ use std::{
     marker::PhantomData,
     num::NonZeroUsize,
     sync::mpsc::{channel, Receiver, Sender},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 pub type SplitCltsPool<M, R, S> = ((Sender<R>, Sender<S>), (CltRecversPool<M, R>, CltSendersPool<M, S>));
@@ -280,7 +280,7 @@ impl<M: Messenger, R: RecvNonBlocking<M::RecvT> + ConnectionStatus> SvcAcceptorO
         match self.rx_recver.try_recv() {
             Ok(recver) => Ok(Accepted(recver)),
             Err(std::sync::mpsc::TryRecvError::Empty) => Ok(WouldBlock),
-            Err(e) => Err(Error::new(ErrorKind::Other, format!("Channel can no longer accept recvers, {}", e))),
+            Err(e) => Err(Error::other(e)),
         }
     }
 }
@@ -479,7 +479,7 @@ pub struct CltSendersPool<M: Messenger, S: SendNonBlocking<M::SendT> + Connectio
     con_id: ConId,
     rx_sender: Receiver<S>,
     senders: RoundRobinPool<S>,
-    is_shutdown: bool,
+    is_exit_called: bool,
     phantom: PhantomData<M>,
 }
 impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> CltSendersPool<M, S> {
@@ -489,7 +489,7 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> CltSendersPo
             con_id,
             rx_sender,
             senders: RoundRobinPool::new(max_connections),
-            is_shutdown: false,
+            is_exit_called: false,
             phantom: PhantomData,
         }
     }
@@ -525,7 +525,7 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> SvcAcceptorO
         match self.rx_sender.try_recv() {
             Ok(sender) => Ok(Accepted(sender)),
             Err(std::sync::mpsc::TryRecvError::Empty) => Ok(WouldBlock),
-            Err(e) => Err(Error::new(ErrorKind::Other, format!("Channel can no longer accept senders, {}", e))),
+            Err(e) => Err(Error::other(e)),
         }
     }
 }
@@ -640,14 +640,14 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> SendNonBlock
         }
     }
 }
-impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> Shutdown for CltSendersPool<M, S> {
+impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> PyShutdown for CltSendersPool<M, S> {
     fn __exit__(&mut self) {
         // avoid double second shutdown if first called manually typically from binding/python __exit__ and then on Rust drop
         // in addition rust drop shutdown seems to cause a deadlock when running pytest as it is likely trying to cause logging while python GIL is acquired trying to connect new clt & svc pair
-        if !self.is_shutdown {
+        if !self.is_exit_called {
             crate::connect::DEFAULT_POLL_HANDLER.shutdown(Some(self.con_id().clone()));
-            self.clear(); // this will issue CltSender.drop() which in turn will call CltSender.shutdown() trait
-            self.is_shutdown = true;
+            self.clear(); // this will issue CltSender.drop() which in turn will call CltSender.__exit__() trait
+            self.is_exit_called = true;
         }
     }
 }
@@ -663,10 +663,21 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> PoolConnecti
     /// This method will integrate and test first [CltSender] in the `rx_sender` channel if the pool is empty
     #[inline(always)]
     fn is_next_connected(&mut self) -> bool {
+        // if not checked for exit then python's is_connected of the Svc will panic due to the POLL thread terminating
+        // acceptor.tx_sender, which in turn will result in self.rx_sender to be disconnected. If self.rx_sender is disconnect
+        // Svc can't check connection status accurately because it not only needs to check connections in the self.senders  pool
+        // but also the channel self.rx_sender to see if acceptor.tx_sender has accepted new connections.
+        // pyo3_runtime.PanicException: CltSendersPool::accept_into_pool con_id: Acceptor(SvcAuto@127.0.0.1:23747<-pending) - Failed to service rx_sender, was the tx_sender dropped?: Custom { kind: Other, error: Disconnected }
+        if self.is_exit_called {
+            return false;
+        }
         match self.senders.current() {
             Some(s) => s.is_connected(),
             None => {
-                if let PoolAcceptStatus::Accepted = self.accept_into_pool().expect("CltSendersPool::accept_into_pool - Failed to service rx_sender, was the tx_sender dropped?") {
+                if let PoolAcceptStatus::Accepted = self
+                    .accept_into_pool()
+                    .unwrap_or_else(|_| panic!("CltSendersPool::accept_into_pool con_id: {} - Failed to service rx_sender, was the tx_sender dropped?", self.con_id))
+                {
                     self.is_next_connected()
                 } else {
                     false
@@ -674,11 +685,33 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> PoolConnecti
             }
         }
     }
+    fn is_next_connected_busywait_timeout(&mut self, timeout: Duration) -> bool {
+        // if not check then while loop will unnecessarily busywait for the duration of the timeout despite the fact that the pool will not be populated
+        if self.is_exit_called {
+            return false;
+        }
+        let start = Instant::now();
+        while start.elapsed() < timeout {
+            if self.is_next_connected() {
+                return true;
+            }
+            std::hint::spin_loop();
+        }
+        // can't assume false at this point and need to recheck in case timeout arg is Duration::ZERO
+        self.is_next_connected()
+    }
     #[inline(always)]
     /// Will test connection status of all [CltSender]s in the pool including the first [CltSender] in the `rx_sender` channel if the pool is empty
     fn all_connected(&mut self) -> bool {
+        // if not checked for exit then python's is_connected of the Svc will panic due to the POLL thread terminating acceptor and channel via which Svc pool is populated
+        if self.is_exit_called {
+            return false;
+        }
         if self.senders.is_empty() {
-            if let PoolAcceptStatus::Accepted = self.accept_into_pool().expect("CltSendersPool::accept_into_pool - Failed to service rx_sender, was the tx_sender dropped?") {
+            if let PoolAcceptStatus::Accepted = self
+                .accept_into_pool()
+                .unwrap_or_else(|_| panic!("CltSendersPool::accept_into_pool con_id: {} - Failed to service rx_sender, was the tx_sender dropped?", self.con_id))
+            {
                 return self.all_connected();
             } else {
                 return false;

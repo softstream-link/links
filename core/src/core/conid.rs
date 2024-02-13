@@ -114,8 +114,10 @@ pub trait ConnectionStatus {
             if self.is_connected() {
                 return true;
             }
+            std::hint::spin_loop();
         }
-        false
+        // can't assume false at this point and need to recheck in case timeout arg is Duration::ZERO
+        self.is_connected() 
     }
 }
 /// Provides methods for testing status of connections in the Pool
@@ -129,7 +131,8 @@ pub trait PoolConnectionStatus {
             }
             std::hint::spin_loop();
         }
-        false
+        // can't assume false at this point and need to recheck in case timeout arg is Duration::ZERO
+        self.is_next_connected()
     }
     fn all_connected(&mut self) -> bool;
     fn all_connected_busywait_timeout(&mut self, timeout: Duration) -> bool {
@@ -138,8 +141,10 @@ pub trait PoolConnectionStatus {
             if self.all_connected() {
                 return true;
             }
+            std::hint::spin_loop();
         }
-        false
+        // can't assume false at this point and need to recheck in case timeout arg is Duration::ZERO
+        self.all_connected()
     }
 }
 

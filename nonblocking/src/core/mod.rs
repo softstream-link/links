@@ -251,6 +251,7 @@ pub trait RecvNonBlocking<T>: Debug + Display {
                     if start.elapsed() > timeout {
                         return Ok(WouldBlock);
                     }
+                    std::hint::spin_loop()
                 }
             }
         }
@@ -261,7 +262,7 @@ pub trait RecvNonBlocking<T>: Debug + Display {
         loop {
             match self.recv()? {
                 Completed(o) => return Ok(o),
-                WouldBlock => continue,
+                WouldBlock => std::hint::spin_loop(),
             }
         }
     }
@@ -329,6 +330,7 @@ pub trait SendNonBlocking<T>: Debug + Display {
                     if start.elapsed() > timeout {
                         return Ok(WouldBlock);
                     }
+                    std::hint::spin_loop();
                 }
             }
         }
@@ -344,7 +346,7 @@ pub trait SendNonBlocking<T>: Debug + Display {
         loop {
             match self.send(msg)? {
                 Completed => return Ok(()),
-                WouldBlock => continue,
+                WouldBlock => std::hint::spin_loop(),
             }
         }
     }
@@ -370,6 +372,7 @@ pub trait SendNonBlockingNonMut<T> {
                     if start.elapsed() > timeout {
                         return Ok(SendStatus::WouldBlock);
                     }
+                    std::hint::spin_loop()
                 }
             }
         }
@@ -381,7 +384,7 @@ pub trait SendNonBlockingNonMut<T> {
         loop {
             match self.send(msg)? {
                 Completed => return Ok(()),
-                WouldBlock => continue,
+                WouldBlock => std::hint::spin_loop(),
             }
         }
     }
@@ -396,7 +399,7 @@ pub trait ReSendNonBlocking<T> {
     /// after the first attempt
     ///
     /// # Important
-    /// * The implementation will Not [crate::prelude::Protocol] & [links_core::prelude::CallbackSend] hooks
+    /// * The implementation will Not issue [crate::prelude::Protocol] & [links_core::prelude::CallbackSend] hooks
     fn re_send(&mut self, msg: &T) -> Result<SendStatus, Error>;
 
     /// Will call [`Self::re_send`] until it returns [SendStatus::Completed] or [SendStatus::WouldBlock] after the timeout,
@@ -410,6 +413,7 @@ pub trait ReSendNonBlocking<T> {
                     if start.elapsed() > timeout {
                         return Ok(SendStatus::WouldBlock);
                     }
+                    std::hint::spin_loop()
                 }
             }
         }
@@ -421,7 +425,7 @@ pub trait ReSendNonBlocking<T> {
         loop {
             match self.re_send(msg)? {
                 Completed => return Ok(()),
-                WouldBlock => continue,
+                WouldBlock => std::hint::spin_loop(),
             }
         }
     }

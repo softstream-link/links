@@ -161,9 +161,13 @@ macro_rules! clt_is_connected(
     ($name:ident, $sender:ident, $protocol:ident) => {
         #[pyo3::pymethods]
         impl $name{
-            #[doc = concat!("[`", stringify!($name), ".is_connected`] returns status of connection for [`", stringify!($sender) , "`] according to the [`", stringify!($protocol) ,"`] protocol implementation")]
+            #[doc = concat!(
+                "[`", stringify!($name), ".is_connected`] returns status of connection for [`", stringify!($sender) , "`] according to the [`", stringify!($protocol) ,"`] protocol implementation. ", 
+                "Note if `io_timeout` is not provided it is assumed ZERO"
+            )]
             fn is_connected(&self, _py: pyo3::Python<'_>, io_timeout: Option<f64>) -> bool {
-                let io_timeout = $crate::timeout_selector(io_timeout, self.io_timeout);
+                // No reason for use default timeout for clt as it won't establish a connection no matter how long it will wait
+                let io_timeout = $crate::timeout_selector(io_timeout, None);
                 _py.allow_threads(move || self.sender.is_connected_busywait_timeout(io_timeout))
             }
         }
@@ -174,9 +178,12 @@ macro_rules! svc_is_connected(
     ($name:ident, $sender:ident, $protocol:ident) => {
         #[pyo3::pymethods]
         impl $name{
-            #[doc = concat!("[`", stringify!($name), ".is_connected`] returns status of the next connection in the pool of [`", stringify!($sender) , "`] according to the [`", stringify!($protocol) ,"`] protocol implementation")]
+            #[doc = concat!(
+                "[`", stringify!($name), ".is_connected`] returns status of the next connection in the pool of [`", stringify!($sender) , "`] according to the [`", stringify!($protocol) ,"`] protocol implementation. ",
+                "Note if `io_timeout` is not provided it a default will be used if default is not set it is assumed ZERO"
+            )]
             fn is_connected(&mut self, _py: Python<'_>, io_timeout: Option<f64>) -> bool {
-                let io_timeout = timeout_selector(io_timeout, self.io_timeout);
+                let io_timeout = $crate::timeout_selector(io_timeout, self.io_timeout);
                 _py.allow_threads(move || self.sender.is_next_connected_busywait_timeout(io_timeout))
             }
         }

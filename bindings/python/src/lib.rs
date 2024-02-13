@@ -40,8 +40,9 @@ cfg_if! {
                         unittest::setup::{self},
                         *},
                     unittest::setup::{
-                        connection::{CltTest, CltTestSender, SvcTest, SvcTestSender},
-                        protocol::{CltTestProtocolManual, SvcTestProtocolManual},
+                        connection::{CltTest, CltTestSender, SvcTest, SvcTestSender, CltTestSenderRef, SvcTestSenderRef},
+                        protocol::{CltTestProtocolManual, SvcTestProtocolManual, CltTestProtocolAuthAndHbeat, SvcTestProtocolAuthAndHBeat},
+
                     },
                 };
                 #[cfg(debug_assertions)]
@@ -64,31 +65,40 @@ cfg_if! {
                 create_svc_sender!(SvcManual, SvcTestSender, SvcTestProtocolManual, SvcTestProtocolManualCallback, "unittest");
 
                 #[derive(Serialize)]
-                struct SvcManualConfig {
+                struct SvcConfig {
                     pub max_connections: NonZeroUsize,
                     pub io_timeout: Option<f64>,
                     pub name: Option<String>,
                 }
-                impl Default for SvcManualConfig {
-                    fn default() -> Self {
+                impl SvcConfig {
+                    fn default_manual() -> Self {
                         Self { max_connections: NonZeroUsize::new(1).unwrap(), io_timeout: Some(0.5), name: Some(asserted_short_name!("SvcManual", SvcManual).to_owned()) }
                     }
-                }
-                impl From<&PyDict> for SvcManualConfig {
-                    fn from(kwargs: &PyDict) -> Self {
-                        let default = Self::default();
+                    fn from_manual(kwargs: &PyDict) -> Self {
+                        let default = Self::default_manual();
+                        let max_connections = kwargs.get_item("max_connections").unwrap().map_or(default.max_connections, |any| NonZeroUsize::new(any.extract::<usize>().unwrap()).unwrap());
+                        let io_timeout = kwargs.get_item("io_timeout").unwrap().map_or(default.io_timeout, |any| Some(any.extract::<f64>().unwrap()));
+                        let name = kwargs.get_item("name").unwrap().map_or(default.name, |any| Some(any.extract::<String>().unwrap()));
+                        Self { max_connections, io_timeout, name }
+                    }
+                    fn default_auto() -> Self {
+                        Self { max_connections: NonZeroUsize::new(1).unwrap(), io_timeout: Some(0.5), name: Some(asserted_short_name!("SvcAuto", SvcAuto).to_owned()) }
+                    }
+                    fn from_auto(kwargs: &PyDict) -> Self {
+                        let default = Self::default_auto();
                         let max_connections = kwargs.get_item("max_connections").unwrap().map_or(default.max_connections, |any| NonZeroUsize::new(any.extract::<usize>().unwrap()).unwrap());
                         let io_timeout = kwargs.get_item("io_timeout").unwrap().map_or(default.io_timeout, |any| Some(any.extract::<f64>().unwrap()));
                         let name = kwargs.get_item("name").unwrap().map_or(default.name, |any| Some(any.extract::<String>().unwrap()));
                         Self { max_connections, io_timeout, name }
                     }
                 }
+
                 #[pymethods]
                 impl SvcManual {
                     #[new]
                     #[pyo3(signature = (host, callback, **kwargs ))]
                     fn new(_py: Python<'_>, host: &str, callback: PyObject, kwargs: Option<&PyDict>) -> PyResult<Py<Self>> {
-                        let config = kwargs.map_or(SvcManualConfig::default(), SvcManualConfig::from);
+                        let config = kwargs.map_or(SvcConfig::default_manual(), SvcConfig::from_manual);
                         info!("{}: effective config: {} with kwargs: {:?}", asserted_short_name!("SvcManual", Self), serde_json::to_string(&config).unwrap(), kwargs);
                         let sender = {
                             let callback = SvcTestProtocolManualCallback::new_ref(callback.clone());
@@ -101,48 +111,108 @@ cfg_if! {
                     }
                 }
                 #[derive(Serialize)]
-                struct CltManualConfig {
+                struct CltConfig {
                     pub connect_timeout: f64,
                     pub retry_connect_after: f64,
                     pub io_timeout: Option<f64>,
                     pub name: Option<String>,
                 }
-                impl Default for CltManualConfig {
-                    fn default() -> Self {
+                impl CltConfig {
+                    fn default_manual() -> Self {
                         Self { connect_timeout: 1., retry_connect_after: 0.1, io_timeout: Some(0.5), name: Some(asserted_short_name!("CltManual", CltManual).to_owned()) }
                     }
-                }
-                impl From<&PyDict> for CltManualConfig {
-                    fn from(kwargs: &PyDict) -> Self {
-                        let default = Self::default();
+                    fn from_manual(kwargs: &PyDict) -> Self {
+                        let default = Self::default_manual();
                         let connect_timeout = kwargs.get_item("connect_timeout").unwrap().map_or(default.connect_timeout, |any| any.extract::<f64>().unwrap());
                         let retry_connect_after = kwargs.get_item("retry_connect_after").unwrap().map_or(default.retry_connect_after, |any| any.extract::<f64>().unwrap());
                         let io_timeout = kwargs.get_item("io_timeout").unwrap().map_or(default.io_timeout, |any| Some(any.extract::<f64>().unwrap()));
                         let name = kwargs.get_item("name").unwrap().map_or(default.name, |any| Some(any.extract::<String>().unwrap()));
                         Self { connect_timeout, retry_connect_after, io_timeout, name }
-
+                    }
+                    fn default_auto() -> Self {
+                        Self { connect_timeout: 1., retry_connect_after: 0.1, io_timeout: Some(0.5), name: Some(asserted_short_name!("CltAuto", CltAuto).to_owned()) }
+                    }
+                    fn from_auto(kwargs: &PyDict) -> Self {
+                        let default = Self::default_auto();
+                        let connect_timeout = kwargs.get_item("connect_timeout").unwrap().map_or(default.connect_timeout, |any| any.extract::<f64>().unwrap());
+                        let retry_connect_after = kwargs.get_item("retry_connect_after").unwrap().map_or(default.retry_connect_after, |any| any.extract::<f64>().unwrap());
+                        let io_timeout = kwargs.get_item("io_timeout").unwrap().map_or(default.io_timeout, |any| Some(any.extract::<f64>().unwrap()));
+                        let name = kwargs.get_item("name").unwrap().map_or(default.name, |any| Some(any.extract::<String>().unwrap()));
+                        Self { connect_timeout, retry_connect_after, io_timeout, name }
                     }
                 }
+
                 #[pymethods]
                 impl CltManual {
                     #[new]
                     #[pyo3(signature = (host, callback, **kwargs ))]
                     fn new(_py: Python<'_>, host: &str, callback: PyObject, kwargs: Option<&PyDict>) -> PyResult<Py<Self>> {
-                        let config = kwargs.map_or(CltManualConfig::default(), CltManualConfig::from);
+                        let config = kwargs.map_or(CltConfig::default_manual(), CltConfig::from_manual);
                         info!("{}: effective config: {} with kwargs: {:?}", asserted_short_name!("CltManual", Self), serde_json::to_string(&config).unwrap(), kwargs) ;
                         let sender = {
                             let callback = CltTestProtocolManualCallback::new_ref(callback.clone());
                             let protocol = CltTestProtocolManual;
-                            let sender = _py.allow_threads(move || CltTest::connect(host, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, protocol, config.name.as_deref()))?;
-                            Py::new(_py, Self { sender: sender.into_sender_with_spawned_recver(), io_timeout: config.io_timeout })?
+                            let sender = _py.allow_threads(move || CltTest::connect(host, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, protocol, config.name.as_deref()))?.into_sender_with_spawned_recver();
+                            Py::new(_py, Self { sender, io_timeout: config.io_timeout })?
                         };
                         patch_callback_if_settable_sender!(_py, sender, callback, asserted_short_name!("CltManual", Self));
                         Ok(sender)
                     }
                 }
+
+
+
+                create_callback_for_messenger!(CltTestProtocolAuthAndHbeat, CltTestProtocolAuthAndHbeatCallback);
+                create_callback_for_messenger!(SvcTestProtocolAuthAndHBeat, SvcTestProtocolAuthAndHBeatCallback);
+                create_clt_sender!(CltAuto, CltTestSenderRef, CltTestProtocolAuthAndHbeat, CltTestProtocolAuthAndHbeatCallback, "unittest");
+                create_svc_sender!(SvcAuto, SvcTestSenderRef, SvcTestProtocolAuthAndHBeat, SvcTestProtocolAuthAndHBeatCallback, "unittest");
+
+                #[pymethods]
+                impl CltAuto {
+                    #[new]
+                    #[pyo3(signature = (host, callback, **kwargs ))]
+                    fn new(_py: Python<'_>, host: &str, callback: PyObject, kwargs: Option<&PyDict>) -> PyResult<Py<Self>> {
+                        let config = kwargs.map_or(CltConfig::default_auto(), CltConfig::from_auto);
+                        info!("{}: effective config: {} with kwargs: {:?}", asserted_short_name!("CltAuto", Self), serde_json::to_string(&config).unwrap(), kwargs) ;
+                        let sender = {
+                            let callback = CltTestProtocolAuthAndHbeatCallback::new_ref(callback.clone());
+                            let protocol = CltTestProtocolAuthAndHbeat;
+                            let sender = _py.allow_threads(move || CltTest::connect(host, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, protocol, config.name.as_deref()))?.into_sender_with_spawned_recver_ref();
+                            Py::new(_py, Self { sender, io_timeout: config.io_timeout })?
+                        };
+                        patch_callback_if_settable_sender!(_py, sender, callback, asserted_short_name!("CltAuto", Self));
+                        Ok(sender)
+                    }
+                }
+
+                #[pymethods]
+                impl SvcAuto {
+                    #[new]
+                    #[pyo3(signature = (host, callback, **kwargs ))]
+                    fn new(_py: Python<'_>, host: &str, callback: PyObject, kwargs: Option<&PyDict>) -> PyResult<Py<Self>> {
+                        let config = kwargs.map_or(SvcConfig::default_auto(), SvcConfig::from_auto);
+                        info!("{}: effective config: {} with kwargs: {:?}", asserted_short_name!("SvcAuto", Self), serde_json::to_string(&config).unwrap(), kwargs);
+                        let sender = {
+                            let callback = SvcTestProtocolAuthAndHBeatCallback::new_ref(callback.clone());
+                            let protocol = SvcTestProtocolAuthAndHBeat;
+                            let sender = _py.allow_threads(move || SvcTest::bind(host, config.max_connections, callback, protocol, config.name.as_deref()))?.into_sender_with_spawned_recver_ref();
+                            Py::new(_py,Self { sender, io_timeout: config.io_timeout })?
+                        };
+                        patch_callback_if_settable_sender!(_py, sender, callback, asserted_short_name!("SvcAuto", Self));
+                        Ok(sender)
+                    }
+                }
+
+
+
                 m.add_class::<CltManual>()?;
                 m.add_class::<SvcManual>()?;
+                m.add_class::<CltAuto>()?;
+                m.add_class::<SvcAuto>()?;
                 Ok(())
             }
+
+
+
     }
 }
