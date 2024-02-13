@@ -101,7 +101,6 @@ macro_rules! patch_callback_if_settable_sender {
         match pyo3::Python::run($py, "from links_connect.callbacks import SettableSender; is_settable_sender = isinstance(callback, SettableSender)", None, Some(locals)) {
             Ok(_) => {
                 let is_settable_sender: bool = locals.get_item("is_settable_sender").map_or(false, |opt| opt.map_or(false, |any| any.extract::<bool>().map_or(false, |v| v)));
-                // let is_settable_sender: bool = locals.get_item("is_settable_sender").unwrap().unwrap().extract::<bool>().unwrap();
                 if is_settable_sender {
                     log::info!(
                         "{}: callback is an instance of `links_connect.callbacks.SettableSender`, setting callback.sender: {}",
@@ -126,7 +125,8 @@ macro_rules! create_struct(
         #[doc = concat!("[`", stringify!($name), "`] is a python extension module for [`", stringify!($sender), "`] sender, implementing [`", stringify!($protocol) ,"`] protocol", )]
         #[pyo3::pyclass(module = $py_module)]
         pub struct $name {
-            sender: $sender<$protocol, $callback>,
+            sender: Option<$sender<$protocol, $callback>>,
+            con_id: links_nonblocking::prelude::ConId,
             io_timeout: Option<f64>,
         }
     }
@@ -142,15 +142,20 @@ macro_rules! send(
                 "\n[`", stringify!($name), ".msg_samples`] provides valid sample messages for [`", stringify!($protocol) ,"`] protocol."
             )]
             fn send(&mut self, _py: pyo3::Python<'_>, msg: pyo3::Py<pyo3::types::PyDict>, io_timeout: Option<f64>) -> pyo3::PyResult<()> {
-                let io_timeout = $crate::timeout_selector(io_timeout, self.io_timeout);
-                let json_module = pyo3::types::PyModule::import(_py, "json")?;
-                let json: String = json_module.getattr("dumps")?.call1((msg,))?.extract()?;
-                let mut msg = serde_json::from_str(json.as_str()).unwrap();
+                match self.sender {
+                    Some(ref mut sender) => {
+                        let io_timeout = timeout_selector(io_timeout, self.io_timeout);
+                        let json_module = pyo3::types::PyModule::import(_py, "json")?;
+                        let json: String = json_module.getattr("dumps")?.call1((msg,))?.extract()?;
+                        let mut msg = serde_json::from_str(json.as_str()).unwrap();
 
-                _py.allow_threads(move || match self.sender.send_busywait_timeout(&mut msg, io_timeout)? {
-                    links_nonblocking::prelude::SendStatus::Completed => Ok(()),
-                    links_nonblocking::prelude::SendStatus::WouldBlock => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, format!("Message not delivered due timeout: {:?}, msg: {}", io_timeout, json)).into()),
-                })
+                        _py.allow_threads(move || match sender.send_busywait_timeout(&mut msg, io_timeout)? {
+                            links_nonblocking::prelude::SendStatus::Completed => Ok(()),
+                            links_nonblocking::prelude::SendStatus::WouldBlock => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, format!("Message not delivered due timeout: {:?}, msg: {}", io_timeout, json)).into()),
+                        })
+                    }
+                    None => Err(pyo3::exceptions::PyConnectionError::new_err(format!("{}({}) calling after .__exit__()", stringify!($name), self.con_id))),
+                }
             }
         }
     }
@@ -162,13 +167,18 @@ macro_rules! clt_is_connected(
         #[pyo3::pymethods]
         impl $name{
             #[doc = concat!(
-                "[`", stringify!($name), ".is_connected`] returns status of connection for [`", stringify!($sender) , "`] according to the [`", stringify!($protocol) ,"`] protocol implementation. ", 
+                "[`", stringify!($name), ".is_connected`] returns status of connection for [`", stringify!($sender) , "`] according to the [`", stringify!($protocol) ,"`] protocol implementation. ",
                 "Note if `io_timeout` is not provided it is assumed ZERO"
             )]
             fn is_connected(&self, _py: pyo3::Python<'_>, io_timeout: Option<f64>) -> bool {
-                // No reason for use default timeout for clt as it won't establish a connection no matter how long it will wait
-                let io_timeout = $crate::timeout_selector(io_timeout, None);
-                _py.allow_threads(move || self.sender.is_connected_busywait_timeout(io_timeout))
+                match self.sender {
+                    Some(ref sender) => {
+                        // No reason for use default timeout for clt as it won't establish a connection no matter how long it will wait
+                        let io_timeout = $crate::timeout_selector(io_timeout, None);
+                        _py.allow_threads(move || sender.is_connected_busywait_timeout(io_timeout))
+                    }
+                    None => false,
+                }
             }
         }
     }
@@ -183,8 +193,13 @@ macro_rules! svc_is_connected(
                 "Note if `io_timeout` is not provided it a default will be used if default is not set it is assumed ZERO"
             )]
             fn is_connected(&mut self, _py: Python<'_>, io_timeout: Option<f64>) -> bool {
-                let io_timeout = $crate::timeout_selector(io_timeout, self.io_timeout);
-                _py.allow_threads(move || self.sender.is_next_connected_busywait_timeout(io_timeout))
+                match self.sender {
+                    Some(ref mut sender) => {
+                        let io_timeout = $crate::timeout_selector(io_timeout, self.io_timeout);
+                        _py.allow_threads(move || sender.is_next_connected_busywait_timeout(io_timeout))
+                    }
+                    None => false,
+                }
             }
         }
     }
@@ -196,7 +211,14 @@ macro_rules! clt__repr__(
         #[pyo3::pymethods]
         impl $name{
             fn __repr__(&self, _py: pyo3::Python<'_>) -> String {
-                _py.allow_threads(move || { format!("{}({}, is_connected: {})", stringify!($name), self.sender.con_id(), self.sender.is_connected()) })
+                _py.allow_threads(move || {
+                    match self.sender{
+                        Some(ref sender) => {
+                            format!("{}({}, is_connected: {})", stringify!($name), self.con_id, sender.is_connected())
+                        }
+                        None => format!("{}({}, is_connected: {})", stringify!($name), self.con_id, false),
+                    }
+                })
             }
         }
     }
@@ -208,17 +230,22 @@ macro_rules! svc__repr__(
         impl $name{
             fn __repr__(&mut self, _py: pyo3::Python<'_>) -> String {
                 _py.allow_threads(move || {
-                    let is_connected = self.sender.is_next_connected();
-                    let status = if !is_connected {
-                            format!("{}({}, is_connected: {})", stringify!($name), self.sender.con_id(), is_connected)
-                        } else {
-                            let num = self.sender.len();
-                            let max = self.sender.max_connections().get() / links_nonblocking::prelude::SVC_MAX_CONNECTIONS_2_POOL_SIZE_FACTOR.get();
-                            let connections = self.sender.iter().map(|(_, s)| format!("[{}, is_connected: {}]", s.con_id(), s.is_connected())).collect::<Vec<_>>().join(",");
-                            format!("{}(#{} of max {} {})", stringify!($name), num, max, connections)
-                        };
-                    format!("{}", status)
-                 })
+                    match self.sender{
+                        Some(ref mut sender) => {
+                            let is_connected = sender.is_next_connected();
+                            let status = if !is_connected {
+                                    format!("{}({}, is_connected: {})", stringify!($name), self.con_id, false)
+                                } else {
+                                    let num = sender.len();
+                                    let max = sender.max_connections().get() / links_nonblocking::prelude::SVC_MAX_CONNECTIONS_2_POOL_SIZE_FACTOR.get();
+                                    let connections = sender.iter().map(|(_, s)| format!("[{}, is_connected: {}]", s.con_id(), s.is_connected())).collect::<Vec<_>>().join(",");
+                                    format!("{}({} of {} {})", stringify!($name), num, max, connections)
+                                };
+                            format!("{}", status)
+                        }
+                        None => format!("{}({}, is_connected: {})", stringify!($name), self.con_id, false),
+                    }
+                })
             }
         }
     }
@@ -239,11 +266,17 @@ macro_rules! __enter__(
 #[macro_export]
 macro_rules! __exit__(
     ($name:ident) => {
-        /// Calls [`Shutdown::shutdown`] on the sender.
+        /// Terminates connection by setting [Option] self.sender to [None], which will intern drop inner value of the option.
         #[pyo3::pymethods]
         impl $name{
             fn __exit__(&mut self, _py: pyo3::Python<'_>, _exc_type: Option<&pyo3::PyAny>, _exc_value: Option<&pyo3::PyAny>, _traceback: Option<&pyo3::PyAny>) {
-                _py.allow_threads(move || self.sender.__exit__())
+                if self.sender.is_some(){
+                    _py.allow_threads(move || {
+                        let opt = self.sender.take();
+                        drop(opt);
+                    })
+
+                }
             }
         }
     }
@@ -251,11 +284,17 @@ macro_rules! __exit__(
 #[macro_export]
 macro_rules! __del__(
     ($name:ident) => {
-        /// Calls [`Shutdown::shutdown`] on the sender.
+        /// Terminates connection by setting [Option] self.sender to [None], which will intern drop inner value of the option.
         #[pyo3::pymethods]
         impl $name{
             fn __del__(&mut self, _py: pyo3::Python<'_>) {
-                _py.allow_threads(move || self.sender.__exit__())
+                if self.sender.is_some(){
+                    _py.allow_threads(move || {
+                        let opt = self.sender.take();
+                        drop(opt);
+                    })
+
+                }
             }
         }
     }
@@ -296,8 +335,7 @@ mod test {
     }
 
     #[test]
-
-    fn test_clt2svc() {
+    fn test_clt2svc_macros() {
         setup::log::configure_compact(log::LevelFilter::Info);
         create_callback_for_messenger!(CltTestProtocolManual, CltTestProtocolManualCallback);
         create_callback_for_messenger!(SvcTestProtocolManual, SvcTestProtocolManualCallback);
@@ -313,7 +351,8 @@ mod test {
                 let clt = CltTest::connect(host, default_connect_timeout(), default_connect_retry_after(), callback, protocol, Some("py-clt"))
                     .unwrap()
                     .into_sender_with_spawned_recver();
-                Self { sender: clt, io_timeout: None }
+                let con_id = clt.con_id().clone();
+                Self { sender: Some(clt), con_id, io_timeout: None }
             }
         }
         #[pymethods]
@@ -324,15 +363,23 @@ mod test {
                 let callback = SvcTestProtocolManualCallback::new_ref(callback);
                 let max_connections = NonZeroUsize::new(1).unwrap();
                 let clt = SvcTest::bind(host, max_connections, callback, protocol, Some("py-svc")).unwrap().into_sender_with_spawned_recver();
-                Self { sender: clt, io_timeout: None }
+                let con_id = clt.con_id().clone();
+                Self { sender: Some(clt), con_id, io_timeout: None }
             }
         }
 
         Python::with_gil(|py| {
             let callback = PyLoggerCallback {}.into_py(py);
             let addr = setup::net::rand_avail_addr_port();
-            let _svc = SvcManual::new(py, addr, callback.clone());
+            let mut svc = SvcManual::new(py, addr, callback.clone());
+            info!("svc: {}", svc.__repr__(py));
             let mut clt = CltManual::new(py, addr, callback);
+
+            
+            info!("clt: {}", clt.__repr__(py));
+            assert!(clt.is_connected(py, None));
+            info!("svc: {}", svc.__repr__(py));
+            assert!(svc.is_connected(py, None));
 
             let hbeat = PyDict::new(py);
             hbeat.set_item("ty", "H").unwrap();
@@ -342,6 +389,14 @@ mod test {
             msg.set_item("HBeat", hbeat).unwrap();
             info!("msg: {}", msg); // "{'HBeat': {'ty': 'H', 'text': 'Blah'}}"
             clt.send(py, msg.into(), None).unwrap();
+
+            svc.__exit__(py, None, None, None);
+            info!("svc: {}", svc.__repr__(py));
+            assert!(!svc.is_connected(py, None));
+
+            clt.__del__(py);
+            info!("clt: {}", clt.__repr__(py));
+            assert!(!clt.is_connected(py, None));
         });
     }
 }

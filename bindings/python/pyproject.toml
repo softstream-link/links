@@ -26,5 +26,5 @@ testpaths = ["tests"]
 cache_dir = "./../../target/.pytest_cache"
 log_cli = true
 log_cli_level = "INFO"
-log_cli_format = "%(asctime)s.%(msecs)03d [%(threadName)10s|%(levelname)7s] %(message)s \t(%(filename)s:%(lineno)s)"
-log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+log_cli_format = "%(asctime)s [%(threadName)10s|%(levelname)7s] %(message)s \t(%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S.%f"

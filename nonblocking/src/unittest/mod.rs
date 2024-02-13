@@ -78,11 +78,17 @@ pub mod setup {
                         }
                     }
                     RecvStatus::Completed(msg) => Err(Error::new(ErrorKind::InvalidData, format!("{} Expected Login Request instead got msg: {:?}", con.con_id(), msg))),
-                    RecvStatus::WouldBlock => Err(Error::new(ErrorKind::TimedOut, format!("{} Timed out waiting for Login Request", con.con_id())))?,
+                    RecvStatus::WouldBlock => Err(Error::new(ErrorKind::TimedOut, format!("{} timeout: {:?} waiting for Login Request ", con.con_id(), timeout)))?,
                 }
             }
-            fn on_disconnect(&self) -> Option<(Duration, <Self as Messenger>::SendT)> {
-                Some((Duration::from_secs(1), SvcTestMsgFinal::default().into()))
+            fn on_disconnect<C: SendNonBlocking<<Self as Messenger>::SendT> + ReSendNonBlocking<<Self as Messenger>::SendT> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
+                info!("on_disconnect: {}", con.con_id());
+                let timeout = Duration::from_secs(1);
+                let mut msg: SvcTestMsg = SvcTestMsgFinal::default().into();
+                match con.send_busywait_timeout(&mut msg, timeout)? {
+                    SendStatus::Completed => Ok(()),
+                    SendStatus::WouldBlock => Err(Error::new(ErrorKind::TimedOut, format!("{} timeout: {:?} sending msg: {:?} ", con.con_id(), timeout, msg))),
+                }
             }
             fn is_connected(&self) -> bool {
                 true
