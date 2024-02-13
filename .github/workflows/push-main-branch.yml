@@ -1,6 +1,9 @@
 name: Pull/Master Control Build
 on:
   pull_request:
+    branches:
+      - '*'
+      - '!master'
   push:
     branches:
       - main
