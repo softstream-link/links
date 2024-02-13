@@ -104,7 +104,8 @@ cfg_if! {
                             let callback = SvcTestProtocolManualCallback::new_ref(callback.clone());
                             let protocol = SvcTestProtocolManual;
                             let sender = _py.allow_threads(move || SvcTest::bind(host, config.max_connections, callback, protocol, config.name.as_deref()))?.into_sender_with_spawned_recver();
-                            Py::new(_py,Self { sender, io_timeout: config.io_timeout })?
+                            let con_id = sender.con_id().clone();
+                            Py::new(_py,Self { sender: Some(sender), con_id, io_timeout: config.io_timeout })?
                         };
                         patch_callback_if_settable_sender!(_py, sender, callback, asserted_short_name!("SvcManual", Self));
                         Ok(sender)
@@ -153,7 +154,8 @@ cfg_if! {
                             let callback = CltTestProtocolManualCallback::new_ref(callback.clone());
                             let protocol = CltTestProtocolManual;
                             let sender = _py.allow_threads(move || CltTest::connect(host, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, protocol, config.name.as_deref()))?.into_sender_with_spawned_recver();
-                            Py::new(_py, Self { sender, io_timeout: config.io_timeout })?
+                            let con_id = sender.con_id().clone();
+                            Py::new(_py, Self { sender: Some(sender), con_id, io_timeout: config.io_timeout })?
                         };
                         patch_callback_if_settable_sender!(_py, sender, callback, asserted_short_name!("CltManual", Self));
                         Ok(sender)
@@ -178,7 +180,8 @@ cfg_if! {
                             let callback = CltTestProtocolAuthAndHbeatCallback::new_ref(callback.clone());
                             let protocol = CltTestProtocolAuthAndHbeat;
                             let sender = _py.allow_threads(move || CltTest::connect(host, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback, protocol, config.name.as_deref()))?.into_sender_with_spawned_recver_ref();
-                            Py::new(_py, Self { sender, io_timeout: config.io_timeout })?
+                            let con_id  = sender.con_id().clone();
+                            Py::new(_py, Self { sender: Some(sender), con_id, io_timeout: config.io_timeout })?
                         };
                         patch_callback_if_settable_sender!(_py, sender, callback, asserted_short_name!("CltAuto", Self));
                         Ok(sender)
@@ -196,7 +199,8 @@ cfg_if! {
                             let callback = SvcTestProtocolAuthAndHBeatCallback::new_ref(callback.clone());
                             let protocol = SvcTestProtocolAuthAndHBeat;
                             let sender = _py.allow_threads(move || SvcTest::bind(host, config.max_connections, callback, protocol, config.name.as_deref()))?.into_sender_with_spawned_recver_ref();
-                            Py::new(_py,Self { sender, io_timeout: config.io_timeout })?
+                            let con_id  = sender.con_id().clone();
+                            Py::new(_py,Self { sender: Some(sender), con_id, io_timeout: config.io_timeout })?
                         };
                         patch_callback_if_settable_sender!(_py, sender, callback, asserted_short_name!("SvcAuto", Self));
                         Ok(sender)

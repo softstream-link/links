@@ -18,10 +18,9 @@ pub trait ProtocolCore: Messenger + Sized {
 
     /// Called right before the sender is dropped and allows user space to send a message to the peer
     #[inline(always)]
-    fn on_disconnect(&self) -> Option<(Duration, <Self as Messenger>::SendT)> {
-        None // TODO - should this method accept a con &mut C, just like on_connect?
+    fn on_disconnect<C: SendNonBlocking<<Self as Messenger>::SendT> + ReSendNonBlocking<<Self as Messenger>::SendT> + ConnectionId>(&self, con: &mut C) -> Result<(), Error> {
+        Ok(())
     }
-
     /// This is a hook to provide user space ability to perform a logical check and determine if the connection is still valid
     ///
     /// # Warning

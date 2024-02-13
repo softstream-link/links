@@ -2,8 +2,6 @@ pub use crate::core::conid::{ConId, ConnectionId, ConnectionStatus, PoolConnecti
 
 pub use crate::core::messenger::Messenger;
 
-pub use crate::core::PyShutdown;
-
 pub use crate::core::framer::{FixedSizeFramer, Framer, PacketLengthU16Framer};
 pub use crate::core::pool::RoundRobinPool;
 

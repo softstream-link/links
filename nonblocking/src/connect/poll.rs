@@ -228,7 +228,7 @@ impl<R: PollRead, A: PollAccept<R>> PollHandler<R, A> {
                             }
                             Err(e) => {
                                 if log_enabled!(Level::Warn) {
-                                    warn!("Error, service loop termination recver: {}, error: {}", recver, e);
+                                    warn!("Dirty, service loop termination recver: {}, error: {}", recver, e);
                                 }
                                 // USING recver.deregister method instead of recver.source to enable overriding of deregister method when locking is required
                                 // self.poll.registry().deregister(*recver.source())?;
@@ -277,8 +277,8 @@ impl<R: PollRead, A: PollAccept<R>> PollHandler<R, A> {
                                         return Ok(ServiceStatus::Terminate);
                                     }
                                     Waker(Some(con_id)) => {
-                                        if log_enabled!(Level::Info) {
-                                            info!(
+                                        if log_enabled!(Level::Debug) {
+                                            debug!(
                                                 "{} Waker received cond_id: {}, this will result in any active Receivers & Acceptors that share lineage to be deregistered and dropped",
                                                 asserted_short_name!("PollHandler", Self),
                                                 con_id
@@ -656,6 +656,7 @@ mod test {
         clt1.send(&mut CltTestMsg::Dbg(CltTestMsgDebug::new(b"Hello From Clt1"))).unwrap().unwrap_completed();
         // drop to ensure the poll_handler releases all connections associated with the acceptor
         drop(svc1);
+        std::thread::yield_now(); // yield to ensure the poller has stopped servicing the svc1 connections
 
         // This loop should terminate quickly as the pool handler should shutdown all svc1 connections including acceptor
         let start = Instant::now();

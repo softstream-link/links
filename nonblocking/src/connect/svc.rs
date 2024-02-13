@@ -309,7 +309,10 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Display for
 mod test {
     use crate::{
         prelude::*,
-        unittest::setup::protocol::{CltTestProtocolAuthAndHbeat, CltTestProtocolManual, SvcTestProtocolAuthAndHBeat, SvcTestProtocolManual},
+        unittest::setup::{
+            connection::{CltTest, SvcTest},
+            protocol::{CltTestProtocolAuthAndHbeat, CltTestProtocolManual, SvcTestProtocolAuthAndHBeat, SvcTestProtocolManual},
+        },
     };
     use links_core::unittest::setup::{
         self,
@@ -649,7 +652,7 @@ mod test {
         let addr = setup::net::rand_avail_addr_port();
         let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
         let protocol = SvcTestProtocolAuthAndHBeat::default();
-        let (mut svc_acceptor, _svc_pool_recver, svc_pool_sender) = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(1).unwrap(), callback, protocol, Some("unittest")).unwrap().into_split_ref();
+        let (mut svc_acceptor, _svc_pool_recver, svc_pool_sender) = SvcTest::bind(addr, NonZeroUsize::new(1).unwrap(), callback, protocol, Some("unittest")).unwrap().into_split_ref();
         // info!("svc_acceptor: {}", svc_acceptor);
 
         let clt_jh = Builder::new()
@@ -657,7 +660,7 @@ mod test {
             .spawn(move || {
                 let callback = LoggerCallback::with_level_ref(Level::Info, Level::Debug);
                 let protocol = CltTestProtocolManual::default();
-                let mut clt = Clt::<_, _, TEST_MSG_FRAME_SIZE>::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
+                let mut clt = CltTest::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), callback.clone(), protocol.clone(), Some("unittest")).unwrap();
                 // info!("clt: {}", clt);
                 let timeout = setup::net::default_find_timeout();
                 clt.send_busywait_timeout(&mut CltTestMsgLoginReq::default().into(), timeout).unwrap();
