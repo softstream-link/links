@@ -523,7 +523,7 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> SvcAcceptorO
         match self.rx_sender.try_recv() {
             Ok(sender) => Ok(Accepted(sender)),
             Err(std::sync::mpsc::TryRecvError::Empty) => Ok(WouldBlock),
-            Err(e) => Err(Error::other(e)),
+            Err(err) => Err(Error::other(format!("{}::accept err: {:?}, rx_sender: {:?}", asserted_short_name!("CltSendersPool", Self), err, self.rx_sender))),
         }
     }
 }
@@ -642,9 +642,11 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> Drop for Clt
     fn drop(&mut self) {
         // must clear the pool first to issue drop on all senders before terminating recv poll otherwise the
         // the poll can terminate connection before the sender is able to execute on_disconnect protocol
-        // # 1 
-        self.clear(); // this will issue CltSenderRef.drop() or CltSender.drop() in in turn will call CltSender.on_disconnect()
+        // # 1
+        // this will issue CltSenderRef.drop() or CltSender.drop() in in turn will call CltSender.on_disconnect()
+        self.clear();
         // # 2
+        // this will drop the acceptor and all receivers that share acceptor lineage with self.con_id()
         crate::connect::DEFAULT_POLL_HANDLER.shutdown(Some(self.con_id().clone()));
     }
 }
@@ -660,7 +662,7 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> PoolConnecti
             None => {
                 if let PoolAcceptStatus::Accepted = self
                     .accept_into_pool()
-                    .unwrap_or_else(|_| panic!("CltSendersPool::accept_into_pool con_id: {} - Failed to service rx_sender, was the tx_sender dropped?", self.con_id))
+                    .unwrap_or_else(|err| panic!("CltSendersPool::accept_into_pool con_id: {} - Failed to service rx_sender, was the tx_sender dropped? err: {:?}", self.con_id, err))
                 {
                     self.is_next_connected()
                 } else {
@@ -675,7 +677,7 @@ impl<M: Messenger, S: SendNonBlocking<M::SendT> + ConnectionStatus> PoolConnecti
         if self.senders.is_empty() {
             if let PoolAcceptStatus::Accepted = self
                 .accept_into_pool()
-                .unwrap_or_else(|_| panic!("CltSendersPool::accept_into_pool con_id: {} - Failed to service rx_sender, was the tx_sender dropped?", self.con_id))
+                .unwrap_or_else(|err| panic!("CltSendersPool::accept_into_pool con_id: {} - Failed to service rx_sender, was the tx_sender dropped? err: {:?}", self.con_id, err))
             {
                 return self.all_connected();
             } else {

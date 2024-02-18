@@ -20,6 +20,7 @@ pub mod setup {
                     let _ = env_logger::builder()
                         .filter_level(level)
                         .format(|buf, record| {
+                            static mut MAX_THREAD_WITH: usize = 20;
                             let ts = buf.timestamp_nanos();
                             let level = match record.level() {
                                 log::Level::Error => "ERROR".red(),
@@ -34,6 +35,8 @@ pub mod setup {
                             let thread = std::thread::current();
                             let id = thread.id();
                             let name = thread.name().unwrap_or(format!("Thread-{id:?}").as_str()).to_owned();
+                            unsafe { MAX_THREAD_WITH = MAX_THREAD_WITH.max(name.len()) };
+                            let name = format!("{: <0width$}", name, width = unsafe { MAX_THREAD_WITH });
                             writeln!(buf, "{ts} {level} ({name}) {target} {args}")
                         })
                         // .format_timestamp_micro s()

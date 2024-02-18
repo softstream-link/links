@@ -71,11 +71,12 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcAcceptor
     fn accept(&self) -> Result<AcceptStatus<Clt<P, C, MAX_MSG_SIZE>>, Error> {
         match self.listener.accept() {
             Ok((stream, addr)) => {
+                let stream_dbg = format!("{:?}", stream);
                 match self.acceptor_limiter.increment() {
                     Ok(()) => {}
                     Err(e) => {
                         if log_enabled!(log::Level::Warn) {
-                            warn!("{} Rejected stream: {:?} due to error: {}", self.con_id, stream, e);
+                            warn!("{} Rejected stream: {} due to error: {}", self.con_id, stream_dbg, e);
                         }
                         return Ok(AcceptStatus::Rejected);
                     }
@@ -92,8 +93,15 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> SvcAcceptor
                     con_id
                 };
                 let acceptor_connection_gate = Some(self.acceptor_limiter.get_new_connection_barrier());
-                let clt = Clt::<P, C, MAX_MSG_SIZE>::from_stream(stream, con_id, self.callback.clone(), self.protocol.clone(), acceptor_connection_gate)?;
-                Ok(AcceptStatus::Accepted(clt))
+                match Clt::<P, C, MAX_MSG_SIZE>::from_stream(stream, con_id, self.callback.clone(), self.protocol.clone(), acceptor_connection_gate) {
+                    Ok(clt) => Ok(AcceptStatus::Accepted(clt)),
+                    Err(e) => {
+                        if log_enabled!(log::Level::Warn) {
+                            warn!("{} Rejected stream: {} due to error: {}", self.con_id, stream_dbg, e);
+                        }
+                        Ok(AcceptStatus::Rejected)
+                    }
+                }
             }
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(AcceptStatus::WouldBlock),
             Err(e) => Err(e),
@@ -334,9 +342,28 @@ mod test {
 
         let callback = LoggerCallback::new_ref();
         let protocol = SvcTestProtocolManual::default();
-        let svc = Svc::<_, _, TEST_MSG_FRAME_SIZE>::bind(addr, NonZeroUsize::new(2).unwrap(), callback.clone(), protocol, Some("unittest")).unwrap();
+        let svc = SvcTest::bind(addr, NonZeroUsize::new(1).unwrap(), callback.clone(), protocol, Some("unittest")).unwrap();
         info!("svc: {}", svc);
         assert_eq!(svc.pool().len(), 0);
+    }
+
+    #[test]
+    fn test_svc_protocol_on_connect_errors_does_not_cause_panic_to_acceptors_and_terminate_sender_which_will_panic_when_is_next_connected_called() {
+        setup::log::configure_level(LevelFilter::Info);
+        let addr = setup::net::rand_avail_addr_port();
+
+        let svc_protocol = SvcTestProtocolAuthAndHBeat::default();
+        let clt_protocol = CltTestProtocolManual::default();
+        let mut svc = SvcTest::bind(addr, NonZeroUsize::new(1).unwrap(), LoggerCallback::new_ref(), svc_protocol, Some("svc"))
+            .unwrap()
+            .into_sender_with_spawned_recver_ref();
+        let _clt = CltTest::connect(addr, setup::net::default_connect_timeout(), setup::net::default_connect_retry_after(), LoggerCallback::new_ref(), clt_protocol, Some("clt"))
+            .unwrap()
+            .into_sender_with_spawned_recver_ref();
+        info!("svc: {}", svc);
+
+        assert!(!svc.is_next_connected_busywait_timeout(Duration::from_secs_f64(1.5)));
+        // Svc on_connect timeout is 1.0 sec hence need to ensure we are waiting longer then that timeout for on_connected protocol raise error since manual clt will not send any login info
     }
 
     #[test]
