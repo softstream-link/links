@@ -107,6 +107,7 @@ macro_rules! patch_callback_if_settable_sender {
                         $pyclass_name,
                         $sender.borrow_mut($py).__repr__($py)
                     );
+                    // TODO RuntimeError: Already borrowed -> is related ?PyProxyCallback failed 'on_recv' on Acceptor(svc-ouch@127.0.0.1:26211<-127.0.0.1:54532) msg: {"Dbg":{"text":"Hello from Clt"}} err: RuntimeError: Already borrowed      (callback.rs:142)
                     $callback.setattr($py, "sender", $sender.clone())?;
                 } else {
                     log::info!("{}: callback is NOT an instance of `links_connect.callbacks.SettableSender`, callback.sender will NOT be set", $pyclass_name);
@@ -168,7 +169,7 @@ macro_rules! clt_is_connected(
         impl $name{
             #[doc = concat!(
                 "[`", stringify!($name), ".is_connected`] returns status of connection for [`", stringify!($sender) , "`] according to the [`", stringify!($protocol) ,"`] protocol implementation. ",
-                "Note if `io_timeout` is not provided it is assumed ZERO"
+                "Note if `io_timeout` is not provided a default will be used if default is not set it is assumed ZERO"
             )]
             fn is_connected(&self, _py: pyo3::Python<'_>, io_timeout: Option<f64>) -> bool {
                 match self.sender {
@@ -190,7 +191,7 @@ macro_rules! svc_is_connected(
         impl $name{
             #[doc = concat!(
                 "[`", stringify!($name), ".is_connected`] returns status of the next connection in the pool of [`", stringify!($sender) , "`] according to the [`", stringify!($protocol) ,"`] protocol implementation. ",
-                "Note if `io_timeout` is not provided it a default will be used if default is not set it is assumed ZERO"
+                "Note if `io_timeout` is not provided a default will be used if default is not set it is assumed ZERO"
             )]
             fn is_connected(&mut self, _py: Python<'_>, io_timeout: Option<f64>) -> bool {
                 match self.sender {
@@ -375,7 +376,6 @@ mod test {
             info!("svc: {}", svc.__repr__(py));
             let mut clt = CltManual::new(py, addr, callback);
 
-            
             info!("clt: {}", clt.__repr__(py));
             assert!(clt.is_connected(py, None));
             info!("svc: {}", svc.__repr__(py));
@@ -385,8 +385,8 @@ mod test {
             hbeat.set_item("ty", "H").unwrap();
             hbeat.set_item("text", "Blah").unwrap();
             let msg = PyDict::new(py);
-
             msg.set_item("HBeat", hbeat).unwrap();
+
             info!("msg: {}", msg); // "{'HBeat': {'ty': 'H', 'text': 'Blah'}}"
             clt.send(py, msg.into(), None).unwrap();
 

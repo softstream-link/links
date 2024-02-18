@@ -8,7 +8,9 @@ macro_rules! create_register_atexit {
                 links_nonblocking::prelude::DEFAULT_POLL_HANDLER.shutdown(None);
                 log::info!("shutting down DEFAULT_HBEAT_HANDLER");
                 links_nonblocking::prelude::DEFAULT_HBEAT_HANDLER.clear();
-                std::thread::sleep(std::time::Duration::from_millis(100));
+                let sleep = std::time::Duration::from_millis(100);
+                log::info!("sleeping for {:?} to allow clean hook execution", sleep);
+                std::thread::sleep(sleep);
             });
         }
         fn register_atexit() -> pyo3::prelude::PyResult<()> {

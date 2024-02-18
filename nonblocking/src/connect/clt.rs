@@ -387,7 +387,7 @@ impl<P: Protocol, C: CallbackRecvSend<P>, const MAX_MSG_SIZE: usize> Clone for C
 /// including all clones of `paired` [CltRecverRef] instances.
 #[derive(Debug)]
 pub struct CltSenderRef<P: Protocol, C: CallbackSend<P>, const MAX_MSG_SIZE: usize> {
-    con_id: ConId, // this is a clone copy fro CltSender to avoid mutex call to id a connection
+    con_id: ConId, // this is a clone copy from CltSender to avoid mutex call to id a connection
     clt_sender: Arc<spin::Mutex<CltSender<P, C, MAX_MSG_SIZE>>>,
     pub(crate) protocol: Arc<P>, // clone of protocol to avoid locking sender in order to access [ProtocolCore::is_connected] call
 }
