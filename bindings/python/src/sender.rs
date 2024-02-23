@@ -107,8 +107,7 @@ macro_rules! patch_callback_if_settable_sender {
                         $pyclass_name,
                         $sender.borrow_mut($py).__repr__($py)
                     );
-                    // TODO RuntimeError: Already borrowed -> is related ?PyProxyCallback failed 'on_recv' on Acceptor(svc-ouch@127.0.0.1:26211<-127.0.0.1:54532) msg: {"Dbg":{"text":"Hello from Clt"}} err: RuntimeError: Already borrowed      (callback.rs:142)
-                    $callback.setattr($py, "sender", $sender.clone())?;
+                    $callback.setattr($py, "sender", $sender.clone_ref($py))?; // faster then $sender.clone() when gil is held https://docs.rs/pyo3/latest/pyo3/struct.Py.html#method.clone_ref 
                 } else {
                     log::info!("{}: callback is NOT an instance of `links_connect.callbacks.SettableSender`, callback.sender will NOT be set", $pyclass_name);
                 }
@@ -155,7 +154,7 @@ macro_rules! send(
                             links_nonblocking::prelude::SendStatus::WouldBlock => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, format!("Message not delivered due timeout: {:?}, msg: {}", io_timeout, json)).into()),
                         })
                     }
-                    None => Err(pyo3::exceptions::PyConnectionError::new_err(format!("{}({}) calling after .__exit__()", stringify!($name), self.con_id))),
+                    None => Err(pyo3::exceptions::PyConnectionError::new_err(format!("{}({}) calling '{}.send' after '{}.__exit__()'", stringify!($name), self.con_id, stringify!($name), stringify!($name) ))),
                 }
             }
         }
@@ -276,7 +275,6 @@ macro_rules! __exit__(
                         let opt = self.sender.take();
                         drop(opt);
                     })
-
                 }
             }
         }

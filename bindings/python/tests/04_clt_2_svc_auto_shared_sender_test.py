@@ -42,26 +42,31 @@ def test_clt_svc_connected_ping_pong():
     clt_decor = NothingDecorator()
     svc_decor = svc_decor + store + LoggerCallback()
     clt_decor = clt_decor + store + LoggerCallback()
-    with (
-        SvcManual(addr, svc_decor, **dict(name="svc")) as svc,
-        CltManual(addr, clt_decor, **dict(name="clt")) as clt,
-    ):
-        assert svc.is_connected()
-        assert clt.is_connected()
+    for i in range(1, 3):
+        log.info(f"\n{'*'*80} Start # {i} {'*'*80}")
+        store.clear()
+        with (
+            SvcManual(addr, svc_decor, **dict(name="svc")) as svc,
+            CltManual(addr, clt_decor, **dict(name="clt")) as clt,
+        ):
+            assert svc.is_connected()
+            assert clt.is_connected()
 
-        log.info(f"svc: {svc}")
-        log.info(f"clt: {clt}")
-        assert clt_decor.sender == clt
-        assert svc_decor.sender == svc
-        clt.send({"Ping": {"ty": "P", "text": "ping"}})
-        svc.send({"Pong": {"ty": "P", "text": "pong"}})
+            log.info(f"svc: {svc}")
+            log.info(f"clt: {clt}")
+            assert clt_decor.sender == clt
+            assert svc_decor.sender == svc
+            clt.send({"Ping": {"ty": "P", "text": "ping"}})
+            svc.send({"Pong": {"ty": "P", "text": "pong"}})
 
-        found = store.find_recv(name=None, filter={"Ping": {}}, io_timeout=0.2)
-        log.info(f"found: {found}")
-        assert found is not None
-        found = store.find_recv(name=None, filter={"Pong": {}}, io_timeout=0.2)
-        log.info(f"found: {found}")
-        assert found is not None
+            found = store.find_recv(name=None, filter={"Ping": {}}, find_timeout=0.2)
+            log.info(f"found: {found}")
+            assert found is not None
+            found = store.find_recv(name=None, filter={"Pong": {}}, find_timeout=0.2)
+            log.info(f"found: {found}")
+            assert found is not None
+
+        sleep(0.1)  # Give time for the sockets to close
 
 
 if __name__ == "__main__":

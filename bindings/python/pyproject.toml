@@ -11,7 +11,11 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dynamic = ["version"]
-dependencies = ["links_connect>=1.1"]
+
+[project.optional-dependencies]
+test = ["links_connect", "pytest"]
+
+
 [tool.maturin]
 features = [
     "pyo3/extension-module",
