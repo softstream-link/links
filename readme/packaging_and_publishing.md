@@ -16,13 +16,13 @@ cargo clippy --all-features -- --deny warnings
 * `links_bindings_python` will use `micromamba` env which has `python, maturin, pytest`
 ```shell
 if [ -d links_bindings_pythons ] ; then CWD="./../.." ; else CWD="."; fi ; echo ${CWD} ;cd ${CWD}
-micromamba create --name links_build_env --yes python maturin pytest &&
+micromamba create --name links_build_env --yes maturin &&
 micromamba run --name links_build_env --cwd ./bindings/python cargo nextest run --all-features &&
 micromamba run --name links_build_env --cwd ./bindings/python cargo nextest run --examples --all-features && 
 micromamba run --name links_build_env --cwd ./bindings/python cargo test --doc --all-features &&
 micromamba run --name links_build_env --cwd ./bindings/python cargo clippy --all-features -- --deny warnings &&
 micromamba run --name links_build_env --cwd ./bindings/python cargo doc --all-features &&
-micromamba run --name links_build_env --cwd ./bindings/python maturin develop &&
+micromamba run --name links_build_env --cwd ./bindings/python maturin develop --extras test &&
 micromamba run --name links_build_env --cwd ./bindings/python pytest
 ```
 
@@ -37,6 +37,7 @@ micromamba run --name links_build_env --cwd ./bindings/python maturin build --re
 micromamba run --name links_test_env  pip install --ignore-installed ./target/wheels/*.whl &&
 micromamba run --name links_test_env  --cwd ./bindings/python pytest
 ```
+
 
 # Regenerate `links_connect.pyi` file
 ```shell    

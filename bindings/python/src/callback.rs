@@ -117,7 +117,7 @@ impl PyProxyCallback {
     }
 
     pub fn issue_callback<O: Serialize + Debug>(&self, method: PyCallbackMethod, con_id: &ConIdRs, msg: &O) {
-        let name = method.as_str();
+        let method_name = method.as_str();
         // convert msg to str
         let json = to_string(msg).unwrap_or_else(|_| panic!("serde_json::to_string failed to convert msg: {:?}", msg));
         let con_id = ConId::from(con_id);
@@ -126,20 +126,20 @@ impl PyProxyCallback {
                 let json_module = PyModule::import(py, "json")?;
                 let dict = json_module.getattr("loads")?.call1((json,))?.extract::<Py<PyDict>>()?;
 
-                let args = (con_id.clone(), dict);
+                let args = (con_id.clone(), dict); // TODO don't clone con_id
                 let kwargs = None;
                 obj.call_method(py, name, args, kwargs)?;
                 Ok(())
             })
         }
 
-        match py_callback(&self.0, name, &con_id, &json) {
+        match py_callback(&self.0, method_name, &con_id, &json) {
             Ok(_) => {}
             Err(err) => {
                 let msg = err.to_string();
                 if !msg.contains("import of builtins halted") {
                     // python is shutting down not point in logging this error
-                    log::error!("{} failed '{}' on {} msg: {} err: {}", asserted_short_name!("PyProxyCallback", Self), name, con_id, json, err);
+                    log::error!("{} failed '{}' on {} msg: {} err: {}", asserted_short_name!("PyProxyCallback", Self), method_name, con_id, json, err);
                 }
             }
         }
