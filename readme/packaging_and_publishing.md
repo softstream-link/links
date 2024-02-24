@@ -38,6 +38,7 @@ micromamba run --name links_test_env  pip install --ignore-installed ./target/wh
 micromamba run --name links_test_env  --cwd ./bindings/python pytest
 ```
 
+
 # Regenerate `links_connect.pyi` file
 ```shell    
 if [ -d links_bindings_pythons ] ; then CWD="./../.." ; else CWD="."; fi ; echo ${CWD}
