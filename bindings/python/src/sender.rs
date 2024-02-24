@@ -365,34 +365,34 @@ mod test {
             }
         }
 
-        // Python::with_gil(|py| {
-        //     let callback = PyLoggerCallback {}.into_py(py);
-        //     let addr = setup::net::rand_avail_addr_port();
-        //     let mut svc = SvcManual::new(py, addr, callback.clone());
-        //     info!("svc: {}", svc.__repr__(py));
-        //     let mut clt = CltManual::new(py, addr, callback);
+        Python::with_gil(|py| {
+            let callback = PyLoggerCallback {}.into_py(py);
+            let addr = setup::net::rand_avail_addr_port();
+            let svc = SvcManual::new(py, addr, callback.clone());
+            info!("svc: {}", svc.__repr__(py));
+            let clt = CltManual::new(py, addr, callback);
 
-        //     info!("clt: {}", clt.__repr__(py));
-        //     assert!(clt.is_connected(py, None));
-        //     info!("svc: {}", svc.__repr__(py));
-        //     assert!(svc.is_connected(py, None));
+            info!("clt: {}", clt.__repr__(py));
+            assert!(clt.is_connected(py, None));
+            info!("svc: {}", svc.__repr__(py));
+            assert!(svc.is_connected(py, None));
 
-        //     let hbeat = PyDict::new(py);
-        //     hbeat.set_item("ty", "H").unwrap();
-        //     hbeat.set_item("text", "Blah").unwrap();
-        //     let msg = PyDict::new(py);
-        //     msg.set_item("HBeat", hbeat).unwrap();
+            let hbeat = PyDict::new(py);
+            hbeat.set_item("ty", "H").unwrap();
+            hbeat.set_item("text", "Blah").unwrap();
+            let msg = PyDict::new(py);
+            msg.set_item("HBeat", hbeat).unwrap();
 
-        //     info!("msg: {}", msg); // "{'HBeat': {'ty': 'H', 'text': 'Blah'}}"
-        //     clt.send(py, msg.into(), None).unwrap();
+            info!("msg: {}", msg); // "{'HBeat': {'ty': 'H', 'text': 'Blah'}}"
+            clt.send(py, msg.into(), None).unwrap();
 
-        //     svc.__exit__(py, None, None, None);
-        //     info!("svc: {}", svc.__repr__(py));
-        //     assert!(!svc.is_connected(py, None));
+            svc.__exit__(py, None, None, None);
+            info!("svc: {}", svc.__repr__(py));
+            assert!(!svc.is_connected(py, None));
 
-        //     clt.__del__(py);
-        //     info!("clt: {}", clt.__repr__(py));
-        //     assert!(!clt.is_connected(py, None));
-        // });
+            clt.__del__(py);
+            info!("clt: {}", clt.__repr__(py));
+            assert!(!clt.is_connected(py, None));
+        });
     }
 }
