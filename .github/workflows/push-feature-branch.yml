@@ -12,9 +12,9 @@ jobs:
       fail-fast: false
       maturin-module-dir: "bindings/python"
   clippy:
-    uses: softstream-link/workflows/.github/workflows/maturin-clippy-toolchain.yml@v1
+    uses: softstream-link/workflows/.github/workflows/rust-clippy-toolchain.yml@v1
   bench-matrix:
-    uses: softstream-link/workflows/.github/workflows/maturin-bench-matrix-toolchain-os.yml@v1
+    uses: softstream-link/workflows/.github/workflows/rust-bench-matrix-toolchain-os.yml@v1
     with:
       fail-fast: false
  
